@@ -59,14 +59,16 @@ export const useAuth = () => useContext(AuthCtx);
 
 
 // ------- AppProvider -------
-// Owns: active business module, active country (config), theme
+// Owns: active business module, active country (config), theme, UI language
 const DEFAULT_COUNTRY = "CI";
+const DEFAULT_LANGUAGE = "fr"; // Côte d'Ivoire is francophone; user can flip via top-nav switcher
 export const AppProvider = ({ children }) => {
   const [activeModule, setActiveModule] = useState("mart");
   const [countryCode, setCountryCode] = useState(localStorage.getItem("baked_country") || DEFAULT_COUNTRY);
   const [countries, setCountries] = useState([]);
   const [modules, setModules] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem("baked_theme") || "dark");
+  const [language, setLanguageState] = useState(localStorage.getItem("baked_language") || DEFAULT_LANGUAGE);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -74,6 +76,7 @@ export const AppProvider = ({ children }) => {
   }, [theme]);
 
   useEffect(() => { localStorage.setItem("baked_country", countryCode); }, [countryCode]);
+  useEffect(() => { localStorage.setItem("baked_language", language); document.documentElement.lang = language; }, [language]);
 
   useEffect(() => {
     (async () => {
@@ -88,9 +91,13 @@ export const AppProvider = ({ children }) => {
 
   const country = useMemo(() => countries.find((c) => c.code === countryCode) || { code: countryCode, currency: "XOF", currency_symbol: "CFA", locale: "fr-CI", phone_code: "+225", delivery_eta_min: "10-15 min", min_order: 3000, delivery_fee: 500, free_delivery_over: 15000 }, [countries, countryCode]);
 
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  // UI locale is derived from language + country region — e.g. "fr" + "CI" = "fr-CI"
+  const uiLocale = useMemo(() => `${language}-${countryCode}`, [language, countryCode]);
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme }), [activeModule, countryCode, country, countries, modules, theme]);
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
+
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale }), [activeModule, countryCode, country, countries, modules, theme, language, uiLocale]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);

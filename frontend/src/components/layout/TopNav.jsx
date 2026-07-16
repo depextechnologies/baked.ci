@@ -11,12 +11,12 @@ import { Button } from "../ui/button";
 
 export const TopNav = () => {
   const { customer, logout } = useAuth();
-  const { country, countries, setCountryCode, theme, toggleTheme } = useApp();
+  const { country, countries, setCountryCode, theme, toggleTheme, language, setLanguage } = useApp();
   const { cart } = useCart();
   const [loginOpen, setLoginOpen] = useState(false);
   const navigate = useNavigate();
 
-  const locale = country?.locale || "en-GB";
+  const locale = language ? `${language}-${country?.code || "CI"}` : (country?.locale || "en-GB");
 
   return (
     <>
@@ -135,6 +135,32 @@ export const TopNav = () => {
               {formatMoney(cart.subtotal || 0, country?.currency, country?.currency_symbol)}
             </span>
           </button>
+
+          {/* Language switcher — FR / EN, no flag */}
+          <div
+            data-testid="top-nav-language-switcher"
+            className="baked-btn overflow-hidden border border-border flex items-stretch text-xs font-semibold"
+            role="group"
+            aria-label="Language"
+          >
+            <button
+              data-testid="top-nav-language-fr"
+              onClick={() => setLanguage("fr")}
+              className={`px-3 py-2 motion-fast ${language === "fr" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}
+              aria-pressed={language === "fr"}
+            >
+              FR
+            </button>
+            <div className="w-px bg-border" />
+            <button
+              data-testid="top-nav-language-en"
+              onClick={() => setLanguage("en")}
+              className={`px-3 py-2 motion-fast ${language === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}
+              aria-pressed={language === "en"}
+            >
+              EN
+            </button>
+          </div>
 
           {/* Theme toggle */}
           <button

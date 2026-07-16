@@ -23,8 +23,8 @@ const OTP_LEN = 6;
 
 export const PhoneLoginDialog = ({ open, onOpenChange }) => {
   const { loginWithToken } = useAuth();
-  const { country } = useApp();
-  const locale = country?.locale || "en-GB";
+  const { country, uiLocale } = useApp();
+  const locale = uiLocale;
   const [step, setStep] = useState("phone"); // 'phone' | 'otp'
   const [countryCode, setCountryCode] = useState(country?.phone_code || "+225");
   const [phone, setPhone] = useState("");

@@ -11,9 +11,9 @@ import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 
 export const HomePage = () => {
-  const { country } = useApp();
+  const { country, uiLocale, language } = useApp();
   const navigate = useNavigate();
-  const locale = country?.locale || "en-GB";
+  const locale = uiLocale;
   const [categories, setCategories] = useState([]);
   const [deals, setDeals] = useState([]);
   const [aiQuery, setAiQuery] = useState("");
@@ -159,16 +159,19 @@ export const HomePage = () => {
             <div className="text-sm font-semibold mb-3">{t(locale, "sec.categories")}</div>
             <div className="grid gap-1">
               <button className="text-left text-sm px-3 py-2 baked-btn bg-secondary font-medium">■ {t(locale, "sec.all_categories")}</button>
-              {categories.map((c) => (
+              {categories.map((c) => {
+                const displayName = language === "en" ? (c.name_en || c.name) : (c.name_fr || c.name);
+                return (
                 <button
                   key={c.slug}
                   data-testid={CATEGORY.sidebarItem(c.slug)}
                   onClick={() => navigate(`/categories/${c.slug}`)}
                   className="text-left text-sm px-3 py-2 baked-btn hover:bg-secondary motion-fast text-muted-foreground hover:text-foreground"
                 >
-                  {c.name}
+                  {displayName}
                 </button>
-              ))}
+                );
+              })}
             </div>
             <button onClick={() => navigate("/categories")} className="text-xs mt-4 px-3 py-2 flex items-center gap-2" style={{ color: "#77BC1F" }}>
               <span>▦</span> View all categories
@@ -184,7 +187,9 @@ export const HomePage = () => {
             <button onClick={() => navigate("/categories")} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>{t(locale, "sec.view_all")}</button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-            {categories.slice(0, 6).map((c) => (
+            {categories.slice(0, 6).map((c) => {
+              const displayName = language === "en" ? (c.name_en || c.name) : (c.name_fr || c.name);
+              return (
               <button
                 key={c.slug}
                 data-testid={CATEGORY.card(c.slug)}
@@ -192,11 +197,12 @@ export const HomePage = () => {
                 className="baked-card bg-card border border-border overflow-hidden group motion-normal hover:border-[#77BC1F]/60"
               >
                 <div className="aspect-square bg-secondary/40 overflow-hidden">
-                  <img src={c.image} alt={c.name} className="w-full h-full object-cover motion-normal group-hover:scale-105" loading="lazy" />
+                  <img src={c.image} alt={displayName} className="w-full h-full object-cover motion-normal group-hover:scale-105" loading="lazy" />
                 </div>
-                <div className="p-2 text-xs font-semibold text-center">{c.name}</div>
+                <div className="p-2 text-xs font-semibold text-center">{displayName}</div>
               </button>
-            ))}
+              );
+            })}
           </div>
 
           {/* Best deals */}

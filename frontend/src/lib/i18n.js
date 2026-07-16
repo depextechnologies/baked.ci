@@ -108,7 +108,14 @@ const STRINGS = {
   },
 };
 
-export const t = (locale, key) => (STRINGS[locale] && STRINGS[locale][key]) || STRINGS["en-GB"][key] || key;
+export const t = (locale, key) => {
+  // Resolve any "fr-XX" → French dictionary; any "en-XX" → English. Exact match wins first.
+  if (STRINGS[locale] && STRINGS[locale][key] != null) return STRINGS[locale][key];
+  const lang = (locale || "en").slice(0, 2).toLowerCase();
+  if (lang === "fr" && STRINGS["fr-CI"] && STRINGS["fr-CI"][key] != null) return STRINGS["fr-CI"][key];
+  if (STRINGS["en-GB"] && STRINGS["en-GB"][key] != null) return STRINGS["en-GB"][key];
+  return key;
+};
 
 export const formatMoney = (amount, currency, symbol) => {
   if (amount == null) return "";
