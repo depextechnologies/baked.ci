@@ -62,9 +62,17 @@ export const HomePage = () => {
             className="absolute inset-0 w-full h-full object-cover object-center"
             draggable={false}
           />
-          {/* Left-side gradient so CTAs stay legible over the artwork */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/10 to-transparent pointer-events-none" />
-          <div className="relative z-10 h-full flex items-end p-6 md:p-8">
+          {/* Left-side gradient so text + CTAs stay legible over the artwork */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="relative z-10 h-full flex flex-col justify-between p-6 md:p-8">
+            <div className="max-w-[560px]">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-white">
+                {t(locale, "hero.mart.title_l1")}
+                <br />
+                <span style={{ color: "#77BC1F" }}>{t(locale, "hero.mart.title_l2")}</span>
+              </h1>
+              <p className="mt-3 text-sm md:text-base text-white/80 max-w-md">{t(locale, "hero.mart.subtitle")}</p>
+            </div>
             <div className="flex flex-wrap gap-3">
               <Button data-testid={HOME.shopNowBtn} onClick={() => navigate("/products")} className="baked-btn h-11 px-6 font-semibold text-black shadow-xl" style={{ backgroundColor: "#77BC1F" }}>
                 {t(locale, "hero.shop_now")}
