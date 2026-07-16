@@ -1,0 +1,67 @@
+{
+  "summary": "First-pass full-stack testing of BAKĒD Platform v1.0 (MART storefront). Backend: 23/23 pytest tests PASSED (config, mart CRUD/sort/filter, OTP request+verify+me, rate limit, cart hydrate+merge+update+delete+clear, AI search, AI insights admin gate). Frontend: home page, module tabs, delivery card, sidebar categories (9 FR), top categories grid, best deals grid, product cards +Add/qty+/qty- flow, product detail page, cart page, coming-soon pages, country switch CI↔GB (locale/currency flip), theme toggle, AI band with loading state all WORK. One CRITICAL frontend bug found: OTP auto-verify never fires due to a stale closure race in PhoneLoginDialog.jsx (setOtp uses non-functional setState + verifyOtp reads stale `otp` closure), so typing 6 digits appears to do nothing — user must click the Verify button explicitly. Once verified, auth + authed cart works end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/me", "issue": "Returns 401 for anonymous callers (correct), but the frontend fires this on every mount before a token exists, generating a routine 401 in the console. Not a bug per se — consider skipping the call when no token in localStorage."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "PhoneLoginDialog.jsx (OTP auto-verify)",
+        "issue": "Stale closure race: handleOtpChange builds `next = [...otp]` from a stale otp state, so fast typing overwrites earlier digits (each keystroke sees the old empty otp). Additionally, the 50ms setTimeout calls verifyOtp() which reads `otp.join('')` from a stale closure, so verify is either called with <6 chars (returning early on the length guard and toasting 'Enter the 6-digit code') or is never called at all. Result: filling all 6 boxes NEVER triggers /api/auth/otp/verify; user has to press the Verify button manually. Reproduced with page.fill and page.press.",
+        "selector": "[data-testid=\"auth-otp-input-0..5\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "PhoneLoginDialog / all shadcn Dialogs",
+        "issue": "Radix DialogContent is missing DialogTitle and aria-describedby — throws accessibility warnings in console on every open. Add a visually-hidden DialogTitle + Description.",
+        "selector": "PhoneLoginDialog DialogContent",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Guest → authenticated cart merge",
+        "issue": "Immediately after successful /api/auth/otp/verify, one background request logs a 500 in the browser console. The visible cart still updates and subsequent add-to-cart calls return 200. Suspect the local-cart→server-cart migration in CartProvider (or an /api/carts/me call fired before the axios Authorization header is set). Not blocking, but worth tracing in BakedContexts.jsx.",
+        "affected_selectors": ["top-nav-cart-count", "top-nav-cart-total"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Delivery address popover (country switcher)",
+        "issues": ["After picking a country the Popover closes; opening it again to switch back sometimes needs an extra click because the popover trigger area is briefly covered by the Radix overlay. Minor."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_baked_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "FIX: In /app/frontend/src/components/auth/PhoneLoginDialog.jsx, change handleOtpChange to use functional setState (setOtp(prev => { const next = [...prev]; next[i] = val; ...; return next; })) and refactor verifyOtp to accept a code parameter (or use a ref) instead of reading otp closure, so the auto-verify after 6th digit actually fires. Currently users cannot log in via typing — they must click the Verify button.",
+    "FIX: Add DialogTitle + Description (visually hidden if desired) to PhoneLoginDialog to remove Radix a11y warnings.",
+    "INVESTIGATE: The 500 error logged immediately after OTP verification (likely a /api/carts/me call fired before the Bearer header is populated in the axios instance)."
+  ],
+  "critical_code_review_comments": [
+    "PhoneLoginDialog.jsx uses non-functional setState inside a keystroke handler that races with itself — classic stale-closure bug. Must use functional setState + pass the new code to verifyOtp directly.",
+    "AuthContext (BakedContexts) fires /api/auth/me on every mount even when localStorage baked_access_token is empty, generating routine 401s. Add a guard: skip the call when no token.",
+    "seed.py inserts documents on every startup via update_one({}, {'$set': ...}, upsert=True) which regenerates a fresh `id` field each time (`new_id('prd')` in the doc dict). Because $set replaces `id`, product IDs change on restart. It is only saved because the code checks `existing['id']` before update, but this is fragile — extract new_id into an `$setOnInsert` clause instead.",
+    "modules/mart/routes.py add_cart_item: the for/else pattern is correct but uses mutation of the same dict list — safe here but tricky; consider list-comp for clarity.",
+    "ai/routes.py: if the LLM returns markdown-fenced JSON it does text.strip('`') which is a chr-set strip (removes all backticks from both ends). Works but fragile — better regex or splitlines-based parser.",
+    "modules/mart/routes.py _hydrate_cart returns cart with the raw db `_id` if it was fetched with default projection. Currently guarded (find_one uses {'_id': 0}), fine.",
+    "PhoneLoginDialog: on send-code failure, error toast is generic 'Could not send code' — display server error detail for better UX/debug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/__init__.py (new)",
+    "/app/backend/tests/test_baked_api.py (new — 23 tests, 100% pass)"
+  ],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "~92% — all flows work; OTP auto-verify is broken (manual click works)"},
+  "test_credentials": "Dev OTP flow, no fixed credentials — see /app/memory/test_credentials.md. Tested phones: +225 0102030405, +225 0100000001..3, +225 0199999999.",
+  "seed_data_creation": "None — used existing seeded data (2 countries, 9 MART categories, 24 CI products, 12 GB products, 3 offers, 3 stores, 6 module configs). Test users created via the OTP flow have TEST-style phones so no cleanup needed.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend is solid — reuse /app/backend/tests/test_baked_api.py. Focus next pass on (1) verifying the OTP auto-verify fix in PhoneLoginDialog (fill all 6 boxes with page.fill and confirm /api/auth/otp/verify is called + token stored in localStorage baked_access_token WITHOUT clicking the Verify button), (2) confirming the 500 error on post-login cart merge is gone, (3) re-running a full country-switch round-trip GB→CI. Auth requires REACT_APP_BACKEND_URL from /app/frontend/.env — dev OTP comes back on the /api/auth/otp/request response as dev_code and is also visible in the toast + auth-dev-code-hint testid.",
+  "rca of the issue": "OTP auto-verify failure — PhoneLoginDialog.jsx `handleOtpChange` mutates local copy `next = [...otp]` where `otp` is captured from the current render closure. When six input events fire back-to-back before React commits, each handler sees the same stale `otp = ['','','','','','']`, so the FINAL setOtp writes only the last digit and clobbers digits 0..4. Additionally, `setTimeout(() => verifyOtp(), 50)` inside handleOtpChange invokes a verifyOtp reference whose `otp` value is the render-time stale array, so `otp.join('')` inside verifyOtp is empty → the 6-length guard trips and toasts an error (visible only to devtools since focus is on next input). FIX: (a) `setOtp(prev => { const n = [...prev]; n[i] = val; return n; })` and (b) compute the full 6-char code locally inside handleOtpChange and pass it directly to verifyOtp(code) — do not rely on state via closure."
+}

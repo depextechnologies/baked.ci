@@ -1,0 +1,153 @@
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { BakedLogo } from "./BakedLogo";
+import { useAuth, useApp, useCart } from "../../contexts/BakedContexts";
+import { NAV } from "../../constants/testIds";
+import { formatMoney, t } from "../../lib/i18n";
+import { MapPin, Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut } from "lucide-react";
+import { PhoneLoginDialog } from "../auth/PhoneLoginDialog";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Button } from "../ui/button";
+
+export const TopNav = () => {
+  const { customer, logout } = useAuth();
+  const { country, countries, setCountryCode, theme, toggleTheme } = useApp();
+  const { cart } = useCart();
+  const [loginOpen, setLoginOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const locale = country?.locale || "en-GB";
+
+  return (
+    <>
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
+        <div className="baked-container flex items-center gap-4 py-3">
+          <Link to="/" data-testid={NAV.logo} className="shrink-0 mr-2">
+            <BakedLogo size="md" />
+          </Link>
+
+          {/* Delivery address */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                data-testid={NAV.deliveryAddress}
+                className="hidden md:flex items-center gap-2 px-3 py-2 baked-btn hover:bg-secondary motion-fast"
+              >
+                <MapPin size={18} style={{ color: "#77BC1F" }} />
+                <div className="text-left">
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{t(locale, "nav.delivering")}</div>
+                  <div className="text-sm font-medium max-w-[220px] truncate">
+                    {country?.code === "CI" ? "Cocody, Abidjan" : "221B Baker Street, London"}
+                  </div>
+                </div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64">
+              <div className="text-xs text-muted-foreground mb-2">Country</div>
+              <div className="grid gap-2">
+                {countries.map((c) => (
+                  <button
+                    key={c.code}
+                    data-testid={`${NAV.countrySelect}-${c.code}`}
+                    onClick={() => setCountryCode(c.code)}
+                    className={`flex items-center gap-3 px-3 py-2 baked-btn hover:bg-secondary text-left ${country?.code === c.code ? "bg-secondary" : ""}`}
+                  >
+                    <span className="text-xl">{c.flag}</span>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{c.name}</div>
+                      <div className="text-[11px] text-muted-foreground">{c.currency} • {c.locale}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Search */}
+          <div className="flex-1 max-w-[560px]">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <input
+                data-testid={NAV.searchInput}
+                placeholder={t(locale, "nav.search_placeholder")}
+                className="baked-input w-full pl-11 pr-4 py-3 bg-secondary text-sm outline-none focus:ring-2 focus:ring-primary/40 motion-fast"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                    navigate(`/products?search=${encodeURIComponent(e.currentTarget.value.trim())}`);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Right actions */}
+          <button data-testid={NAV.offers} className="hidden lg:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast" onClick={() => navigate("/products?sort=price_asc")}>
+            <Tag size={20} />
+            <span className="text-[11px] mt-0.5">{t(locale, "nav.offers")}</span>
+          </button>
+          <button data-testid={NAV.orders} className="hidden lg:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
+            <Package size={20} />
+            <span className="text-[11px] mt-0.5">{t(locale, "nav.orders")}</span>
+          </button>
+
+          {customer ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button data-testid={NAV.account} className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
+                  {customer.picture ? (
+                    <img src={customer.picture} alt="me" className="w-6 h-6 rounded-full object-cover" />
+                  ) : (
+                    <User size={20} />
+                  )}
+                  <span className="text-[11px] mt-0.5 max-w-[80px] truncate">{customer.name || customer.phone || t(locale, "nav.account")}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56">
+                <div className="text-sm font-medium mb-1">{customer.name || "Account"}</div>
+                <div className="text-xs text-muted-foreground mb-3">{customer.phone || customer.email}</div>
+                <Button data-testid="auth-logout-btn" variant="secondary" size="sm" className="w-full" onClick={logout}>
+                  <LogOut size={14} className="mr-2" /> Logout
+                </Button>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <button
+              data-testid="auth-open-login-btn"
+              onClick={() => setLoginOpen(true)}
+              className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast"
+            >
+              <User size={20} />
+              <span className="text-[11px] mt-0.5">{t(locale, "nav.login")}</span>
+            </button>
+          )}
+
+          {/* Cart */}
+          <button
+            data-testid={NAV.cartButton}
+            onClick={() => navigate("/cart")}
+            className="relative baked-btn px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2"
+          >
+            <ShoppingCart size={18} style={{ color: "#77BC1F" }} />
+            <span data-testid={NAV.cartCount} className="absolute -top-1 -left-1 text-[10px] bg-[hsl(var(--mart))] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {cart.item_count || 0}
+            </span>
+            <span data-testid={NAV.cartTotal} className="text-sm font-semibold">
+              {formatMoney(cart.subtotal || 0, country?.currency, country?.currency_symbol)}
+            </span>
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            data-testid={NAV.themeToggle}
+            onClick={toggleTheme}
+            className="baked-btn w-10 h-10 flex items-center justify-center bg-secondary hover:bg-secondary/80 motion-fast"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+      </div>
+      <PhoneLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+    </>
+  );
+};

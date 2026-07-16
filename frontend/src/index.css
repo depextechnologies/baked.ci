@@ -1,0 +1,195 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================
+   BAKĒD Design System v1.0 — tokens
+   Fonts: Poppins (primary), fallbacks per spec
+   Theme: Dark by default. Light supported.
+   Colors: Global brand blue + module accents (MART/FOOD green, SHOP/EXPRESS yellow, AUTO red, IMMO purple)
+   ========================================================== */
+
+:root {
+    /* --- BAKĒD brand tokens (from Design System PDF) --- */
+    --baked-blue: 202 88% 53%;         /* #1D9BF0 platform action */
+    --baked-red: 358 100% 65%;         /* #FF4C52 brand action / login */
+    --mart: 88 71% 43%;                /* #77BC1F */
+    --food: 88 71% 43%;                /* #77BC1F */
+    --shop: 41 97% 65%;                /* #FCC44C */
+    --express: 41 97% 65%;             /* #FCC44C */
+    --auto: 358 100% 65%;              /* #FF4C52 */
+    --immo: 268 100% 68%;              /* #A659FF */
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --error: 0 84% 60%;
+    --info: 217 91% 60%;
+
+    /* --- radii per spec --- */
+    --radius: 0.75rem;                 /* 12px baseline (buttons) */
+    --r-btn: 12px;
+    --r-input: 14px;
+    --r-card: 18px;
+    --r-dialog: 20px;
+    --r-sheet: 24px;
+    --r-chip: 100px;
+
+    /* --- shadcn tokens: Light mode --- */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: var(--baked-blue);
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 12%;
+    --destructive: var(--error);
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 92%;
+    --ring: var(--baked-blue);
+    --chart-1: var(--mart);
+    --chart-2: var(--shop);
+    --chart-3: var(--auto);
+    --chart-4: var(--immo);
+    --chart-5: var(--baked-blue);
+}
+
+.dark {
+    /* Pure black base per PDF ("Apply dark colors as solid backgrounds") */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 100%;
+    --primary: var(--baked-blue);
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 66%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: var(--error);
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: var(--baked-blue);
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    html, body, #root {
+        height: 100%;
+    }
+    body {
+        margin: 0;
+        font-family: "Poppins", "Inter", "SF Pro Display", "Roboto", system-ui,
+            -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        @apply bg-background text-foreground;
+        letter-spacing: -0.005em;
+    }
+    ::selection { background: hsl(var(--baked-blue) / 0.35); }
+}
+
+/* -------- BAKĒD component helpers -------- */
+.baked-container { @apply max-w-[1440px] mx-auto px-6; }
+
+.baked-logo-text {
+    font-family: "Poppins", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+/* the tiny red smile under the "bakēd" wordmark from the mobile screens */
+.baked-logo-smile {
+    height: 6px;
+    width: 30%;
+    margin: 4px auto 0;
+    border-bottom-left-radius: 999px;
+    border-bottom-right-radius: 999px;
+    background: transparent;
+    border-bottom: 2.5px solid #FF4C52;
+}
+
+.baked-card { border-radius: var(--r-card); }
+.baked-input { border-radius: var(--r-input); }
+.baked-btn { border-radius: var(--r-btn); }
+.baked-chip { border-radius: var(--r-chip); }
+
+/* module tab card */
+.module-tab {
+    border-radius: var(--r-card);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    transition: transform 250ms ease, border-color 250ms ease, background-color 250ms ease;
+}
+.module-tab:hover { transform: translateY(-2px); border-color: hsl(var(--border) / 0.9); }
+.module-tab.active {
+    border-color: currentColor;
+    box-shadow: 0 0 0 1px currentColor inset, 0 8px 30px -10px currentColor;
+}
+
+/* subtle radial glow used on hero */
+.mart-hero {
+    background:
+        radial-gradient(1000px 400px at 20% 30%, rgba(119,188,31,0.18), transparent 60%),
+        radial-gradient(700px 300px at 90% 70%, rgba(119,188,31,0.10), transparent 60%),
+        #0a1200;
+    border: 1px solid rgba(119,188,31,0.35);
+    border-radius: var(--r-card);
+}
+.dark .mart-hero { background-color: #071000; }
+
+/* delivery card */
+.delivery-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--r-card);
+}
+
+/* pill badges */
+.badge-off {
+    background: #ef4444;
+    color: white;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    letter-spacing: 0.02em;
+}
+
+/* Motion helpers */
+.motion-fast { transition-duration: 150ms; }
+.motion-normal { transition-duration: 250ms; }
+.motion-slow { transition-duration: 400ms; }
+
+/* focus */
+:focus-visible { outline: 2px solid hsl(var(--baked-blue)); outline-offset: 2px; border-radius: 6px; }
+
+/* scrollbar (dark) */
+.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
+.dark ::-webkit-scrollbar-track { background: #0a0a0a; }
+.dark ::-webkit-scrollbar-thumb { background: #1f1f1f; border-radius: 8px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #2a2a2a; }
+
+/* debug wrapper support */
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+    [data-debug-wrapper="true"] > * {
+        margin: inherit; padding: inherit; gap: inherit; border: inherit;
+    }
+}
