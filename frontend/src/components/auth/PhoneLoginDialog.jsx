@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Dialog, DialogContent } from "../ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { BakedLogo } from "../layout/BakedLogo";
 import { AUTH } from "../../constants/testIds";
@@ -62,8 +62,8 @@ export const PhoneLoginDialog = ({ open, onOpenChange }) => {
     } finally { setBusy(false); }
   };
 
-  const verifyOtp = async () => {
-    const code = otp.join("");
+  const verifyOtp = async (codeOverride) => {
+    const code = codeOverride || otp.join("");
     if (code.length !== OTP_LEN) { toast.error("Enter the 6-digit code"); return; }
     setBusy(true);
     try {
@@ -78,12 +78,17 @@ export const PhoneLoginDialog = ({ open, onOpenChange }) => {
 
   const handleOtpChange = (i, v) => {
     const val = v.replace(/\D/g, "").slice(-1);
-    const next = [...otp];
-    next[i] = val;
-    setOtp(next);
+    let joined = "";
+    setOtp((prev) => {
+      const n = [...prev];
+      n[i] = val;
+      joined = n.join("");
+      return n;
+    });
     if (val && i < OTP_LEN - 1) otpRefs.current[i + 1]?.focus();
-    if (next.every((c) => c) && next.join("").length === OTP_LEN) {
-      setTimeout(() => verifyOtp(), 50);
+    // Auto-verify when the last box is filled and all 6 digits are present.
+    if (val && i === OTP_LEN - 1 && /^\d{6}$/.test(joined)) {
+      setTimeout(() => verifyOtp(joined), 30);
     }
   };
 
@@ -102,6 +107,10 @@ export const PhoneLoginDialog = ({ open, onOpenChange }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 border-border bg-background overflow-hidden">
+        <DialogTitle className="sr-only">Sign in to bakēd</DialogTitle>
+        <DialogDescription className="sr-only">
+          Use your mobile number, Google, or email to sign in to your bakēd account.
+        </DialogDescription>
         <div className="px-6 pt-6 pb-8 bg-background text-foreground">
           {step === "otp" && (
             <button data-testid={AUTH.changeNumberBtn} onClick={() => setStep("phone")} className="mb-2 -ml-2 p-2 hover:bg-secondary baked-btn motion-fast">

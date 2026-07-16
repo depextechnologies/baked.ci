@@ -16,6 +16,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const refresh = useCallback(async () => {
+    const token = localStorage.getItem("baked_access_token");
+    if (!token) {
+      setCustomer(null);
+      setLoading(false);
+      return;
+    }
     try {
       const { data } = await api.get("/auth/me");
       setCustomer(data);

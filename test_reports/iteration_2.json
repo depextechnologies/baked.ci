@@ -1,0 +1,28 @@
+{
+  "summary": "Second-pass frontend regression of BAKĒD Platform v1.0 (MART storefront). ALL three previously-reported critical bugs are FIXED and verified end-to-end: (1) OTP auto-verify stale-closure — filling six [data-testid='auth-otp-input-i'] boxes via page.fill (no button click) triggers POST /api/auth/otp/verify (200), stores baked_access_token in localStorage (192-char JWT), auto-closes the dialog, shows 'Welcome to bakēd!' toast, and swaps top-nav Account from 'Se connecter' to the phone number '+225102030405'; (2) NO 500 error observed anywhere in the post-verify network trace (0 5xx responses); (3) NO 401 for /api/auth/me on anonymous page load (AuthContext.refresh() correctly short-circuits when localStorage token is empty); (4) NO Radix DialogTitle / aria-describedby a11y warnings in console. Full regression sweep also passing: country switch CI↔GB (French XOF ↔ English GBP with £10 min-order), add-to-cart (1 → 2, total = 1 200 CFA), cart page (subtotal renders), fruits-vegetables category (Banane Cavendish, Tomates Fraîches, etc.), product detail page, theme toggle (dark ↔ light), AI search band (loading '…' → /products?search=... URL), Google auth navigates to https://auth.emergentagent.com/oauth/?redirect=... correctly. Backend already 100% (23/23) — not re-run per instructions.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_baked_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PhoneLoginDialog.jsx auto-verify fix is CORRECT: functional setOtp((prev) => {...}) captures the fresh state, computes joined inside the setter, and passes the joined code directly to verifyOtp(joined) — no more stale closure. Verified with page.fill x6 (no manual Verify click).",
+    "AuthContext.refresh() short-circuit when !localStorage.baked_access_token is in place — no more anonymous /api/auth/me 401 noise.",
+    "PhoneLoginDialog now includes DialogTitle + DialogDescription with sr-only class — Radix a11y warnings are gone.",
+    "Reminder from iteration_1 not yet addressed (LOW priority): seed.py still upserts with $set on every startup which regenerates the id field via new_id('prd'). It is guarded by an existing['id'] read, but the pattern remains fragile — prefer $setOnInsert."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (23/23, not re-run)", "frontend": "100% — all previously-failing flows verified fixed; no new issues found"},
+  "test_credentials": "Dev OTP flow — dev_code returned in /api/auth/otp/request response and visible under [data-testid='auth-dev-code-hint']. Tested phone: +225 0102030405.",
+  "seed_data_creation": "None — used existing seeded MART data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All critical items from iteration_1 are fixed and verified. Backend suite at /app/backend/tests/test_baked_api.py still 100%. If future changes affect PhoneLoginDialog, keep the functional setState pattern (setOtp((prev) => ...)) and the joined-code-in-setter approach — regressing to closure-based joined = otp.join('') will reintroduce the stale-closure bug. auth-open-login-btn only exists when unauthenticated; use localStorage.clear() + reload to reach it in tests after a prior login.",
+  "rca of the issue": "N/A — all reported bugs from iteration_1 are fixed and re-verified in iteration_2."
+}
