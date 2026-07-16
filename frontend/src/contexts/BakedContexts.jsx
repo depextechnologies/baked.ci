@@ -61,14 +61,28 @@ export const useAuth = () => useContext(AuthCtx);
 // ------- AppProvider -------
 // Owns: active business module, active country (config), theme, UI language
 const DEFAULT_COUNTRY = "CI";
-const DEFAULT_LANGUAGE = "fr"; // Côte d'Ivoire is francophone; user can flip via top-nav switcher
+
+// Auto-detect UI language from the browser (equivalent to Accept-Language on the client).
+// Called only on the very first visit — persisted afterwards.
+const detectInitialLanguage = () => {
+  const saved = localStorage.getItem("baked_language");
+  if (saved === "fr" || saved === "en") return saved;
+  const candidates = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""])
+    .map((l) => (l || "").toLowerCase());
+  for (const lang of candidates) {
+    if (lang.startsWith("fr")) return "fr";
+    if (lang.startsWith("en")) return "en";
+  }
+  return "fr"; // fallback for Côte d'Ivoire launch market
+};
+
 export const AppProvider = ({ children }) => {
   const [activeModule, setActiveModule] = useState("mart");
   const [countryCode, setCountryCode] = useState(localStorage.getItem("baked_country") || DEFAULT_COUNTRY);
   const [countries, setCountries] = useState([]);
   const [modules, setModules] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem("baked_theme") || "dark");
-  const [language, setLanguageState] = useState(localStorage.getItem("baked_language") || DEFAULT_LANGUAGE);
+  const [language, setLanguageState] = useState(detectInitialLanguage);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
