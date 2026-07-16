@@ -104,6 +104,26 @@ STORES_CI = [
     {"name": "MARTbakēd Marcory", "address": "Zone 4, Marcory", "eta": "15-20 min", "rating": 4.5},
 ]
 
+CITIES_CI = [
+    {"name": "Abidjan", "country": "CI", "latitude": 5.3600, "longitude": -4.0083},
+    {"name": "Bouaké", "country": "CI", "latitude": 7.6903, "longitude": -5.0300},
+    {"name": "Yamoussoukro", "country": "CI", "latitude": 6.8276, "longitude": -5.2893},
+    {"name": "Daloa", "country": "CI", "latitude": 6.8770, "longitude": -6.4502},
+    {"name": "San-Pédro", "country": "CI", "latitude": 4.7485, "longitude": -6.6363},
+]
+CITIES_GB = [
+    {"name": "London", "country": "GB", "latitude": 51.5074, "longitude": -0.1278},
+    {"name": "Manchester", "country": "GB", "latitude": 53.4808, "longitude": -2.2426},
+]
+
+ROLES = [
+    {"code": "customer", "label": "Customer", "permissions": ["order:create", "cart:*", "profile:*"], "description": "Standard shopper"},
+    {"code": "partner", "label": "Partner (Merchant)", "permissions": ["catalog:*", "orders:read", "orders:fulfil"], "description": "Store operator"},
+    {"code": "driver", "label": "Driver", "permissions": ["deliveries:read", "deliveries:update"], "description": "Delivery operator"},
+    {"code": "admin", "label": "Admin", "permissions": ["admin:*"], "description": "Platform administrator"},
+    {"code": "super_admin", "label": "Super Admin", "permissions": ["*"], "description": "Root platform administrator"},
+]
+
 
 # ---------- runner ----------
 async def _seed_countries():
@@ -230,6 +250,69 @@ async def _seed_stores():
         await db.mart_stores.update_one(key, {"$set": doc}, upsert=True)
 
 
+async def _seed_cities():
+    for c in CITIES_CI + CITIES_GB:
+        key = {"name": c["name"], "country": c["country"]}
+        doc = {**key, **c, "id": new_id("city"), "active": True, "deleted_at": None, "updated_at": _now_iso()}
+        existing = await db.cities.find_one(key, {"_id": 0})
+        if existing:
+            doc["id"] = existing["id"]
+        await db.cities.update_one(key, {"$set": doc}, upsert=True)
+
+
+async def _seed_roles():
+    for r in ROLES:
+        await db.roles.update_one({"code": r["code"]}, {"$set": {**r, "updated_at": _now_iso()}}, upsert=True)
+
+
+async def _seed_super_admin():
+    """Seed the initial super_admin from env — idempotent."""
+    import os
+    from core.security import hash_password
+    email = (os.environ.get("ADMIN_SEED_EMAIL") or "").strip().lower()
+    password = os.environ.get("ADMIN_SEED_PASSWORD") or ""
+    name = os.environ.get("ADMIN_SEED_NAME") or "Super Admin"
+    if not email or not password:
+        return
+    existing = await db.admin_users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        # Ensure role is super_admin and password matches env (allows password rotation via env)
+        await db.admin_users.update_one(
+            {"email": email},
+            {"$set": {
+                "role": "super_admin",
+                "password_hash": hash_password(password),
+                "name": name,
+                "deleted_at": None,
+                "updated_at": _now_iso(),
+            }},
+        )
+        return
+    await db.admin_users.insert_one({
+        "id": new_id("adm"),
+        "email": email,
+        "name": name,
+        "role": "super_admin",
+        "password_hash": hash_password(password),
+        "deleted_at": None,
+        "created_at": _now_iso(),
+        "updated_at": _now_iso(),
+        "version": 1,
+    })
+
+
+async def _seed_ai_prompts():
+    seed = [
+        {"name": "MART Product Search", "feature": "product_search", "body": "You are the BAKĒD grocery search assistant for Côte d'Ivoire. Given a natural language query, return structured filters + a friendly one-line summary.", "active": True, "model": "claude-sonnet-4-6"},
+        {"name": "Admin Business Insights", "feature": "admin_insights", "body": "Given platform KPIs, return headline + 3-5 insights + 2-4 recommended actions.", "active": True, "model": "claude-sonnet-4-6"},
+    ]
+    for p in seed:
+        exists = await db.ai_prompts.find_one({"name": p["name"]}, {"_id": 0})
+        if exists:
+            continue
+        await db.ai_prompts.insert_one({**p, "id": new_id("prm"), "created_at": _now_iso(), "updated_at": _now_iso()})
+
+
 async def run_seed():
     await _seed_countries()
     await _seed_module_configs()
@@ -237,3 +320,7 @@ async def run_seed():
     await _seed_products()
     await _seed_offers()
     await _seed_stores()
+    await _seed_cities()
+    await _seed_roles()
+    await _seed_super_admin()
+    await _seed_ai_prompts()

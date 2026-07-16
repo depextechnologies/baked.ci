@@ -23,15 +23,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 
 ## Implemented (v1 — 2026-02)
 - ✅ Configuration Driven Modular Monolith backend (core/ + shared/ + modules/)
-- ✅ Shared foundation: Auth (phone/OTP + Google via Emergent), Customer, Config, AI
-- ✅ Provider abstraction: OtpProvider (Dev impl now, Twilio/Africa's Talking pluggable), AiProvider (Emergent LLM → Claude Sonnet 4.6)
-- ✅ Event bus abstraction (in-process, RabbitMQ-compatible signature)
-- ✅ MARTbakēd module: categories, products, offers, stores, multi-module cart
-- ✅ Seed data: CI (XOF/fr, 24 products) + GB (GBP/en, 12 products), 9 categories, 3 stores, 3 offers, 6 modules
-- ✅ Website: Top nav (logo/address/search/offers/orders/account/cart/theme), 6-module tab bar, MART Home (hero + delivery + AI band + categories sidebar + top categories + deals + features), Category index & detail, Product list (with sort), Product detail, Cart (guest+authed)
-- ✅ Phone+OTP dialog with dev-code hint, Google login (Emergent OAuth), unified customer identity
-- ✅ AI Product Search band on home (Claude Sonnet 4.6 via Emergent LLM key)
-- ✅ Theme toggle (dark/light), country picker (CI ↔ GB)
+- ✅ Shared foundation: Auth (phone/OTP + Google), Customer, Config, AI, Admin
+- ✅ Provider abstraction: OtpProvider (Dev now; Twilio + Africa's Talking stubs ready), AiProvider (Emergent LLM → Claude Sonnet 4.6), PaymentProvider (COD live; Stripe + Mobile Money stubs)
+- ✅ Event bus abstraction — OrderCreated → PaymentCompleted → OrderUpdated → AnalyticsUpdated → AI_REQUESTED wired
+- ✅ MARTbakēd module: categories, products, offers, stores, multi-module cart, **checkout + orders**, delivery slots, payment methods
+- ✅ Seed data: CI + GB countries, 9 bilingual categories, 24 CI + 12 GB products, 3 offers, 3 stores, 5 CI + 2 GB cities, 5 roles, 2 AI prompts, super_admin
+- ✅ Website: 6-module Getir-style tab bar (all official wordmarks, dark+light), MART Home, Category listing, Product listing/detail, Cart, **Checkout with address + slot + payment**, **Order confirmation + Orders list**
+- ✅ Phone+OTP dialog + Google login + language switcher + auto-detect language + country switcher
+- ✅ AI Product Search (Claude Sonnet 4.6) on customer home
+- ✅ **Super Admin Platform** — email/password login, sidebar layout, 10 pages: Dashboard KPIs, Countries CRUD, Cities CRUD, Roles view, Finance (rolling 30d), AI Command Center (prompt library CRUD), AI Business Insights (LLM narrative), Audit Logs, Customers, Admin Users (super_admin creates more admins)
+- ✅ Seeded super_admin: depexopenai@gmail.com / baked@2026#!$@ (bcrypt hashed, stored in DB, credentials in .env for rotation)
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet

@@ -21,7 +21,7 @@ export const CartPage = () => {
   const doCheckout = () => {
     if (!customer) { toast("Please login to continue"); return; }
     if (!minOrderOk) { toast.error(`Minimum order is ${formatMoney(country.min_order, country.currency, country.currency_symbol)}`); return; }
-    toast.success("Checkout coming next phase — order flow is Phase 2");
+    navigate("/checkout");
   };
 
   if (items.length === 0) {
