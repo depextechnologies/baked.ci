@@ -2,22 +2,29 @@ import React from "react";
 import { Link, Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAdmin } from "../../contexts/AdminContext";
 import { BakedLogo } from "../../components/layout/BakedLogo";
-import { LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain, ScrollText, Users, UserCog, LogOut, ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon } from "lucide-react";
+import {
+  LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain,
+  ScrollText, UserCog, LogOut, ShoppingBasket, Utensils, ShoppingBag, Truck,
+  Car, Home as HomeIcon, Settings2, Plug, Server, BarChart3,
+} from "lucide-react";
 import { MODULES } from "../../lib/modules";
 
-// Platform Governance (shared) + Business Modules (per-module admin)
-// Mirrors the PRD 7.0.4 Administration Architecture.
+// PRD §7 Platform Governance — global operational governance only.
+// Customers/Vendors/Drivers are module-scoped and live inside each Business Module workspace.
 const GOVERNANCE = [
   { to: "/admin", exact: true, icon: LayoutDashboard, label: "Dashboard" },
   { to: "/admin/countries", icon: Globe, label: "Countries" },
   { to: "/admin/cities", icon: MapPin, label: "Cities" },
-  { to: "/admin/roles", icon: ShieldCheck, label: "Roles & Permissions" },
-  { to: "/admin/finance", icon: DollarSign, label: "Finance" },
-  { to: "/admin/ai-command", icon: Sparkles, label: "AI Command Center" },
-  { to: "/admin/insights", icon: Brain, label: "AI Business Insights" },
-  { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
-  { to: "/admin/customers", icon: Users, label: "Customers" },
   { to: "/admin/admins", icon: UserCog, label: "Admin Users", superOnly: true },
+  { to: "/admin/roles", icon: ShieldCheck, label: "Roles & Permissions" },
+  { to: "/admin/ai-center", icon: Sparkles, label: "AI Center" },
+  { to: "/admin/insights", icon: Brain, label: "AI Business Insights" },
+  { to: "/admin/finance", icon: DollarSign, label: "Finance" },
+  { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
+  { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
+  { to: "/admin/api-management", icon: Plug, label: "API Management" },
+  { to: "/admin/infrastructure", icon: Server, label: "Infrastructure" },
+  { to: "/admin/settings", icon: Settings2, label: "System Settings" },
 ];
 
 const MODULE_ICONS = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
@@ -45,7 +52,8 @@ export const AdminLayout = () => {
             const Icon = n.icon;
             const active = isActive(n);
             return (
-              <Link key={n.to} to={n.to} data-testid={`admin-nav-${n.label.toLowerCase().replace(/[^a-z]/g, "-")}`} className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "bg-[#1D9BF0] text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`}>
+              <Link key={n.to} to={n.to} data-testid={`admin-nav-${n.label.toLowerCase().replace(/[^a-z]/g, "-")}`}
+                className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "bg-[#1D9BF0] text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`}>
                 <Icon size={16} /> {n.label}
               </Link>
             );
@@ -59,7 +67,9 @@ export const AdminLayout = () => {
             const to = `/admin/modules/${m.code}`;
             const active = location.pathname.startsWith(to);
             return (
-              <Link key={m.code} to={to} data-testid={`admin-nav-module-${m.code}`} className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`} style={active ? { backgroundColor: m.color } : {}}>
+              <Link key={m.code} to={to} data-testid={`admin-nav-module-${m.code}`}
+                className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`}
+                style={active ? { backgroundColor: m.color } : {}}>
                 <Icon size={16} style={active ? {} : { color: m.color }} />
                 <span className="flex-1">{m.label}<span className="text-foreground/60">bakēd</span></span>
                 {m.status !== "active" && <span className="text-[9px] uppercase tracking-widest opacity-60">soon</span>}

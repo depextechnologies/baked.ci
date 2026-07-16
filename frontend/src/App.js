@@ -16,7 +16,16 @@ import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { AuthCallback } from "@/pages/AuthCallback";
 import { AdminLoginPage } from "@/pages/admin/AdminLoginPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
-import { AdminDashboard, AdminCountries, AdminCities, AdminRoles, AdminFinance, AdminAICommand, AdminInsights, AdminAudit, AdminCustomers, AdminUsers, AdminModule } from "@/pages/admin/AdminPages";
+import {
+  AdminDashboard, AdminCountries, AdminCities, AdminRoles, AdminFinance,
+  AdminAICommand, AdminInsights, AdminAudit, AdminCustomers, AdminUsers,
+  AdminAnalytics, AdminApiManagement, AdminInfrastructure, AdminSystemSettings,
+} from "@/pages/admin/AdminPages";
+import { ModuleWorkspace } from "@/pages/admin/ModuleWorkspace";
+import {
+  ModuleOverview, ModuleVendors, ModuleProducts, ModuleOrders,
+  ModuleCustomers, ModuleDrivers, ModuleComingSoon,
+} from "@/pages/admin/ModulePages";
 import { Toaster } from "@/components/ui/sonner";
 
 function CustomerShell() {
@@ -56,16 +65,38 @@ function App() {
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            {/* Platform Governance (PRD §7) */}
             <Route path="countries" element={<AdminCountries />} />
             <Route path="cities" element={<AdminCities />} />
+            <Route path="admins" element={<AdminUsers />} />
             <Route path="roles" element={<AdminRoles />} />
-            <Route path="finance" element={<AdminFinance />} />
+            <Route path="ai-center" element={<AdminAICommand />} />
             <Route path="ai-command" element={<AdminAICommand />} />
             <Route path="insights" element={<AdminInsights />} />
+            <Route path="finance" element={<AdminFinance />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="audit" element={<AdminAudit />} />
+            <Route path="api-management" element={<AdminApiManagement />} />
+            <Route path="infrastructure" element={<AdminInfrastructure />} />
+            <Route path="settings" element={<AdminSystemSettings />} />
             <Route path="customers" element={<AdminCustomers />} />
-            <Route path="admins" element={<AdminUsers />} />
-            <Route path="modules/:code" element={<AdminModule />} />
+
+            {/* Business Modules — module-scoped workspace with sub-nav (PRD §7 Module-First) */}
+            <Route path="modules/:code" element={<ModuleWorkspace />}>
+              <Route index element={<ModuleOverview />} />
+              <Route path="vendors" element={<ModuleVendors />} />
+              <Route path="products" element={<ModuleProducts />} />
+              <Route path="orders" element={<ModuleOrders />} />
+              <Route path="customers" element={<ModuleCustomers />} />
+              <Route path="drivers" element={<ModuleDrivers />} />
+              <Route path="inventory" element={<ModuleComingSoon title="Inventory management" />} />
+              <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
+              <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
+              <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />
+              <Route path="promotions" element={<ModuleComingSoon title="Promotions & Marketing" />} />
+              <Route path="support" element={<ModuleComingSoon title="Support" />} />
+              <Route path="settings" element={<ModuleComingSoon title="Module settings" />} />
+            </Route>
           </Route>
           <Route path="/*" element={
             <AuthProvider><AppProvider><CartProvider><CustomerShell /></CartProvider></AppProvider></AuthProvider>

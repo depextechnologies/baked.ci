@@ -20,6 +20,7 @@ from shared.customer.routes import router as customer_router  # noqa: E402
 from shared.config_svc.routes import router as config_router  # noqa: E402
 from shared.ai.routes import router as ai_router  # noqa: E402
 from shared.admin.routes import router as admin_router  # noqa: E402
+from shared.admin.module_routes import router as admin_module_router  # noqa: E402
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
 from seed import run_seed  # noqa: E402
@@ -45,6 +46,7 @@ api_router.include_router(customer_router)
 api_router.include_router(config_router)
 api_router.include_router(ai_router)
 api_router.include_router(admin_router)
+api_router.include_router(admin_module_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)

@@ -388,6 +388,23 @@ ROLES = [
 ]
 
 
+# Sample module vendors (partner stores) — used to demo the pending→approved→active workflow
+MART_VENDORS = [
+    {"name": "SuperMart Cocody", "contact_name": "Aïssa Diomandé", "contact_email": "aissa@supermart.ci", "contact_phone": "+225 07 12 34 56 78", "country": "CI", "city": "Abidjan", "address": "Rue des Jardins, Cocody", "commission_pct": 12.5, "status": "active", "notes": "Flagship partner — 24/7 dark store"},
+    {"name": "Fresh Corner Plateau", "contact_name": "Kouassi N'Guessan", "contact_email": "kouassi@freshcorner.ci", "contact_phone": "+225 05 98 76 54 32", "country": "CI", "city": "Abidjan", "address": "Bd de la République, Plateau", "commission_pct": 15.0, "status": "approved", "notes": "Approved, awaiting store activation"},
+    {"name": "Marché Bio Marcory", "contact_name": "Fatou Traoré", "contact_email": "fatou@bio.ci", "contact_phone": "+225 07 11 22 33 44", "country": "CI", "city": "Abidjan", "address": "Zone 4, Marcory", "commission_pct": 18.0, "status": "pending", "notes": "New application — licence pending"},
+    {"name": "London Corner Store", "contact_name": "Nadia Patel", "contact_email": "nadia@lcs.uk", "contact_phone": "+44 20 7946 0958", "country": "GB", "city": "London", "address": "12 Great Portland St", "commission_pct": 14.0, "status": "active"},
+    {"name": "Manchester Grocers", "contact_name": "Tom Reilly", "contact_email": "tom@mancgrocers.uk", "contact_phone": "+44 161 496 0234", "country": "GB", "city": "Manchester", "address": "88 Oldham St", "commission_pct": 15.0, "status": "pending", "notes": "Under document review"},
+]
+
+MART_DRIVERS = [
+    {"name": "Ibrahim Kone", "phone": "+225 07 01 02 03 04", "email": "ibrahim@drivers.baked.ci", "country": "CI", "city": "Abidjan", "vehicle_type": "scooter", "vehicle_reg": "AB-2245-CI", "license_number": "CI-DL-88112", "status": "active"},
+    {"name": "Mariam Bamba", "phone": "+225 07 05 06 07 08", "email": "mariam@drivers.baked.ci", "country": "CI", "city": "Abidjan", "vehicle_type": "bike", "vehicle_reg": "-", "license_number": "-", "status": "active"},
+    {"name": "Jean-Marc Adou", "phone": "+225 07 09 10 11 12", "country": "CI", "city": "Abidjan", "vehicle_type": "scooter", "vehicle_reg": "CD-9987-CI", "license_number": "CI-DL-88220", "status": "pending"},
+    {"name": "Sarah O'Neill", "phone": "+44 7700 900123", "email": "sarah@drivers.baked.uk", "country": "GB", "city": "London", "vehicle_type": "scooter", "vehicle_reg": "LB65 KLM", "license_number": "GB-DL-9911", "status": "active"},
+]
+
+
 # ---------- runner ----------
 async def _seed_countries():
     for c in COUNTRIES:
@@ -633,6 +650,52 @@ async def _seed_ai_prompts():
         await db.ai_prompts.insert_one({**p, "id": new_id("prm"), "created_at": _now_iso(), "updated_at": _now_iso()})
 
 
+async def _seed_module_vendors_and_drivers():
+    """Seed sample vendors + drivers for the MART module admin workspace."""
+    for v in MART_VENDORS:
+        key = {"name": v["name"], "module": "mart"}
+        existing = await db.module_vendors.find_one(key, {"_id": 0})
+        base = {
+            **v,
+            "module": "mart",
+            "country": v.get("country", "CI").upper(),
+            "documents": [],
+            "approved_at": _now_iso() if v.get("status") in ("approved", "active") else None,
+            "approved_by": "system",
+            "deleted_at": None,
+            "updated_at": _now_iso(),
+        }
+        if existing:
+            base["id"] = existing["id"]
+            base["created_at"] = existing.get("created_at", _now_iso())
+            await db.module_vendors.update_one({"id": existing["id"]}, {"$set": base})
+        else:
+            base["id"] = new_id("ven")
+            base["created_at"] = _now_iso()
+            base["version"] = 1
+            await db.module_vendors.insert_one(base)
+
+    for d in MART_DRIVERS:
+        key = {"phone": d["phone"], "module": "mart"}
+        existing = await db.module_drivers.find_one(key, {"_id": 0})
+        base = {
+            **d,
+            "module": "mart",
+            "country": d.get("country", "CI").upper(),
+            "deleted_at": None,
+            "updated_at": _now_iso(),
+        }
+        if existing:
+            base["id"] = existing["id"]
+            base["created_at"] = existing.get("created_at", _now_iso())
+            await db.module_drivers.update_one({"id": existing["id"]}, {"$set": base})
+        else:
+            base["id"] = new_id("drv")
+            base["created_at"] = _now_iso()
+            base["version"] = 1
+            await db.module_drivers.insert_one(base)
+
+
 async def run_seed():
     await _seed_countries()
     await _seed_module_configs()
@@ -645,3 +708,4 @@ async def run_seed():
     await _seed_roles()
     await _seed_super_admin()
     await _seed_ai_prompts()
+    await _seed_module_vendors_and_drivers()
