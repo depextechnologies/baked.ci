@@ -2,9 +2,12 @@ import React from "react";
 import { Link, Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAdmin } from "../../contexts/AdminContext";
 import { BakedLogo } from "../../components/layout/BakedLogo";
-import { LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain, ScrollText, Users, UserCog, LogOut } from "lucide-react";
+import { LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain, ScrollText, Users, UserCog, LogOut, ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon } from "lucide-react";
+import { MODULES } from "../../lib/modules";
 
-const NAV = [
+// Platform Governance (shared) + Business Modules (per-module admin)
+// Mirrors the PRD 7.0.4 Administration Architecture.
+const GOVERNANCE = [
   { to: "/admin", exact: true, icon: LayoutDashboard, label: "Dashboard" },
   { to: "/admin/countries", icon: Globe, label: "Countries" },
   { to: "/admin/cities", icon: MapPin, label: "Cities" },
@@ -17,6 +20,8 @@ const NAV = [
   { to: "/admin/admins", icon: UserCog, label: "Admin Users", superOnly: true },
 ];
 
+const MODULE_ICONS = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
+
 export const AdminLayout = () => {
   const { admin, loading, logout } = useAdmin();
   const nav = useNavigate();
@@ -24,15 +29,21 @@ export const AdminLayout = () => {
   if (loading) return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
   if (!admin) return <Navigate to="/admin/login" replace />;
   const isSuper = admin.role === "super_admin";
+  const isActive = (n) => (n.exact ? location.pathname === n.to : location.pathname.startsWith(n.to));
 
   return (
     <div className="min-h-screen bg-background text-foreground grid grid-cols-[240px_1fr]">
-      <aside className="border-r border-border p-4 flex flex-col gap-2">
-        <div className="pt-2 pb-4 flex flex-col items-start"><BakedLogo size="md" /><div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Super Admin</div></div>
-        <nav className="flex-1 flex flex-col gap-1">
-          {NAV.filter((n) => !n.superOnly || isSuper).map((n) => {
+      <aside className="border-r border-border p-4 flex flex-col gap-2 max-h-screen overflow-y-auto">
+        <div className="pt-2 pb-4 flex flex-col items-start">
+          <BakedLogo size="md" />
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Super Admin</div>
+        </div>
+
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 mt-2 mb-1">Platform Governance</div>
+        <nav className="flex flex-col gap-1">
+          {GOVERNANCE.filter((n) => !n.superOnly || isSuper).map((n) => {
             const Icon = n.icon;
-            const active = n.exact ? location.pathname === n.to : location.pathname.startsWith(n.to);
+            const active = isActive(n);
             return (
               <Link key={n.to} to={n.to} data-testid={`admin-nav-${n.label.toLowerCase().replace(/[^a-z]/g, "-")}`} className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "bg-[#1D9BF0] text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`}>
                 <Icon size={16} /> {n.label}
@@ -40,7 +51,24 @@ export const AdminLayout = () => {
             );
           })}
         </nav>
-        <div className="pt-3 border-t border-border">
+
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 mt-4 mb-1">Business Modules</div>
+        <nav className="flex flex-col gap-1">
+          {MODULES.map((m) => {
+            const Icon = MODULE_ICONS[m.code] || ShoppingBasket;
+            const to = `/admin/modules/${m.code}`;
+            const active = location.pathname.startsWith(to);
+            return (
+              <Link key={m.code} to={to} data-testid={`admin-nav-module-${m.code}`} className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`} style={active ? { backgroundColor: m.color } : {}}>
+                <Icon size={16} style={active ? {} : { color: m.color }} />
+                <span className="flex-1">{m.label}<span className="text-foreground/60">bakēd</span></span>
+                {m.status !== "active" && <span className="text-[9px] uppercase tracking-widest opacity-60">soon</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto pt-3 border-t border-border">
           <div className="text-xs text-muted-foreground truncate">{admin.email}</div>
           <div className="text-[10px] uppercase tracking-widest text-primary">{admin.role}</div>
           <button data-testid="admin-logout" onClick={() => { logout(); nav("/admin/login"); }} className="text-xs mt-2 flex items-center gap-2 text-muted-foreground hover:text-foreground"><LogOut size={12} /> Sign out</button>

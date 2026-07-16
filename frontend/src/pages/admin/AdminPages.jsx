@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { adminApi } from "../../contexts/AdminContext";
 import { Button } from "../../components/ui/button";
-import { Users, ShoppingBag, DollarSign, Globe, Sparkles, Trash2, PlusCircle, RefreshCw, Search } from "lucide-react";
+import { Users, ShoppingBag, DollarSign, Globe, Sparkles, Trash2, PlusCircle, RefreshCw, Search, ShoppingBasket, Utensils, Truck, Car, Home as HomeIcon, ArrowRight } from "lucide-react";
+import { MODULES } from "../../lib/modules";
 import { toast } from "sonner";
 
 const fmtMoney = (n, ccy) => `${(n || 0).toLocaleString("en-GB")} ${ccy || ""}`.trim();
@@ -53,6 +55,104 @@ export const AdminDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Business Modules — per PRD 7.0.4 Administration Architecture */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-lg font-semibold">Business Modules</div>
+            <div className="text-xs text-muted-foreground">6 BAKĒD business apps sharing one platform foundation.</div>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {MODULES.map((m) => (
+            <Link key={m.code} to={`/admin/modules/${m.code}`} className="baked-card bg-card border border-border p-5 hover:border-current motion-fast group" style={{ color: m.color }}>
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-widest opacity-90">{m.label}<span className="text-foreground">bakēd</span></div>
+                <span className={`text-[10px] baked-chip px-2 py-0.5 ${m.status === "active" ? "bg-current text-black" : "bg-secondary text-muted-foreground"}`} style={m.status === "active" ? { color: "#0a1200", backgroundColor: m.color } : {}}>{m.status === "active" ? "ACTIVE" : "SOON"}</span>
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground">{m.tagline}</div>
+              <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-foreground group-hover:gap-3 motion-fast">
+                Open admin <ArrowRight size={14} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============ MODULE ADMIN (per PRD Business Modules) ============
+const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
+
+export const AdminModule = () => {
+  const { code } = useParams();
+  const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const meta = MODULES.find((m) => m.code === code);
+  const Icon = MODULE_ICON[code] || ShoppingBasket;
+
+  useEffect(() => {
+    if (!meta) return;
+    adminApi.get(`/admin/modules/${code}/stats`).then((r) => setData(r.data)).catch(() => setData({ module: code, status: "coming_soon", kpis: {}, revenue: [] }));
+  }, [code, meta]);
+
+  if (!meta) return <div>Unknown module</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}><Icon size={26} /></div>
+        <div className="flex-1">
+          <div className="text-2xl font-bold">{meta.label}bakēd</div>
+          <div className="text-sm text-muted-foreground">{meta.tagline}</div>
+        </div>
+        <span className={`text-[11px] baked-chip px-3 py-1 font-semibold`} style={{ backgroundColor: `${meta.color}22`, color: meta.color }}>{data?.status?.toUpperCase() || "…"}</span>
+      </div>
+
+      {data?.status === "active" ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Object.entries(data.kpis).map(([k, v]) => (
+              <div key={k} className="baked-card bg-card border border-border p-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">{k.replace(/_/g, " ")}</div>
+                <div className="text-3xl font-bold mt-2">{v}</div>
+              </div>
+            ))}
+          </div>
+          {data.revenue.length > 0 && (
+            <div className="baked-card bg-card border border-border p-5">
+              <div className="text-sm font-semibold mb-3">Revenue by currency</div>
+              <div className="grid gap-2">
+                {data.revenue.map((r) => (
+                  <div key={r.currency} className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{r.currency}</span>
+                    <span className="text-muted-foreground">{r.count} orders</span>
+                    <span className="font-bold">{fmtMoney(r.revenue, r.currency)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="baked-card bg-card border border-border p-5">
+            <div className="text-sm font-semibold mb-2">Quick actions</div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => navigate("/admin/customers")} variant="outline" className="baked-btn">View customers</Button>
+              <Button onClick={() => navigate("/admin/finance")} variant="outline" className="baked-btn">Finance</Button>
+              <Button onClick={() => navigate("/admin/audit")} variant="outline" className="baked-btn">Audit logs</Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="baked-card bg-card border border-border p-10 text-center">
+          <Sparkles size={36} className="mx-auto mb-3" style={{ color: meta.color }} />
+          <div className="text-lg font-semibold">Coming soon</div>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            {meta.label}bakēd is on the roadmap. The BAKĒD platform is built configuration-driven — enabling this module is a matter of seeding its catalogue and switching on the feature flag.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

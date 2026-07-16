@@ -16,7 +16,7 @@ import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { AuthCallback } from "@/pages/AuthCallback";
 import { AdminLoginPage } from "@/pages/admin/AdminLoginPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
-import { AdminDashboard, AdminCountries, AdminCities, AdminRoles, AdminFinance, AdminAICommand, AdminInsights, AdminAudit, AdminCustomers, AdminUsers } from "@/pages/admin/AdminPages";
+import { AdminDashboard, AdminCountries, AdminCities, AdminRoles, AdminFinance, AdminAICommand, AdminInsights, AdminAudit, AdminCustomers, AdminUsers, AdminModule } from "@/pages/admin/AdminPages";
 import { Toaster } from "@/components/ui/sonner";
 
 function CustomerShell() {
@@ -65,6 +65,7 @@ function App() {
             <Route path="audit" element={<AdminAudit />} />
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="admins" element={<AdminUsers />} />
+            <Route path="modules/:code" element={<AdminModule />} />
           </Route>
           <Route path="/*" element={
             <AuthProvider><AppProvider><CartProvider><CustomerShell /></CartProvider></AppProvider></AuthProvider>

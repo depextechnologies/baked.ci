@@ -344,6 +344,34 @@ async def admin_ai_insights(payload: InsightsIn, admin: dict = Depends(get_curre
     return {"kpis": kpis, "output": parsed}
 
 
+# =============== MODULE STATS ===============
+@router.get("/modules/{code}/stats")
+async def module_stats(code: str, admin: dict = Depends(get_current_admin)):
+    code = code.lower()
+    if code not in ("mart", "food", "shop", "express", "auto", "immo"):
+        raise HTTPException(404, "Unknown module")
+    if code == "mart":
+        products = await db.mart_products.count_documents({"module": "mart", "deleted_at": None})
+        stores = await db.mart_stores.count_documents({"module": "mart", "deleted_at": None})
+        categories = await db.mart_categories.count_documents({"module": "mart", "deleted_at": None})
+        subcategories = await db.mart_subcategories.count_documents({"module": "mart"})
+        orders_total = await db.orders.count_documents({"module": "mart"})
+        orders_confirmed = await db.orders.count_documents({"module": "mart", "status": "confirmed"})
+        # Revenue by currency
+        pipeline = [
+            {"$match": {"module": "mart", "payment_status": {"$in": ["authorized", "succeeded"]}}},
+            {"$group": {"_id": "$currency", "revenue": {"$sum": "$total"}, "count": {"$sum": 1}}},
+        ]
+        revenue = [{"currency": r["_id"], "revenue": r["revenue"], "count": r["count"]} async for r in db.orders.aggregate(pipeline)]
+        return {
+            "module": code,
+            "status": "active",
+            "kpis": {"products": products, "stores": stores, "categories": categories, "subcategories": subcategories, "orders_total": orders_total, "orders_confirmed": orders_confirmed},
+            "revenue": revenue,
+        }
+    return {"module": code, "status": "coming_soon", "kpis": {}, "revenue": []}
+
+
 # =============== AUDIT LOGS ===============
 @router.get("/audit-logs")
 async def audit_logs(admin: dict = Depends(get_current_admin), limit: int = Query(100, le=500), q: Optional[str] = None):
