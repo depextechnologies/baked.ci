@@ -137,6 +137,73 @@
     box-shadow: 0 0 0 1px currentColor inset, 0 8px 30px -10px currentColor;
 }
 
+/* --- Getir-style premium module tab bar (no icons, wordmark only) --- */
+.module-tabs-strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding-top: 14px;
+    position: relative;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.module-tabs-strip::-webkit-scrollbar { display: none; }
+
+.module-tab-btn {
+    position: relative;
+    padding: 12px 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    border-radius: 12px 12px 0 0;
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0.55;
+    transition: opacity 200ms ease, background-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.module-tab-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.module-tab-btn.active {
+    opacity: 1;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-bottom: 0;
+    /* Elevate: subtle shadow above and a "sitting on top" feeling */
+    box-shadow:
+        0 -10px 24px -12px rgba(0, 0, 0, 0.6),
+        0 -2px 6px -2px rgba(255, 255, 255, 0.03);
+    padding-top: 14px;
+    padding-bottom: 14px;
+    transform: translateY(0);
+}
+/* Give the active tab a coloured top bar in the module's own colour */
+.module-tab-btn.active::before {
+    content: "";
+    position: absolute;
+    top: -1px; left: 12%; right: 12%;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: currentColor;
+}
+.module-tab-btn.active::after {
+    /* Hairline that visually connects the active tab to the surface below it */
+    content: "";
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 1px;
+    background: hsl(var(--card));
+}
+
+/* Light-theme tuning for the active tab shadow */
+.dark .module-tab-btn.active {
+    border-color: hsl(0 0% 14%);
+    box-shadow:
+        0 -14px 28px -14px rgba(0, 0, 0, 0.8),
+        0 -2px 6px -2px rgba(255, 255, 255, 0.04);
+}
+
 /* subtle radial glow used on hero */
 .mart-hero {
     background:
