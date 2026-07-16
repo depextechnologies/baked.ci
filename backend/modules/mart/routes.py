@@ -22,10 +22,18 @@ async def list_categories(country: str = Query("CI")):
     ).sort("order", 1).to_list(100)
 
 
+@router.get("/mart/subcategories")
+async def list_subcategories(country: str = Query("CI"), category: str = Query(...)):
+    return await db.mart_subcategories.find(
+        {"country": country.upper(), "category_slug": category}, {"_id": 0}
+    ).sort("order", 1).to_list(100)
+
+
 @router.get("/mart/products")
 async def list_products(
     country: str = Query("CI"),
     category: Optional[str] = None,
+    subcategory: Optional[str] = None,
     search: Optional[str] = None,
     sort: str = Query("popularity"),
     limit: int = Query(48, le=100),
@@ -33,6 +41,8 @@ async def list_products(
     q: dict = {"country": country.upper(), "module": "mart", "deleted_at": None}
     if category:
         q["category_slug"] = category
+    if subcategory:
+        q["subcategory_slug"] = subcategory
     if search:
         q["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},

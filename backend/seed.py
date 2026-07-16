@@ -64,6 +64,80 @@ CATEGORIES = [
     ("baby-care", "Bébé", "Baby Care", "baby", "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=400&auto=format&fit=crop&q=60"),
 ]
 
+# category_slug -> list of (subcategory_slug, name_fr, name_en, image)
+SUBCATEGORIES = {
+    "fruits-vegetables": [
+        ("fresh-vegetables", "Légumes Frais", "Fresh Vegetables", "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&auto=format&fit=crop&q=60"),
+        ("fresh-fruits", "Fruits Frais", "Fresh Fruits", "https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=200&auto=format&fit=crop&q=60"),
+        ("mangoes-melons", "Mangues & Melons", "Mangoes & Melons", "https://images.unsplash.com/photo-1553279768-865429fa0078?w=200&auto=format&fit=crop&q=60"),
+        ("tropical", "Tropicaux", "Tropical", "https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=200&auto=format&fit=crop&q=60"),
+        ("exotics", "Exotiques", "Exotics", "https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "dairy-eggs": [
+        ("milk", "Lait", "Milk", "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200&auto=format&fit=crop&q=60"),
+        ("cheese-butter", "Fromage & Beurre", "Cheese & Butter", "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&auto=format&fit=crop&q=60"),
+        ("eggs", "Œufs", "Eggs", "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&auto=format&fit=crop&q=60"),
+        ("yogurt", "Yaourt", "Yogurt", "https://images.unsplash.com/photo-1571212515416-fef01fc43637?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "snacks": [
+        ("chips", "Chips", "Chips & Nachos", "https://images.unsplash.com/photo-1613919113640-25732ec5e61f?w=200&auto=format&fit=crop&q=60"),
+        ("biscuits", "Biscuits", "Biscuits & Cookies", "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=200&auto=format&fit=crop&q=60"),
+        ("chocolates", "Chocolats", "Chocolates", "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "beverages": [
+        ("soft-drinks", "Sodas", "Soft Drinks", "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200&auto=format&fit=crop&q=60"),
+        ("juices", "Jus", "Juices", "https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=200&auto=format&fit=crop&q=60"),
+        ("water", "Eau", "Water", "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "bakery": [
+        ("breads", "Pains", "Breads", "https://images.unsplash.com/photo-1568471173242-461f0a730452?w=200&auto=format&fit=crop&q=60"),
+        ("pastries", "Viennoiseries", "Pastries", "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "household": [
+        ("grains", "Céréales & Riz", "Grains & Rice", "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&auto=format&fit=crop&q=60"),
+        ("cleaning", "Ménage", "Cleaning", "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "meat-seafood": [
+        ("poultry", "Volaille", "Poultry", "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200&auto=format&fit=crop&q=60"),
+        ("seafood", "Fruits de Mer", "Seafood", "https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "personal-care": [
+        ("bath-body", "Bain & Corps", "Bath & Body", "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=200&auto=format&fit=crop&q=60"),
+        ("hair-care", "Soins Cheveux", "Hair Care", "https://images.unsplash.com/photo-1626015449473-2c8dc5c9d3ea?w=200&auto=format&fit=crop&q=60"),
+    ],
+    "baby-care": [
+        ("diapers", "Couches", "Diapers", "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=200&auto=format&fit=crop&q=60"),
+    ],
+}
+
+# Map each seeded product name to its subcategory slug
+PRODUCT_SUBCATEGORY = {
+    "Banane Cavendish": "fresh-fruits",
+    "Tomates Fraîches": "fresh-vegetables",
+    "Mangue Kent": "mangoes-melons",
+    "Ananas Frais": "tropical",
+    "Lait Frais": "milk",
+    "Œufs Fermiers": "eggs",
+    "Yaourt Nature": "yogurt",
+    "Fromage Emmental": "cheese-butter",
+    "Chips Classic": "chips",
+    "Biscuits Choco": "biscuits",
+    "Chocolat au Lait": "chocolates",
+    "Coca-Cola": "soft-drinks",
+    "Eau Minérale": "water",
+    "Jus d'Orange": "juices",
+    "Pain de Mie": "breads",
+    "Baguette Tradition": "breads",
+    "Croissants x4": "pastries",
+    "Riz Basmati": "grains",
+    "Lessive Ariel": "cleaning",
+    "Poulet Entier": "poultry",
+    "Poisson Bar": "seafood",
+    "Gel Douche Dove": "bath-body",
+    "Shampoing": "hair-care",
+    "Couches Bébé": "diapers",
+}
+
 PRODUCTS_CI = [
     # (name, brand, category_slug, unit, price XOF, was_price, image, popularity, badge)
     ("Banane Cavendish", "Local", "fruits-vegetables", "1 kg", 800, 1000, "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=500&auto=format&fit=crop&q=60", 95, "20% OFF"),
@@ -165,6 +239,29 @@ async def _seed_categories():
             await db.mart_categories.update_one(key, {"$set": doc}, upsert=True)
 
 
+async def _seed_subcategories():
+    for country in COUNTRIES:
+        for cat_slug, subs in SUBCATEGORIES.items():
+            for order, (slug, fr, en, image) in enumerate(subs, start=1):
+                name = fr if country["locale"].startswith("fr") else en
+                key = {"slug": slug, "category_slug": cat_slug, "country": country["code"]}
+                doc = {
+                    **key,
+                    "id": new_id("sub"),
+                    "name": name,
+                    "name_en": en,
+                    "name_fr": fr,
+                    "image": image,
+                    "order": order,
+                    "module": "mart",
+                    "updated_at": _now_iso(),
+                }
+                existing = await db.mart_subcategories.find_one(key, {"_id": 0})
+                if existing:
+                    doc["id"] = existing["id"]
+                await db.mart_subcategories.update_one(key, {"$set": doc}, upsert=True)
+
+
 async def _seed_products():
     # CI products
     for name, brand, cat_slug, unit, price, was, image, pop, badge in PRODUCTS_CI:
@@ -174,6 +271,7 @@ async def _seed_products():
             "id": new_id("prd"),
             "brand": brand,
             "category_slug": cat_slug,
+            "subcategory_slug": PRODUCT_SUBCATEGORY.get(name),
             "unit": unit,
             "price": price,
             "was_price": was,
@@ -207,6 +305,7 @@ async def _seed_products():
             "id": new_id("prd"),
             "brand": brand,
             "category_slug": cat_slug,
+            "subcategory_slug": PRODUCT_SUBCATEGORY.get(name),
             "unit": unit,
             "price": gbp,
             "was_price": was_gbp,
@@ -317,6 +416,7 @@ async def run_seed():
     await _seed_countries()
     await _seed_module_configs()
     await _seed_categories()
+    await _seed_subcategories()
     await _seed_products()
     await _seed_offers()
     await _seed_stores()
