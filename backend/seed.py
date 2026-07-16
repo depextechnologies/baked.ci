@@ -138,6 +138,195 @@ PRODUCT_SUBCATEGORY = {
     "Couches Bébé": "diapers",
 }
 
+# Extra products to fill every subcategory grid. Tuple:
+# (name, brand, cat_slug, subcat_slug, unit, price_xof, was_xof, image, popularity, badge)
+IMG = {
+    "veg": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=60",
+    "carrot": "https://images.unsplash.com/photo-1447175008436-054170c2e979?w=500&auto=format&fit=crop&q=60",
+    "onion": "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=500&auto=format&fit=crop&q=60",
+    "potato": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=60",
+    "pepper": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=500&auto=format&fit=crop&q=60",
+    "garlic": "https://images.unsplash.com/photo-1615477550927-6ec8445fcfe9?w=500&auto=format&fit=crop&q=60",
+    "apple": "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=500&auto=format&fit=crop&q=60",
+    "orange": "https://images.unsplash.com/photo-1580052614034-c55d20bfee3b?w=500&auto=format&fit=crop&q=60",
+    "strawberry": "https://images.unsplash.com/photo-1587393855524-087f83d95bc9?w=500&auto=format&fit=crop&q=60",
+    "grape": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=60",
+    "watermelon": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=60",
+    "melon": "https://images.unsplash.com/photo-1571575173700-afb9492e6a50?w=500&auto=format&fit=crop&q=60",
+    "mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=500&auto=format&fit=crop&q=60",
+    "papaya": "https://images.unsplash.com/photo-1617112848923-cc2234396a8d?w=500&auto=format&fit=crop&q=60",
+    "passion": "https://images.unsplash.com/photo-1604321929013-77dc0dcbc60f?w=500&auto=format&fit=crop&q=60",
+    "guava": "https://images.unsplash.com/photo-1536511132770-e5058c7e8c46?w=500&auto=format&fit=crop&q=60",
+    "coconut": "https://images.unsplash.com/photo-1581685691099-1f6bfd97dedf?w=500&auto=format&fit=crop&q=60",
+    "kiwi": "https://images.unsplash.com/photo-1585059895524-72359e06133a?w=500&auto=format&fit=crop&q=60",
+    "pomegranate": "https://images.unsplash.com/photo-1615485500704-8e990f9900f6?w=500&auto=format&fit=crop&q=60",
+    "dragonfruit": "https://images.unsplash.com/photo-1527325678964-54921661f888?w=500&auto=format&fit=crop&q=60",
+    "avocado": "https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=500&auto=format&fit=crop&q=60",
+    "milk": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500&auto=format&fit=crop&q=60",
+    "chocmilk": "https://images.unsplash.com/photo-1600788907416-456578634209?w=500&auto=format&fit=crop&q=60",
+    "coconutmilk": "https://images.unsplash.com/photo-1615484477201-9f4953340fab?w=500&auto=format&fit=crop&q=60",
+    "butter": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=500&auto=format&fit=crop&q=60",
+    "cheese": "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=500&auto=format&fit=crop&q=60",
+    "camembert": "https://images.unsplash.com/photo-1631379578550-7038263db1e0?w=500&auto=format&fit=crop&q=60",
+    "eggs": "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=500&auto=format&fit=crop&q=60",
+    "yogurt": "https://images.unsplash.com/photo-1571212515416-fef01fc43637?w=500&auto=format&fit=crop&q=60",
+    "greek": "https://images.unsplash.com/photo-1620189507187-1befbcae2606?w=500&auto=format&fit=crop&q=60",
+    "chips": "https://images.unsplash.com/photo-1613919113640-25732ec5e61f?w=500&auto=format&fit=crop&q=60",
+    "tortilla": "https://images.unsplash.com/photo-1600952841320-db92ec4047ca?w=500&auto=format&fit=crop&q=60",
+    "cookie": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=60",
+    "chocolate": "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=500&auto=format&fit=crop&q=60",
+    "sprite": "https://images.unsplash.com/photo-1625740822002-1a3f38d5dc22?w=500&auto=format&fit=crop&q=60",
+    "fanta": "https://images.unsplash.com/photo-1624517452488-04869289c4ca?w=500&auto=format&fit=crop&q=60",
+    "juice": "https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=500&auto=format&fit=crop&q=60",
+    "sparkling": "https://images.unsplash.com/photo-1523362289600-a70b4a0e09aa?w=500&auto=format&fit=crop&q=60",
+    "water": "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=500&auto=format&fit=crop&q=60",
+    "bread": "https://images.unsplash.com/photo-1568471173242-461f0a730452?w=500&auto=format&fit=crop&q=60",
+    "ciabatta": "https://images.unsplash.com/photo-1585478259715-876acc5be8eb?w=500&auto=format&fit=crop&q=60",
+    "muffin": "https://images.unsplash.com/photo-1607958996333-41783b1b83b8?w=500&auto=format&fit=crop&q=60",
+    "brioche": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=60",
+    "rice": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&auto=format&fit=crop&q=60",
+    "pasta": "https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=500&auto=format&fit=crop&q=60",
+    "couscous": "https://images.unsplash.com/photo-1589308078054-832ff6a06947?w=500&auto=format&fit=crop&q=60",
+    "detergent": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=500&auto=format&fit=crop&q=60",
+    "dishsoap": "https://images.unsplash.com/photo-1585421514284-efb74320a266?w=500&auto=format&fit=crop&q=60",
+    "toiletpaper": "https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=500&auto=format&fit=crop&q=60",
+    "chicken": "https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=500&auto=format&fit=crop&q=60",
+    "chickenbreast": "https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=500&auto=format&fit=crop&q=60",
+    "shrimp": "https://images.unsplash.com/photo-1565680018434-b513d5573b07?w=500&auto=format&fit=crop&q=60",
+    "tuna": "https://images.unsplash.com/photo-1611171711791-b34fa42e9135?w=500&auto=format&fit=crop&q=60",
+    "salmon": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=500&auto=format&fit=crop&q=60",
+    "sardine": "https://images.unsplash.com/photo-1594760944230-49f79fd5e3d7?w=500&auto=format&fit=crop&q=60",
+    "soap": "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=500&auto=format&fit=crop&q=60",
+    "deodorant": "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=500&auto=format&fit=crop&q=60",
+    "cream": "https://images.unsplash.com/photo-1608248511219-1ab8d5c2e56c?w=500&auto=format&fit=crop&q=60",
+    "conditioner": "https://images.unsplash.com/photo-1626015449473-2c8dc5c9d3ea?w=500&auto=format&fit=crop&q=60",
+    "hairmask": "https://images.unsplash.com/photo-1631730359585-38a4935cbec4?w=500&auto=format&fit=crop&q=60",
+    "wipes": "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=500&auto=format&fit=crop&q=60",
+    "babymilk": "https://images.unsplash.com/photo-1592892041693-fb2ff8ca3c65?w=500&auto=format&fit=crop&q=60",
+}
+
+EXTRA_PRODUCTS_CI = [
+    # fresh-vegetables
+    ("Carotte", "Local", "fruits-vegetables", "fresh-vegetables", "500 g", 700, 900, IMG["carrot"], 82, "22% OFF"),
+    ("Oignon Rouge", "Local", "fruits-vegetables", "fresh-vegetables", "1 kg", 900, 1100, IMG["onion"], 87, "18% OFF"),
+    ("Pomme de Terre", "Local", "fruits-vegetables", "fresh-vegetables", "1 kg", 1000, 1200, IMG["potato"], 88, "16% OFF"),
+    ("Poivron Vert", "Local", "fruits-vegetables", "fresh-vegetables", "500 g", 1300, None, IMG["pepper"], 71, None),
+    ("Ail Frais", "Local", "fruits-vegetables", "fresh-vegetables", "200 g", 800, None, IMG["garlic"], 68, None),
+    # fresh-fruits
+    ("Pomme Royale Gala", "Import", "fruits-vegetables", "fresh-fruits", "1 kg", 1800, 2100, IMG["apple"], 84, "14% OFF"),
+    ("Orange Douce", "Local", "fruits-vegetables", "fresh-fruits", "1 kg", 1200, 1400, IMG["orange"], 86, "14% OFF"),
+    ("Fraises", "Import", "fruits-vegetables", "fresh-fruits", "250 g", 2200, 2600, IMG["strawberry"], 79, "15% OFF"),
+    ("Raisin Noir", "Import", "fruits-vegetables", "fresh-fruits", "500 g", 2400, None, IMG["grape"], 74, None),
+    # mangoes-melons
+    ("Mangue Amélie", "Local", "fruits-vegetables", "mangoes-melons", "1 kg", 1400, 1700, IMG["mango"], 83, "17% OFF"),
+    ("Pastèque", "Local", "fruits-vegetables", "mangoes-melons", "1 pièce", 2500, 3000, IMG["watermelon"], 88, "16% OFF"),
+    ("Melon Cantaloup", "Local", "fruits-vegetables", "mangoes-melons", "1 pièce", 1800, None, IMG["melon"], 76, None),
+    ("Mangue Kent XL", "Local", "fruits-vegetables", "mangoes-melons", "2 pièces", 2000, 2300, IMG["mango"], 81, "13% OFF"),
+    # tropical
+    ("Fruit de la Passion", "Local", "fruits-vegetables", "tropical", "500 g", 1600, None, IMG["passion"], 72, None),
+    ("Goyave", "Local", "fruits-vegetables", "tropical", "500 g", 1200, 1400, IMG["guava"], 74, "14% OFF"),
+    ("Papaye", "Local", "fruits-vegetables", "tropical", "1 pièce", 1500, None, IMG["papaya"], 77, None),
+    ("Noix de Coco Fraîche", "Local", "fruits-vegetables", "tropical", "1 pièce", 900, 1100, IMG["coconut"], 82, "18% OFF"),
+    # exotics
+    ("Kiwi", "Import", "fruits-vegetables", "exotics", "6 pièces", 2600, 3000, IMG["kiwi"], 71, "13% OFF"),
+    ("Grenade", "Import", "fruits-vegetables", "exotics", "2 pièces", 2800, None, IMG["pomegranate"], 68, None),
+    ("Dragon Fruit", "Import", "fruits-vegetables", "exotics", "1 pièce", 3200, 3700, IMG["dragonfruit"], 66, "14% OFF"),
+    ("Avocat Hass", "Local", "fruits-vegetables", "exotics", "3 pièces", 1500, 1800, IMG["avocado"], 85, "17% OFF"),
+    # milk
+    ("Lait Chocolaté", "Bridel", "dairy-eggs", "milk", "1 L", 950, 1100, IMG["chocmilk"], 78, "14% OFF"),
+    ("Lait Écrémé", "Bridel", "dairy-eggs", "milk", "1 L", 700, None, IMG["milk"], 74, None),
+    ("Lait UHT Demi-écrémé", "Nestlé", "dairy-eggs", "milk", "1 L", 720, 850, IMG["milk"], 82, "15% OFF"),
+    ("Lait de Coco", "Grace", "dairy-eggs", "milk", "400 ml", 1200, None, IMG["coconutmilk"], 69, None),
+    # cheese-butter
+    ("Beurre Doux", "Président", "dairy-eggs", "cheese-butter", "250 g", 2100, 2400, IMG["butter"], 80, "12% OFF"),
+    ("Camembert", "Président", "dairy-eggs", "cheese-butter", "250 g", 2600, None, IMG["camembert"], 72, None),
+    ("Fromage Râpé", "Président", "dairy-eggs", "cheese-butter", "200 g", 1900, 2200, IMG["cheese"], 76, "14% OFF"),
+    ("Fromage de Chèvre", "Local", "dairy-eggs", "cheese-butter", "150 g", 2400, None, IMG["cheese"], 68, None),
+    # eggs
+    ("Œufs Brunches x12", "Local Farm", "dairy-eggs", "eggs", "12 pièces", 1800, 2100, IMG["eggs"], 84, "14% OFF"),
+    ("Œufs Bio", "Local Farm", "dairy-eggs", "eggs", "6 pièces", 1600, None, IMG["eggs"], 71, None),
+    ("Œufs XL", "Local Farm", "dairy-eggs", "eggs", "10 pièces", 2100, 2400, IMG["eggs"], 76, "13% OFF"),
+    ("Œufs de Caille", "Local", "dairy-eggs", "eggs", "20 pièces", 2500, None, IMG["eggs"], 64, None),
+    # yogurt
+    ("Yaourt Vanille", "Danone", "dairy-eggs", "yogurt", "4x125g", 1500, 1700, IMG["yogurt"], 79, "12% OFF"),
+    ("Yaourt Grec", "Danone", "dairy-eggs", "yogurt", "500 g", 2200, None, IMG["greek"], 74, None),
+    ("Yaourt aux Fruits", "Danone", "dairy-eggs", "yogurt", "8x125g", 2600, 2900, IMG["yogurt"], 82, "10% OFF"),
+    ("Kefir Nature", "Bio", "dairy-eggs", "yogurt", "500 ml", 1800, None, IMG["yogurt"], 65, None),
+    # chips
+    ("Chips Sel", "Lay's", "snacks", "chips", "45 g", 450, 600, IMG["chips"], 85, "25% OFF"),
+    ("Chips Barbecue", "Lay's", "snacks", "chips", "45 g", 500, 700, IMG["chips"], 86, "28% OFF"),
+    ("Chips Fromage", "Doritos", "snacks", "chips", "80 g", 900, 1100, IMG["chips"], 82, "18% OFF"),
+    ("Tortillas Chips", "Doritos", "snacks", "chips", "100 g", 1100, None, IMG["tortilla"], 76, None),
+    # biscuits
+    ("Petit Beurre", "LU", "snacks", "biscuits", "200 g", 1000, 1200, IMG["cookie"], 84, "16% OFF"),
+    ("Sablés", "LU", "snacks", "biscuits", "150 g", 900, None, IMG["cookie"], 75, None),
+    ("Cookies", "Milka", "snacks", "biscuits", "200 g", 1500, 1800, IMG["cookie"], 80, "16% OFF"),
+    ("Spéculoos", "Lotus", "snacks", "biscuits", "250 g", 1700, None, IMG["cookie"], 73, None),
+    # chocolates
+    ("Kit Kat", "Nestlé", "snacks", "chocolates", "4 barres", 1200, 1400, IMG["chocolate"], 87, "14% OFF"),
+    ("Ferrero Rocher", "Ferrero", "snacks", "chocolates", "24 pièces", 6500, 7200, IMG["chocolate"], 74, "10% OFF"),
+    ("Snickers", "Mars", "snacks", "chocolates", "4 barres", 1400, None, IMG["chocolate"], 82, None),
+    ("Bounty", "Mars", "snacks", "chocolates", "4 barres", 1350, 1500, IMG["chocolate"], 78, "10% OFF"),
+    # soft-drinks
+    ("Sprite", "Coca-Cola", "beverages", "soft-drinks", "1.5 L", 900, None, IMG["sprite"], 84, None),
+    ("Fanta Orange", "Coca-Cola", "beverages", "soft-drinks", "1.5 L", 900, 1050, IMG["fanta"], 86, "14% OFF"),
+    ("Ice Tea Pêche", "Lipton", "beverages", "soft-drinks", "1.5 L", 1100, None, IMG["fanta"], 80, None),
+    ("Pepsi", "PepsiCo", "beverages", "soft-drinks", "1.5 L", 850, 1000, IMG["sprite"], 79, "15% OFF"),
+    # juices
+    ("Jus de Pomme", "Tropicana", "beverages", "juices", "1 L", 1500, None, IMG["juice"], 81, None),
+    ("Jus Multivitaminé", "Tropicana", "beverages", "juices", "1 L", 1600, 1800, IMG["juice"], 84, "11% OFF"),
+    ("Jus d'Ananas", "Tropicana", "beverages", "juices", "1 L", 1400, None, IMG["juice"], 76, None),
+    ("Jus de Mangue", "Local", "beverages", "juices", "1 L", 1500, 1750, IMG["juice"], 78, "14% OFF"),
+    # water
+    ("Eau Gazeuse", "Perrier", "beverages", "water", "1 L", 1500, None, IMG["sparkling"], 74, None),
+    ("Eau Vittel", "Vittel", "beverages", "water", "1.5 L", 1200, 1400, IMG["water"], 82, "14% OFF"),
+    ("Eau Minérale Awa 12x", "Awa", "beverages", "water", "12x500 ml", 2200, None, IMG["water"], 88, None),
+    # breads
+    ("Pain Complet", "Boulangerie", "bakery", "breads", "500 g", 1200, None, IMG["bread"], 79, None),
+    ("Pain Ciabatta", "Boulangerie", "bakery", "breads", "300 g", 1300, 1500, IMG["ciabatta"], 76, "13% OFF"),
+    ("Pain aux Céréales", "Boulangerie", "bakery", "breads", "500 g", 1400, None, IMG["bread"], 74, None),
+    # pastries
+    ("Pain au Chocolat", "Boulangerie", "bakery", "pastries", "4 pièces", 1400, 1600, IMG["brioche"], 87, "13% OFF"),
+    ("Muffins Chocolat", "Boulangerie", "bakery", "pastries", "4 pièces", 1800, None, IMG["muffin"], 76, None),
+    ("Brioche Tressée", "Boulangerie", "bakery", "pastries", "400 g", 1500, 1800, IMG["brioche"], 80, "17% OFF"),
+    ("Tarte aux Pommes", "Boulangerie", "bakery", "pastries", "1 pièce", 3200, None, IMG["muffin"], 68, None),
+    # grains
+    ("Riz Jasmin", "Uncle Ben's", "household", "grains", "5 kg", 6800, None, IMG["rice"], 78, None),
+    ("Couscous Fin", "Ferrero", "household", "grains", "1 kg", 1600, 1900, IMG["couscous"], 74, "16% OFF"),
+    ("Pâtes Spaghetti", "Barilla", "household", "grains", "500 g", 900, 1100, IMG["pasta"], 82, "18% OFF"),
+    ("Semoule Fine", "Local", "household", "grains", "1 kg", 1200, None, IMG["couscous"], 70, None),
+    # cleaning
+    ("Liquide Vaisselle", "Fairy", "household", "cleaning", "1 L", 1400, 1650, IMG["dishsoap"], 79, "15% OFF"),
+    ("Nettoyant Sol", "Mr Propre", "household", "cleaning", "1.25 L", 2000, None, IMG["detergent"], 72, None),
+    ("Papier Toilette 12x", "Lotus", "household", "cleaning", "12 rouleaux", 3600, 4200, IMG["toiletpaper"], 84, "14% OFF"),
+    ("Éponges de Cuisine", "Local", "household", "cleaning", "6 pcs", 800, None, IMG["dishsoap"], 68, None),
+    # poultry
+    ("Ailes de Poulet", "Ferme", "meat-seafood", "poultry", "500 g", 1800, 2100, IMG["chicken"], 82, "14% OFF"),
+    ("Blancs de Poulet", "Ferme", "meat-seafood", "poultry", "500 g", 2600, None, IMG["chickenbreast"], 78, None),
+    ("Cuisses de Poulet", "Ferme", "meat-seafood", "poultry", "1 kg", 2800, 3200, IMG["chicken"], 84, "13% OFF"),
+    ("Nuggets Poulet", "Maggi", "meat-seafood", "poultry", "500 g", 2400, None, IMG["chickenbreast"], 74, None),
+    # seafood
+    ("Crevettes Roses", "Marée du jour", "meat-seafood", "seafood", "500 g", 5500, 6500, IMG["shrimp"], 76, "15% OFF"),
+    ("Thon en Boîte", "Saupiquet", "meat-seafood", "seafood", "3x140 g", 2200, None, IMG["tuna"], 80, None),
+    ("Saumon Fumé", "Labeyrie", "meat-seafood", "seafood", "200 g", 4800, 5400, IMG["salmon"], 72, "11% OFF"),
+    ("Sardines Huile", "La Belle-Iloise", "meat-seafood", "seafood", "115 g", 1200, None, IMG["sardine"], 74, None),
+    # bath-body
+    ("Savon Dove", "Dove", "personal-care", "bath-body", "4 pains", 2400, 2800, IMG["soap"], 82, "14% OFF"),
+    ("Déodorant Rexona", "Rexona", "personal-care", "bath-body", "150 ml", 1800, None, IMG["deodorant"], 79, None),
+    ("Crème Corps Nivea", "Nivea", "personal-care", "bath-body", "400 ml", 2600, 3000, IMG["cream"], 74, "13% OFF"),
+    ("Éponge de Bain", "Local", "personal-care", "bath-body", "1 pièce", 700, None, IMG["soap"], 62, None),
+    # hair-care
+    ("Après-Shampoing", "L'Oréal", "personal-care", "hair-care", "400 ml", 2500, 2900, IMG["conditioner"], 78, "13% OFF"),
+    ("Sérum Cheveux", "L'Oréal", "personal-care", "hair-care", "100 ml", 3800, None, IMG["conditioner"], 68, None),
+    ("Masque Capillaire", "Garnier", "personal-care", "hair-care", "300 ml", 2200, 2600, IMG["hairmask"], 72, "15% OFF"),
+    ("Gel Coiffant", "Dax", "personal-care", "hair-care", "200 g", 1400, None, IMG["conditioner"], 70, None),
+    # diapers / baby
+    ("Lingettes Bébé", "Pampers", "baby-care", "diapers", "72 pcs", 2400, 2800, IMG["wipes"], 82, "14% OFF"),
+    ("Lait Bébé 1er Âge", "Nestlé", "baby-care", "diapers", "800 g", 12500, None, IMG["babymilk"], 74, None),
+    ("Shampoing Bébé", "Mixa", "baby-care", "diapers", "300 ml", 2600, 3000, IMG["babymilk"], 68, "13% OFF"),
+    ("Crème Change Bébé", "Mustela", "baby-care", "diapers", "100 ml", 3800, None, IMG["cream"], 66, None),
+]
+
 PRODUCTS_CI = [
     # (name, brand, category_slug, unit, price XOF, was_price, image, popularity, badge)
     ("Banane Cavendish", "Local", "fruits-vegetables", "1 kg", 800, 1000, "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=500&auto=format&fit=crop&q=60", 95, "20% OFF"),
@@ -326,6 +515,38 @@ async def _seed_products():
         existing = await db.mart_products.find_one(key, {"_id": 0})
         if existing:
             doc["id"] = existing["id"]
+        await db.mart_products.update_one(key, {"$set": doc}, upsert=True)
+
+    # EXTRA_PRODUCTS_CI — 4-8 products per subcategory, subcategory embedded in tuple
+    for name, brand, cat_slug, sub_slug, unit, price, was, image, pop, badge in EXTRA_PRODUCTS_CI:
+        key = {"name": name, "country": "CI", "module": "mart"}
+        doc = {
+            **key,
+            "id": new_id("prd"),
+            "brand": brand,
+            "category_slug": cat_slug,
+            "subcategory_slug": sub_slug,
+            "unit": unit,
+            "price": price,
+            "was_price": was,
+            "currency": "XOF",
+            "currency_symbol": "CFA",
+            "image": image,
+            "images": [image],
+            "popularity": pop,
+            "badge": badge,
+            "in_stock": True,
+            "rating": round(3.8 + (pop % 12) / 10, 1),
+            "review_count": (pop * 3) % 250 + 20,
+            "description": f"{name} - {brand}. Livré en 10-15 minutes chez vous à Abidjan.",
+            "deleted_at": None,
+            "created_at": _now_iso(),
+            "updated_at": _now_iso(),
+        }
+        existing = await db.mart_products.find_one(key, {"_id": 0})
+        if existing:
+            doc["id"] = existing["id"]
+            doc["created_at"] = existing.get("created_at", _now_iso())
         await db.mart_products.update_one(key, {"$set": doc}, upsert=True)
 
 
