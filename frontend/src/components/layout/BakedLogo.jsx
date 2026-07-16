@@ -20,23 +20,23 @@ const MODULE_LOGO = {
   },
   food: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/awqz7sza_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%282%29.jpeg",
-    light: null,
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/nxicofue_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%283%29.jpeg",
   },
   shop: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/e6t06vzj_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%281%29.jpeg",
-    light: null,
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/3icgdfzs_WhatsApp%20Image%202026-05-31%20at%208.26.48%20PM%20%282%29.jpeg",
   },
   express: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/tgbxh1o8_WhatsApp%20Image%202026-05-31%20at%208.26.46%20PM%20%284%29.jpeg",
-    light: null,
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/9oheevcx_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%284%29.jpeg",
   },
   auto: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/3jzhiamn_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%282%29.jpeg",
-    light: null,
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/mtpf8vyp_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM.jpeg",
   },
   immo: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/z62ps21t_WhatsApp%20Image%202026-05-31%20at%208.26.50%20PM%20%282%29.jpeg",
-    light: null,
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/tmw6nkj4_WhatsApp%20Image%202026-05-31%20at%208.26.48%20PM%20%281%29.jpeg",
   },
 };
 
