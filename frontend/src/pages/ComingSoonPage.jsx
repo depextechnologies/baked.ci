@@ -25,7 +25,7 @@ export const ComingSoonPage = () => {
           <Icon size={48} strokeWidth={2} />
         </div>
         <div className="flex justify-center">
-          <BrandedModuleLabel label={m.label} color={m.color} className="text-4xl" />
+          <BrandedModuleLabel label={m.label} color={m.color} height={36} />
         </div>
         <p className="mt-2 text-muted-foreground">{m.tagline}</p>
         <div className="inline-flex items-center gap-2 mt-6 px-4 py-2 baked-chip border border-border text-xs">

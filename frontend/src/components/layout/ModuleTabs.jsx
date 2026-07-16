@@ -38,7 +38,7 @@ export const ModuleTabs = () => {
                 <Icon size={26} strokeWidth={2.2} />
               </div>
               <div className="min-w-0">
-                <BrandedModuleLabel label={m.label} color={m.color} />
+                <BrandedModuleLabel label={m.label} color={m.color} height={20} />
                 <div className="text-[11px] text-muted-foreground truncate">{m.tagline}</div>
               </div>
             </button>

@@ -114,16 +114,10 @@
     line-height: 1;
 }
 
-/* the tiny red smile under the "bakēd" wordmark from the mobile screens */
-.baked-logo-smile {
-    height: 6px;
-    width: 30%;
-    margin: 4px auto 0;
-    border-bottom-left-radius: 999px;
-    border-bottom-right-radius: 999px;
-    background: transparent;
-    border-bottom: 2.5px solid #FF4C52;
-}
+/* Knock out the solid bg of JPEG logo assets so they blend into cards.
+   Dark mode: lighten drops the black bg; Light mode: darken drops the white bg. */
+.logo-blend-dark { mix-blend-mode: lighten; }
+.logo-blend-light { mix-blend-mode: darken; }
 
 .baked-card { border-radius: var(--r-card); }
 .baked-input { border-radius: var(--r-input); }

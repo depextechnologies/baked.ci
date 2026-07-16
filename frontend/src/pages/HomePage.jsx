@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useApp } from "../contexts/BakedContexts";
 import { ProductCard } from "../components/mart/ProductCard";
+import { MartLogoImage } from "../components/layout/BakedLogo";
 import { HOME, CATEGORY, AI } from "../constants/testIds";
 import { formatMoney, t } from "../lib/i18n";
 import { Bike, Truck, ShoppingBasket, Wallet2, Sparkles, ArrowRight, Zap, Package, Tag, RotateCcw } from "lucide-react";
@@ -56,19 +57,21 @@ export const HomePage = () => {
       <div className="baked-container mt-6 grid gap-4 lg:grid-cols-[1fr_360px]" data-testid={HOME.hero}>
         <div className="mart-hero relative overflow-hidden p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
           <div>
-            <div className="text-xs font-bold tracking-wider uppercase mb-3" style={{ color: "#77BC1F" }}>MART bakēd</div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight max-w-[600px]">
+            <div className="mb-3">
+              <MartLogoImage height={38} forceTheme="dark" />
+            </div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight max-w-[600px] text-white">
               {t(locale, "hero.mart.title_l1")}
               <br />
               <span style={{ color: "#77BC1F" }}>{t(locale, "hero.mart.title_l2")}</span>
             </h1>
-            <p className="mt-4 text-sm md:text-base text-muted-foreground max-w-md">{t(locale, "hero.mart.subtitle")}</p>
+            <p className="mt-4 text-sm md:text-base text-white/70 max-w-md">{t(locale, "hero.mart.subtitle")}</p>
           </div>
           <div className="flex flex-wrap gap-3 mt-6">
             <Button data-testid={HOME.shopNowBtn} onClick={() => navigate("/products")} className="baked-btn h-11 px-6 font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
               {t(locale, "hero.shop_now")}
             </Button>
-            <Button data-testid={HOME.browseCategoriesBtn} onClick={() => navigate("/categories")} variant="outline" className="baked-btn h-11 px-6 font-semibold border-border">
+            <Button data-testid={HOME.browseCategoriesBtn} onClick={() => navigate("/categories")} variant="outline" className="baked-btn h-11 px-6 font-semibold border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
               {t(locale, "hero.browse")}
             </Button>
           </div>
