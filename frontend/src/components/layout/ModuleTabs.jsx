@@ -38,7 +38,7 @@ export const ModuleTabs = () => {
               style={isActive ? { color: m.color } : undefined}
               aria-current={isActive ? "page" : undefined}
             >
-              <BrandedModuleLabel code={m.code} label={m.label} color={m.color} height={22} />
+              <BrandedModuleLabel code={m.code} label={m.label} color={m.color} height={30} />
             </button>
           );
         })}
