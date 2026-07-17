@@ -22,6 +22,7 @@ from core.models_base import _now_iso, new_id
 from core.events import event_bus, Events
 from core.providers.payment_provider import get_payment_provider, list_payment_methods
 from core.config import get_country_config
+from .cart_rules import check_order_eligibility
 
 router = APIRouter(tags=["orders"])
 
@@ -62,6 +63,24 @@ async def delivery_slots(country: str = Query("CI"), days: int = Query(2, ge=1, 
 @router.get("/mart/payment-methods")
 async def payment_methods(country: str = Query("CI")):
     return list_payment_methods()
+
+
+@router.get("/mart/cart/eligibility")
+async def cart_eligibility(customer: dict = Depends(get_current_customer)):
+    """Return eligibility for the customer's active cart.
+    Frontend uses this as the single-source-of-truth for the checkout gate.
+    """
+    _cart, _lines, subtotal = await _snapshot_cart(customer["id"])
+    country = await get_country_config(customer.get("country", "CI")) or {}
+    elig = check_order_eligibility(
+        subtotal=subtotal,
+        country_delivery_fee=country.get("delivery_fee", 0),
+        country_free_delivery_over=country.get("free_delivery_over", 0),
+        min_order=country.get("min_order", 0),
+    )
+    elig["currency"] = country.get("currency", "")
+    elig["currency_symbol"] = country.get("currency_symbol", "")
+    return elig
 
 
 # ---------- orders ----------
@@ -127,12 +146,19 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
         raise HTTPException(400, "Cart is empty")
 
     country = await get_country_config(customer.get("country", "CI")) or {}
-    min_order = country.get("min_order", 0)
-    if subtotal < min_order:
-        raise HTTPException(400, f"Minimum order is {min_order} {country.get('currency','')}")
 
-    delivery_fee = 0 if subtotal >= country.get("free_delivery_over", 0) else country.get("delivery_fee", 0)
-    total = round(subtotal + delivery_fee, 2)
+    # Centralised eligibility: total = subtotal + delivery, then check against min_order
+    elig = check_order_eligibility(
+        subtotal=subtotal,
+        country_delivery_fee=country.get("delivery_fee", 0),
+        country_free_delivery_over=country.get("free_delivery_over", 0),
+        min_order=country.get("min_order", 0),
+    )
+    if not elig["eligible"]:
+        raise HTTPException(400, f"Minimum order is {country.get('min_order', 0)} {country.get('currency','')}. Add {elig['shortfall']:g} {country.get('currency','')} more to your basket.")
+
+    delivery_fee = elig["delivery_fee"]
+    total = elig["total"]
     currency = country.get("currency", lines[0].get("currency"))
 
     address = None

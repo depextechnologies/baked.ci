@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
+import { checkOrderEligibility } from "../../lib/checkout";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, MapPin, Zap, Clock, CalendarClock, ChevronRight, Banknote, Wallet2, CreditCard, Apple, ShieldCheck, ShoppingBag } from "lucide-react";
+import { ArrowLeft, MapPin, Zap, Clock, CalendarClock, ChevronRight, Banknote, Wallet2, CreditCard, Apple, ShieldCheck, ShoppingBag, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PhoneLoginDialog } from "../../components/auth/PhoneLoginDialog";
 
@@ -32,13 +33,13 @@ export const MobileCheckout = () => {
   }, [cart, nav]);
 
   const subtotal = cart.subtotal || 0;
-  const deliveryFee = subtotal >= (country?.free_delivery_over || 999999) ? 0 : (country?.delivery_fee || 0);
-  const packingFee = 200;
-  const total = subtotal + deliveryFee + packingFee;
+  const elig = checkOrderEligibility(subtotal, country);
+  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
 
   const placeOrder = async () => {
     if (!customer) { setLoginOpen(true); return; }
     if (!address.line1) { toast.error("Enter a delivery address"); return; }
+    if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country?.currency, ccy)} more to reach the ${formatMoney(minOrder, country?.currency, ccy)} minimum order`); return; }
     setPlacing(true);
     try {
       const { data } = await api.post("/orders", {
@@ -146,7 +147,6 @@ export const MobileCheckout = () => {
           <div className="space-y-2 text-xs">
             <Row label="Subtotal" value={formatMoney(subtotal, country?.currency, ccy)} />
             <Row label="Delivery fee" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
-            <Row label="Packing fee" value={formatMoney(packingFee, country?.currency, ccy)} />
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
               <span>Total (Incl. VAT)</span><span data-testid="m-co-total">{formatMoney(total, country?.currency, ccy)}</span>
@@ -162,6 +162,18 @@ export const MobileCheckout = () => {
         <span className="flex items-center gap-1"><Zap size={11} /> Fast delivery</span>
       </div>
 
+      {/* Min-order banner (only when below threshold) */}
+      {!minOrderOk && (
+        <div className="px-4 mt-3">
+          <div data-testid="m-co-min-order-warning" className="baked-card p-3 flex items-start gap-2.5 border" style={{ backgroundColor: "#FCC44C1a", borderColor: "#FCC44C88" }}>
+            <AlertCircle size={16} className="shrink-0 mt-0.5" style={{ color: "#FCC44C" }} />
+            <div className="text-[11px] leading-snug">
+              Add <b style={{ color: "#FCC44C" }}>{formatMoney(shortfall, country?.currency, ccy)}</b> more to your basket to reach the <b>{formatMoney(minOrder, country?.currency, ccy)}</b> minimum.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky pay footer */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="px-4 py-3 flex items-center gap-3">
@@ -169,8 +181,8 @@ export const MobileCheckout = () => {
             <div className="text-[10px] text-muted-foreground">Total Payable</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-co-pay" disabled={placing || !address.line1} onClick={placeOrder} className="baked-btn h-12 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
-            {placing ? "Placing…" : payment === "cod" ? "Place Order" : "Pay Now"}
+          <Button data-testid="m-co-pay" disabled={placing || !address.line1 || !minOrderOk} onClick={placeOrder} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+            {placing ? "Placing…" : !minOrderOk ? "Add more" : payment === "cod" ? "Place Order" : "Pay Now"}
           </Button>
         </div>
       </div>

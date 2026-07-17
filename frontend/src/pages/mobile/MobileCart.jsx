@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
+import { checkOrderEligibility } from "../../lib/checkout";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCart, AlertCircle } from "lucide-react";
 
 export const MobileCart = () => {
   const nav = useNavigate();
@@ -14,14 +15,15 @@ export const MobileCart = () => {
   const ccy = country?.currency_symbol || country?.currency;
 
   const subtotal = cart.subtotal || 0;
-  const deliveryFee = subtotal >= (country?.free_delivery_over || 999999) ? 0 : (country?.delivery_fee || 0);
-  const packingFee = cart.items?.length ? 200 : 0; // small fee, in local currency
+  const elig = checkOrderEligibility(subtotal, country);
+  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
+  const packingFee = 0; // Packing fee removed — was previously added off-menu and confused the min-order rule
   const savings = cart.items?.reduce((s, i) => {
     const p = i.product || {};
     const strike = p.compare_at_price || p.original_price;
     return s + (strike && strike > p.price ? (strike - p.price) * i.quantity : 0);
   }, 0);
-  const total = subtotal + deliveryFee + packingFee;
+  // total already computed by checkOrderEligibility above; packingFee removed from the equation.
 
   if (!cart.items?.length) {
     return (
@@ -101,7 +103,6 @@ export const MobileCart = () => {
           <div className="space-y-2 text-xs">
             <Row label="Subtotal" value={formatMoney(subtotal, country?.currency, ccy)} />
             <Row label="Delivery fee" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
-            <Row label="Packing fee" value={formatMoney(packingFee, country?.currency, ccy)} />
             {savings > 0 && <Row label="Discount" value={<span style={{ color: "#77BC1F" }}>- {formatMoney(savings, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
@@ -110,6 +111,18 @@ export const MobileCart = () => {
           </div>
         </div>
       </div>
+
+      {/* Min-order banner (only when below threshold) */}
+      {!minOrderOk && (
+        <div className="px-4 mt-3">
+          <div data-testid="m-cart-min-order-warning" className="baked-card p-3 flex items-start gap-2.5 border" style={{ backgroundColor: "#FCC44C1a", borderColor: "#FCC44C88" }}>
+            <AlertCircle size={16} className="shrink-0 mt-0.5" style={{ color: "#FCC44C" }} />
+            <div className="text-[11px] leading-snug">
+              Add <b style={{ color: "#FCC44C" }}>{formatMoney(shortfall, country?.currency, ccy)}</b> more to reach the <b>{formatMoney(minOrder, country?.currency, ccy)}</b> minimum order.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trust strip */}
       <div className="px-4 mt-3 flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
@@ -124,8 +137,8 @@ export const MobileCart = () => {
             <div className="text-[10px] text-muted-foreground">Total (Incl. VAT)</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-cart-checkout" onClick={() => nav("/checkout")} className="baked-btn h-12 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
-            <ShoppingCart size={16} className="mr-1.5" /> Checkout
+          <Button data-testid="m-cart-checkout" disabled={!minOrderOk} onClick={() => nav("/checkout")} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+            <ShoppingCart size={16} className="mr-1.5" /> {minOrderOk ? "Checkout" : "Add more"}
           </Button>
         </div>
       </div>

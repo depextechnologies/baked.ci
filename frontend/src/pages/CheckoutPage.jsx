@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth, useApp, useCart } from "../contexts/BakedContexts";
 import { formatMoney, t } from "../lib/i18n";
+import { checkOrderEligibility } from "../lib/checkout";
 import { Button } from "../components/ui/button";
 import { MapPin, Clock, CreditCard, Wallet, Smartphone, PlusCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,9 +44,8 @@ export const CheckoutPage = () => {
 
   const items = cart.items || [];
   const subtotal = cart.subtotal || 0;
-  const deliveryFee = subtotal >= country.free_delivery_over ? 0 : country.delivery_fee;
-  const total = subtotal + deliveryFee;
-  const minOrderOk = subtotal >= country.min_order;
+  const elig = checkOrderEligibility(subtotal, country);
+  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
 
   const saveAddress = async () => {
     if (!newAddr.line1.trim()) { toast.error(language === "en" ? "Enter an address" : "Entrez une adresse"); return; }
@@ -177,7 +177,7 @@ export const CheckoutPage = () => {
           <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery" : "Livraison"}</span><span>{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
           <div className="h-px bg-border" />
           <div className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
-          {!minOrderOk && (<div className="text-[11px] p-2 rounded-lg bg-yellow-500/10 text-yellow-500">{language === "en" ? "Below minimum order" : "En dessous du minimum"}</div>)}
+          {!minOrderOk && (<div data-testid="checkout-min-order-warning" className="text-[11px] p-2 rounded-lg bg-yellow-500/10 text-yellow-500">{language === "en" ? `Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum` : `Ajoutez ${formatMoney(shortfall, country.currency, country.currency_symbol)} pour atteindre le minimum de ${formatMoney(minOrder, country.currency, country.currency_symbol)}`}</div>)}
           <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy || !minOrderOk} className="w-full h-12 baked-btn font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
             {busy ? (language === "en" ? "Placing…" : "En cours…") : (language === "en" ? "Place order" : "Passer la commande")}
           </Button>

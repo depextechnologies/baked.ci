@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp, useCart, useAuth } from "../contexts/BakedContexts";
 import { formatMoney } from "../lib/i18n";
+import { checkOrderEligibility } from "../lib/checkout";
 import { CART } from "../constants/testIds";
 import { Button } from "../components/ui/button";
 import { Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
@@ -14,13 +15,12 @@ export const CartPage = () => {
   const navigate = useNavigate();
   const items = cart.items || [];
   const subtotal = cart.subtotal || 0;
-  const deliveryFee = subtotal >= country.free_delivery_over ? 0 : country.delivery_fee;
-  const total = subtotal + deliveryFee;
-  const minOrderOk = subtotal >= country.min_order;
+  const elig = checkOrderEligibility(subtotal, country);
+  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
 
   const doCheckout = () => {
     if (!customer) { toast("Please login to continue"); return; }
-    if (!minOrderOk) { toast.error(`Minimum order is ${formatMoney(country.min_order, country.currency, country.currency_symbol)}`); return; }
+    if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
     navigate("/checkout");
   };
 
@@ -75,11 +75,11 @@ export const CartPage = () => {
             <div className="flex justify-between text-base"><span className="font-semibold">Total</span><span className="font-bold">{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           </div>
           {!minOrderOk && (
-            <div className="text-[11px] mt-3 p-2 rounded-lg bg-yellow-500/10 text-yellow-500">
-              Minimum order is {formatMoney(country.min_order, country.currency, country.currency_symbol)}
+            <div data-testid="cart-min-order-warning" className="text-[11px] mt-3 p-2 rounded-lg bg-yellow-500/10 text-yellow-500">
+              Add <b>{formatMoney(shortfall, country.currency, country.currency_symbol)}</b> more to reach the {formatMoney(minOrder, country.currency, country.currency_symbol)} minimum.
             </div>
           )}
-          <Button data-testid={CART.checkoutBtn} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
+          <Button data-testid={CART.checkoutBtn} disabled={!minOrderOk} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
             Checkout
           </Button>
         </div>

@@ -101,6 +101,7 @@ async def _cart_for(customer_id: str) -> dict:
         "version": 1,
     }
     await db.carts.insert_one(doc)
+    doc.pop("_id", None)
     return doc
 
 

@@ -1,0 +1,50 @@
+{
+  "summary": "Verified the Checkout minimum-order bug fix end-to-end (backend + frontend) for MARTbakēd. Backend rule now correctly compares TOTAL PAYABLE (subtotal + delivery_fee) against min_order instead of subtotal alone. All 10 pytest cases pass — including the exact screenshot scenario (subtotal 2600 XOF → total 3100 XOF ≥ 3000) which now succeeds, plus the boundary cases 2900/3000/3700. Frontend visual gating verified on Mobile Cart (m-cart-min-order-warning + disabled m-cart-checkout), Mobile Checkout when reached via natural nav (m-co-pay + eligibility), Desktop Cart (cart-min-order-warning + cart-checkout-btn disabled), Desktop Checkout (checkout-min-order-warning + checkout-place-order-btn disabled). Banner disappears and checkout enables as soon as cart is raised over the threshold — confirmed with UI reload after API cart edit. Two blocking bugs were found and fixed in-scope: (a) CheckoutPage.jsx contained stray `e>` + duplicate closing tags at lines 189-192 causing a Babel SyntaxError and the entire frontend to not compile; (b) GET /api/carts/me returned HTTP 500 for brand-new customers because Mongo's ObjectId `_id` leaked out of `_cart_for()` (insert_one mutates the passed dict). Both were repaired and validated.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/carts/me", "issue": "Was returning 500 (ObjectId not iterable) for any customer whose active cart did not yet exist. Root cause: db.carts.insert_one(doc) mutated doc with ObjectId _id, which then hit FastAPI's serializer. FIXED by adding doc.pop('_id', None) after insert_one in /app/backend/modules/mart/routes.py::_cart_for()."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CheckoutPage.jsx", "issue": "Stray 'e>' and duplicate closing tags at lines 189-192 caused SyntaxError: Unexpected token — the entire frontend refused to compile (users saw the red 'Compiled with problems' overlay). FIXED by deleting the orphan block.", "selector": "N/A (build-time)", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Direct navigation to /checkout on mobile with under-min cart", "issue": "MobileCheckout.jsx has useEffect(() => { if(!cart.items?.length) nav('/cart') }) which fires before the cart context has hydrated from /api/carts/me on a fresh page load. Effect: hitting /checkout via URL/bookmark/hard reload always redirects to /cart, so the m-co-min-order-warning and disabled m-co-pay Add-more state are unreachable via that path. Not blocking the bug fix because the user flow is Cart → click Checkout btn (only when eligible, since the btn is disabled otherwise). RECOMMEND: guard with a loading flag from useCart, e.g. if (cart.loading) return null; only redirect after cart is hydrated.", "affected_selectors": ["m-co-min-order-warning", "m-co-pay"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_min_order_eligibility.py",
+    "/app/test_reports/pytest/pytest_min_order.xml"
+  ],
+  "action_items": [
+    "MAIN AGENT: Fix MobileCheckout redirect-on-mount race — replace the empty-cart useEffect with a guard that waits for the cart context to finish loading (e.g. `if (!cart.loaded) return <Spinner/>` or check a boolean set once GET /api/carts/me resolves). This will make direct /checkout navigation surface the under-min warning + 'Add more' state instead of redirecting to /cart.",
+    "MAIN AGENT: Consider adding a regression test for the CheckoutPage.jsx compile error (e.g. `yarn build` in CI or a smoke test that visits /checkout in desktop viewport)."
+  ],
+  "critical_code_review_comments": [
+    "cart_rules.py is a clean, well-documented Single-Source-of-Truth. Rounding to 2 decimals before comparison correctly avoids float artefacts. Mirror in /app/frontend/src/lib/checkout.js uses the same math.",
+    "orders.py::create_order now uses check_order_eligibility for both the 400 gate AND the persisted totals — subtotal, delivery_fee, and total all come from the same eligibility object. Good.",
+    "GET /mart/cart/eligibility is the correct endpoint to expose to the frontend if you want to eliminate client-side drift entirely, but the current mirror module in JS is sufficient for the check.",
+    "MobileCart & MobileCheckout removed the previously-hidden 200-XOF packing fee — visible total now matches the backend computed total, resolving the confusion in the original screenshot.",
+    "IMPROVEMENT: MobileCheckout should render nothing (or a skeleton) until the cart is confirmed hydrated — the useEffect empty-cart redirect fires prematurely on cold navigation.",
+    "IMPROVEMENT: `_cart_for()` in routes.py should `.pop('_id', None)` right after insert_one — the pattern is fragile. Same defensive pattern is already used in _find_or_create_customer_by_phone.",
+    "MINOR: CheckoutPage.jsx build error implies no lint/CI gate on frontend. Recommend adding `yarn build --check` to a pre-merge hook."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/CheckoutPage.jsx (removed orphan syntax block at end-of-file)",
+    "/app/backend/modules/mart/routes.py (pop MongoDB _id from doc after insert_one in _cart_for)",
+    "/app/backend/tests/test_min_order_eligibility.py (new — 10 tests, all passing)"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 new tests pass; iteration_2 suite untouched)",
+    "frontend": "~95% (all 4 checkout surfaces gate correctly; mobile /checkout via direct URL races the cart context — non-blocking for min-order fix)"
+  },
+  "test_credentials": "Dev OTP: POST /api/auth/otp/request with {phone:<random 10-digit>, country_code:'+225'} returns dev_code in body; POST /api/auth/otp/verify returns access_token JWT. Use a fresh phone per run.",
+  "seed_data_creation": "No permanent seed data — each test creates a fresh customer via OTP and its own cart, then cart is cleared/emptied on order-create or teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_min_order_eligibility.py is the reusable regression suite for the min-order rule. It uses live seeded product IDs (Banane Cavendish=prd_951e138789dd4128 @800, Chips Classic=prd_0c1550b414244953 @500, Coca=prd_b01b51d4dbed4c34 @900, Baguette=prd_5a66ea776e1948a1 @400) — if seed prices change, update the price constants. The MongoDB _id-leak pattern exists in other insert_one call sites too — audit shared/auth/routes.py (customer creation) and modules/mart/orders.py (customer_addresses.insert_one). If MobileCheckout is refactored, the useEffect empty-cart redirect must wait for cart context to be hydrated first.",
+  "rca_of_the_issue": "Original min-order bug: /app/backend/modules/mart/orders.py used `if subtotal < min_order` — this compared PRODUCT SUBTOTAL only, ignoring the 500 XOF delivery fee. So a subtotal of 2600 (with delivery 500 → total 3100) was blocked because 2600 < 3000, even though the user's payable total (3100) exceeded the 3000 threshold. Root cause: rule was applied to the wrong number. Fix: centralized check_order_eligibility(subtotal, delivery_fee, free_delivery_over, min_order) computes total = subtotal + delivery_fee (respecting free_delivery_over cutoff) then compares total >= min_order. Frontend mirror (checkout.js) uses identical math for the UI gate. Both surfaces now match the visible 'Total' line."
+}
