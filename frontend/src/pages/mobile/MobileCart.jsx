@@ -10,7 +10,7 @@ import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCa
 export const MobileCart = () => {
   const nav = useNavigate();
   const { country } = useApp();
-  const { cart, updateItem, removeItem } = useCart();
+  const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
   const [note, setNote] = useState("");
   const ccy = country?.currency_symbol || country?.currency;
 
@@ -26,6 +26,7 @@ export const MobileCart = () => {
   // total already computed by checkOrderEligibility above; packingFee removed from the equation.
 
   if (!cart.items?.length) {
+    if (!cartLoaded) return <div className="p-8 text-sm text-muted-foreground">Loading cart…</div>;
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center px-6 text-center pb-16">
         <div className="w-24 h-24 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>

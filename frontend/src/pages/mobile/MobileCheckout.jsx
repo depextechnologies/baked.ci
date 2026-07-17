@@ -20,7 +20,7 @@ export const MobileCheckout = () => {
   const nav = useNavigate();
   const { country } = useApp();
   const { customer } = useAuth();
-  const { cart, clear } = useCart();
+  const { cart, loaded: cartLoaded, clear } = useCart();
   const [loginOpen, setLoginOpen] = useState(false);
   const [address, setAddress] = useState({ line1: "", city: country?.code === "CI" ? "Abidjan" : "London", country: country?.code || "CI", instructions: "" });
   const [slot, setSlot] = useState("express");
@@ -29,8 +29,9 @@ export const MobileCheckout = () => {
   const ccy = country?.currency_symbol || country?.currency;
 
   useEffect(() => {
-    if (!cart.items?.length) { nav("/cart"); }
-  }, [cart, nav]);
+    // Only redirect once we're sure the cart is actually empty (avoids race on hard-reload)
+    if (cartLoaded && !cart.items?.length) { nav("/cart"); }
+  }, [cart, cartLoaded, nav]);
 
   const subtotal = cart.subtotal || 0;
   const elig = checkOrderEligibility(subtotal, country);

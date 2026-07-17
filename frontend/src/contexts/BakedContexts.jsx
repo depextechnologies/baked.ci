@@ -127,6 +127,7 @@ const writeGuest = (c) => localStorage.setItem(GUEST_KEY, JSON.stringify(c));
 export const CartProvider = ({ children }) => {
   const { customer } = useAuth() || {};
   const [cart, setCart] = useState({ items: [], subtotal: 0, item_count: 0 });
+  const [loaded, setLoaded] = useState(false);
 
   const hydrateGuest = useCallback(async () => {
     const g = readGuest();
@@ -154,9 +155,10 @@ export const CartProvider = ({ children }) => {
     } else {
       await hydrateGuest();
     }
+    setLoaded(true);
   }, [customer, hydrateGuest]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setLoaded(false); load(); }, [load]);
 
   const addItem = useCallback(async (product, quantity = 1) => {
     if (customer) {
@@ -207,7 +209,7 @@ export const CartProvider = ({ children }) => {
     setCart({ items: [], subtotal: 0, item_count: 0 });
   }, [customer]);
 
-  const value = useMemo(() => ({ cart, addItem, updateItem, removeItem, clear, reload: load }), [cart, addItem, updateItem, removeItem, clear, load]);
+  const value = useMemo(() => ({ cart, loaded, addItem, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, updateItem, removeItem, clear, load]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);
