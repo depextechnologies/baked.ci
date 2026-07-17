@@ -35,6 +35,9 @@ import { MobileProductDetail } from "@/pages/mobile/MobileProductDetail";
 import { MobileCart } from "@/pages/mobile/MobileCart";
 import { MobileCheckout } from "@/pages/mobile/MobileCheckout";
 import { MobileWalletComingSoon } from "@/pages/mobile/MobileWalletComingSoon";
+import { MobileOrderConfirmation } from "@/pages/mobile/MobileOrderConfirmation";
+import { MobileOrderTracking } from "@/pages/mobile/MobileOrderTracking";
+import { MobileOrderDelivered } from "@/pages/mobile/MobileOrderDelivered";
 
 function DesktopCustomerShell() {
   return (
@@ -76,7 +79,10 @@ function MobileCustomerShell() {
         <Route path="/cart" element={<MobileCart />} />
         <Route path="/checkout" element={<MobileCheckout />} />
         <Route path="/orders" element={<OrdersListPage />} />
-        <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/orders/:id/confirmation" element={<MobileOrderConfirmation />} />
+        <Route path="/orders/:id/track" element={<MobileOrderTracking />} />
+        <Route path="/orders/:id/delivered" element={<MobileOrderDelivered />} />
+        <Route path="/orders/:id" element={<MobileOrderTracking />} />
         <Route path="/wallet" element={<MobileWalletComingSoon />} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />

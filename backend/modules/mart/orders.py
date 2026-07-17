@@ -65,12 +65,33 @@ async def payment_methods(country: str = Query("CI")):
 
 
 # ---------- orders ----------
-class CreateOrderIn(BaseModel):
-    address_id: str
-    delivery_slot_id: str
-    delivery_slot_label: str
-    payment_method: str = Field("cod")
+class OrderAddressIn(BaseModel):
+    line1: str
+    line2: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
     instructions: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class CreateOrderIn(BaseModel):
+    address_id: Optional[str] = None
+    address: Optional[OrderAddressIn] = None
+    delivery_slot_id: Optional[str] = None
+    delivery_slot_label: Optional[str] = None
+    delivery_slot: Optional[str] = None       # mobile: canonical slot code (express/superfast/standard/later)
+    payment_method: str = Field("cod")
+    module: Optional[str] = None              # kept for forward compat with other modules
+    instructions: Optional[str] = None
+
+
+SLOT_LABELS = {
+    "express": ("slot_express", "10-15 min · Express"),
+    "superfast": ("slot_superfast", "20-30 min · Super Fast"),
+    "standard": ("slot_standard", "30-45 min · Standard"),
+    "later": ("slot_later", "Schedule later"),
+}
 
 
 async def _snapshot_cart(customer_id: str) -> tuple[dict | None, list[dict], float]:
@@ -114,9 +135,31 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
     total = round(subtotal + delivery_fee, 2)
     currency = country.get("currency", lines[0].get("currency"))
 
-    address = await db.customer_addresses.find_one({"id": payload.address_id, "customer_id": customer["id"]}, {"_id": 0})
+    address = None
+    if payload.address_id:
+        address = await db.customer_addresses.find_one({"id": payload.address_id, "customer_id": customer["id"]}, {"_id": 0})
+    if not address and payload.address:
+        # Inline address (mobile checkout) — persist as a customer address for later reuse
+        address_doc = payload.address.model_dump()
+        address_doc.update({
+            "id": new_id("adr"),
+            "customer_id": customer["id"],
+            "country": (address_doc.get("country") or customer.get("country") or "CI").upper(),
+            "created_at": _now_iso(), "updated_at": _now_iso(), "deleted_at": None,
+        })
+        await db.customer_addresses.insert_one(address_doc)
+        address_doc.pop("_id", None)
+        address = address_doc
     if not address:
-        raise HTTPException(400, "Address not found")
+        raise HTTPException(400, "Address is required (provide address_id or inline address)")
+
+    # Resolve delivery slot (id + label, else code, else default)
+    slot_id = payload.delivery_slot_id
+    slot_label = payload.delivery_slot_label
+    if not slot_id and payload.delivery_slot:
+        slot_id, slot_label = SLOT_LABELS.get(payload.delivery_slot, ("slot_express", "10-15 min · Express"))
+    if not slot_id:
+        slot_id, slot_label = ("slot_express", "10-15 min · Express")
 
     order_id = new_id("ord")
     order = {
@@ -132,8 +175,8 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
         "total": total,
         "currency": currency,
         "address": address,
-        "delivery_slot_id": payload.delivery_slot_id,
-        "delivery_slot_label": payload.delivery_slot_label,
+        "delivery_slot_id": slot_id,
+        "delivery_slot_label": slot_label,
         "payment_method": payload.payment_method,
         "payment_status": "pending",
         "payment_provider_ref": None,
@@ -211,4 +254,139 @@ async def cancel_order(order_id: str, customer: dict = Depends(get_current_custo
         raise HTTPException(400, f"Cannot cancel order in status {order['status']}")
     await db.orders.update_one({"id": order_id}, {"$set": {"status": "cancelled", "updated_at": _now_iso()}})
     await event_bus.publish(Events.ORDER_UPDATED, {"order_id": order_id, "status": "cancelled"})
+    return await db.orders.find_one({"id": order_id}, {"_id": 0})
+
+
+# ---------- tracking (mock/demo) ----------
+# Demo driver + store coordinates per country
+_COUNTRY_GEO = {
+    "CI": {"store": {"name": "MARTbakēd Store · Cocody", "lat": 5.3455, "lng": -4.0021}, "destination": {"lat": 5.3535, "lng": -3.9857}},
+    "GB": {"store": {"name": "MARTbakēd Store · Marylebone", "lat": 51.5238, "lng": -0.1585}, "destination": {"lat": 51.5237, "lng": -0.1585}},
+}
+_DEMO_DRIVERS = [
+    {"name": "Rahul Kumar", "rating": 4.8, "vehicle": "Electric Scooter", "vehicle_reg": "AB12 C3456", "phone": "+225 07 12 34 56 78", "photo": "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200&h=200&fit=crop&q=80"},
+    {"name": "Ibrahim Kone", "rating": 4.9, "vehicle": "Green Bolt scooter", "vehicle_reg": "AB-2245-CI", "phone": "+225 07 01 02 03 04", "photo": "https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=200&h=200&fit=crop&q=80"},
+]
+
+# stage progression by elapsed seconds since order created
+_TIMELINE_STAGES = [
+    ("placed",     0,   "Order Placed"),
+    ("preparing",  30,  "Preparing"),
+    ("picked_up",  90,  "Picked Up"),
+    ("on_the_way", 120, "On the Way"),
+    ("delivered",  360, "Delivered"),
+]
+
+
+def _interp(a: dict, b: dict, t: float) -> dict:
+    t = max(0.0, min(1.0, t))
+    return {"lat": a["lat"] + (b["lat"] - a["lat"]) * t, "lng": a["lng"] + (b["lng"] - a["lng"]) * t}
+
+
+def _elapsed_seconds(order: dict) -> int:
+    try:
+        created = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+    except Exception:
+        return 0
+    return int((datetime.now(timezone.utc) - created).total_seconds())
+
+
+def _current_stage(elapsed: int) -> str:
+    stage = "placed"
+    for code, at, _lbl in _TIMELINE_STAGES:
+        if elapsed >= at:
+            stage = code
+    return stage
+
+
+@router.get("/orders/{order_id}/tracking")
+async def order_tracking(order_id: str, customer: dict = Depends(get_current_customer)):
+    order = await db.orders.find_one({"id": order_id, "customer_id": customer["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(404, "Order not found")
+
+    elapsed = _elapsed_seconds(order)
+
+    # Honour cancelled state
+    if order["status"] == "cancelled":
+        return {"order": order, "stage": "cancelled", "timeline": [], "driver": None, "geo": None, "eta_seconds": None}
+
+    # Compute the demo-progressed stage. If persisted status is "delivered", pin to it.
+    stage = "delivered" if order["status"] == "delivered" else _current_stage(elapsed)
+
+    # Persist the auto-advanced status so admins & other views see it consistently
+    persisted = order["status"]
+    desired = "delivered" if stage == "delivered" else (
+        "on_the_way" if stage == "on_the_way" else
+        "picked_up" if stage == "picked_up" else
+        "preparing" if stage == "preparing" else
+        order["status"]
+    )
+    if desired != persisted:
+        await db.orders.update_one({"id": order_id}, {"$set": {"status": desired, "updated_at": _now_iso()}})
+        order["status"] = desired
+
+    country = (order.get("country") or "CI").upper()
+    geo = _COUNTRY_GEO.get(country) or _COUNTRY_GEO["CI"]
+    # If a destination lat/lng exists on the address, use it
+    addr = order.get("address") or {}
+    if addr.get("latitude") and addr.get("longitude"):
+        geo = {"store": geo["store"], "destination": {"lat": addr["latitude"], "lng": addr["longitude"]}}
+    # Driver current position interpolated between store→destination for the on-the-way window
+    if stage in ("placed", "preparing"):
+        driver_pos = geo["store"]
+    elif stage == "picked_up":
+        driver_pos = _interp(geo["store"], geo["destination"], 0.15)
+    elif stage == "on_the_way":
+        # 120s..360s → 0.15 → 0.98
+        t = (elapsed - 120) / max(1, (360 - 120))
+        driver_pos = _interp(geo["store"], geo["destination"], 0.15 + t * 0.83)
+    else:
+        driver_pos = geo["destination"]
+
+    # Build timeline with timestamps
+    try:
+        started = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+    except Exception:
+        started = datetime.now(timezone.utc)
+    timeline = []
+    for code, at, label in _TIMELINE_STAGES:
+        completed = elapsed >= at
+        ts = (started + timedelta(seconds=at)).isoformat() if completed else None
+        timeline.append({"code": code, "label": label, "completed": completed, "at": ts})
+
+    driver = _DEMO_DRIVERS[hash(order_id) % len(_DEMO_DRIVERS)]
+
+    # ETA
+    eta_seconds = None
+    if stage in ("placed", "preparing", "picked_up", "on_the_way"):
+        eta_seconds = max(0, 360 - elapsed)
+
+    return {
+        "order": order,
+        "stage": stage,
+        "timeline": timeline,
+        "driver": driver,
+        "geo": {
+            "store": geo["store"],
+            "destination": geo["destination"],
+            "driver": driver_pos,
+        },
+        "eta_seconds": eta_seconds,
+        "elapsed_seconds": elapsed,
+    }
+
+
+class RateOrderIn(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+
+
+@router.post("/orders/{order_id}/rate")
+async def rate_order(order_id: str, payload: RateOrderIn, customer: dict = Depends(get_current_customer)):
+    order = await db.orders.find_one({"id": order_id, "customer_id": customer["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(404, "Order not found")
+    updates = {"rating": payload.rating, "rating_comment": payload.comment or "", "rated_at": _now_iso(), "updated_at": _now_iso()}
+    await db.orders.update_one({"id": order_id}, {"$set": updates})
     return await db.orders.find_one({"id": order_id}, {"_id": 0})

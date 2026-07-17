@@ -41,15 +41,15 @@ export const MobileCheckout = () => {
     if (!address.line1) { toast.error("Enter a delivery address"); return; }
     setPlacing(true);
     try {
-      const { data } = await api.post("/mart/orders", {
+      const { data } = await api.post("/orders", {
         address,
         delivery_slot: slot,
         payment_method: payment,
-        module: "mart",
+        instructions: address.instructions,
       });
       toast.success("Order placed!");
       await clear();
-      nav(`/orders/${data.id}`);
+      nav(`/orders/${data.id}/confirmation`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not place order");
     } finally { setPlacing(false); }
