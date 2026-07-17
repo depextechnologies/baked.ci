@@ -27,10 +27,16 @@ import {
   ModuleCustomers, ModuleDrivers, ModuleComingSoon,
 } from "@/pages/admin/ModulePages";
 import { Toaster } from "@/components/ui/sonner";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileShell } from "@/components/mobile/MobileShell";
+import { MobileHome } from "@/pages/mobile/MobileHome";
+import { MobileCategoryPage } from "@/pages/mobile/MobileCategoryPage";
+import { MobileProductDetail } from "@/pages/mobile/MobileProductDetail";
+import { MobileCart } from "@/pages/mobile/MobileCart";
+import { MobileCheckout } from "@/pages/mobile/MobileCheckout";
+import { MobileWalletComingSoon } from "@/pages/mobile/MobileWalletComingSoon";
 
-function CustomerShell() {
-  const location = useLocation();
-  if (location.hash?.includes("session_id=")) return <AuthCallback />;
+function DesktopCustomerShell() {
   return (
     <div className="App min-h-screen bg-background text-foreground">
       <TopNav />
@@ -45,6 +51,7 @@ function CustomerShell() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersListPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/wallet" element={<MobileWalletComingSoon />} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
         <Route path="/express" element={<ComingSoonPage />} />
@@ -55,6 +62,38 @@ function CustomerShell() {
       <Footer />
     </div>
   );
+}
+
+function MobileCustomerShell() {
+  return (
+    <MobileShell>
+      <Routes>
+        <Route path="/" element={<MobileHome />} />
+        <Route path="/categories" element={<MobileCategoryPage />} />
+        <Route path="/categories/:slug" element={<MobileCategoryPage />} />
+        <Route path="/products" element={<MobileCategoryPage />} />
+        <Route path="/products/:id" element={<MobileProductDetail />} />
+        <Route path="/cart" element={<MobileCart />} />
+        <Route path="/checkout" element={<MobileCheckout />} />
+        <Route path="/orders" element={<OrdersListPage />} />
+        <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/wallet" element={<MobileWalletComingSoon />} />
+        <Route path="/food" element={<ComingSoonPage />} />
+        <Route path="/shop" element={<ComingSoonPage />} />
+        <Route path="/express" element={<ComingSoonPage />} />
+        <Route path="/auto" element={<ComingSoonPage />} />
+        <Route path="/immo" element={<ComingSoonPage />} />
+        <Route path="*" element={<MobileHome />} />
+      </Routes>
+    </MobileShell>
+  );
+}
+
+function CustomerShell() {
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  if (location.hash?.includes("session_id=")) return <AuthCallback />;
+  return isMobile ? <MobileCustomerShell /> : <DesktopCustomerShell />;
 }
 
 function App() {

@@ -39,6 +39,10 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - ✅ **Drivers CRUD** per module with status transitions (pending/active/inactive/suspended)
 - ✅ **Module-scoped customer view**: derived from ≥1 order OR active cart items in the module; enriched with orders count + spend by currency
 - ✅ Seeded 5 MART vendors (CI + GB) covering all statuses, 4 drivers (CI + GB)
+- ✅ **Mobile Web Experience — Pass 1 (2026-02)** — replicates MARTbakēd mobile app spec at viewport <768px. Files under `/app/frontend/src/components/mobile/` and `/pages/mobile/`.
+   - Reusable primitives: MobileShell, MobileHeader (address + wallet + notifications + search), MobileBottomNav (Home · Categories · [center FAB] · Cart · Profile), AppSelectorSheet (6-app bottom sheet), MobileProductCard (grid + row layouts), QuantityStepper, FilterDrawer (Sort/Type/Price/Origin left-rail bottom sheet)
+   - Screens shipped: Mobile Home (hero + delivery stats + top categories + best offers + best deals + trust strip), Categories index (3-col grid), Category Detail (left subcategory rail + right product grid), Product Detail (image · badges · quantity · related · sticky Add-to-Cart + Buy Now), Cart (list + notes + summary + sticky checkout), Checkout (address · slots · payment · sticky pay), Wallet placeholder ("Coming Soon" per user directive — real balance not faked)
+   - Desktop layout at ≥768px preserved unchanged
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet

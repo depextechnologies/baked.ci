@@ -238,6 +238,14 @@
 .motion-normal { transition-duration: 250ms; }
 .motion-slow { transition-duration: 400ms; }
 
+/* Mobile helpers */
+@keyframes sheet-in {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to   { transform: translateY(0);    opacity: 1;   }
+}
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* focus */
 :focus-visible { outline: 2px solid hsl(var(--baked-blue)); outline-offset: 2px; border-radius: 6px; }
 
