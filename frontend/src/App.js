@@ -39,6 +39,7 @@ import { MobileWallet } from "@/pages/mobile/MobileWallet";
 import { MobileActivities } from "@/pages/mobile/MobileActivities";
 import { MobileRewards } from "@/pages/mobile/MobileRewards";
 import { MobileRefer } from "@/pages/mobile/MobileRefer";
+import { DesktopProfileShell } from "@/components/profile/DesktopProfileShell";
 import { MobileOrderConfirmation } from "@/pages/mobile/MobileOrderConfirmation";
 import { MobileOrderTracking } from "@/pages/mobile/MobileOrderTracking";
 import { MobileOrderDelivered } from "@/pages/mobile/MobileOrderDelivered";
@@ -62,11 +63,14 @@ function DesktopCustomerShell() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersListPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
-        <Route path="/wallet" element={<MobileWalletComingSoon />} />
-        <Route path="/profile" element={<MobileProfile />} />
-        <Route path="/profile/addresses" element={<MobileAddresses />} />
-        <Route path="/profile/settings" element={<MobileSettings />} />
-        <Route path="/profile/help" element={<MobileHelpSupport />} />
+        <Route path="/wallet" element={<DesktopProfileShell><MobileWallet /></DesktopProfileShell>} />
+        <Route path="/profile" element={<DesktopProfileShell><MobileProfile /></DesktopProfileShell>} />
+        <Route path="/profile/addresses" element={<DesktopProfileShell><MobileAddresses /></DesktopProfileShell>} />
+        <Route path="/profile/settings" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
+        <Route path="/profile/help" element={<DesktopProfileShell><MobileHelpSupport /></DesktopProfileShell>} />
+        <Route path="/profile/activities" element={<DesktopProfileShell><MobileActivities /></DesktopProfileShell>} />
+        <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
+        <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
         <Route path="/express" element={<ComingSoonPage />} />

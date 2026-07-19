@@ -44,6 +44,15 @@ export const AuthProvider = ({ children }) => {
   const loginWithToken = useCallback(async (token, cust) => {
     setToken(token);
     setCustomer(cust);
+    // Redirect to the intended destination if any (e.g. Profile route the user tried to hit)
+    if (typeof window !== "undefined") {
+      const target = sessionStorage.getItem("baked_post_login");
+      if (target) {
+        sessionStorage.removeItem("baked_post_login");
+        // Defer to next tick so the token/customer state has propagated
+        setTimeout(() => { window.location.href = target; }, 50);
+      }
+    }
   }, [setToken]);
 
   const logout = useCallback(async () => {

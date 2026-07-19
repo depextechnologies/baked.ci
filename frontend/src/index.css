@@ -246,6 +246,10 @@
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* Desktop profile shell — reuse mobile pages inside a desktop 2-column layout */
+.desktop-profile-content > * { padding-bottom: 1.5rem !important; }
+.desktop-profile-content [data-testid$="-back"] { display: none !important; }
+
 /* focus */
 :focus-visible { outline: 2px solid hsl(var(--baked-blue)); outline-offset: 2px; border-radius: 6px; }
 

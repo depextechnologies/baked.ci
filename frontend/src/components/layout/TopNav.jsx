@@ -91,29 +91,18 @@ export const TopNav = () => {
           </button>
 
           {customer ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button data-testid={NAV.account} className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
-                  {customer.picture ? (
-                    <img src={customer.picture} alt="me" className="w-6 h-6 rounded-full object-cover" />
-                  ) : (
-                    <User size={20} />
-                  )}
-                  <span className="text-[11px] mt-0.5 max-w-[80px] truncate">{customer.name || customer.phone || t(locale, "nav.account")}</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56">
-                <div className="text-sm font-medium mb-1">{customer.name || "Account"}</div>
-                <div className="text-xs text-muted-foreground mb-3">{customer.phone || customer.email}</div>
-                <Button data-testid="auth-logout-btn" variant="secondary" size="sm" className="w-full" onClick={logout}>
-                  <LogOut size={14} className="mr-2" /> Logout
-                </Button>
-              </PopoverContent>
-            </Popover>
+            <button data-testid={NAV.account} onClick={() => navigate("/profile")} className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
+              {customer.picture ? (
+                <img src={customer.picture} alt="me" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                <User size={20} />
+              )}
+              <span className="text-[11px] mt-0.5 max-w-[80px] truncate">{customer.name || customer.phone || t(locale, "nav.account")}</span>
+            </button>
           ) : (
             <button
               data-testid="auth-open-login-btn"
-              onClick={() => setLoginOpen(true)}
+              onClick={() => { sessionStorage.setItem("baked_post_login", "/profile"); setLoginOpen(true); }}
               className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast"
             >
               <User size={20} />

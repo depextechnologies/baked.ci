@@ -59,7 +59,12 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - ✅ **Rewards Earning Engine (2026-02)** — live earning + redemption pipeline.
    - Backend: `CreateOrderIn.use_points` accepts a redemption amount; server caps redemption so it never violates min-order; on order confirmation we deduct redeemed points, credit `subtotal * REWARD_EARN_RATE` (1 pt per unit) and persist an entry per side in `db.reward_entries`. `GET /api/mart/cart/eligibility?use_points=N` previews `points_applied`, `points_discount`, `total_after_points`, `points_max_redeemable`, `points_earned_preview` — one source of truth. `GET /api/customers/me/rewards.recent` returns the persisted earn/redeem entries. Constants: `REWARD_EARN_RATE=1`, `REWARD_CONVERSION=100` (100 pts = 1 unit).
    - Frontend: MobileCheckout shows **Redeem baked Points** tile (available balance, Use-max button, live slider with 100-pt steps, "Using N pts → −X discount" hint, min-order guard), plus a "+X baked Points will be credited when this order is confirmed" preview strip. Order summary now includes a "Points discount (N pts)" row. MobileOrderConfirmation shows a "baked Rewards · You earned +X pts · Redeemed N pts" card linking to /profile/rewards. MobileRewards Recent list is populated live with proper signs & formatted dates.
-   - Verified end-to-end via curl (earn 3200 → redeem 1000 → balance 5400 after 2 orders) + mobile screenshots (checkout tile, confirmation card, rewards list).
+- ✅ **Desktop Profile Responsive Layout (2026-02)** — closes the Fixing Prompt.
+   - New `/app/frontend/src/components/profile/DesktopProfileShell.jsx` renders a 260px sidebar + fluid content area for viewports ≥768px. Blue active state (#1D9BF0) with left accent bar, persistent Dark Mode toggle + Logout, sticky top-24 sidebar.
+   - `DesktopCustomerShell` now wraps every `/profile/*` and `/wallet` route in `<DesktopProfileShell>` around the existing Mobile* pages — **shared components, no duplication**. CSS in `index.css` hides mobile sub-header back buttons inside `.desktop-profile-content`.
+   - **TopNav bug fix**: profile icon now navigates directly to `/profile` for logged-in customers (was a popover). Guest click stores `sessionStorage.baked_post_login = "/profile"` and opens the login dialog.
+   - **Auth flow**: `loginWithToken` reads `baked_post_login` after login and hard-navigates to it — guests attempting a profile route are seamlessly returned after auth.
+   - Mobile experience preserved unchanged (`isMobile` still routes to `MobileCustomerShell`).
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet
