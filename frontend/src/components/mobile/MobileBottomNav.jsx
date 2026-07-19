@@ -56,7 +56,7 @@ export const MobileBottomNav = ({ onOpenAppSelector }) => {
           {/* Spacer for FAB */}
           <div className="w-14 shrink-0" aria-hidden />
           <Item icon={ShoppingCart} label="Cart" paths={["/cart"]} badge={cart.item_count} testid="m-bnav-cart" />
-          <Item icon={User} label="Profile" paths={["/orders", "/profile"]} testid="m-bnav-profile" />
+          <Item icon={User} label="Profile" paths={["/profile", "/orders"]} testid="m-bnav-profile" />
         </div>
       </nav>
     </>

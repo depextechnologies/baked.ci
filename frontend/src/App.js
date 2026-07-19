@@ -38,6 +38,10 @@ import { MobileWalletComingSoon } from "@/pages/mobile/MobileWalletComingSoon";
 import { MobileOrderConfirmation } from "@/pages/mobile/MobileOrderConfirmation";
 import { MobileOrderTracking } from "@/pages/mobile/MobileOrderTracking";
 import { MobileOrderDelivered } from "@/pages/mobile/MobileOrderDelivered";
+import { MobileProfile } from "@/pages/mobile/MobileProfile";
+import { MobileAddresses } from "@/pages/mobile/MobileAddresses";
+import { MobileSettings } from "@/pages/mobile/MobileSettings";
+import { MobileHelpSupport } from "@/pages/mobile/MobileHelpSupport";
 
 function DesktopCustomerShell() {
   return (
@@ -55,6 +59,10 @@ function DesktopCustomerShell() {
         <Route path="/orders" element={<OrdersListPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/wallet" element={<MobileWalletComingSoon />} />
+        <Route path="/profile" element={<MobileProfile />} />
+        <Route path="/profile/addresses" element={<MobileAddresses />} />
+        <Route path="/profile/settings" element={<MobileSettings />} />
+        <Route path="/profile/help" element={<MobileHelpSupport />} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
         <Route path="/express" element={<ComingSoonPage />} />
@@ -84,6 +92,10 @@ function MobileCustomerShell() {
         <Route path="/orders/:id/delivered" element={<MobileOrderDelivered />} />
         <Route path="/orders/:id" element={<MobileOrderTracking />} />
         <Route path="/wallet" element={<MobileWalletComingSoon />} />
+        <Route path="/profile" element={<MobileProfile />} />
+        <Route path="/profile/addresses" element={<MobileAddresses />} />
+        <Route path="/profile/settings" element={<MobileSettings />} />
+        <Route path="/profile/help" element={<MobileHelpSupport />} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
         <Route path="/express" element={<ComingSoonPage />} />
