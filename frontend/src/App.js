@@ -35,6 +35,10 @@ import { MobileProductDetail } from "@/pages/mobile/MobileProductDetail";
 import { MobileCart } from "@/pages/mobile/MobileCart";
 import { MobileCheckout } from "@/pages/mobile/MobileCheckout";
 import { MobileWalletComingSoon } from "@/pages/mobile/MobileWalletComingSoon";
+import { MobileWallet } from "@/pages/mobile/MobileWallet";
+import { MobileActivities } from "@/pages/mobile/MobileActivities";
+import { MobileRewards } from "@/pages/mobile/MobileRewards";
+import { MobileRefer } from "@/pages/mobile/MobileRefer";
 import { MobileOrderConfirmation } from "@/pages/mobile/MobileOrderConfirmation";
 import { MobileOrderTracking } from "@/pages/mobile/MobileOrderTracking";
 import { MobileOrderDelivered } from "@/pages/mobile/MobileOrderDelivered";
@@ -91,11 +95,14 @@ function MobileCustomerShell() {
         <Route path="/orders/:id/track" element={<MobileOrderTracking />} />
         <Route path="/orders/:id/delivered" element={<MobileOrderDelivered />} />
         <Route path="/orders/:id" element={<MobileOrderTracking />} />
-        <Route path="/wallet" element={<MobileWalletComingSoon />} />
+        <Route path="/wallet" element={<MobileWallet />} />
         <Route path="/profile" element={<MobileProfile />} />
         <Route path="/profile/addresses" element={<MobileAddresses />} />
         <Route path="/profile/settings" element={<MobileSettings />} />
         <Route path="/profile/help" element={<MobileHelpSupport />} />
+        <Route path="/profile/activities" element={<MobileActivities />} />
+        <Route path="/profile/rewards" element={<MobileRewards />} />
+        <Route path="/profile/refer" element={<MobileRefer />} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
         <Route path="/express" element={<ComingSoonPage />} />

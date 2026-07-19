@@ -211,3 +211,75 @@ async def get_ticket(ticket_id: str, customer: dict = Depends(get_current_custom
     if not t:
         raise HTTPException(404, "Ticket not found")
     return t
+
+
+# ---------- Wallet (MVP: balance is 0, transactions derived from paid orders) ----------
+@router.get("/me/wallet")
+async def my_wallet(customer: dict = Depends(get_current_customer)):
+    """MVP wallet: real 0.00 balance + informational transaction feed from paid orders.
+    COD/paid-out-of-wallet orders are listed for completeness but do NOT reduce wallet balance.
+    """
+    orders = await db.orders.find(
+        {"customer_id": customer["id"], "deleted_at": None},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(30).to_list(30)
+
+    module_icons = {"mart": "shopping-bag", "food": "utensils", "shop": "shopping-bag", "express": "truck", "auto": "car", "immo": "home"}
+    txns = []
+    for o in orders:
+        txns.append({
+            "id": f"txn_{o['id']}",
+            "type": "purchase",
+            "kind": o.get("module", "mart"),
+            "icon": module_icons.get(o.get("module", "mart"), "shopping-bag"),
+            "label": f"{(o.get('module') or 'mart').upper()}bakēd Order",
+            "reference": o.get("number"),
+            "order_id": o["id"],
+            "amount": -float(o.get("total", 0)),  # negative for spend
+            "currency": o.get("currency"),
+            "settled_via": o.get("payment_method", "cod"),
+            "wallet_impact": 0.0,  # never reduces wallet in MVP (paid outside)
+            "at": o.get("created_at"),
+            "status": o.get("status"),
+        })
+
+    country_currency = customer.get("country") == "CI" and "XOF" or "GBP"
+    country_symbol = customer.get("country") == "CI" and "CFA" or "£"
+    return {
+        "balance": 0.0,
+        "currency": country_currency,
+        "currency_symbol": country_symbol,
+        "transactions": txns,
+        "auto_topup": {"enabled": False, "trigger": 10, "amount": 20, "available": False, "message": "Coming soon"},
+        "features": {
+            "top_up": {"available": False, "message": "Coming soon"},
+            "withdraw": {"available": False, "message": "Coming soon"},
+            "refunds": {"available": False, "message": "Coming soon"},
+        },
+        "note": "Wallet balance is 0.00 — the wallet is not yet activated. Your paid orders appear here for reference and do not affect the balance.",
+    }
+
+
+# ---------- Rewards (MVP placeholder — points on customer document) ----------
+@router.get("/me/rewards")
+async def my_rewards(customer: dict = Depends(get_current_customer)):
+    points = int(customer.get("reward_points") or 0)
+    country_currency = customer.get("country") == "CI" and "XOF" or "GBP"
+    country_symbol = customer.get("country") == "CI" and "CFA" or "£"
+    conversion_rate = 100  # 100 points = 1 unit of currency
+    return {
+        "points": points,
+        "worth": round(points / conversion_rate, 2),
+        "currency": country_currency,
+        "currency_symbol": country_symbol,
+        "earn_rate": 1,          # 1 point per unit spent
+        "conversion_rate": conversion_rate,
+        "tiers": [
+            {"points": 100, "worth": round(100 / conversion_rate, 2)},
+            {"points": 500, "worth": round(500 / conversion_rate, 2)},
+            {"points": 1000, "worth": round(1000 / conversion_rate, 2)},
+        ],
+        "recent": [],  # populated once earning is enabled
+        "policies": ["Earn 1 point for every unit spent", "Use points at checkout", "No expiry during MVP"],
+        "message": "Rewards program is live in preview — earning will be enabled once wallet launches.",
+    }

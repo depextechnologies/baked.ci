@@ -22,9 +22,10 @@ export const MobileShell = ({ children }) => {
   const isProduct = loc.pathname.startsWith("/products");
   const isCart = loc.pathname.startsWith("/cart");
   const isCheckout = loc.pathname.startsWith("/checkout");
-  const isOrder = loc.pathname.startsWith("/orders") || loc.pathname === "/wallet";
+  const isOrder = loc.pathname.startsWith("/orders");
+  const isProfile = loc.pathname.startsWith("/profile") || loc.pathname === "/wallet";
 
-  const showHeader = isHome || isCategory || isCart || isCheckout || isOrder || isProduct;
+  const showHeader = (isHome || isCategory || isCart || isCheckout || isOrder || isProduct) && !isProfile;
   const showBottomNav = !isCheckout; // hide bottom nav on checkout to focus the CTA
 
   return (
