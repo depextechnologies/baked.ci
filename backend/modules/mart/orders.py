@@ -66,9 +66,11 @@ async def payment_methods(country: str = Query("CI")):
 
 
 @router.get("/mart/cart/eligibility")
-async def cart_eligibility(customer: dict = Depends(get_current_customer)):
+async def cart_eligibility(customer: dict = Depends(get_current_customer), use_points: int = Query(0, ge=0)):
     """Return eligibility for the customer's active cart.
     Frontend uses this as the single-source-of-truth for the checkout gate.
+
+    Also previews reward-points redemption when `use_points` is provided.
     """
     _cart, _lines, subtotal = await _snapshot_cart(customer["id"])
     country = await get_country_config(customer.get("country", "CI")) or {}
@@ -80,6 +82,22 @@ async def cart_eligibility(customer: dict = Depends(get_current_customer)):
     )
     elig["currency"] = country.get("currency", "")
     elig["currency_symbol"] = country.get("currency_symbol", "")
+
+    # Rewards preview
+    available = int(customer.get("reward_points") or 0)
+    requested = min(max(0, use_points), available)
+    max_discount_allowed = max(0.0, elig["total"] - (country.get("min_order", 0) or 0))
+    discount = round(min(requested / REWARD_CONVERSION, max_discount_allowed), 2)
+    # Snap to whole-point boundaries
+    applied = int(discount * REWARD_CONVERSION)
+    elig["points_available"] = available
+    elig["points_requested"] = requested
+    elig["points_applied"] = applied
+    elig["points_discount"] = discount
+    elig["points_conversion"] = REWARD_CONVERSION
+    elig["points_max_redeemable"] = min(available, int(max_discount_allowed * REWARD_CONVERSION))
+    elig["total_after_points"] = round(elig["total"] - discount, 2)
+    elig["points_earned_preview"] = int(subtotal * REWARD_EARN_RATE)
     return elig
 
 
@@ -103,6 +121,11 @@ class CreateOrderIn(BaseModel):
     payment_method: str = Field("cod")
     module: Optional[str] = None              # kept for forward compat with other modules
     instructions: Optional[str] = None
+    use_points: int = Field(0, ge=0, description="Number of baked Points to redeem as a discount")
+
+
+REWARD_EARN_RATE = 1        # 1 point per unit spent (integer part of subtotal)
+REWARD_CONVERSION = 100     # 100 points = 1 unit of currency
 
 
 SLOT_LABELS = {
@@ -158,8 +181,19 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
         raise HTTPException(400, f"Minimum order is {country.get('min_order', 0)} {country.get('currency','')}. Add {elig['shortfall']:g} {country.get('currency','')} more to your basket.")
 
     delivery_fee = elig["delivery_fee"]
-    total = elig["total"]
+    subtotal_after_delivery = elig["total"]
     currency = country.get("currency", lines[0].get("currency"))
+
+    # ---- Rewards redemption ----
+    available_points = int(customer.get("reward_points") or 0)
+    use_points = min(max(0, payload.use_points), available_points)
+    # Never let a redemption drive the total below the minimum-order threshold
+    max_discount_allowed = max(0.0, subtotal_after_delivery - (country.get("min_order", 0) or 0))
+    points_discount = round(min(use_points / REWARD_CONVERSION, max_discount_allowed), 2)
+    # Round redemption down to whole points if capped
+    if points_discount < use_points / REWARD_CONVERSION:
+        use_points = int(points_discount * REWARD_CONVERSION)
+    total = round(subtotal_after_delivery - points_discount, 2)
 
     address = None
     if payload.address_id:
@@ -198,6 +232,9 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
         "items": lines,
         "subtotal": subtotal,
         "delivery_fee": delivery_fee,
+        "points_redeemed": use_points,
+        "points_discount": points_discount,
+        "points_earned": int(subtotal * REWARD_EARN_RATE),
         "total": total,
         "currency": currency,
         "address": address,
@@ -233,6 +270,24 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
     if intent["status"] == "succeeded" or intent["status"] == "authorized":
         updates["status"] = "confirmed"
         await event_bus.publish(Events.PAYMENT_COMPLETED, {"order_id": order_id, "amount": total, "provider": intent.get("provider")})
+
+        # Rewards: deduct redeemed points, credit earned points, record entries
+        points_delta = order["points_earned"] - order["points_redeemed"]
+        if points_delta != 0 or order["points_redeemed"] > 0:
+            new_balance = max(0, available_points + points_delta)
+            await db.customers.update_one({"id": customer["id"]}, {"$set": {"reward_points": new_balance, "updated_at": _now_iso()}})
+        if order["points_earned"] > 0:
+            await db.reward_entries.insert_one({
+                "id": new_id("rwd"), "customer_id": customer["id"], "kind": "earned",
+                "points": order["points_earned"], "order_id": order_id, "order_number": order["number"],
+                "label": f"Earned on {order['number']}", "created_at": _now_iso(),
+            })
+        if order["points_redeemed"] > 0:
+            await db.reward_entries.insert_one({
+                "id": new_id("rwd"), "customer_id": customer["id"], "kind": "redeemed",
+                "points": -order["points_redeemed"], "order_id": order_id, "order_number": order["number"],
+                "label": f"Redeemed on {order['number']}", "created_at": _now_iso(),
+            })
     await db.orders.update_one({"id": order_id}, {"$set": updates})
 
     # Clear the cart

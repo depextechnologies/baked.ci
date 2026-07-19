@@ -5,7 +5,7 @@ import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { checkOrderEligibility } from "../../lib/checkout";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, MapPin, Zap, Clock, CalendarClock, ChevronRight, Banknote, Wallet2, CreditCard, Apple, ShieldCheck, ShoppingBag, AlertCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Zap, Clock, CalendarClock, ChevronRight, Banknote, Wallet2, CreditCard, Apple, ShieldCheck, ShoppingBag, AlertCircle, Star, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { PhoneLoginDialog } from "../../components/auth/PhoneLoginDialog";
 
@@ -26,16 +26,39 @@ export const MobileCheckout = () => {
   const [slot, setSlot] = useState("express");
   const [payment, setPayment] = useState("cod");
   const [placing, setPlacing] = useState(false);
+  const [rewards, setRewards] = useState(null);      // {points, conversion_rate}
+  const [usePoints, setUsePoints] = useState(0);     // points the shopper wants to redeem
+  const [preview, setPreview] = useState(null);      // eligibility+points preview from backend
   const ccy = country?.currency_symbol || country?.currency;
 
   useEffect(() => {
-    // Only redirect once we're sure the cart is actually empty (avoids race on hard-reload)
-    if (cartLoaded && !cart.items?.length) { nav("/cart"); }
-  }, [cart, cartLoaded, nav]);
+    if (!cart.items?.length || !customer) return;
+    api.get("/customers/me/rewards").then((r) => setRewards(r.data)).catch(() => setRewards(null));
+  }, [customer, cart]);
+
+  // Live preview of eligibility WITH points redemption
+  useEffect(() => {
+    if (!customer) return;
+    api.get(`/mart/cart/eligibility?use_points=${usePoints}`).then((r) => setPreview(r.data)).catch(() => setPreview(null));
+  }, [customer, usePoints, cart]);
+
+  useEffect(() => {
+    // Only redirect if we're truly certain the cart is empty AND auth has settled.
+    // The redirect is now guarded by a brief settle window to avoid the auth→cart race.
+    if (cartLoaded && customer && !cart.items?.length) {
+      const t = setTimeout(() => { if (!cart.items?.length) nav("/cart"); }, 600);
+      return () => clearTimeout(t);
+    }
+  }, [cart, cartLoaded, customer, nav]);
 
   const subtotal = cart.subtotal || 0;
   const elig = checkOrderEligibility(subtotal, country);
-  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
+  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
+  const pointsDiscount = preview?.points_discount || 0;
+  const pointsApplied = preview?.points_applied || 0;
+  const maxRedeemable = preview?.points_max_redeemable ?? (rewards?.points || 0);
+  const total = Math.max(0, elig.total - pointsDiscount);
+  const pointsEarned = preview?.points_earned_preview || Math.floor(subtotal);
 
   const placeOrder = async () => {
     if (!customer) { setLoginOpen(true); return; }
@@ -48,8 +71,9 @@ export const MobileCheckout = () => {
         delivery_slot: slot,
         payment_method: payment,
         instructions: address.instructions,
+        use_points: pointsApplied,
       });
-      toast.success("Order placed!");
+      toast.success(`Order placed! +${data.points_earned || 0} baked Points earned`);
       await clear();
       nav(`/orders/${data.id}/confirmation`);
     } catch (e) {
@@ -141,6 +165,48 @@ export const MobileCheckout = () => {
         </div>
       </section>
 
+      {/* Rewards — Redeem Points tile */}
+      {rewards && rewards.points > 0 && (
+        <section className="px-4 mt-5">
+          <div className="text-sm font-bold mb-2 flex items-center gap-1.5"><Star size={14} style={{ color: "#FCC44C" }} fill="#FCC44C" /> Redeem baked Points</div>
+          <div className="baked-card overflow-hidden border p-4" style={{ borderColor: "#FCC44C55", background: "linear-gradient(135deg, #FCC44C14 0%, hsl(var(--card)) 65%)" }}>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Available</div>
+                <div className="text-lg font-bold" data-testid="m-co-points-available">{rewards.points} pts</div>
+                <div className="text-[10px] text-muted-foreground">Worth {formatMoney(rewards.worth, rewards.currency, rewards.currency_symbol)} at checkout</div>
+              </div>
+              <button data-testid="m-co-points-max" onClick={() => setUsePoints(maxRedeemable)} disabled={maxRedeemable === 0} className="text-xs font-bold px-3 h-9 rounded-lg text-black disabled:opacity-40" style={{ backgroundColor: "#FCC44C" }}>Use max</button>
+            </div>
+            <div className="mt-4">
+              <input
+                data-testid="m-co-points-slider"
+                type="range" min={0} max={maxRedeemable} step={rewards.conversion_rate || 100}
+                value={Math.min(usePoints, maxRedeemable)}
+                onChange={(e) => setUsePoints(Number(e.target.value))}
+                className="w-full accent-[#FCC44C]"
+              />
+              <div className="flex items-center justify-between text-[11px] mt-1">
+                <span className="text-muted-foreground">0</span>
+                <span className="font-semibold" data-testid="m-co-points-applied">Using <b style={{ color: "#FCC44C" }}>{pointsApplied}</b> pts → <b style={{ color: "#77BC1F" }}>−{formatMoney(pointsDiscount, country?.currency, ccy)}</b></span>
+                <span className="text-muted-foreground">{maxRedeemable}</span>
+              </div>
+              {maxRedeemable === 0 && <div className="text-[10px] text-muted-foreground text-center mt-2">Redemption available on orders above the minimum threshold.</div>}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Rewards — earning preview (always shown if authenticated) */}
+      {rewards && (
+        <section className="px-4 mt-3">
+          <div className="baked-card p-3 flex items-center gap-3 border" style={{ borderColor: "#77BC1F55", background: "linear-gradient(135deg, #77BC1F14 0%, hsl(var(--card)) 65%)" }}>
+            <div className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Sparkles size={16} /></div>
+            <div className="text-[12px] leading-snug"><b style={{ color: "#77BC1F" }}>+{pointsEarned} baked Points</b> will be credited when this order is confirmed.</div>
+          </div>
+        </section>
+      )}
+
       {/* Order summary */}
       <section className="px-4 mt-5">
         <div className="text-sm font-bold mb-2 flex items-center gap-1.5"><ShoppingBag size={14} /> Order summary <span className="text-xs text-muted-foreground font-normal">· {cart.item_count} items</span></div>
@@ -148,6 +214,7 @@ export const MobileCheckout = () => {
           <div className="space-y-2 text-xs">
             <Row label="Subtotal" value={formatMoney(subtotal, country?.currency, ccy)} />
             <Row label="Delivery fee" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
+            {pointsDiscount > 0 && <Row label={`Points discount (${pointsApplied} pts)`} value={<span style={{ color: "#77BC1F" }}>− {formatMoney(pointsDiscount, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
               <span>Total (Incl. VAT)</span><span data-testid="m-co-total">{formatMoney(total, country?.currency, ccy)}</span>

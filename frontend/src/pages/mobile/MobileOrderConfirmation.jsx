@@ -5,7 +5,7 @@ import { useApp } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { OrderTimeline } from "../../components/mobile/OrderTimeline";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, HelpCircle, CheckCircle2, ChevronRight, ShoppingBag, Truck, MapPin, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, HelpCircle, CheckCircle2, ChevronRight, ShoppingBag, Truck, MapPin, ChevronDown, ChevronUp, Star, Sparkles } from "lucide-react";
 import confetti from "../../lib/confetti";
 
 export const MobileOrderConfirmation = () => {
@@ -69,6 +69,25 @@ export const MobileOrderConfirmation = () => {
         </div>
       </div>
 
+      {/* baked Points earned */}
+      {(order.points_earned > 0 || order.points_redeemed > 0) && (
+        <div className="px-4 mt-4">
+          <div className="baked-card overflow-hidden p-4 border" style={{ borderColor: "#FCC44C55", background: "linear-gradient(135deg, #FCC44C14 0%, hsl(var(--card)) 65%)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C", color: "#0a1200" }}><Star size={18} fill="#0a1200" strokeWidth={2.5} /></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold">baked Rewards</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  {order.points_earned > 0 && <>You earned <b style={{ color: "#FCC44C" }}>+{order.points_earned} pts</b></>}
+                  {order.points_redeemed > 0 && <>{order.points_earned > 0 ? " · " : ""}Redeemed <b style={{ color: "#77BC1F" }}>{order.points_redeemed} pts</b></>}
+                </div>
+              </div>
+              <button data-testid="m-oc-view-rewards" onClick={() => nav("/profile/rewards")} className="text-xs font-bold px-3 h-9 rounded-lg" style={{ backgroundColor: "#FCC44C", color: "#0a1200" }}>View</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
       <section className="px-4 mt-5">
         <div className="text-sm font-bold mb-3">Order status</div>
@@ -103,6 +122,7 @@ export const MobileOrderConfirmation = () => {
           <div className="space-y-1.5 text-xs">
             <Row label="Subtotal" value={formatMoney(order.subtotal, order.currency, ccy)} />
             <Row label="Delivery fee" value={order.delivery_fee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(order.delivery_fee, order.currency, ccy)} />
+            {order.points_discount > 0 && <Row label={`Points discount (${order.points_redeemed} pts)`} value={<span style={{ color: "#77BC1F" }}>− {formatMoney(order.points_discount, order.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold">
               <span>Total paid</span>

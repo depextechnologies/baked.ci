@@ -75,13 +75,13 @@ export const MobileRewards = () => {
           </div>
         ) : (
           <div className="baked-card bg-card border border-border overflow-hidden">
-            {r.recent.map((e) => (
+            {r.recent.map((e) => { const isRedeem = e.kind === "redeemed" || e.points < 0; const dt = e.created_at ? new Date(e.created_at) : null; const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" }) : "Recent"; return (
               <div key={e.id} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Star size={13} /></div>
-                <div className="flex-1 min-w-0"><div className="text-sm font-semibold truncate">{e.label}</div><div className="text-[10px] text-muted-foreground">{new Date(e.at).toLocaleDateString()}</div></div>
-                <div className="text-sm font-bold" style={{ color: "#FCC44C" }}>+{e.points}</div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: isRedeem ? "#77BC1F22" : "#FCC44C22", color: isRedeem ? "#77BC1F" : "#FCC44C" }}><Star size={13} fill={isRedeem ? "#77BC1F" : "#FCC44C"} /></div>
+                <div className="flex-1 min-w-0"><div className="text-sm font-semibold truncate">{e.label}</div><div className="text-[10px] text-muted-foreground">{dateStr}</div></div>
+                <div className="text-sm font-bold" style={{ color: isRedeem ? "#77BC1F" : "#FCC44C" }}>{e.points > 0 ? `+${e.points}` : e.points}</div>
               </div>
-            ))}
+            );})}
           </div>
         )}
       </div>

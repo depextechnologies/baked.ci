@@ -267,19 +267,20 @@ async def my_rewards(customer: dict = Depends(get_current_customer)):
     country_currency = customer.get("country") == "CI" and "XOF" or "GBP"
     country_symbol = customer.get("country") == "CI" and "CFA" or "£"
     conversion_rate = 100  # 100 points = 1 unit of currency
+    recent = await db.reward_entries.find({"customer_id": customer["id"]}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
     return {
         "points": points,
         "worth": round(points / conversion_rate, 2),
         "currency": country_currency,
         "currency_symbol": country_symbol,
-        "earn_rate": 1,          # 1 point per unit spent
+        "earn_rate": 1,
         "conversion_rate": conversion_rate,
         "tiers": [
             {"points": 100, "worth": round(100 / conversion_rate, 2)},
             {"points": 500, "worth": round(500 / conversion_rate, 2)},
             {"points": 1000, "worth": round(1000 / conversion_rate, 2)},
         ],
-        "recent": [],  # populated once earning is enabled
-        "policies": ["Earn 1 point for every unit spent", "Use points at checkout", "No expiry during MVP"],
-        "message": "Rewards program is live in preview — earning will be enabled once wallet launches.",
+        "recent": recent,
+        "policies": ["Earn 1 point for every unit spent", "Redeem 100 points for 1 unit of discount", "No expiry during MVP"],
+        "message": "Rewards are live — earn on every order and redeem at checkout.",
     }
