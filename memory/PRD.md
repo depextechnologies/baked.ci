@@ -65,6 +65,11 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **TopNav bug fix**: profile icon now navigates directly to `/profile` for logged-in customers (was a popover). Guest click stores `sessionStorage.baked_post_login = "/profile"` and opens the login dialog.
    - **Auth flow**: `loginWithToken` reads `baked_post_login` after login and hard-navigates to it — guests attempting a profile route are seamlessly returned after auth.
    - Mobile experience preserved unchanged (`isMobile` still routes to `MobileCustomerShell`).
+- ✅ **Mobile Auth Flow Bug Fix (2026-02-20)** — mobile "Continue to sign in" was navigating to `/` (Home) instead of opening the login dialog because `PhoneLoginDialog` was only mounted in the desktop `TopNav`.
+   - Lifted dialog state into `AuthContext` (`loginOpen`, `openLogin(target?)`, `closeLogin`); stores the return path in `sessionStorage.baked_post_login` when target is provided (or current pathname when omitted).
+   - New `GlobalLoginDialog` component rendered once in both `DesktopCustomerShell` and `MobileCustomerShell`; TopNav now consumes `openLogin("/profile")` from context instead of owning local dialog state.
+   - New `GuestSignInPrompt` component replaces the plain-text "Please sign in…" stubs across `MobileWallet` / `MobileActivities` / `MobileAddresses` / `MobileSettings` / `MobileHelpSupport` / `MobileRewards` / `MobileRefer` — each remembers its own path so users land back on the exact page after auth.
+   - Verified end-to-end via Playwright: guest → /wallet → tap "Continue to sign in" → OTP → auto-redirect back to /wallet as authenticated.
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet

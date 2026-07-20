@@ -5,6 +5,7 @@ import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, User as UserIcon, Phone, Mail, Bell, MessageCircle, Smartphone, Languages, DollarSign, Globe as GlobeIcon, Moon, Lock, Trash2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 const Section = ({ title, children }) => (
   <section className="mt-4">
@@ -70,7 +71,7 @@ export const MobileSettings = () => {
     catch { toast.error("Deletion failed"); }
   };
 
-  if (!customer) return <div className="p-8 text-sm text-muted-foreground">Please sign in to access settings.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to access settings" message="Personalise your BAKĒD experience — language, region, notifications and more." testid="m-settings-signin" />;
 
   return (
     <div className="pb-24">

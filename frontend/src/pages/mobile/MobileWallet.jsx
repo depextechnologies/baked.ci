@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/button";
 import { ArrowLeft, HelpCircle, Wallet2, Plus, ShoppingBag, Truck, Utensils, ShoppingCart as ShoppingIcon, Home as HomeIcon, Car, ShieldCheck, Sparkles, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { MODULES } from "../../lib/modules";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 const KIND_ICON = { mart: ShoppingIcon, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
 const KIND_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#1D9BF0", express: "#FCC44C", auto: "#A659FF", immo: "#FF4C52" };
@@ -21,7 +22,7 @@ export const MobileWallet = () => {
     api.get("/customers/me/wallet").then((r) => setW(r.data)).catch(() => setW(null));
   }, [customer]);
 
-  if (!customer) return <div className="min-h-[70vh] flex items-center justify-center text-sm text-muted-foreground">Please sign in to view your wallet.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to view your wallet" message="Track your BAKĒD balance and transactions across every service." testid="m-wallet-signin" />;
   if (!w) return <div className="p-8 text-sm text-muted-foreground">Loading wallet…</div>;
 
   const soon = () => toast("Wallet operations launch soon — no action needed on your side.");

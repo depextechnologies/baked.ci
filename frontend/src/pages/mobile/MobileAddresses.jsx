@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { ArrowLeft, MapPin, Plus, Trash2, Edit3, Home, Building2, Warehouse, Users2, Check, Star } from "lucide-react";
 import { toast } from "sonner";
 import { MODULES } from "../../lib/modules";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 const LABELS = [
   { code: "Home", icon: Home },
@@ -48,7 +49,7 @@ export const MobileAddresses = () => {
     catch { toast.error("Failed"); }
   };
 
-  if (!customer) return <div className="p-8 text-sm text-muted-foreground">Please sign in to manage addresses.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to manage addresses" message="Save delivery addresses once — use them across every BAKĒD service." testid="m-addresses-signin" />;
 
   const iconFor = (label) => (LABELS.find((l) => l.code === label) || LABELS[4]).icon;
 

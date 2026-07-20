@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { useAuth } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { ArrowLeft, HelpCircle, Star, ShoppingBag, TrendingUp, ShieldCheck, Sparkles, Gift } from "lucide-react";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 export const MobileRewards = () => {
   const nav = useNavigate();
@@ -15,7 +16,7 @@ export const MobileRewards = () => {
     api.get("/customers/me/rewards").then((res) => setR(res.data)).catch(() => setR(null));
   }, [customer]);
 
-  if (!customer) return <div className="min-h-[70vh] flex items-center justify-center text-sm text-muted-foreground">Please sign in to view your rewards.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to see your rewards" message="Earn baked Points on every purchase — redeem them for discounts." testid="m-rewards-signin" />;
   if (!r) return <div className="p-8 text-sm text-muted-foreground">Loading rewards…</div>;
 
   return (

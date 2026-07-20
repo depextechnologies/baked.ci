@@ -1,19 +1,17 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BakedLogo } from "./BakedLogo";
 import { useAuth, useApp, useCart } from "../../contexts/BakedContexts";
 import { NAV } from "../../constants/testIds";
 import { formatMoney, t } from "../../lib/i18n";
 import { MapPin, Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut } from "lucide-react";
-import { PhoneLoginDialog } from "../auth/PhoneLoginDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 
 export const TopNav = () => {
-  const { customer, logout } = useAuth();
+  const { customer, logout, openLogin } = useAuth();
   const { country, countries, setCountryCode, theme, toggleTheme, language, setLanguage } = useApp();
   const { cart } = useCart();
-  const [loginOpen, setLoginOpen] = useState(false);
   const navigate = useNavigate();
 
   const locale = language ? `${language}-${country?.code || "CI"}` : (country?.locale || "en-GB");
@@ -102,7 +100,7 @@ export const TopNav = () => {
           ) : (
             <button
               data-testid="auth-open-login-btn"
-              onClick={() => { sessionStorage.setItem("baked_post_login", "/profile"); setLoginOpen(true); }}
+              onClick={() => openLogin("/profile")}
               className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast"
             >
               <User size={20} />
@@ -162,7 +160,6 @@ export const TopNav = () => {
           </button>
         </div>
       </div>
-      <PhoneLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </>
   );
 };

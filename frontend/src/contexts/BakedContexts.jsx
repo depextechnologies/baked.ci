@@ -9,11 +9,24 @@ const CartCtx = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const setToken = useCallback((token) => {
     if (token) localStorage.setItem("baked_access_token", token);
     else localStorage.removeItem("baked_access_token");
   }, []);
+
+  // Opens the global Sign-In dialog. If a target route is provided (or the current
+  // pathname when omitted), we save it so the user is auto-redirected back after
+  // successful login (see loginWithToken → baked_post_login).
+  const openLogin = useCallback((target) => {
+    if (typeof window !== "undefined") {
+      const dest = target || (window.location.pathname + window.location.search);
+      if (dest && dest !== "/") sessionStorage.setItem("baked_post_login", dest);
+    }
+    setLoginOpen(true);
+  }, []);
+  const closeLogin = useCallback(() => setLoginOpen(false), []);
 
   const refresh = useCallback(async () => {
     const token = localStorage.getItem("baked_access_token");
@@ -61,7 +74,7 @@ export const AuthProvider = ({ children }) => {
     setCustomer(null);
   }, [setToken]);
 
-  const value = useMemo(() => ({ customer, loading, refresh, loginWithToken, logout, setToken }), [customer, loading, refresh, loginWithToken, logout, setToken]);
+  const value = useMemo(() => ({ customer, loading, refresh, loginWithToken, logout, setToken, loginOpen, openLogin, closeLogin }), [customer, loading, refresh, loginWithToken, logout, setToken, loginOpen, openLogin, closeLogin]);
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 };
 export const useAuth = () => useContext(AuthCtx);

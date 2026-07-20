@@ -18,7 +18,7 @@ const Row = ({ icon: Icon, label, sub, onClick, tone = "#77BC1F", testid }) => (
 );
 
 export const MobileProfile = () => {
-  const { customer, logout } = useAuth();
+  const { customer, logout, openLogin } = useAuth();
   const { country, language } = useApp();
   const nav = useNavigate();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light"));
@@ -51,7 +51,7 @@ export const MobileProfile = () => {
         <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><ShieldCheck size={36} /></div>
         <div className="text-lg font-bold">Sign in to view your profile</div>
         <p className="text-xs text-muted-foreground mt-1">Your BAKĒD identity works across every service.</p>
-        <Button data-testid="m-prof-login" onClick={() => nav("/")} className="baked-btn mt-6 h-11 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>Continue to sign in</Button>
+        <Button data-testid="m-prof-login" onClick={() => openLogin("/profile")} className="baked-btn mt-6 h-11 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>Continue to sign in</Button>
       </div>
     );
   }

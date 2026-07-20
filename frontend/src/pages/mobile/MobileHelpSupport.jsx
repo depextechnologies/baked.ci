@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/BakedContexts";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, MessageSquare, Phone, Mail, HelpCircle, Send, Plus, ShoppingBag, Truck, Wallet2, CreditCard, Home as HomeIcon, Car, User as UserIcon, MoreHorizontal, ChevronRight, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 const CATEGORIES = [
   { code: "order", label: "Order Issue", icon: ShoppingBag, tone: "#77BC1F", desc: "Wrong item, missing, quality" },
@@ -52,7 +53,7 @@ export const MobileHelpSupport = () => {
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed to submit"); }
   };
 
-  if (!customer) return <div className="p-8 text-sm text-muted-foreground">Please sign in to open a support ticket.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to contact support" message="Open a ticket, chat with our team, and track your requests in one place." testid="m-help-signin" />;
 
   const supportEmail = "support@baked.app";
   const supportPhone = "+225 27 00 00 00 00";

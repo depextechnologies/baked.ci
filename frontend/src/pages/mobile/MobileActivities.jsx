@@ -5,6 +5,7 @@ import { useAuth, useApp } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Search, Truck, ShoppingBag, Home as HomeIcon, Car, ShieldCheck, ChevronRight, Sparkles, Package, Utensils, ShoppingCart } from "lucide-react";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 const TABS = [
   { code: "deliveries", label: "Deliveries", icon: Truck },
@@ -49,7 +50,7 @@ export const MobileActivities = () => {
     cancelled: orders.filter((o) => o.status === "cancelled").length,
   }), [orders]);
 
-  if (!customer) return <div className="min-h-[70vh] flex items-center justify-center text-sm text-muted-foreground">Please sign in to view your activities.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to view your activities" message="See your orders, deliveries, and requests across every BAKĒD service." testid="m-activities-signin" />;
 
   const ccy = country?.currency_symbol || country?.currency;
 

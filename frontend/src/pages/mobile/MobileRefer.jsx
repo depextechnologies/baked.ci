@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { ArrowLeft, HelpCircle, Copy, Share2, MessageCircle, Mail, Smartphone, Users2, Sparkles, Gift, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 export const MobileRefer = () => {
   const nav = useNavigate();
@@ -32,7 +33,7 @@ export const MobileRefer = () => {
     else copy(msg, "Message copied");
   };
 
-  if (!customer) return <div className="min-h-[70vh] flex items-center justify-center text-sm text-muted-foreground">Please sign in to invite friends.</div>;
+  if (!customer) return <GuestSignInPrompt title="Sign in to invite friends" message="Get your referral code — both you and your friend earn baked Points." testid="m-refer-signin" />;
   if (!r) return <div className="p-8 text-sm text-muted-foreground">Loading referrals…</div>;
 
   return (

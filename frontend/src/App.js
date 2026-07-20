@@ -47,6 +47,7 @@ import { MobileProfile } from "@/pages/mobile/MobileProfile";
 import { MobileAddresses } from "@/pages/mobile/MobileAddresses";
 import { MobileSettings } from "@/pages/mobile/MobileSettings";
 import { MobileHelpSupport } from "@/pages/mobile/MobileHelpSupport";
+import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog";
 
 function DesktopCustomerShell() {
   return (
@@ -79,6 +80,7 @@ function DesktopCustomerShell() {
         <Route path="*" element={<HomePage />} />
       </Routes>
       <Footer />
+      <GlobalLoginDialog />
     </div>
   );
 }
@@ -114,6 +116,7 @@ function MobileCustomerShell() {
         <Route path="/immo" element={<ComingSoonPage />} />
         <Route path="*" element={<MobileHome />} />
       </Routes>
+      <GlobalLoginDialog />
     </MobileShell>
   );
 }
