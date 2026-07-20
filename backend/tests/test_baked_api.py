@@ -38,15 +38,16 @@ class TestConfig:
         assert r.status_code == 200
         data = r.json()
         codes = {c["code"]: c for c in data}
-        assert "CI" in codes and "GB" in codes
+        assert "CI" in codes and "LR" in codes
+        assert "GB" not in codes, "GB should be removed from the platform"
         ci = codes["CI"]
         assert ci["currency"] == "XOF"
         assert ci["locale"] == "fr-CI"
         assert ci["phone_code"] == "+225"
-        gb = codes["GB"]
-        assert gb["currency"] == "GBP"
-        assert gb["locale"] == "en-GB"
-        assert gb["phone_code"] == "+44"
+        lr = codes["LR"]
+        assert lr["currency"] == "LRD"
+        assert lr["locale"] == "en-LR"
+        assert lr["phone_code"] == "+231"
 
     def test_modules_ci_colors(self, api):
         r = api.get(f"{BASE_URL}/api/config/modules?country=CI")
@@ -77,8 +78,8 @@ class TestMart:
         assert "Produits Laitiers & Œufs" in names
         assert "Boulangerie" in names
 
-    def test_categories_gb_english(self, api):
-        r = api.get(f"{BASE_URL}/api/mart/categories?country=GB")
+    def test_categories_lr_english(self, api):
+        r = api.get(f"{BASE_URL}/api/mart/categories?country=LR")
         assert r.status_code == 200
         cats = r.json()
         assert len(cats) == 9

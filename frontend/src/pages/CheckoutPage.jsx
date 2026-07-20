@@ -24,7 +24,7 @@ export const CheckoutPage = () => {
   const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState(false);
   const [showNewAddr, setShowNewAddr] = useState(false);
-  const [newAddr, setNewAddr] = useState({ label: "Home", line1: "", city: country.code === "CI" ? "Abidjan" : "London", instructions: "" });
+  const [newAddr, setNewAddr] = useState({ label: "Home", line1: "", city: country.code === "CI" ? "Abidjan" : "Monrovia", instructions: "" });
 
   useEffect(() => {
     if (!customer) { setLoginOpen(true); return; }
@@ -53,7 +53,7 @@ export const CheckoutPage = () => {
     setAddresses((prev) => [...prev, data]);
     setAddressId(data.id);
     setShowNewAddr(false);
-    setNewAddr({ label: "Home", line1: "", city: country.code === "CI" ? "Abidjan" : "London", instructions: "" });
+    setNewAddr({ label: "Home", line1: "", city: country.code === "CI" ? "Abidjan" : "Monrovia", instructions: "" });
   };
 
   const placeOrder = async () => {

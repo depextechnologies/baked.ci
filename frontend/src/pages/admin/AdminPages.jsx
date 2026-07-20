@@ -6,7 +6,7 @@ import { Users, ShoppingBag, DollarSign, Globe, Sparkles, Trash2, PlusCircle, Re
 import { MODULES } from "../../lib/modules";
 import { toast } from "sonner";
 
-const fmtMoney = (n, ccy) => `${(n || 0).toLocaleString("en-GB")} ${ccy || ""}`.trim();
+const fmtMoney = (n, ccy) => `${(n || 0).toLocaleString("en-US")} ${ccy || ""}`.trim();
 const fmtDate = (s) => (s ? new Date(s).toLocaleString() : "-");
 
 // ============ DASHBOARD ============

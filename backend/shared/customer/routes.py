@@ -27,6 +27,11 @@ class AddressIn(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_default: bool = False
+    # Google Places / rich-address fields (all optional so existing addresses stay compatible)
+    place_id: Optional[str] = None
+    formatted_address: Optional[str] = None
+    region: Optional[str] = None
+    postal_code: Optional[str] = None
 
 
 @router.get("/me")
@@ -141,6 +146,13 @@ def _make_ref_code(cid: str) -> str:
     return "BAKED" + "".join(c for c in h if c.isalnum())[:4]
 
 
+async def _country_currency(country_code: Optional[str]) -> tuple[str, str]:
+    """Look up (currency, symbol) from the countries collection — never hardcode."""
+    code = (country_code or "CI").upper()
+    doc = await db.countries.find_one({"code": code}, {"_id": 0}) or {}
+    return doc.get("currency", "XOF"), doc.get("currency_symbol", "CFA")
+
+
 @router.get("/me/referrals")
 async def my_referrals(customer: dict = Depends(get_current_customer)):
     code = customer.get("referral_code") or _make_ref_code(customer["id"])
@@ -149,6 +161,7 @@ async def my_referrals(customer: dict = Depends(get_current_customer)):
     friends_joined = await db.customers.count_documents({"referred_by": code, "deleted_at": None})
     total_earned = 0  # No auto-award in MVP
     pending = 0
+    currency, _ = await _country_currency(customer.get("country"))
     return {
         "referral_code": code,
         "referral_link": f"https://baked.app/join?ref={code}",
@@ -156,7 +169,7 @@ async def my_referrals(customer: dict = Depends(get_current_customer)):
         "total_earned": total_earned,
         "pending": pending,
         "reward_per_referral": 10,  # config-driven placeholder
-        "currency": (customer.get("country") == "CI" and "XOF") or "GBP",
+        "currency": currency,
         "validity_days": 30,
         "message": "Refer a friend! They join, you both get rewards when the program launches.",
     }
@@ -243,8 +256,7 @@ async def my_wallet(customer: dict = Depends(get_current_customer)):
             "status": o.get("status"),
         })
 
-    country_currency = customer.get("country") == "CI" and "XOF" or "GBP"
-    country_symbol = customer.get("country") == "CI" and "CFA" or "£"
+    country_currency, country_symbol = await _country_currency(customer.get("country"))
     return {
         "balance": 0.0,
         "currency": country_currency,
@@ -264,8 +276,7 @@ async def my_wallet(customer: dict = Depends(get_current_customer)):
 @router.get("/me/rewards")
 async def my_rewards(customer: dict = Depends(get_current_customer)):
     points = int(customer.get("reward_points") or 0)
-    country_currency = customer.get("country") == "CI" and "XOF" or "GBP"
-    country_symbol = customer.get("country") == "CI" and "CFA" or "£"
+    country_currency, country_symbol = await _country_currency(customer.get("country"))
     conversion_rate = 100  # 100 points = 1 unit of currency
     recent = await db.reward_entries.find({"customer_id": customer["id"]}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
     return {

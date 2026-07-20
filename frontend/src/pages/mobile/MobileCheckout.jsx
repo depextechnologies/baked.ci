@@ -22,7 +22,7 @@ export const MobileCheckout = () => {
   const { customer } = useAuth();
   const { cart, loaded: cartLoaded, clear } = useCart();
   const [loginOpen, setLoginOpen] = useState(false);
-  const [address, setAddress] = useState({ line1: "", city: country?.code === "CI" ? "Abidjan" : "London", country: country?.code || "CI", instructions: "" });
+  const [address, setAddress] = useState({ line1: "", city: country?.code === "CI" ? "Abidjan" : "Monrovia", country: country?.code || "CI", instructions: "" });
   const [slot, setSlot] = useState("express");
   const [payment, setPayment] = useState("cod");
   const [placing, setPlacing] = useState(false);

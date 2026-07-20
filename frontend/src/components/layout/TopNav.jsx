@@ -4,9 +4,10 @@ import { BakedLogo } from "./BakedLogo";
 import { useAuth, useApp, useCart } from "../../contexts/BakedContexts";
 import { NAV } from "../../constants/testIds";
 import { formatMoney, t } from "../../lib/i18n";
-import { MapPin, Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut } from "lucide-react";
+import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
+import { AddressPill } from "../address/AddressPill";
 
 export const TopNav = () => {
   const { customer, logout, openLogin } = useAuth();
@@ -14,7 +15,7 @@ export const TopNav = () => {
   const { cart } = useCart();
   const navigate = useNavigate();
 
-  const locale = language ? `${language}-${country?.code || "CI"}` : (country?.locale || "en-GB");
+  const locale = language ? `${language}-${country?.code || "CI"}` : (country?.locale || "en");
 
   return (
     <>
@@ -24,25 +25,24 @@ export const TopNav = () => {
             <BakedLogo size="md" />
           </Link>
 
-          {/* Delivery address */}
+          {/* Delivery address — opens the Address Selector */}
+          <AddressPill variant="desktop" testid={NAV.deliveryAddress} />
+
+          {/* Country selector — determines currency, language, and available services (NOT delivery) */}
           <Popover>
             <PopoverTrigger asChild>
               <button
-                data-testid={NAV.deliveryAddress}
-                className="hidden md:flex items-center gap-2 px-3 py-2 baked-btn hover:bg-secondary motion-fast"
+                data-testid={NAV.countrySelect}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-2 baked-btn border border-border hover:bg-secondary motion-fast"
+                aria-label="Change country"
               >
-                <MapPin size={18} style={{ color: "#77BC1F" }} />
-                <div className="text-left">
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{t(locale, "nav.delivering")}</div>
-                  <div className="text-sm font-medium max-w-[220px] truncate">
-                    {country?.code === "CI" ? "Cocody, Abidjan" : "221B Baker Street, London"}
-                  </div>
-                </div>
+                <span className="text-lg leading-none">{country?.flag}</span>
+                <span className="text-xs font-semibold">{country?.code}</span>
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-64">
-              <div className="text-xs text-muted-foreground mb-2">Country</div>
-              <div className="grid gap-2">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Country · currency · services</div>
+              <div className="grid gap-1.5">
                 {countries.map((c) => (
                   <button
                     key={c.code}
@@ -53,7 +53,7 @@ export const TopNav = () => {
                     <span className="text-xl">{c.flag}</span>
                     <div className="flex-1">
                       <div className="text-sm font-medium">{c.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{c.currency} • {c.locale}</div>
+                      <div className="text-[11px] text-muted-foreground">{c.currency} · {c.locale}</div>
                     </div>
                   </button>
                 ))}

@@ -342,7 +342,7 @@ async def cancel_order(order_id: str, customer: dict = Depends(get_current_custo
 # Demo driver + store coordinates per country
 _COUNTRY_GEO = {
     "CI": {"store": {"name": "MARTbakēd Store · Cocody", "lat": 5.3455, "lng": -4.0021}, "destination": {"lat": 5.3535, "lng": -3.9857}},
-    "GB": {"store": {"name": "MARTbakēd Store · Marylebone", "lat": 51.5238, "lng": -0.1585}, "destination": {"lat": 51.5237, "lng": -0.1585}},
+    "LR": {"store": {"name": "MARTbakēd Store · Sinkor", "lat": 6.2833, "lng": -10.7783}, "destination": {"lat": 6.3005, "lng": -10.7969}},
 }
 _DEMO_DRIVERS = [
     {"name": "Rahul Kumar", "rating": 4.8, "vehicle": "Electric Scooter", "vehicle_reg": "AB12 C3456", "phone": "+225 07 12 34 56 78", "photo": "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200&h=200&fit=crop&q=80"},

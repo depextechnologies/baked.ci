@@ -1,46 +1,30 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Search, Wallet2, Bell, ChevronDown } from "lucide-react";
+import { Search, Wallet2, Bell } from "lucide-react";
 import { useApp } from "../../contexts/BakedContexts";
 import { BakedLogo } from "../layout/BakedLogo";
 import { t } from "../../lib/i18n";
+import { AddressPill } from "../address/AddressPill";
 
 /**
  * MobileHeader — replicates the mobile app top bar:
- *   Row 1: BAKĒD logo (compact) · Address & ETA · Wallet + Notifications
+ *   Row 1: BAKĒD logo (compact) · Address pill · Wallet + Notifications
  *   Row 2: Search bar
  * Sticky by default; participates in the mobile shell.
  */
 export const MobileHeader = ({ variant = "home", title }) => {
-  const { country, language, countryCode, setCountryCode, countries } = useApp();
+  const { country, language } = useApp();
   const navigate = useNavigate();
   const locale = `${language}-${country?.code || "CI"}`;
-  const address = country?.code === "CI" ? "Cocody, Abidjan" : "221B Baker Street, London";
 
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <Link to="/" data-testid="m-header-logo" className="shrink-0"><BakedLogo size="sm" /></Link>
 
-        <button
-          data-testid="m-header-address"
-          onClick={() => {
-            const next = countries.find((c) => c.code !== countryCode);
-            if (next) setCountryCode(next.code);
-          }}
-          className="flex-1 flex items-center gap-1 min-w-0 text-left"
-        >
-          <MapPin size={13} style={{ color: "#77BC1F" }} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1 text-[11px] font-semibold truncate">
-              {address}
-              <ChevronDown size={11} className="text-muted-foreground shrink-0" />
-            </div>
-            <div className="text-[10px] text-muted-foreground -mt-0.5">
-              <span style={{ color: "#77BC1F" }}>●</span> {t(locale, "delivery.title")} · {country?.delivery_eta_min}
-            </div>
-          </div>
-        </button>
+        <div className="flex-1 min-w-0">
+          <AddressPill variant="mobile" testid="m-header-address" />
+        </div>
 
         <button
           data-testid="m-header-wallet"
@@ -49,7 +33,7 @@ export const MobileHeader = ({ variant = "home", title }) => {
           title="Wallet"
         >
           <Wallet2 size={14} style={{ color: "#77BC1F" }} />
-          <span>0.00 {country?.currency_symbol || country?.currency || ""}</span>
+          <span>0 {country?.currency_symbol || country?.currency || ""}</span>
         </button>
 
         <button

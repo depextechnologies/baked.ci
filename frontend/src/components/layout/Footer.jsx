@@ -25,7 +25,7 @@ export const Footer = () => (
       <div>
         <div className="text-sm font-semibold mb-3">Available in</div>
         <ul className="text-xs text-muted-foreground space-y-2">
-          <li>&#127464;&#127474; C&ocirc;te d&apos;Ivoire</li><li>🇬🇧 United Kingdom</li><li className="opacity-60">🇸🇳 Senegal — soon</li><li className="opacity-60">🇬🇭 Ghana — soon</li>
+          <li>&#127464;&#127474; C&ocirc;te d&apos;Ivoire</li><li>🇱🇷 Liberia</li><li className="opacity-60">🇸🇳 Senegal — soon</li><li className="opacity-60">🇬🇭 Ghana — soon</li>
         </ul>
       </div>
     </div>

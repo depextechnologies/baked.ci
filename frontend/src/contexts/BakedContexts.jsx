@@ -105,6 +105,19 @@ export const AppProvider = ({ children }) => {
   const [modules, setModules] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem("baked_theme") || "dark");
   const [language, setLanguageState] = useState(detectInitialLanguage);
+  // Active delivery address — the single source of truth across every module.
+  // Persisted in localStorage for guests; hydrated from saved addresses for authed users.
+  const [activeAddress, _setActiveAddress] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("baked_active_address")) || null; } catch { return null; }
+  });
+  const setActiveAddress = useCallback((addr) => {
+    _setActiveAddress(addr);
+    if (addr) localStorage.setItem("baked_active_address", JSON.stringify(addr));
+    else localStorage.removeItem("baked_active_address");
+  }, []);
+  const [addressSelectorOpen, setAddressSelectorOpen] = useState(false);
+  const openAddressSelector = useCallback(() => setAddressSelectorOpen(true), []);
+  const closeAddressSelector = useCallback(() => setAddressSelectorOpen(false), []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -133,7 +146,7 @@ export const AppProvider = ({ children }) => {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale }), [activeModule, countryCode, country, countries, modules, theme, language, uiLocale]);
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector }), [activeModule, countryCode, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);

@@ -1,4 +1,4 @@
-// Extremely light i18n for CI (fr) + GB (en). Formal i18n library can drop-in later.
+// Extremely light i18n for CI (fr) + generic English fallback. Formal i18n library can drop-in later.
 const STRINGS = {
   "fr-CI": {
     "nav.delivering": "Livraison à",
@@ -53,7 +53,7 @@ const STRINGS = {
     "auth.resend": "Renvoyer le code",
     "auth.change_number": "Changer de numéro",
   },
-  "en-GB": {
+  "en": {
     "nav.delivering": "Delivering to",
     "nav.search_placeholder": "Search for products, brands and more…",
     "nav.offers": "Offers",
@@ -113,7 +113,7 @@ export const t = (locale, key) => {
   if (STRINGS[locale] && STRINGS[locale][key] != null) return STRINGS[locale][key];
   const lang = (locale || "en").slice(0, 2).toLowerCase();
   if (lang === "fr" && STRINGS["fr-CI"] && STRINGS["fr-CI"][key] != null) return STRINGS["fr-CI"][key];
-  if (STRINGS["en-GB"] && STRINGS["en-GB"][key] != null) return STRINGS["en-GB"][key];
+  if (STRINGS["en"] && STRINGS["en"][key] != null) return STRINGS["en"][key];
   return key;
 };
 
@@ -121,6 +121,9 @@ export const formatMoney = (amount, currency, symbol) => {
   if (amount == null) return "";
   if (currency === "XOF") {
     return `${Math.round(amount).toLocaleString("fr-FR")} ${symbol || "CFA"}`;
+  }
+  if (currency === "LRD") {
+    return `${symbol || "L$"}${Math.round(amount).toLocaleString("en-US")}`;
   }
   return `${symbol || ""}${Number(amount).toFixed(2)}`;
 };

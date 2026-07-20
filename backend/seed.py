@@ -20,26 +20,32 @@ COUNTRIES = [
         "timezone": "Africa/Abidjan",
         "active": True,
         "primary": True,
+        "production_visible": True,
         "min_order": 3000,
         "delivery_fee": 500,
         "free_delivery_over": 15000,
         "delivery_eta_min": "10-15 min",
+        # Serviceability: radius (km) from any active hub within this country
+        "service_radius_km": 15,
     },
     {
-        "code": "GB",
-        "name": "United Kingdom",
-        "flag": "🇬🇧",
-        "currency": "GBP",
-        "currency_symbol": "£",
-        "locale": "en-GB",
-        "phone_code": "+44",
-        "timezone": "Europe/London",
+        "code": "LR",
+        "name": "Liberia",
+        "flag": "🇱🇷",
+        "currency": "LRD",
+        "currency_symbol": "L$",
+        "locale": "en-LR",
+        "phone_code": "+231",
+        "timezone": "Africa/Monrovia",
         "active": True,
         "primary": False,
-        "min_order": 10,
-        "delivery_fee": 1.99,
-        "free_delivery_over": 25,
-        "delivery_eta_min": "10-15 min",
+        "production_visible": True,
+        # Liberian Dollar denominated — round market values (approx: 1 USD ≈ 190 LRD)
+        "min_order": 2000,
+        "delivery_fee": 200,
+        "free_delivery_over": 6000,
+        "delivery_eta_min": "15-20 min",
+        "service_radius_km": 15,
     },
 ]
 
@@ -362,9 +368,14 @@ OFFERS_CI = [
 ]
 
 STORES_CI = [
-    {"name": "MARTbakēd Cocody", "address": "Rue des Jardins, Cocody, Abidjan", "eta": "10-15 min", "rating": 4.7},
-    {"name": "MARTbakēd Plateau", "address": "Boulevard de la République, Plateau", "eta": "12-18 min", "rating": 4.6},
-    {"name": "MARTbakēd Marcory", "address": "Zone 4, Marcory", "eta": "15-20 min", "rating": 4.5},
+    {"name": "MARTbakēd Cocody", "address": "Rue des Jardins, Cocody, Abidjan", "eta": "10-15 min", "rating": 4.7, "country": "CI", "latitude": 5.3600, "longitude": -4.0000},
+    {"name": "MARTbakēd Plateau", "address": "Boulevard de la République, Plateau", "eta": "12-18 min", "rating": 4.6, "country": "CI", "latitude": 5.3200, "longitude": -4.0200},
+    {"name": "MARTbakēd Marcory", "address": "Zone 4, Marcory", "eta": "15-20 min", "rating": 4.5, "country": "CI", "latitude": 5.2914, "longitude": -3.9899},
+]
+
+STORES_LR = [
+    {"name": "MARTbakēd Sinkor", "address": "Tubman Boulevard, Sinkor, Monrovia", "eta": "15-20 min", "rating": 4.6, "country": "LR", "latitude": 6.2833, "longitude": -10.7783},
+    {"name": "MARTbakēd Congo Town", "address": "Congo Town, Monrovia", "eta": "20-25 min", "rating": 4.5, "country": "LR", "latitude": 6.2500, "longitude": -10.7500},
 ]
 
 CITIES_CI = [
@@ -374,9 +385,10 @@ CITIES_CI = [
     {"name": "Daloa", "country": "CI", "latitude": 6.8770, "longitude": -6.4502},
     {"name": "San-Pédro", "country": "CI", "latitude": 4.7485, "longitude": -6.6363},
 ]
-CITIES_GB = [
-    {"name": "London", "country": "GB", "latitude": 51.5074, "longitude": -0.1278},
-    {"name": "Manchester", "country": "GB", "latitude": 53.4808, "longitude": -2.2426},
+CITIES_LR = [
+    {"name": "Monrovia", "country": "LR", "latitude": 6.3005, "longitude": -10.7969},
+    {"name": "Buchanan", "country": "LR", "latitude": 5.8770, "longitude": -10.0467},
+    {"name": "Ganta", "country": "LR", "latitude": 7.2367, "longitude": -8.9800},
 ]
 
 ROLES = [
@@ -393,15 +405,14 @@ MART_VENDORS = [
     {"name": "SuperMart Cocody", "contact_name": "Aïssa Diomandé", "contact_email": "aissa@supermart.ci", "contact_phone": "+225 07 12 34 56 78", "country": "CI", "city": "Abidjan", "address": "Rue des Jardins, Cocody", "commission_pct": 12.5, "status": "active", "notes": "Flagship partner — 24/7 dark store"},
     {"name": "Fresh Corner Plateau", "contact_name": "Kouassi N'Guessan", "contact_email": "kouassi@freshcorner.ci", "contact_phone": "+225 05 98 76 54 32", "country": "CI", "city": "Abidjan", "address": "Bd de la République, Plateau", "commission_pct": 15.0, "status": "approved", "notes": "Approved, awaiting store activation"},
     {"name": "Marché Bio Marcory", "contact_name": "Fatou Traoré", "contact_email": "fatou@bio.ci", "contact_phone": "+225 07 11 22 33 44", "country": "CI", "city": "Abidjan", "address": "Zone 4, Marcory", "commission_pct": 18.0, "status": "pending", "notes": "New application — licence pending"},
-    {"name": "London Corner Store", "contact_name": "Nadia Patel", "contact_email": "nadia@lcs.uk", "contact_phone": "+44 20 7946 0958", "country": "GB", "city": "London", "address": "12 Great Portland St", "commission_pct": 14.0, "status": "active"},
-    {"name": "Manchester Grocers", "contact_name": "Tom Reilly", "contact_email": "tom@mancgrocers.uk", "contact_phone": "+44 161 496 0234", "country": "GB", "city": "Manchester", "address": "88 Oldham St", "commission_pct": 15.0, "status": "pending", "notes": "Under document review"},
+    {"name": "Monrovia Fresh Foods", "contact_name": "Joseph Weah", "contact_email": "joseph@fresh.lr", "contact_phone": "+231 88 555 0111", "country": "LR", "city": "Monrovia", "address": "Tubman Boulevard, Sinkor", "commission_pct": 15.0, "status": "active", "notes": "Sinkor flagship partner"},
 ]
 
 MART_DRIVERS = [
     {"name": "Ibrahim Kone", "phone": "+225 07 01 02 03 04", "email": "ibrahim@drivers.baked.ci", "country": "CI", "city": "Abidjan", "vehicle_type": "scooter", "vehicle_reg": "AB-2245-CI", "license_number": "CI-DL-88112", "status": "active"},
     {"name": "Mariam Bamba", "phone": "+225 07 05 06 07 08", "email": "mariam@drivers.baked.ci", "country": "CI", "city": "Abidjan", "vehicle_type": "bike", "vehicle_reg": "-", "license_number": "-", "status": "active"},
     {"name": "Jean-Marc Adou", "phone": "+225 07 09 10 11 12", "country": "CI", "city": "Abidjan", "vehicle_type": "scooter", "vehicle_reg": "CD-9987-CI", "license_number": "CI-DL-88220", "status": "pending"},
-    {"name": "Sarah O'Neill", "phone": "+44 7700 900123", "email": "sarah@drivers.baked.uk", "country": "GB", "city": "London", "vehicle_type": "scooter", "vehicle_reg": "LB65 KLM", "license_number": "GB-DL-9911", "status": "active"},
+    {"name": "Prince Cooper", "phone": "+231 88 555 1122", "email": "prince@drivers.baked.lr", "country": "LR", "city": "Monrovia", "vehicle_type": "scooter", "vehicle_reg": "LR-4421", "license_number": "LR-DL-2201", "status": "active"},
 ]
 
 
@@ -501,11 +512,11 @@ async def _seed_products():
             doc["created_at"] = existing.get("created_at", _now_iso())
         await db.mart_products.update_one(key, {"$set": doc}, upsert=True)
 
-    # UK mirror (fewer products, GBP prices)
+    # LR mirror (fewer products, LRD prices — approx 1 USD ≈ 190 LRD, 1 XOF ≈ 0.34 LRD)
     for name, brand, cat_slug, unit, price_xof, was_xof, image, pop, badge in PRODUCTS_CI[:12]:
-        gbp = round(price_xof / 750, 2)
-        was_gbp = round(was_xof / 750, 2) if was_xof else None
-        key = {"name": name, "country": "GB", "module": "mart"}
+        lrd = int(round(price_xof * 0.34))
+        was_lrd = int(round(was_xof * 0.34)) if was_xof else None
+        key = {"name": name, "country": "LR", "module": "mart"}
         doc = {
             **key,
             "id": new_id("prd"),
@@ -513,10 +524,10 @@ async def _seed_products():
             "category_slug": cat_slug,
             "subcategory_slug": PRODUCT_SUBCATEGORY.get(name),
             "unit": unit,
-            "price": gbp,
-            "was_price": was_gbp,
-            "currency": "GBP",
-            "currency_symbol": "£",
+            "price": lrd,
+            "was_price": was_lrd,
+            "currency": "LRD",
+            "currency_symbol": "L$",
             "image": image,
             "images": [image],
             "popularity": pop,
@@ -524,7 +535,7 @@ async def _seed_products():
             "in_stock": True,
             "rating": round(3.8 + (pop % 12) / 10, 1),
             "review_count": (pop * 3) % 250 + 20,
-            "description": f"{name} - {brand}. Delivered in 10-15 min in London.",
+            "description": f"{name} - {brand}. Delivered in 15-20 min in Monrovia.",
             "deleted_at": None,
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
@@ -578,9 +589,9 @@ async def _seed_offers():
 
 
 async def _seed_stores():
-    for s in STORES_CI:
-        key = {"name": s["name"], "country": "CI"}
-        doc = {**key, **s, "id": new_id("str"), "module": "mart", "deleted_at": None, "updated_at": _now_iso()}
+    for s in STORES_CI + STORES_LR:
+        key = {"name": s["name"], "country": s["country"]}
+        doc = {**key, **s, "id": new_id("str"), "module": "mart", "deleted_at": None, "active": True, "updated_at": _now_iso()}
         existing = await db.mart_stores.find_one(key, {"_id": 0})
         if existing:
             doc["id"] = existing["id"]
@@ -588,7 +599,7 @@ async def _seed_stores():
 
 
 async def _seed_cities():
-    for c in CITIES_CI + CITIES_GB:
+    for c in CITIES_CI + CITIES_LR:
         key = {"name": c["name"], "country": c["country"]}
         doc = {**key, **c, "id": new_id("city"), "active": True, "deleted_at": None, "updated_at": _now_iso()}
         existing = await db.cities.find_one(key, {"_id": 0})
@@ -696,7 +707,29 @@ async def _seed_module_vendors_and_drivers():
             await db.module_drivers.insert_one(base)
 
 
+async def _cleanup_removed_countries():
+    """One-time cleanup for countries removed from the platform (e.g. GB after 2026-02).
+
+    Idempotent: deletes documents whose country field matches a deprecated code, or
+    hides them by setting deleted_at. Safe to run repeatedly.
+    """
+    deprecated = ["GB", "LBR"]  # LBR was a mis-seeded 3-letter code; canonical is ISO-2 "LR"
+    for code in deprecated:
+        # Hard-remove config/seed rows (all data is re-seedable)
+        await db.countries.delete_many({"code": code})
+        await db.cities.delete_many({"country": code})
+        await db.configurations.delete_many({"country": code})
+        await db.mart_categories.delete_many({"country": code})
+        await db.mart_subcategories.delete_many({"country": code})
+        await db.mart_products.delete_many({"country": code})
+        await db.mart_offers.delete_many({"country": code})
+        await db.mart_stores.delete_many({"country": code})
+        await db.module_vendors.delete_many({"country": code})
+        await db.module_drivers.delete_many({"country": code})
+
+
 async def run_seed():
+    await _cleanup_removed_countries()
     await _seed_countries()
     await _seed_module_configs()
     await _seed_categories()

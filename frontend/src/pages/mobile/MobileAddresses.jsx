@@ -63,7 +63,7 @@ export const MobileAddresses = () => {
       {/* Add new */}
       {!editing && (
         <div className="px-4">
-          <button data-testid="m-addr-add" onClick={() => setEditing({ ...emptyAddr, city: country?.code === "CI" ? "Abidjan" : "London", country: country?.code || "CI" })} className="w-full baked-card border-2 border-dashed border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.99] hover:border-[#77BC1F]">
+          <button data-testid="m-addr-add" onClick={() => setEditing({ ...emptyAddr, city: country?.code === "CI" ? "Abidjan" : "Monrovia", country: country?.code || "CI" })} className="w-full baked-card border-2 border-dashed border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.99] hover:border-[#77BC1F]">
             <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Plus size={20} /></div>
             <div><div className="text-sm font-bold">Add new address</div><div className="text-[11px] text-muted-foreground">Save locations for faster checkout and bookings</div></div>
           </button>

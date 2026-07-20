@@ -9,7 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-const fmtMoney = (n, ccy) => `${(n || 0).toLocaleString("en-GB")} ${ccy || ""}`.trim();
+const fmtMoney = (n, ccy) => `${(n || 0).toLocaleString("en-US")} ${ccy || ""}`.trim();
 const fmtDate = (s) => (s ? new Date(s).toLocaleString() : "-");
 
 // ============ MODULE OVERVIEW (Dashboard) ============

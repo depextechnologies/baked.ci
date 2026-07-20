@@ -112,7 +112,7 @@ export const HomePage = () => {
           <div className="h-px bg-border" />
           <div className="text-[11px] text-muted-foreground">{t(locale, "delivery.popular_near")}</div>
           <div className="flex flex-wrap gap-2">
-            {(country.code === "CI" ? ["Cocody", "Plateau", "Marcory"] : ["221B Baker Street", "NW1 6XE", "NW1 6XG"]).map((z, i) => (
+            {(country.code === "CI" ? ["Cocody", "Plateau", "Marcory"] : ["Sinkor", "Congo Town", "Monrovia"]).map((z, i) => (
               <span key={z} className={`baked-chip text-[11px] px-3 py-1 border border-border ${i === 0 ? "text-black" : ""}`} style={i === 0 ? { backgroundColor: "#77BC1F" } : {}}>
                 {z}
               </span>
