@@ -110,6 +110,12 @@ class OrderAddressIn(BaseModel):
     instructions: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    # Rich Google Places / global address fields (all optional, forward-compatible)
+    place_id: Optional[str] = None
+    formatted_address: Optional[str] = None
+    region: Optional[str] = None
+    postal_code: Optional[str] = None
+    label: Optional[str] = None
 
 
 class CreateOrderIn(BaseModel):

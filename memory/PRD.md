@@ -80,6 +80,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Frontend groundwork**: installed `@vis.gl/react-google-maps` + `REACT_APP_GOOGLE_MAPS_API_KEY` env var. New shared `AddressSelector` component (bottom-sheet on mobile, centered dialog on desktop) with Google Places Autocomplete (country-restricted), Detect-My-Location via Geolocation API + reverse geocode, Saved Addresses, Recent Searches, Serviceability check, and a map preview using `AdvancedMarker`. Legacy "country popover" on the delivery pill is replaced by a real **AddressPill** that opens the selector; a small country-flag pill remains for currency/language switching.
    - **AppContext** now owns `activeAddress` (persisted in `localStorage`) + `openAddressSelector` / `closeAddressSelector` — every module reads from the same source.
    - **Awaiting Google Maps API key** from user to complete Phase B (wire live places API); until then the selector renders a friendly "not configured" fallback.
+- ✅ **Global Address & Location System — Phase B (2026-02-21)** — Google Maps live, Places API (New) migration, and checkout integration.
+   - **Google Maps API key** received and wired: `frontend/.env → REACT_APP_GOOGLE_MAPS_API_KEY`. Frontend restarts pick it up.
+   - **Migrated to Places API (New)** since the user's Google Cloud project only enables the new APIs: `lib/googleMaps.js` now uses `google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions` + `Place.fetchFields` (via `_suggestion.placePrediction.toPlace()`). Removed all legacy `AutocompleteService` / `PlacesService` code. Reverse-geocoding via the classic `google.maps.Geocoder` (still supported under Geocoding API).
+   - **Live end-to-end verified via Playwright** on both mobile (390×844) and desktop (1440×900):
+      - CI: search "Cocody Angre" → 5 predictions → tap → map preview + "We deliver here · MARTbakēd Cocody · 3.49 km" → Confirm → header pill updates.
+      - LR: switch country → search "Sinkor" → serviceable via Congo Town hub 2.56 km.
+      - Unserviceable: search "Bouake" (~360 km) → red "Not available yet" + Confirm button DISABLED.
+   - **Testing agent iteration_4.json**: 33/33 backend tests pass, ~92% frontend success. Flagged one integration gap (below) which is now fixed.
+   - **Checkout integration fix**: `MobileCheckout` and `CheckoutPage` now consume `activeAddress` on mount + subscribe to changes. Mobile hydrates its local form; desktop pre-selects a matching saved address (by id / place_id / formatted_address). The `OrderAddressIn` schema on the backend now accepts `place_id`, `formatted_address`, `region`, `postal_code`, `label` so the rich Google Places metadata persists on the order.
+   - **AddressPill spacing**: eyebrow "Deliver to" wrapped in `<span>` to give screen-reader-friendly whitespace between the label and address text; visual layout unchanged (they were already on separate lines).
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet

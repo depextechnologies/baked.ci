@@ -11,7 +11,7 @@ import { PhoneLoginDialog } from "../components/auth/PhoneLoginDialog";
 
 export const CheckoutPage = () => {
   const { customer } = useAuth();
-  const { country, uiLocale, language } = useApp();
+  const { country, uiLocale, language, activeAddress } = useApp();
   const { cart, reload: reloadCart } = useCart();
   const navigate = useNavigate();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -37,10 +37,21 @@ export const CheckoutPage = () => {
       setAddresses(ad.data);
       setSlots(sl.data);
       setMethods(mt.data);
-      if (ad.data.length) setAddressId(ad.data.find(a => a.is_default)?.id || ad.data[0].id);
+      // Pre-select using activeAddress from the shared AddressSelector when possible.
+      let selectedId = null;
+      if (activeAddress && ad.data.length) {
+        const match = ad.data.find((a) => (
+          (activeAddress.id && a.id === activeAddress.id) ||
+          (activeAddress.place_id && a.place_id === activeAddress.place_id) ||
+          (activeAddress.formatted_address && a.formatted_address === activeAddress.formatted_address)
+        ));
+        if (match) selectedId = match.id;
+      }
+      if (!selectedId && ad.data.length) selectedId = ad.data.find(a => a.is_default)?.id || ad.data[0].id;
+      setAddressId(selectedId);
       if (sl.data.length) setSlotId(sl.data[0].id);
     })();
-  }, [customer, country.code]);
+  }, [customer, country.code, activeAddress]);
 
   const items = cart.items || [];
   const subtotal = cart.subtotal || 0;

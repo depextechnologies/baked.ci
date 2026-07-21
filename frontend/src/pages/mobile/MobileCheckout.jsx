@@ -16,20 +16,42 @@ const SLOTS = [
   { code: "later",     icon: CalendarClock, eta: "Choose time", label: "Schedule",  sub: "Pick a slot" },
 ];
 
+// Convert the shared AddressSelector's activeAddress into the shape MobileCheckout tracks
+// locally. Preserves rich Google Places fields so they land in the POST /orders payload.
+const hydrateAddress = (active, country) => ({
+  line1: active?.line1 || active?.formatted_address || "",
+  city: active?.city || (country?.code === "CI" ? "Abidjan" : country?.code === "LR" ? "Monrovia" : ""),
+  country: (active?.country || country?.code || "CI").toUpperCase(),
+  instructions: active?.instructions || "",
+  place_id: active?.place_id || null,
+  formatted_address: active?.formatted_address || null,
+  latitude: active?.latitude ?? null,
+  longitude: active?.longitude ?? null,
+  region: active?.region || null,
+  postal_code: active?.postal_code || null,
+});
+
 export const MobileCheckout = () => {
   const nav = useNavigate();
-  const { country } = useApp();
+  const { country, activeAddress, openAddressSelector } = useApp();
   const { customer } = useAuth();
   const { cart, loaded: cartLoaded, clear } = useCart();
   const [loginOpen, setLoginOpen] = useState(false);
-  const [address, setAddress] = useState({ line1: "", city: country?.code === "CI" ? "Abidjan" : "Monrovia", country: country?.code || "CI", instructions: "" });
+  // Initialise the delivery address from the shared AddressSelector's activeAddress
+  // so users don't have to retype what they already picked in the header.
+  const [address, setAddress] = useState(() => hydrateAddress(activeAddress, country));
   const [slot, setSlot] = useState("express");
   const [payment, setPayment] = useState("cod");
   const [placing, setPlacing] = useState(false);
-  const [rewards, setRewards] = useState(null);      // {points, conversion_rate}
-  const [usePoints, setUsePoints] = useState(0);     // points the shopper wants to redeem
-  const [preview, setPreview] = useState(null);      // eligibility+points preview from backend
+  const [rewards, setRewards] = useState(null);
+  const [usePoints, setUsePoints] = useState(0);
+  const [preview, setPreview] = useState(null);
   const ccy = country?.currency_symbol || country?.currency;
+
+  // Keep the local form in sync when the user updates their active address via the pill
+  useEffect(() => {
+    if (activeAddress) setAddress(hydrateAddress(activeAddress, country));
+  }, [activeAddress, country]);
 
   useEffect(() => {
     if (!cart.items?.length || !customer) return;

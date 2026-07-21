@@ -25,11 +25,11 @@ export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-            {activeAddress ? (label || "Deliver to") : "Choose"}
+            <span>{activeAddress ? (label || "Deliver to") : "Choose"}</span>
             <ChevronDown size={10} />
           </div>
           <div className="text-sm font-bold truncate">
-            {line1 || `Set delivery address · ${country?.name || ""}`}
+            {line1 || <>Set delivery address · {country?.name || ""}</>}
           </div>
         </div>
       </button>
@@ -49,7 +49,7 @@ export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
           {activeAddress ? (label ? `Deliver to · ${label}` : "Delivering to") : "Choose delivery"}
         </div>
         <div className="text-sm font-medium max-w-[240px] truncate">
-          {line1 || `Set your delivery address`}
+          {line1 || "Set your delivery address"}
         </div>
         {activeAddress && city && (
           <div className="text-[10px] text-muted-foreground max-w-[240px] truncate">{city}</div>
