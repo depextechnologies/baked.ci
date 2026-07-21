@@ -7,7 +7,6 @@ import { ArrowLeft, MapPin, Plus, Trash2, Edit3, Home, Building2, Warehouse, Use
 import { toast } from "sonner";
 import { MODULES } from "../../lib/modules";
 import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
-
 const LABELS = [
   { code: "Home", icon: Home },
   { code: "Office", icon: Building2 },
@@ -20,13 +19,17 @@ const emptyAddr = { label: "Home", line1: "", line2: "", city: "", country: "CI"
 
 export const MobileAddresses = () => {
   const nav = useNavigate();
-  const { country } = useApp();
+  const { country, openAddressSelector, activeAddress } = useApp();
   const { customer } = useAuth();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
 
   const load = async () => { try { const { data } = await api.get("/customers/me/addresses"); setItems(data); } catch { toast.error("Failed to load addresses"); } };
   useEffect(() => { if (customer) load(); }, [customer]);
+  // When the shared AddressSelector saves a new address, re-hydrate the list.
+  useEffect(() => {
+    if (customer && activeAddress?.id) load();
+  }, [customer, activeAddress?.id]);
 
   const save = async () => {
     if (!editing.line1?.trim()) return toast.error("Please enter a street address");
@@ -60,12 +63,12 @@ export const MobileAddresses = () => {
         <div className="flex-1 min-w-0"><div className="text-base font-bold">Addresses</div><div className="text-[11px] text-muted-foreground">Manage your saved locations</div></div>
       </div>
 
-      {/* Add new */}
+      {/* Add new — launches the shared AddressSelector (Google Places + serviceability) */}
       {!editing && (
         <div className="px-4">
-          <button data-testid="m-addr-add" onClick={() => setEditing({ ...emptyAddr, city: country?.code === "CI" ? "Abidjan" : "Monrovia", country: country?.code || "CI" })} className="w-full baked-card border-2 border-dashed border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.99] hover:border-[#77BC1F]">
+          <button data-testid="m-addr-add" onClick={openAddressSelector} className="w-full baked-card border-2 border-dashed border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.99] hover:border-[#77BC1F]">
             <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Plus size={20} /></div>
-            <div><div className="text-sm font-bold">Add new address</div><div className="text-[11px] text-muted-foreground">Save locations for faster checkout and bookings</div></div>
+            <div><div className="text-sm font-bold">Add new address</div><div className="text-[11px] text-muted-foreground">Search on Google or use your GPS · saves to your address book</div></div>
           </button>
         </div>
       )}

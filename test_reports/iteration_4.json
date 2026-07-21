@@ -1,0 +1,58 @@
+{
+  "summary": "Verified BAKĒD v1.0 Address Management System end-to-end. Backend: 10/10 new address tests + 23/23 pre-existing baked_api tests pass. Frontend mobile (390x844) & desktop (1440x900): AddressPill, bottom-sheet vs centered modal, Google Places (New) predictions, Cocody serviceability, Bouake unserviceable → Confirm disabled, LR/Sinkor serviceable via Congo Town hub, save-to-address-book with instructions, /profile/addresses list + Add-new button opens shared selector, regression /profile Continue-to-sign-in works, MART checkout still places COD orders. One integration gap flagged: MobileCheckout does NOT auto-populate the delivery address form from activeAddress.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "MART Checkout — active delivery address doesn't populate the checkout form",
+        "issue": "After confirming an address in the AddressSelector (header pill updates to 'Deliver to Cocody, Abidjan…' and activeAddress is set in BakedContexts), navigating to /checkout shows an EMPTY delivery-address form. MobileCheckout.jsx line 25 initialises local state `address = { line1: '', city: 'Abidjan', country: 'CI', instructions: '' }` and never reads activeAddress from context, so the user must retype the street even though they just confirmed an address on the home screen. The order then gets whatever the user retypes, NOT the address they selected — divergence between the header pill and the checkout body. Same file also ignores `formatted_address`, `place_id`, `latitude`, `longitude`, `region`, `postal_code` from activeAddress even though the backend AddressIn schema accepts them.",
+        "affected_selectors": ["m-co-addr-line1", "m-co-addr-city", "m-co-addr-country", "m-co-addr-instructions", "m-header-address"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "AddressPill (mobile header)",
+        "issues": [
+          "Pill label glues to CTA with no space: renders as 'ChooseSet delivery address · Côte d'Ivoire' and 'Deliver toCocody, Abidjan …' — missing space between the top eyebrow ('Choose'/'Deliver to') and the main text. Add a space (or margin) between the two spans in AddressPill.jsx to fix."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_addresses_v10.py",
+    "/app/test_reports/pytest/pytest_addresses_v10.xml",
+    "/app/backend/tests/test_baked_api.py"
+  ],
+  "action_items": [
+    "MAIN AGENT: Pre-fill MobileCheckout & CheckoutPage delivery-address form from activeAddress on mount (use useEffect + activeAddress from BakedContexts). Map formatted_address→line1 (or split), city, country, place_id, latitude, longitude, region, postal_code onto the POST /orders body. Otherwise the new AddressSelector's activeAddress never reaches the order — defeats the purpose of the new v1.0 flow.",
+    "MAIN AGENT: Fix AddressPill spacing — add a space or CSS margin between the eyebrow label ('Choose'/'Deliver to') and the address/CTA text so the pill reads naturally ('Deliver to Cocody, Abidjan' instead of 'Deliver toCocody, Abidjan').",
+    "MAIN AGENT (nice-to-have): Persist activeAddress to localStorage so it survives full page reloads / new tabs. Currently a hard-reload wipes it because it lives only in React context."
+  ],
+  "critical_code_review_comments": [
+    "Backend serviceability endpoint is a clean, config-driven Haversine check over mart_stores with lat/lng — CI (Cocody/Plateau/Marcory) and LR (Sinkor/Congo Town) all seeded correctly. Distance rounding to 2 decimals + `serviceable` boolean + human message is a solid API contract.",
+    "Recent-searches dedupe key = (customer_id, place_id) OR (customer_id, formatted_address) is correct — same place_id from Google reliably collapses to one row. Trim-beyond-10 logic is fine.",
+    "AddressIn schema on POST /customers/me/addresses now accepts place_id / formatted_address / region / postal_code — round-trips confirmed via API test. Good.",
+    "GB removal verified at the DB layer via seed.py cleanup step; /config/countries returns exactly [CI, LR]. No stray LBR alias. /mart/products?country=LR returns 12 LRD-priced items with no GBP anywhere in the payload.",
+    "AddressSelector.jsx correctly wraps its contents in <APIProvider libraries={['places','geocoding']}> and uses Places API New (AutocompleteSuggestion.fetchAutocompleteSuggestions + Place.fetchFields) — verified: 5 predictions consistently returned for Cocody / Bouake / Sinkor / Plateau on both mobile and desktop.",
+    "BUG (functional gap, not build-breaking): MobileCheckout.jsx does not read activeAddress from BakedContexts. This severs the link between the new AddressSelector and the order pipeline; user's confirmed address is shown in the header pill but the checkout body still asks them to retype it and the order stores the retyped value, not the confirmed activeAddress.",
+    "BUG (cosmetic): AddressPill's two <span>s are concatenated without whitespace inside the button, producing 'Deliver toCocody, …'. Add a &nbsp; or ml-1 between them.",
+    "IMPROVEMENT: /orders POST would benefit from accepting activeAddress directly (already accepts inline address). Frontend should send `address` populated from activeAddress on mount."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_addresses_v10.py (new — 10 backend tests, all passing)"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 new address tests + 23/23 existing baked_api tests = 33/33)",
+    "frontend": "~92% (all AddressSelector flows work: search, predictions, map preview, serviceability, save, dedupe, LR switch, desktop modal, mobile bottom-sheet, /profile/addresses; MART checkout still creates COD orders; failing: activeAddress not propagated into checkout form)"
+  },
+  "test_credentials": "Dev OTP: POST /api/auth/otp/request with {country_code:'+225', phone:<any 10 digits>} → dev_code in response body → POST /api/auth/otp/verify → access_token.",
+  "seed_data_creation": "No persistent seed data. Each test authenticates a fresh customer via random phone + dev OTP; created addresses & carts are scoped to that customer. Recent-searches tests clean up their own rows.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_addresses_v10.py is the regression suite for v1.0 address features (serviceability, recent-searches, GB removal, LR added, rich address fields). Google Places calls occasionally take 3-4s; the mobile UI script polls after typing. If predictions are empty, the flake is upstream (Google) — retry once. AddressPill visually joins two spans without a space — expect 'Deliver toCocody' in text assertions until it's fixed. MobileCheckout local address state is independent of activeAddress — verified 2026-01 (do not assume the two are linked).",
+  "rca_of_the_issue": "N/A — no bug to root-cause. Two follow-up gaps identified for main agent: (a) MobileCheckout doesn't consume activeAddress (see integration_issues), (b) AddressPill missing whitespace between spans. Backend & core AddressSelector flows are all green."
+}

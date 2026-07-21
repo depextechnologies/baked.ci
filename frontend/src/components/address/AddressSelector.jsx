@@ -4,7 +4,7 @@ import { X, MapPin, Navigation2, Search, Home, Building2, Warehouse, Users2, Sta
 import { toast } from "sonner";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { api } from "../../lib/api";
-import { getPlacePredictions, getPlaceDetails, reverseGeocode } from "../../lib/googleMaps";
+import { fetchAutocompleteSuggestions, fetchPlaceDetails, reverseGeocode } from "../../lib/googleMaps";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 const LABEL_ICON = { Home: Home, Office: Building2, Warehouse: Warehouse, Family: Users2, Other: MapPin };
@@ -23,18 +23,18 @@ const NoKeyBanner = ({ onClose }) => (
 );
 
 // -------- Predictions row --------
-const PredictionRow = ({ prediction, onSelect, testid }) => (
+const PredictionRow = ({ suggestion, onSelect, testid }) => (
   <button
     data-testid={testid}
-    onClick={() => onSelect(prediction)}
+    onClick={() => onSelect(suggestion)}
     className="w-full flex items-start gap-3 px-4 py-3 border-b border-border last:border-b-0 text-left motion-fast active:bg-secondary/50 hover:bg-secondary/30"
   >
     <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
       <MapPin size={14} />
     </div>
     <div className="flex-1 min-w-0">
-      <div className="text-sm font-semibold truncate">{prediction.structured_formatting?.main_text || prediction.description}</div>
-      <div className="text-[11px] text-muted-foreground truncate">{prediction.structured_formatting?.secondary_text || ""}</div>
+      <div className="text-sm font-semibold truncate">{suggestion.mainText || suggestion.description}</div>
+      <div className="text-[11px] text-muted-foreground truncate">{suggestion.secondaryText}</div>
     </div>
     <ChevronRight size={14} className="text-muted-foreground shrink-0 mt-2" />
   </button>
@@ -58,7 +58,7 @@ const AddressRow = ({ icon: Icon, tone = "#77BC1F", label, sub, onClick, badge, 
 );
 
 // -------- The main search + list step --------
-const SearchStep = ({ onPickPrediction, onDetect, onPickSaved, onPickRecent, detecting, activeCountry }) => {
+const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, detecting, activeCountry }) => {
   const { customer } = useAuth();
   const places = useMapsLibrary("places");
   const [query, setQuery] = useState("");
@@ -68,7 +68,6 @@ const SearchStep = ({ onPickPrediction, onDetect, onPickSaved, onPickRecent, det
   const [busy, setBusy] = useState(false);
   const debounceRef = useRef();
   const sessionToken = useMemo(() => (places ? new places.AutocompleteSessionToken() : null), [places]);
-  const service = useMemo(() => (places ? new places.AutocompleteService() : null), [places]);
 
   // Load saved + recent for authed users; recents also cached in localStorage for guests
   useEffect(() => {
@@ -88,19 +87,19 @@ const SearchStep = ({ onPickPrediction, onDetect, onPickSaved, onPickRecent, det
     })();
   }, [customer]);
 
-  // Debounced autocomplete
+  // Debounced autocomplete (Places API New)
   useEffect(() => {
-    if (!service) return;
+    if (!places) return;
     if (!query || query.trim().length < 2) { setPredictions([]); return; }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setBusy(true);
     debounceRef.current = setTimeout(async () => {
-      const preds = await getPlacePredictions({ input: query, countryCode: activeCountry, sessionToken, service });
+      const preds = await fetchAutocompleteSuggestions({ input: query, countryCode: activeCountry, sessionToken });
       setPredictions(preds);
       setBusy(false);
     }, 220);
     return () => clearTimeout(debounceRef.current);
-  }, [query, service, sessionToken, activeCountry]);
+  }, [query, places, sessionToken, activeCountry]);
 
   return (
     <div className="flex flex-col h-full">
@@ -138,7 +137,7 @@ const SearchStep = ({ onPickPrediction, onDetect, onPickSaved, onPickRecent, det
         {predictions.length > 0 ? (
           <div className="baked-card border-y border-border bg-card">
             {predictions.map((p) => (
-              <PredictionRow key={p.place_id} prediction={p} onSelect={onPickPrediction} testid={`addr-pred-${p.place_id}`} />
+              <PredictionRow key={p.placeId} suggestion={p} onSelect={onPickSuggestion} testid={`addr-pred-${p.placeId}`} />
             ))}
           </div>
         ) : (
@@ -401,24 +400,19 @@ const AddressSelectorInner = ({ onClose, activeCountry }) => {
   const { setActiveAddress } = useApp();
   const places = useMapsLibrary("places");
   const geo = useMapsLibrary("geocoding");
-  const geocoder = useMemo(() => (geo ? new window.google.maps.Geocoder() : null), [geo]);
-  // Places details requires an attached container; use a hidden div
-  const detailsHostRef = useRef(null);
-  const detailsService = useMemo(() => {
-    if (!places || !detailsHostRef.current) return null;
-    return new places.PlacesService(detailsHostRef.current);
-  }, [places, detailsHostRef.current]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sessionToken = useMemo(() => (places ? new places.AutocompleteSessionToken() : null), [places]);
+  // Force libraries to load — we use their globals directly via lib/googleMaps.js
+  void places; void geo;
 
-  const onPickPrediction = useCallback(async (prediction) => {
+  const onPickSuggestion = useCallback(async (suggestion) => {
     try {
-      const place = await getPlaceDetails({ placeId: prediction.place_id, sessionToken, service: detailsService });
+      const place = await fetchPlaceDetails({ suggestion });
       setCandidate({ ...place, country: (place.country || activeCountry).toUpperCase() });
       setStep("confirm");
     } catch (e) {
+      console.error(e);
       toast.error("Couldn't load address details");
     }
-  }, [sessionToken, detailsService, activeCountry]);
+  }, [activeCountry]);
 
   const onPickSaved = useCallback((addr) => {
     setCandidate({
@@ -450,12 +444,12 @@ const AddressSelectorInner = ({ onClose, activeCountry }) => {
 
   const onDetect = useCallback(async () => {
     if (!navigator.geolocation) { toast.error("Geolocation not supported by this browser"); return; }
-    if (!geocoder) { toast.error("Maps not ready yet — try again in a moment"); return; }
+    if (!geo) { toast.error("Maps not ready yet — try again in a moment"); return; }
     setDetecting(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const place = await reverseGeocode({ lat: pos.coords.latitude, lng: pos.coords.longitude, geocoder });
+          const place = await reverseGeocode({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           setCandidate({ ...place, country: (place.country || activeCountry).toUpperCase() });
           setStep("confirm");
         } catch (e) {
@@ -469,7 +463,7 @@ const AddressSelectorInner = ({ onClose, activeCountry }) => {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
-  }, [geocoder, activeCountry]);
+  }, [geo, activeCountry]);
 
   const onConfirm = useCallback((addr) => {
     setActiveAddress(addr);
@@ -479,12 +473,10 @@ const AddressSelectorInner = ({ onClose, activeCountry }) => {
 
   return (
     <>
-      {/* Hidden host for PlacesService.getDetails() — must be attached to DOM */}
-      <div ref={detailsHostRef} style={{ display: "none" }} />
       {step === "search" ? (
         <SearchStep
           activeCountry={activeCountry}
-          onPickPrediction={onPickPrediction}
+          onPickSuggestion={onPickSuggestion}
           onPickSaved={onPickSaved}
           onPickRecent={onPickRecent}
           onDetect={onDetect}
