@@ -246,6 +246,18 @@
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* --- EXPRESSbakēd desktop surfaces (theme-adaptive) --- */
+/* Panels: main left workflow + right map container. Match the app card
+   surface in light mode and stay near-black in dark mode. */
+.exp-dt-panel { background: hsl(var(--card)); }
+.dark .exp-dt-panel { background: #0f0f0f; border-color: #2a2a2a; }
+
+/* Nested tiles inside the left panel (vehicle cards, service cards,
+   explore CTA, trust banner). Slightly elevated over the panel. */
+.exp-dt-tile { background: hsl(var(--muted)); }
+.dark .exp-dt-tile { background: #151515; border-color: #2a2a2a; }
+
+
 /* Desktop profile shell — reuse mobile pages inside a desktop 2-column layout */
 .desktop-profile-content > * { padding-bottom: 1.5rem !important; }
 .desktop-profile-content [data-testid$="-back"] { display: none !important; }

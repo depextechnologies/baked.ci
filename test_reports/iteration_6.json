@@ -1,0 +1,38 @@
+{
+  "summary": "Desktop /express cleanup verified end-to-end. All 12 scripted assertions pass. Exactly ONE module nav bar renders (global ModuleTabs), EXPRESSbakēd tab is highlighted with active class + aria-current='page', MARTbakēd is inactive. The exp-dt-wordmark renders at 108x36 (EXPRESSbakēd JPEG asset with logo-blend-dark class) — no broken placeholder. Left panel header contains only wordmark + address + ETA badge (no bell, no theme toggle inside the panel). Right 55% renders Google Map with driver markers. Three vehicle cards, Parcel Delivery, Home Shifting, Explore All Services, and BOOK NOW CTA all present. Theme toggle from dark→light flips exp-dt-panel bg from rgb(15,15,15) to rgb(255,255,255) via CSS variables. Clicking MARTbakēd from /express navigates to `/` and MART becomes active. Clicking exp-dt-vehicle-bike navigates to /express/book/location. Mobile /express (390x844) still renders exp-top-wordmark (BrandedModuleLabel, 84x28).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Desktop /express — light theme",
+        "issues": [
+          "The right-panel Google Map is always rendered with DARK_MAP_STYLE regardless of theme; in light mode the light left panel next to the very dark map creates a visual mismatch. Consider a light map style when theme==='light'.",
+          "In light mode the coming-soon module tabs (SHOP, IMMO) look somewhat faded in the top strip because the light-mode branded JPEGs have low contrast on a white background — legible but slightly washed out.",
+          "Google Maps console warning: `A Map's styles property cannot be set when a mapId is present` (both mobile MapHero and DesktopMapHero). Either drop the `styles` prop or the `mapId`; cloud styling should be used with mapId."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "NICE-TO-HAVE: Add a light Google Maps style (or drop styles when theme==='light') so the map matches the light panel in light mode.",
+    "NICE-TO-HAVE: Fix the `mapId + styles` Google Maps warning in ExpressHome.jsx (both MapHero and DesktopMapHero) by removing the styles prop when mapId is set, or by moving styling to cloud tooling."
+  ],
+  "critical_code_review_comments": [
+    "ExpressDesktopHome header now correctly uses <BrandedModuleLabel code='express' /> instead of the misused full-screen mockup image — proper wordmark asset with text-fallback via TextWordmark.",
+    "ModuleTabs.jsx routeToModule derivation is a clean fix — active tab is now source-of-truth from the URL, so back/forward + deep links highlight correctly. useEffect syncs setActiveModule for downstream consumers.",
+    "Duplicate <nav> block inside ExpressDesktopHome successfully removed; only the global ModuleTabs strip renders. Confirmed via `document.querySelectorAll('[data-testid=module-tab-mart]').length === 1`.",
+    "exp-dt-panel / exp-dt-tile utility classes correctly use hsl(var(--card)) / hsl(var(--muted)) — theme adaptivity works, verified computed bg changes from rgb(15,15,15) → rgb(255,255,255) on theme toggle.",
+    "ExpressHome.jsx is 546 lines — approaching the 700-line threshold. Consider splitting ExpressDesktopHome + DesktopVehicleCard / DesktopServiceCard / DesktopMapHero into a separate file (e.g. ExpressDesktopHome.jsx) before adding more desktop features."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "not tested (skipped per request)", "frontend": "100% (12/12 scripted assertions)" },
+  "test_credentials": "not required (no auth-gated flow tested)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Desktop /express spec is now met. If further work is done on the map, retest that Google Maps mapId+styles warning does not break rendering. exp-dt-panel uses CSS vars — if a new theme is added, ensure both --card and --muted are defined. The 'exp-top-wordmark' testid is on mobile only; 'exp-dt-wordmark' is desktop only.",
+  "rca_of_the_issue": "Not applicable — this iteration is a feature verification, not a bug fix. Previous 'broken placeholder image' issue confirmed resolved: the old code referenced EXPRESS_ASSETS.wordmark (an 853x1844 mobile-mockup JPEG) rendered at a small size, producing a squished/broken look. Replacement with <BrandedModuleLabel code='express' label='EXPRESS' color='#FCC44C' height={36} /> now uses the correct 21:2 aspect branded JPEG (or the TextWordmark fallback) and renders at proper 108x36 dimensions."
+}
