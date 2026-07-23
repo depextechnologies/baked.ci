@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
-import { Bell, Wallet2, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Package as PackageIcon, Home as HomeIcon, Boxes, Locate, Search, ClipboardList, Briefcase, Sparkles } from "lucide-react";
+import { Bell, Wallet2, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Locate, Search, Sparkles, Clock } from "lucide-react";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useExpressBooking } from "../../contexts/ExpressContext";
 import { api } from "../../lib/api";
 import { useMoney } from "../../components/express/ExpressLayout";
+import { EXPRESS_ASSETS, vehicleImage } from "../../lib/expressAssets";
 
 /**
  * ExpressHome — redesigned to match the approved reference:
@@ -99,25 +100,25 @@ const GpsButton = () => {
 // ---------------- HEADER ----------------
 const ExpressTopBar = () => {
   const { activeAddress, openAddressSelector, country } = useApp();
-  const { customer } = useAuth();
   const money = useMoney();
-  const walletBalance = 0; // wallet MVP shows 0
+  const walletBalance = 0;
   const address = activeAddress?.formatted_address || COUNTRY_CENTER[country?.code || "CI"].label;
   const eta = country?.delivery_eta_min || "8 mins";
 
   return (
     <header className="px-4 pt-4 pb-2">
       <div className="flex items-center gap-3">
-        {/* Big wordmark */}
-        <div className="flex-1 text-2xl font-black tracking-tight">
-          <span style={{ color: YELLOW }}>EXPRESS</span><span className="text-white/90">bakēd</span>
-        </div>
-        {/* Bell */}
+        <img
+          src={EXPRESS_ASSETS.wordmark}
+          alt="EXPRESSbakēd"
+          className="h-9 w-auto object-contain shrink-0"
+          data-testid="exp-top-wordmark"
+        />
+        <div className="flex-1" />
         <button data-testid="exp-top-bell" className="relative w-11 h-11 rounded-full flex items-center justify-center" style={{ border: "1px solid #2a2a2a" }} aria-label="Notifications">
           <Bell size={17} className="text-white" />
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: YELLOW }} />
         </button>
-        {/* Wallet pill */}
         <button
           data-testid="exp-top-wallet"
           onClick={() => window.location.assign("/wallet")}
@@ -129,7 +130,6 @@ const ExpressTopBar = () => {
         </button>
       </div>
 
-      {/* Row 2: Address left, module pill right */}
       <div className="flex items-start gap-3 mt-3">
         <button data-testid="exp-top-address" onClick={openAddressSelector} className="flex-1 flex items-start gap-2 text-left min-w-0">
           <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW_TINT }}>
@@ -141,7 +141,7 @@ const ExpressTopBar = () => {
           </div>
         </button>
         <button data-testid="exp-top-module" className="h-11 px-3 rounded-full flex items-center gap-2 text-sm font-semibold text-white shrink-0" style={{ border: "1px solid #2a2a2a" }}>
-          EXPRESS<span style={{ color: YELLOW }}>bakēd</span>
+          <img src={EXPRESS_ASSETS.wordmark} alt="" className="h-4 w-auto" />
           <ChevronDown size={12} />
         </button>
       </div>
@@ -243,38 +243,38 @@ export const ExpressHome = () => {
         </div>
       </section>
 
-      {/* Send Now — horizontal vehicle cards */}
+      {/* Send Now — image-first horizontal cards */}
       <section className="mt-5">
         <div className="px-4 flex items-center justify-between mb-3">
           <h2 className="text-xl font-black tracking-tight">Send Now</h2>
           <Link data-testid="exp-home-see-all" to="/express/book/location" className="text-xs font-semibold" style={{ color: YELLOW }}>See all →</Link>
         </div>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-2 snap-x snap-mandatory">
+        {/* Horizontal scroller — first two cards fit, third peeks so users swipe. */}
+        <div className="flex gap-3 overflow-x-auto no-scrollbar pl-4 pr-8 pb-2 snap-x snap-mandatory">
           {shortcutCards.map((v) => (
             <VehicleCard key={v.code} v={v} money={money} onClick={() => start(v.code)} testid={`exp-home-vehicle-${v.code}`} />
           ))}
         </div>
       </section>
 
-      {/* Bulk & Home Shifting */}
+      {/* Bulk & Home Shifting — branded artwork */}
       <section className="px-4 mt-2 grid grid-cols-2 gap-3">
         <ServiceCard
           testid="exp-home-bulk"
-          title="Bulk Deliveries"
-          subtitle="Up to 25% OFF on business deliveries"
-          icon={Boxes}
+          title="Parcel Delivery"
+          subtitle="Fast document & parcel delivery"
+          image={EXPRESS_ASSETS.parcel}
           onClick={() => navigate("/express/book/location")}
         />
         <ServiceCard
           testid="exp-home-movers"
           title="Home Shifting"
-          subtitle="Safe & hassle-free moving services"
-          icon={HomeIcon}
+          subtitle="Professional Packers & Movers"
+          image={EXPRESS_ASSETS.moving}
           onClick={() => navigate("/express/movers")}
         />
       </section>
 
-      {/* Trust strip */}
       <section className="px-4 mt-4">
         <div className="rounded-2xl p-3 flex items-center gap-3" style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}>
           <Sparkles size={16} color={YELLOW} />
@@ -285,62 +285,64 @@ export const ExpressHome = () => {
   );
 };
 
-// ---------------- VEHICLE CARD ----------------
+// ---------------- VEHICLE CARD — image-first, minimal ----------------
 const VehicleCard = ({ v, money, onClick, testid }) => {
-  const Icon = v.code === "bike" || v.code === "scooter" ? Bike : Truck;
-  const sub = v.code === "bike" ? "Fast & reliable delivery"
-            : v.code === "three_wheeler" ? "Ideal for medium parcels"
-            : v.code === "truck" ? "For heavy & large items"
-            : v.description;
+  const label = v.code === "bike" ? "Bike"
+              : v.code === "three_wheeler" ? "Mini 3W"
+              : v.code === "mini_truck" ? "Mini Truck"
+              : v.code === "truck" ? "Truck"
+              : v.name;
   return (
     <button
       data-testid={testid}
       onClick={onClick}
-      className="snap-start shrink-0 w-[260px] rounded-2xl overflow-hidden text-left motion-fast active:scale-[0.99] flex flex-col"
-      style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}
+      className="snap-start shrink-0 w-[240px] rounded-3xl overflow-hidden text-left motion-fast active:scale-[0.99] flex flex-col"
+      style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}
     >
-      {/* Big icon plate */}
-      <div className="h-32 flex items-center justify-center relative" style={{ background: `radial-gradient(circle at center, ${YELLOW}18, transparent 70%)` }}>
-        <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}>
-          <Icon size={54} color={YELLOW} strokeWidth={2} />
-        </div>
+      <div className="h-40 relative flex items-center justify-center px-3" style={{ background: `radial-gradient(circle at 50% 60%, ${YELLOW}22, transparent 65%)` }}>
+        <img
+          src={vehicleImage(v.code)}
+          alt={label}
+          className="max-h-36 w-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
+          loading="lazy"
+        />
+        <span className="absolute top-3 left-3 inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10px] font-bold text-black" style={{ backgroundColor: YELLOW }}>
+          <Clock size={10} /> {v.eta_min_min}-{v.eta_min_max} min
+        </span>
       </div>
-      <div className="p-4">
-        <div className="text-base font-bold text-white">Send by {v.name}</div>
-        <div className="text-[11px] text-white/60 mt-0.5">{sub}</div>
-        <div className="mt-3 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[10px] font-semibold text-white/80" style={{ border: "1px solid #2a2a2a" }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-            {v.eta_min_min}-{v.eta_min_max} mins
-          </span>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ border: "1px solid #2a2a2a" }}>
-            <ArrowRight size={14} color={YELLOW} />
-          </div>
+      <div className="p-4 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-base font-bold text-white truncate">Send by {label}</div>
+          <div className="text-[10px] text-white/50 mt-0.5">from <span className="font-semibold text-white/90">{money(v.base_price)}</span></div>
         </div>
-        <div className="text-[10px] text-white/50 mt-1.5">from <span className="font-semibold text-white">{money(v.base_price)}</span></div>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW }}>
+          <ArrowRight size={16} color="#0a0a0a" strokeWidth={2.5} />
+        </div>
       </div>
     </button>
   );
 };
 
-// ---------------- SERVICE CARD ----------------
-const ServiceCard = ({ testid, title, subtitle, icon: Icon, onClick }) => (
+// ---------------- SERVICE CARD — branded artwork ----------------
+const ServiceCard = ({ testid, title, subtitle, image, onClick }) => (
   <button
     data-testid={testid}
     onClick={onClick}
-    className="rounded-2xl p-4 text-left flex flex-col justify-between min-h-[150px] motion-fast active:scale-[0.99]"
-    style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}
+    className="rounded-3xl overflow-hidden text-left flex flex-col min-h-[180px] motion-fast active:scale-[0.99]"
+    style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}
   >
-    <div>
-      <div className="text-base font-bold text-white leading-tight">{title}</div>
-      <div className="text-[11px] text-white/60 mt-1">{subtitle}</div>
+    <div className="h-24 relative flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 55%, ${YELLOW}18, transparent 70%)` }}>
+      <img src={image} alt={title} className="max-h-24 w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.5)]" loading="lazy" />
     </div>
-    <div className="flex items-center justify-between mt-4">
-      <span className="inline-flex items-center gap-1 h-8 px-3 rounded-full text-[10px] font-semibold" style={{ border: "1px solid #2a2a2a", color: "#fff" }}>
-        Learn More <ArrowRight size={11} color={YELLOW} />
-      </span>
-      <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}>
-        <Icon size={20} color={YELLOW} />
+    <div className="p-3.5 flex-1 flex flex-col justify-between">
+      <div>
+        <div className="text-sm font-bold text-white leading-tight">{title}</div>
+        <div className="text-[11px] text-white/55 mt-1">{subtitle}</div>
+      </div>
+      <div className="mt-3 flex items-center justify-end">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: YELLOW }}>
+          <ArrowRight size={13} color="#0a0a0a" strokeWidth={2.5} />
+        </div>
       </div>
     </div>
   </button>

@@ -53,6 +53,8 @@ import { ExpressBookingProvider, MoversBookingProvider } from "@/contexts/Expres
 import { ExpressHome } from "@/pages/express/ExpressHome";
 import { ExpressStepLocation, ExpressStepReceiver, ExpressStepVehicle, ExpressStepPackage, ExpressStepEstimate, ExpressBookingConfirmation } from "@/pages/express/ExpressWizard";
 import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
+import { ExpressBookings } from "@/pages/express/ExpressBookings";
+import { ExpressServices } from "@/pages/express/ExpressServices";
 
 function DesktopCustomerShell() {
   return (
@@ -86,6 +88,8 @@ function DesktopCustomerShell() {
         <Route path="/express/book/package" element={<ExpressStepPackage />} />
         <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
         <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
+        <Route path="/express/bookings" element={<ExpressBookings />} />
+        <Route path="/express/services" element={<ExpressServices />} />
         <Route path="/express/movers" element={<MoversLanding />} />
         <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
@@ -132,6 +136,8 @@ function MobileCustomerShell() {
         <Route path="/express/book/package" element={<ExpressStepPackage />} />
         <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
         <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
+        <Route path="/express/bookings" element={<ExpressBookings />} />
+        <Route path="/express/services" element={<ExpressServices />} />
         <Route path="/express/movers" element={<MoversLanding />} />
         <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />

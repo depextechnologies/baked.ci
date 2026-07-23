@@ -9,12 +9,12 @@ import { useAuth } from "../../contexts/BakedContexts";
  * customer isn't authenticated. Uses AuthContext.openLogin() which stores the
  * current path so the user is returned here after successful sign-in.
  */
-export const GuestSignInPrompt = ({ title = "Sign in required", message = "Sign in to your BAKĒD account to continue.", testid = "guest-signin-prompt" }) => {
+export const GuestSignInPrompt = ({ title = "Sign in required", message = "Sign in to your BAKĒD account to continue.", testid = "guest-signin-prompt", accent = "#77BC1F" }) => {
   const { openLogin } = useAuth();
   const loc = useLocation();
   return (
     <div data-testid={testid} className="min-h-[70vh] flex flex-col items-center justify-center px-6 text-center">
-      <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+      <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: `${accent}22`, color: accent }}>
         <ShieldCheck size={36} />
       </div>
       <div className="text-lg font-bold">{title}</div>
@@ -23,7 +23,7 @@ export const GuestSignInPrompt = ({ title = "Sign in required", message = "Sign 
         data-testid={`${testid}-btn`}
         onClick={() => openLogin(loc.pathname + loc.search)}
         className="baked-btn mt-6 h-11 px-6 font-bold text-black"
-        style={{ backgroundColor: "#77BC1F" }}
+        style={{ backgroundColor: accent }}
       >
         Continue to sign in
       </Button>
