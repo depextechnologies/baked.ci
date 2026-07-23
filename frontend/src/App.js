@@ -90,6 +90,8 @@ function DesktopCustomerShell() {
         <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
         <Route path="/express/bookings" element={<ExpressBookings />} />
         <Route path="/express/services" element={<ExpressServices />} />
+        <Route path="/express/parcel" element={<ExpressStepLocation />} />
+        <Route path="/express/home-shifting" element={<MoversLanding />} />
         <Route path="/express/movers" element={<MoversLanding />} />
         <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
@@ -138,6 +140,8 @@ function MobileCustomerShell() {
         <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
         <Route path="/express/bookings" element={<ExpressBookings />} />
         <Route path="/express/services" element={<ExpressServices />} />
+        <Route path="/express/parcel" element={<ExpressStepLocation />} />
+        <Route path="/express/home-shifting" element={<MoversLanding />} />
         <Route path="/express/movers" element={<MoversLanding />} />
         <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
