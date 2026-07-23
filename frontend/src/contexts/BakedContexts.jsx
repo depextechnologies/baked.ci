@@ -116,8 +116,17 @@ export const AppProvider = ({ children }) => {
     else localStorage.removeItem("baked_active_address");
   }, []);
   const [addressSelectorOpen, setAddressSelectorOpen] = useState(false);
-  const openAddressSelector = useCallback(() => setAddressSelectorOpen(true), []);
-  const closeAddressSelector = useCallback(() => setAddressSelectorOpen(false), []);
+  const [addressSelectorMode, setAddressSelectorMode] = useState({ callback: null, title: null });
+  const openAddressSelector = useCallback((opts) => {
+    // opts.onPick(address) — when provided, invoked with the picked address INSTEAD of updating global activeAddress.
+    // opts.title — override modal title (e.g. "Pickup location")
+    setAddressSelectorMode({ callback: opts?.onPick || null, title: opts?.title || null });
+    setAddressSelectorOpen(true);
+  }, []);
+  const closeAddressSelector = useCallback(() => {
+    setAddressSelectorOpen(false);
+    setAddressSelectorMode({ callback: null, title: null });
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -146,7 +155,7 @@ export const AppProvider = ({ children }) => {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector }), [activeModule, countryCode, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector]);
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);

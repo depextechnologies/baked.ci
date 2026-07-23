@@ -49,6 +49,10 @@ import { MobileSettings } from "@/pages/mobile/MobileSettings";
 import { MobileHelpSupport } from "@/pages/mobile/MobileHelpSupport";
 import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog";
 import { AddressSelector } from "@/components/address/AddressSelector";
+import { ExpressBookingProvider, MoversBookingProvider } from "@/contexts/ExpressContext";
+import { ExpressHome } from "@/pages/express/ExpressHome";
+import { ExpressStepLocation, ExpressStepReceiver, ExpressStepVehicle, ExpressStepPackage, ExpressStepEstimate, ExpressBookingConfirmation } from "@/pages/express/ExpressWizard";
+import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
 
 function DesktopCustomerShell() {
   return (
@@ -75,7 +79,15 @@ function DesktopCustomerShell() {
         <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
-        <Route path="/express" element={<ComingSoonPage />} />
+        <Route path="/express" element={<ExpressHome />} />
+        <Route path="/express/book/location" element={<ExpressStepLocation />} />
+        <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
+        <Route path="/express/book/vehicle" element={<ExpressStepVehicle />} />
+        <Route path="/express/book/package" element={<ExpressStepPackage />} />
+        <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
+        <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
+        <Route path="/express/movers" element={<MoversLanding />} />
+        <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
         <Route path="/immo" element={<ComingSoonPage />} />
         <Route path="*" element={<HomePage />} />
@@ -113,7 +125,15 @@ function MobileCustomerShell() {
         <Route path="/profile/refer" element={<MobileRefer />} />
         <Route path="/food" element={<ComingSoonPage />} />
         <Route path="/shop" element={<ComingSoonPage />} />
-        <Route path="/express" element={<ComingSoonPage />} />
+        <Route path="/express" element={<ExpressHome />} />
+        <Route path="/express/book/location" element={<ExpressStepLocation />} />
+        <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
+        <Route path="/express/book/vehicle" element={<ExpressStepVehicle />} />
+        <Route path="/express/book/package" element={<ExpressStepPackage />} />
+        <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
+        <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
+        <Route path="/express/movers" element={<MoversLanding />} />
+        <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
         <Route path="/immo" element={<ComingSoonPage />} />
         <Route path="*" element={<MobileHome />} />
@@ -173,7 +193,7 @@ function App() {
             </Route>
           </Route>
           <Route path="/*" element={
-            <AuthProvider><AppProvider><CartProvider><CustomerShell /></CartProvider></AppProvider></AuthProvider>
+            <AuthProvider><AppProvider><CartProvider><ExpressBookingProvider><MoversBookingProvider><CustomerShell /></MoversBookingProvider></ExpressBookingProvider></CartProvider></AppProvider></AuthProvider>
           } />
         </Routes>
         <Toaster position="top-right" theme="dark" />

@@ -393,7 +393,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
 };
 
 // -------- Root selector (dialog + bottom sheet) --------
-const AddressSelectorInner = ({ onClose, activeCountry }) => {
+const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
   const [step, setStep] = useState("search"); // 'search' | 'confirm'
   const [candidate, setCandidate] = useState(null);
   const [detecting, setDetecting] = useState(false);
@@ -466,10 +466,14 @@ const AddressSelectorInner = ({ onClose, activeCountry }) => {
   }, [geo, activeCountry]);
 
   const onConfirm = useCallback((addr) => {
-    setActiveAddress(addr);
-    toast.success("Delivery address updated");
+    if (onPick) {
+      onPick(addr);
+    } else {
+      setActiveAddress(addr);
+    }
+    toast.success(onPick ? "Address selected" : "Delivery address updated");
     onClose();
-  }, [setActiveAddress, onClose]);
+  }, [onPick, setActiveAddress, onClose]);
 
   return (
     <>
@@ -491,11 +495,12 @@ const AddressSelectorInner = ({ onClose, activeCountry }) => {
 
 // -------- Dialog / bottom-sheet frame --------
 export const AddressSelector = () => {
-  const { addressSelectorOpen, closeAddressSelector, country } = useApp();
+  const { addressSelectorOpen, closeAddressSelector, country, addressSelectorMode } = useApp();
   const isMobile = useIsMobile();
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
   if (!addressSelectorOpen) return null;
+  const modalTitle = addressSelectorMode?.title || "Select delivery location";
 
   const frame = (
     <div
@@ -512,7 +517,7 @@ export const AddressSelector = () => {
           <MapPin size={17} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold">Select delivery location</div>
+          <div className="text-base font-bold">{modalTitle}</div>
           <div className="text-[11px] text-muted-foreground truncate">Serving {country?.name || "your country"} · {country?.currency_symbol || country?.currency}</div>
         </div>
         <button data-testid="addr-close-btn" onClick={closeAddressSelector} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center motion-fast active:scale-95" aria-label="Close">
@@ -522,7 +527,11 @@ export const AddressSelector = () => {
       <div className="flex-1 min-h-0 overflow-hidden">
         {apiKey ? (
           <APIProvider apiKey={apiKey} libraries={["places", "geocoding"]}>
-            <AddressSelectorInner onClose={closeAddressSelector} activeCountry={country?.code || "CI"} />
+            <AddressSelectorInner
+              onClose={closeAddressSelector}
+              onPick={addressSelectorMode?.callback}
+              activeCountry={country?.code || "CI"}
+            />
           </APIProvider>
         ) : (
           <NoKeyBanner onClose={closeAddressSelector} />

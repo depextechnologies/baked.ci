@@ -742,3 +742,6 @@ async def run_seed():
     await _seed_super_admin()
     await _seed_ai_prompts()
     await _seed_module_vendors_and_drivers()
+    # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
+    from modules.express.seed import seed_express  # local import to avoid circulars
+    await seed_express()

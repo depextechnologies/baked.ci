@@ -18,6 +18,7 @@ from core.db import client  # noqa: E402
 from shared.auth.routes import router as auth_router  # noqa: E402
 from shared.customer.routes import router as customer_router  # noqa: E402
 from shared.addresses.routes import router as addresses_router  # noqa: E402
+from modules.express.routes import router as express_router  # noqa: E402
 from shared.config_svc.routes import router as config_router  # noqa: E402
 from shared.ai.routes import router as ai_router  # noqa: E402
 from shared.admin.routes import router as admin_router  # noqa: E402
@@ -45,6 +46,7 @@ async def health():
 api_router.include_router(auth_router)
 api_router.include_router(customer_router)
 api_router.include_router(addresses_router)
+api_router.include_router(express_router)
 api_router.include_router(config_router)
 api_router.include_router(ai_router)
 api_router.include_router(admin_router)

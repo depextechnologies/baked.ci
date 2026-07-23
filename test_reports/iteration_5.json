@@ -1,0 +1,60 @@
+{
+  "summary": "EXPRESSbakēd Phase 1 end-to-end tested. Backend: 15/15 pytest cases pass (vehicles CI+LR, package types, weight tiers, parcel quote incl. truck>bike, movers taxonomy + quote, parcel & movers bookings with GET-verify persistence, auth guard). Frontend mobile (390x844): /express home renders vehicle shortcuts w/ ETA + from-price; parcel wizard 5 steps complete → real booking created (Ref EXP88069206, total 2 360 CFA); movers wizard 6 steps complete → real booking created (Ref EXPMV88147156, total 15 495 CFA). Desktop (1440x900): /express renders same page (Phase 1 spec); MART regression /products still lists 60 items. ONE UX bug found: the sticky `exp-footer-continue` button is visually overlapped on its right edge by the fixed MobileBottomNav Profile tab — natural finger-taps on the visible Continue text land on the Profile tab and navigate the user to /profile mid-wizard.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ExpressFooter (sticky) vs MobileBottomNav (fixed)",
+        "issue": "The wizard Continue button (`exp-footer-continue`) sits at x=246–374 y=788–832 while the fixed MobileBottomNav Profile tab occupies x=306–390 y=788–844. Both are z-40 but the fixed nav wins z-stacking because it's the later DOM sibling. A real user tapping the visible 'Continue' label (center ~ x=310) actually clicks the Profile tab beneath — the wizard jumps to /profile. Reproduced consistently in Playwright: page.click(force=True) on exp-footer-continue navigated to /profile; only page.evaluate('el.click()') (dispatching directly on the element) advanced the wizard.",
+        "selector": "[data-testid=\"exp-footer-continue\"] overlapped by MobileBottomNav Profile tab",
+        "priority": "HIGH"
+      },
+      {
+        "component": "ExpressBookingConfirmation (movers path)",
+        "issue": "For movers bookings the 'Your delivery' pill row renders empty 'km' / 'min' / 'Vehicle' labels because a movers booking doc has no top-level `distance_km` / `duration_min` / `vehicle_code` (those live inside `quote_breakdown` and there's no vehicle in a mover flow). Parcel bookings render this row correctly. Fix: branch the confirmation UI on booking_type ('parcel' vs 'movers') and show move_type + total_items instead for movers, or read distance from quote_breakdown.",
+        "selector": ".booking-confirmation delivery row",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_express_phase1.py",
+    "/app/test_reports/pytest/pytest_express_phase1.xml"
+  ],
+  "action_items": [
+    "MAIN AGENT (HIGH): Fix ExpressFooter/MobileBottomNav overlap on Express wizard screens. Options: (a) hide MobileBottomNav on /express/book/* and /express/movers/wizard the same way it's hidden on /checkout in MobileShell.jsx (add isExpressWizard check), OR (b) bump ExpressFooter z-index above 40 (e.g. z-50) AND ensure it sits above the fixed nav — but option (a) is cleaner since the wizard already has its own footer CTA and doesn't need the app tab bar.",
+    "MAIN AGENT (MEDIUM): In ExpressBookingConfirmation.jsx render the top summary row conditionally for parcel vs movers — for movers show move_type + item count + scheduled date/slot instead of km/min/vehicle.",
+    "MAIN AGENT (NICE-TO-HAVE): The wizard `Continue` CTA is a green button on the right; consider making it full-width or moving it above the mobile nav's safe area."
+  ],
+  "critical_code_review_comments": [
+    "Pricing engine (modules/express/pricing.py) is 100% config-driven — haversine + rule lookup + peak/night/service_fee/insurance/promo/tax all read from Mongo. No hardcoded constants in the runtime path. Nicely separated from routes.py.",
+    "Seed (modules/express/seed.py) is idempotent via _upsert. Verified: 5 vehicles × 2 countries, 27 movers items × 2 countries, 4 time slots × 2 countries all in place after multiple restarts.",
+    "Bookings correctly re-run the quote at booking time (quote_parcel called inside create_parcel_booking) — protects against tampered prices from the client. Good.",
+    "Booking `ref` is derived from `datetime.now().timestamp()*1000 % 1e8` (8 digits). Under low load this is fine; at high concurrency you'll collide. Consider adding a suffix random hex or use `secrets.token_hex(2)` to prevent duplicate refs at scale.",
+    "AddressPoint schema (routes.py) accepts optional formatted_address / place_id / building — round-trips fine into express_bookings.",
+    "GET /bookings/mine correctly filters by `customer_id` + `module='express'` and excludes MongoDB _id. GET /bookings/{id} returns 404 if not owned by caller. Auth wall works (verified via test_parcel_booking_requires_auth).",
+    "BUG (frontend UX): sticky ExpressFooter is covered by fixed MobileBottomNav on the right side (Profile tab). See action item #1. This will break real customer taps.",
+    "BUG (frontend, minor): ExpressBookingConfirmation always renders distance_km / duration_min / vehicle_code even for movers → shows empty labels.",
+    "Session-storage draft persistence for parcel + movers works — verified via reload mid-wizard and via directly pre-populating draft to skip Google Places latency during automated testing.",
+    "Vehicle step (Step 3) correctly parallel-fetches quotes for all 5 vehicles and shows 'BEST' badge on cheapest (verified visually — bike card shows 2 360 CFA and a BEST pill).",
+    "Currency rendering: XOF formatted as `2\\u202f360 CFA` (fr-FR narrow-no-break space) — matches spec 'whole-number X XXX CFA'."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_express_phase1.py (new — 15 pytest cases, all passing)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 pytest)",
+    "frontend": "~90% (all wizard steps work when clicks are dispatched via JS; the Continue button is however overlapped by MobileBottomNav Profile tab and real user taps will navigate to /profile instead. Confirmation UI has stale km/min labels for movers.)"
+  },
+  "test_credentials": "Dev OTP: POST /api/auth/otp/request {country_code:'+225', phone:<any 10 digits>} → response.dev_code → /api/auth/otp/verify → access_token stored in localStorage.baked_access_token.",
+  "seed_data_creation": "Each backend test authenticates a fresh customer via random phone + dev OTP. Frontend Playwright tests reuse three different phone numbers (0100112245/6/7) for parcel + movers submissions. Bookings created are left in DB (searching/confirmed status) — matches Phase 1 expectations (no dispatch/allocation yet).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "backend test file is /app/backend/tests/test_express_phase1.py — run `pytest backend/tests/test_express_phase1.py -v`. To skip the Google Places latency during Playwright wizard testing: pre-populate the wizard draft via sessionStorage keys `baked_express_draft` (parcel) and `baked_express_movers_draft` (movers) before navigating; both are validated by ExpressContext on load. The wizard footer button `exp-footer-continue` is covered by the mobile BottomNav's Profile tab at its right edge — use page.evaluate(\"document.querySelector('[data-testid=exp-footer-continue]').click()\") to advance instead of page.click() until this is fixed.",
+  "rca_of_the_issue": "Overlap RCA: MobileShell.jsx renders `<main>` (containing ExpressStepLocation with a sticky bottom-0 z-40 ExpressFooter) followed by `<MobileBottomNav>` (fixed bottom-0 z-40). Because both elements are position-out-of-flow (sticky footer is at the bottom of main; fixed nav is at the viewport bottom) with the same z-index and the nav appears later in the DOM tree, the fixed nav paints on top of the sticky footer. The Continue button occupies roughly the right 40% of the viewport width — the Profile tab (rightmost of 4 bottom nav tabs) sits directly on top of that region and captures the click. Fix: hide MobileBottomNav on any /express/book/* or /express/movers/wizard route (same pattern as isCheckout) — the wizard already has its own sticky Continue CTA and doesn't need the global tab bar."
+}
