@@ -23,17 +23,6 @@ import { BrandedModuleLabel } from "../../components/layout/BakedLogo";
  */
 const YELLOW = "#FCC44C";
 const YELLOW_TINT = "#FCC44C22";
-const DARK_MAP_STYLE = [
-  { elementType: "geometry", stylers: [{ color: "#181818" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0a0a0a" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#a8a8a8" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#2c2c2c" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8f8f8f" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0d2635" }] },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
-];
 
 // Reference points per country — used as the map center + basis for driver sprinkling
 const COUNTRY_CENTER = {
@@ -180,7 +169,6 @@ const MapHero = () => {
           mapId="baked-express-map"
           gestureHandling="greedy"
           disableDefaultUI
-          styles={DARK_MAP_STYLE}
         >
           {drivers.map((d) => (
             <AdvancedMarker key={d.id} position={{ lat: d.lat, lng: d.lng }}>
@@ -527,7 +515,6 @@ const DesktopMapHero = () => {
         mapId="baked-express-map-dt"
         gestureHandling="greedy"
         disableDefaultUI
-        styles={DARK_MAP_STYLE}
       >
         {drivers.map((d) => (
           <AdvancedMarker key={d.id} position={{ lat: d.lat, lng: d.lng }}>
