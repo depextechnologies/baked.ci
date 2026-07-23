@@ -474,7 +474,7 @@ export const ExpressBookingConfirmation = () => {
         )}
 
         <div className="baked-card border border-border p-4 space-y-2">
-          <div className="text-sm font-bold">Your delivery</div>
+          <div className="text-sm font-bold">Your {booking.booking_type === "movers" ? "move" : "delivery"}</div>
           <div className="flex items-start gap-2">
             <MapPin size={13} style={{ color: "#77BC1F" }} className="mt-1" />
             <div><div className="text-[10px] uppercase tracking-widest text-muted-foreground">Pickup</div><div className="text-xs font-semibold">{booking.pickup?.formatted_address}</div></div>
@@ -484,11 +484,19 @@ export const ExpressBookingConfirmation = () => {
             <div><div className="text-[10px] uppercase tracking-widest text-muted-foreground">Drop-off</div><div className="text-xs font-semibold">{booking.drop?.formatted_address}</div></div>
           </div>
           <div className="border-t border-border my-2" />
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div><div className="font-bold">{booking.distance_km} km</div><div className="text-[10px] text-muted-foreground">Distance</div></div>
-            <div><div className="font-bold">{booking.duration_min} min</div><div className="text-[10px] text-muted-foreground">Est. ETA</div></div>
-            <div><div className="font-bold capitalize">{booking.vehicle_code?.replace("_", " ")}</div><div className="text-[10px] text-muted-foreground">Vehicle</div></div>
-          </div>
+          {booking.booking_type === "movers" ? (
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div><div className="font-bold capitalize">{booking.move_type?.replace("_", " ")}</div><div className="text-[10px] text-muted-foreground">Move type</div></div>
+              <div><div className="font-bold">{(booking.items || []).reduce((s, i) => s + (i.qty || 0), 0)} items</div><div className="text-[10px] text-muted-foreground">Load</div></div>
+              <div><div className="font-bold">{booking.scheduled_date || "—"}</div><div className="text-[10px] text-muted-foreground">{booking.time_slot_code || "Slot"}</div></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div><div className="font-bold">{booking.distance_km} km</div><div className="text-[10px] text-muted-foreground">Distance</div></div>
+              <div><div className="font-bold">{booking.duration_min} min</div><div className="text-[10px] text-muted-foreground">Est. ETA</div></div>
+              <div><div className="font-bold capitalize">{booking.vehicle_code?.replace("_", " ")}</div><div className="text-[10px] text-muted-foreground">Vehicle</div></div>
+            </div>
+          )}
         </div>
 
         <div className="baked-card border border-border p-4">
@@ -499,12 +507,21 @@ export const ExpressBookingConfirmation = () => {
           <div className="text-[10px] text-muted-foreground mt-1">Cash on Delivery · pay to the driver</div>
         </div>
 
-        <div className="baked-card border border-border p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center animate-pulse" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
-            <Truck size={16} />
+        {booking.booking_type === "movers" ? (
+          <div className="baked-card border border-border p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+              <CheckCircle2 size={16} />
+            </div>
+            <div className="flex-1"><div className="text-sm font-bold">Move confirmed</div><div className="text-[11px] text-muted-foreground">Our team will call you 24 hours before the move to confirm details.</div></div>
           </div>
-          <div className="flex-1"><div className="text-sm font-bold">Searching for the best driver…</div><div className="text-[11px] text-muted-foreground">Live tracking opens once assigned.</div></div>
-        </div>
+        ) : (
+          <div className="baked-card border border-border p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center animate-pulse" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+              <Truck size={16} />
+            </div>
+            <div className="flex-1"><div className="text-sm font-bold">Searching for the best driver…</div><div className="text-[11px] text-muted-foreground">Live tracking opens once assigned.</div></div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <button data-testid="exp-booking-track" onClick={() => navigate(`/express/booking/${booking.id}`)} className="baked-btn h-11 border border-border font-semibold text-sm">Track order</button>

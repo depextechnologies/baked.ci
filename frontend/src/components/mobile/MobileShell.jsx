@@ -24,9 +24,11 @@ export const MobileShell = ({ children }) => {
   const isCheckout = loc.pathname.startsWith("/checkout");
   const isOrder = loc.pathname.startsWith("/orders");
   const isProfile = loc.pathname.startsWith("/profile") || loc.pathname === "/wallet";
+  const isExpressWizard = loc.pathname.startsWith("/express/book/") || loc.pathname.startsWith("/express/movers/wizard") || loc.pathname.startsWith("/express/booking/");
+  const isExpressHome = loc.pathname === "/express" || loc.pathname === "/express/movers";
 
-  const showHeader = (isHome || isCategory || isCart || isCheckout || isOrder || isProduct) && !isProfile;
-  const showBottomNav = !isCheckout; // hide bottom nav on checkout to focus the CTA
+  const showHeader = (isHome || isCategory || isCart || isCheckout || isOrder || isProduct) && !isProfile && !isExpressWizard && !isExpressHome;
+  const showBottomNav = !isCheckout && !isExpressWizard; // hide bottom nav on checkout & express wizard to focus the CTA
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">

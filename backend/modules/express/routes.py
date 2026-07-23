@@ -5,6 +5,7 @@ in Mongo and is editable from Super Admin. Booking status transitions live
 in `express_bookings.timeline` for auditability.
 """
 from __future__ import annotations
+import secrets
 from typing import Optional, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -335,6 +336,7 @@ async def cancel_booking(booking_id: str, customer: dict = Depends(get_current_c
 
 # ---------- Utilities ----------
 def _make_booking_ref(prefix: str = "EXP") -> str:
-    # 8-digit human-readable reference derived from time — collision-safe for MVP
+    # 8-digit human-readable reference (ms timestamp) + 4-hex random suffix
+    # to prevent collisions under high concurrency.
     ts = int(datetime.now(timezone.utc).timestamp() * 1000)
-    return f"{prefix}{ts % 100000000:08d}"
+    return f"{prefix}{ts % 100000000:08d}{secrets.token_hex(2).upper()}"
