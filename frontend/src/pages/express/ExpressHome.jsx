@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
-import { Bell, Wallet2, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Locate, Search, Sparkles, Clock } from "lucide-react";
+import { Bell, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Locate, Search, Sparkles, Sun, Moon } from "lucide-react";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useExpressBooking } from "../../contexts/ExpressContext";
 import { api } from "../../lib/api";
@@ -99,14 +99,19 @@ const GpsButton = () => {
 
 // ---------------- HEADER ----------------
 const ExpressTopBar = () => {
-  const { activeAddress, openAddressSelector, country } = useApp();
-  const money = useMoney();
-  const walletBalance = 0;
+  const { activeAddress, openAddressSelector, country, theme, toggleTheme } = useApp();
   const address = activeAddress?.formatted_address || COUNTRY_CENTER[country?.code || "CI"].label;
   const eta = country?.delivery_eta_min || "8 mins";
+  const isDark = theme !== "light";
 
   return (
     <header className="px-4 pt-4 pb-2">
+      {/*
+        Row 1 — clean & minimal:
+          [logo]                                    [bell] [theme toggle]
+        Wallet card + module dropdown removed (Phase 1 uses COD; module
+        switching is handled by the global center FAB in the bottom nav).
+      */}
       <div className="flex items-center gap-3">
         <img
           src={EXPRESS_ASSETS.wordmark}
@@ -115,36 +120,32 @@ const ExpressTopBar = () => {
           data-testid="exp-top-wordmark"
         />
         <div className="flex-1" />
-        <button data-testid="exp-top-bell" className="relative w-11 h-11 rounded-full flex items-center justify-center" style={{ border: "1px solid #2a2a2a" }} aria-label="Notifications">
-          <Bell size={17} className="text-white" />
+        <button data-testid="exp-top-bell" className="relative w-10 h-10 rounded-full flex items-center justify-center motion-fast active:scale-95" style={{ border: "1px solid #2a2a2a" }} aria-label="Notifications">
+          <Bell size={16} className="text-white" />
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: YELLOW }} />
         </button>
         <button
-          data-testid="exp-top-wallet"
-          onClick={() => window.location.assign("/wallet")}
-          className="h-11 px-3 rounded-full flex items-center gap-2 text-sm font-semibold text-white"
+          data-testid="exp-top-theme"
+          onClick={toggleTheme}
+          className="w-10 h-10 rounded-full flex items-center justify-center motion-fast active:scale-95"
           style={{ border: "1px solid #2a2a2a" }}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          title={isDark ? "Light mode" : "Dark mode"}
         >
-          <Wallet2 size={15} color={YELLOW} />
-          {money(walletBalance)}
+          {isDark ? <Moon size={16} color={YELLOW} strokeWidth={2.5} /> : <Sun size={16} color={YELLOW} strokeWidth={2.5} />}
         </button>
       </div>
 
-      <div className="flex items-start gap-3 mt-3">
-        <button data-testid="exp-top-address" onClick={openAddressSelector} className="flex-1 flex items-start gap-2 text-left min-w-0">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW_TINT }}>
-            <MapPin size={14} color={YELLOW} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-white truncate flex items-center gap-1">{address}<ChevronDown size={12} className="text-white/60" /></div>
-            <div className="text-[11px] text-white/50">Delivering to you <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
-          </div>
-        </button>
-        <button data-testid="exp-top-module" className="h-11 px-3 rounded-full flex items-center gap-2 text-sm font-semibold text-white shrink-0" style={{ border: "1px solid #2a2a2a" }}>
-          <img src={EXPRESS_ASSETS.wordmark} alt="" className="h-4 w-auto" />
-          <ChevronDown size={12} />
-        </button>
-      </div>
+      {/* Row 2 — address + ETA badge (no module dropdown; use bottom-nav FAB) */}
+      <button data-testid="exp-top-address" onClick={openAddressSelector} className="w-full mt-3 flex items-start gap-2 text-left min-w-0">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW_TINT }}>
+          <MapPin size={14} color={YELLOW} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-white truncate flex items-center gap-1">{address}<ChevronDown size={12} className="text-white/60" /></div>
+          <div className="text-[11px] text-white/50">Delivering to you <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
+        </div>
+      </button>
     </header>
   );
 };
