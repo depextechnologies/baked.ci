@@ -246,11 +246,12 @@ export const ExpressHome = () => {
       {/* Send Now — image-first horizontal cards */}
       <section className="mt-5">
         <div className="px-4 flex items-center justify-between mb-3">
-          <h2 className="text-xl font-black tracking-tight">Send Now</h2>
-          <Link data-testid="exp-home-see-all" to="/express/book/location" className="text-xs font-semibold" style={{ color: YELLOW }}>See all →</Link>
+          <h2 className="text-2xl font-bold tracking-tight">Send Now</h2>
+          <Link data-testid="exp-home-see-all" to="/express/book/location" className="text-[0.75rem] font-semibold" style={{ color: YELLOW }}>See all →</Link>
         </div>
-        {/* Horizontal scroller — first two cards fit, third peeks so users swipe. */}
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pl-4 pr-8 pb-2 snap-x snap-mandatory">
+        {/* 180px cards + 12px gap. On a 390px viewport 2 cards fully fit and the
+            third peeks; on 412-430px (typical Android) the third card peeks ~30-40%. */}
+        <div className="flex gap-3 overflow-x-auto no-scrollbar pl-4 pr-4 pb-2 snap-x snap-mandatory" style={{ scrollPaddingLeft: 16 }}>
           {shortcutCards.map((v) => (
             <VehicleCard key={v.code} v={v} money={money} onClick={() => start(v.code)} testid={`exp-home-vehicle-${v.code}`} />
           ))}
@@ -258,7 +259,7 @@ export const ExpressHome = () => {
       </section>
 
       {/* Bulk & Home Shifting — branded artwork */}
-      <section className="px-4 mt-2 grid grid-cols-2 gap-3">
+      <section className="px-4 mt-4 grid grid-cols-2 gap-3">
         <ServiceCard
           testid="exp-home-bulk"
           title="Parcel Delivery"
@@ -278,17 +279,17 @@ export const ExpressHome = () => {
       <section className="px-4 mt-4">
         <div className="rounded-2xl p-3 flex items-center gap-3" style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}>
           <Sparkles size={16} color={YELLOW} />
-          <div className="text-[11px] text-white/70">All deliveries are insured · verified drivers · live tracking on every order.</div>
+          <div className="text-[0.75rem] font-normal text-white opacity-70">All deliveries are insured · verified drivers · live tracking on every order.</div>
         </div>
       </section>
     </div>
   );
 };
 
-// ---------------- VEHICLE CARD — image-first, minimal ----------------
+// ---------------- VEHICLE CARD — image-first, minimal (180px wide) ----------------
 const VehicleCard = ({ v, money, onClick, testid }) => {
   const label = v.code === "bike" ? "Bike"
-              : v.code === "three_wheeler" ? "Mini 3W"
+              : v.code === "three_wheeler" ? "Mini 3 Wheeler"
               : v.code === "mini_truck" ? "Mini Truck"
               : v.code === "truck" ? "Truck"
               : v.name;
@@ -296,28 +297,24 @@ const VehicleCard = ({ v, money, onClick, testid }) => {
     <button
       data-testid={testid}
       onClick={onClick}
-      className="snap-start shrink-0 w-[240px] rounded-3xl overflow-hidden text-left motion-fast active:scale-[0.99] flex flex-col"
+      className="snap-start shrink-0 min-w-[180px] max-w-[180px] rounded-2xl overflow-hidden text-left motion-fast active:scale-[0.98] flex flex-col"
       style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}
     >
-      <div className="h-40 relative flex items-center justify-center px-3" style={{ background: `radial-gradient(circle at 50% 60%, ${YELLOW}22, transparent 65%)` }}>
+      {/* Image occupies ~72% of card height (160px of 220px) — object-contain, never cropped */}
+      <div className="h-40 relative flex items-center justify-center px-2 pt-2" style={{ background: `radial-gradient(circle at 50% 55%, ${YELLOW}22, transparent 65%)` }}>
         <img
           src={vehicleImage(v.code)}
           alt={label}
-          className="max-h-36 w-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
+          className="max-h-36 max-w-full w-auto object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
           loading="lazy"
         />
-        <span className="absolute top-3 left-3 inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10px] font-bold text-black" style={{ backgroundColor: YELLOW }}>
-          <Clock size={10} /> {v.eta_min_min}-{v.eta_min_max} min
-        </span>
       </div>
-      <div className="p-4 flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-base font-bold text-white truncate">Send by {label}</div>
-          <div className="text-[10px] text-white/50 mt-0.5">from <span className="font-semibold text-white/90">{money(v.base_price)}</span></div>
+      <div className="px-3 pt-2 pb-3">
+        <div className="flex items-center gap-1.5 text-white text-[0.9rem] font-semibold leading-tight">
+          <span className="truncate">Send by {label}</span>
+          <ArrowRight size={13} color={YELLOW} className="shrink-0" strokeWidth={2.5} />
         </div>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW }}>
-          <ArrowRight size={16} color="#0a0a0a" strokeWidth={2.5} />
-        </div>
+        <div className="text-[0.75rem] font-normal text-white opacity-70 mt-1">From {money(v.base_price)}</div>
       </div>
     </button>
   );
@@ -328,22 +325,18 @@ const ServiceCard = ({ testid, title, subtitle, image, onClick }) => (
   <button
     data-testid={testid}
     onClick={onClick}
-    className="rounded-3xl overflow-hidden text-left flex flex-col min-h-[180px] motion-fast active:scale-[0.99]"
+    className="rounded-2xl overflow-hidden text-left flex flex-col motion-fast active:scale-[0.98]"
     style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}
   >
-    <div className="h-24 relative flex items-center justify-center" style={{ background: `radial-gradient(circle at 50% 55%, ${YELLOW}18, transparent 70%)` }}>
-      <img src={image} alt={title} className="max-h-24 w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.5)]" loading="lazy" />
+    <div className="h-28 relative flex items-center justify-center px-2" style={{ background: `radial-gradient(circle at 50% 55%, ${YELLOW}1E, transparent 70%)` }}>
+      <img src={image} alt={title} className="max-h-24 max-w-full w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.5)]" loading="lazy" />
     </div>
-    <div className="p-3.5 flex-1 flex flex-col justify-between">
-      <div>
-        <div className="text-sm font-bold text-white leading-tight">{title}</div>
-        <div className="text-[11px] text-white/55 mt-1">{subtitle}</div>
+    <div className="px-3 pt-2 pb-3">
+      <div className="flex items-center gap-1.5 text-white text-[0.9rem] font-semibold leading-tight">
+        <span className="truncate">{title}</span>
+        <ArrowRight size={13} color={YELLOW} className="shrink-0" strokeWidth={2.5} />
       </div>
-      <div className="mt-3 flex items-center justify-end">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: YELLOW }}>
-          <ArrowRight size={13} color="#0a0a0a" strokeWidth={2.5} />
-        </div>
-      </div>
+      <div className="text-[0.75rem] font-normal text-white opacity-70 mt-1">{subtitle}</div>
     </div>
   </button>
 );
