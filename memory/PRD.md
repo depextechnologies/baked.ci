@@ -103,6 +103,14 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Booking refs** hardened with a 4-hex `secrets.token_hex(2)` suffix to prevent collisions under concurrency (`EXP########XXXX`).
    - **Testing agent iteration_5.json**: 15/15 backend pytest cases pass (parcel + movers quotes, auth-guard, booking persistence). Frontend ~90% initially — two flagged issues (bottom-nav overlap on wizard, movers confirmation stale km/min) both fixed and re-verified via Playwright.
    - Phase 2 (Live Tracking + WebSockets + Driver Dispatch) queued next — see ROADMAP.
+- ✅ **EXPRESSbakēd — Home Redesign + Dedicated Module Identity (2026-02-23)** — full redesign matching the approved PDF reference, distinct from MART.
+   - **Own top bar**: EXPRESSbakēd wordmark (yellow gradient) · notification bell · wallet pill · address row with ETA badge · module switcher pill.
+   - **Interactive Google Map hero** (`/app/frontend/src/pages/express/ExpressHome.jsx`): dark-styled map centered on user location (CI/LR), 7 yellow driver markers (rotating bike/scooter/3W/truck icons) sprinkled around the center via a deterministic seed, animated blue user pin, GPS button bottom-right that recenters via `navigator.geolocation`.
+   - **Horizontal "Send Now" vehicle cards** (snap-scroll): big yellow icon plate, "Send by Bike/3 Wheeler/Truck" title, short description, ETA badge, "from <price>" (live from `/api/express/vehicles`), circular arrow CTA.
+   - **Bulk Deliveries + Home Shifting** side-by-side cards below vehicles.
+   - **Dedicated `ExpressBottomNav`** (`/app/frontend/src/components/express/ExpressBottomNav.jsx`): Home · Bookings · [Center yellow FAB with package icon → App Selector] · Services · Profile. `MobileShell` swaps to this on any `/express*` route. Old MART Categories/Cart tabs removed on Express.
+   - **Color language switched module-wide to Express yellow `#FCC44C`**: replaced 75 occurrences of `#77BC1F` across `ExpressHome.jsx`, `ExpressWizard.jsx`, `MoversWizard.jsx`, `ExpressLayout.jsx`. All active states, progress dots, buttons, chips, badges, and confirmation icons now render yellow-on-black.
+   - **Visual verified via Playwright** at 390×844: EXPRESSbakēd wordmark, address (Cocody, Abidjan · 10-15 min pill), live Google Map with driver markers around Cocody, pickup search bar, Send by Bike/3 Wheeler card visible in horizontal scroller with "from 1500 CFA" / "from 5000 CFA", Express bottom nav present (Home/Bookings/FAB/Services/Profile), all old MART tabs absent.
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet

@@ -2,15 +2,14 @@ import React, { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { ExpressBottomNav } from "../express/ExpressBottomNav";
 import { AppSelectorSheet } from "./AppSelectorSheet";
 
 /**
  * MobileShell — the shared frame around every mobile-web customer screen.
- * - Sticky header
- * - Sticky bottom-nav with center FAB
+ * - Sticky header (MART/customer only; Express owns its own header)
+ * - Sticky bottom-nav — swaps to Express variant on /express routes
  * - App-selector bottom sheet
- * The route content lives in <Outlet /> (we do NOT nest full routes; instead
- * we're used inline by CustomerShell in App.js).
  */
 export const MobileShell = ({ children }) => {
   const [appOpen, setAppOpen] = useState(false);
@@ -25,10 +24,10 @@ export const MobileShell = ({ children }) => {
   const isOrder = loc.pathname.startsWith("/orders");
   const isProfile = loc.pathname.startsWith("/profile") || loc.pathname === "/wallet";
   const isExpressWizard = loc.pathname.startsWith("/express/book/") || loc.pathname.startsWith("/express/movers/wizard") || loc.pathname.startsWith("/express/booking/");
-  const isExpressHome = loc.pathname === "/express" || loc.pathname === "/express/movers";
+  const isExpress = loc.pathname === "/express" || loc.pathname.startsWith("/express/");
 
-  const showHeader = (isHome || isCategory || isCart || isCheckout || isOrder || isProduct) && !isProfile && !isExpressWizard && !isExpressHome;
-  const showBottomNav = !isCheckout && !isExpressWizard; // hide bottom nav on checkout & express wizard to focus the CTA
+  const showHeader = (isHome || isCategory || isCart || isCheckout || isOrder || isProduct) && !isProfile && !isExpress;
+  const showBottomNav = !isCheckout && !isExpressWizard;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -36,7 +35,11 @@ export const MobileShell = ({ children }) => {
 
       <main className="flex-1 pb-24">{children || <Outlet />}</main>
 
-      {showBottomNav && <MobileBottomNav onOpenAppSelector={() => setAppOpen(true)} />}
+      {showBottomNav && (
+        isExpress
+          ? <ExpressBottomNav onOpenAppSelector={() => setAppOpen(true)} />
+          : <MobileBottomNav onOpenAppSelector={() => setAppOpen(true)} />
+      )}
       <AppSelectorSheet open={appOpen} onClose={() => setAppOpen(false)} />
     </div>
   );

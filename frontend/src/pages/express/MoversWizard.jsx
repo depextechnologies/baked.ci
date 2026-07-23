@@ -48,7 +48,7 @@ export const MoversLanding = () => {
                 key={t.code}
                 data-testid={`mov-type-${t.code}`}
                 onClick={() => navigate(`/express/movers/wizard?type=${t.code}`)}
-                className="baked-card border border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#77BC1F]"
+                className="baked-card border border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#FCC44C]"
               >
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Icon size={20} /></div>
                 <div className="flex-1"><div className="text-sm font-bold">{t.name}</div><div className="text-[11px] text-muted-foreground">{t.description}</div></div>
@@ -72,7 +72,7 @@ export const MoversLanding = () => {
 
 const MiniFeature = ({ icon: Icon, label }) => (
   <div className="baked-card border border-border p-2.5 flex flex-col items-center gap-1">
-    <Icon size={14} style={{ color: "#77BC1F" }} />
+    <Icon size={14} style={{ color: "#FCC44C" }} />
     <div className="text-[10px] font-semibold text-center">{label}</div>
   </div>
 );
@@ -121,10 +121,10 @@ const MoveTypeStep = ({ draft, setDraft, onNext }) => {
             const active = draft.move_type === t.code;
             const Icon = MOVE_ICONS[t.code] || PackageIcon;
             return (
-              <button key={t.code} data-testid={`mov-w-type-${t.code}`} onClick={() => setDraft({ move_type: t.code })} className={`baked-card border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${active ? "border-[#77BC1F] bg-[#77BC1F14]" : "border-border"}`}>
+              <button key={t.code} data-testid={`mov-w-type-${t.code}`} onClick={() => setDraft({ move_type: t.code })} className={`baked-card border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${active ? "border-[#FCC44C] bg-[#FCC44C14]" : "border-border"}`}>
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Icon size={20} /></div>
                 <div className="flex-1"><div className="text-sm font-bold">{t.name}</div><div className="text-[11px] text-muted-foreground">{t.description}</div></div>
-                {active && <CheckCircle2 size={16} style={{ color: "#77BC1F" }} />}
+                {active && <CheckCircle2 size={16} style={{ color: "#FCC44C" }} />}
               </button>
             );
           })}
@@ -154,8 +154,8 @@ const PickupDropStep = ({ draft, setDraft, onNext }) => {
   );
 };
 
-const MoverAddress = ({ testid, label, address, onEdit, tone = "#77BC1F" }) => (
-  <button data-testid={testid} onClick={onEdit} className="w-full baked-card border border-border p-3 flex items-start gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#77BC1F]">
+const MoverAddress = ({ testid, label, address, onEdit, tone = "#FCC44C" }) => (
+  <button data-testid={testid} onClick={onEdit} className="w-full baked-card border border-border p-3 flex items-start gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#FCC44C]">
     <div className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${tone}22`, color: tone }}><MapPin size={15} /></div>
     <div className="flex-1 min-w-0">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
@@ -180,7 +180,7 @@ const BuildingBlock = ({ testid, side, values = {}, onChange }) => (
 );
 
 const Toggle = ({ testid, label, active, onClick }) => (
-  <button data-testid={testid} onClick={onClick} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#77BC1F] text-[#77BC1F] bg-[#77BC1F14]" : "border-border bg-secondary"}`}>{active && <CheckCircle2 size={11} className="inline mr-1" />}{label}</button>
+  <button data-testid={testid} onClick={onClick} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>{active && <CheckCircle2 size={11} className="inline mr-1" />}{label}</button>
 );
 
 // ---------------- STEP 3: Items ----------------
@@ -218,7 +218,7 @@ const ItemsStep = ({ draft, setDraft, onNext }) => {
           return (
             <div key={c.code} className="baked-card border border-border overflow-hidden">
               <button data-testid={`mov-cat-${c.code}`} onClick={() => setOpenCat(isOpen ? null : c.code)} className="w-full flex items-center gap-3 p-3 text-left">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Icon size={17} /></div>
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Icon size={17} /></div>
                 <div className="flex-1"><div className="text-sm font-bold">{c.name}</div><div className="text-[10px] text-muted-foreground">{catItems.length} items{catCount > 0 && ` · ${catCount} added`}</div></div>
                 {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -233,7 +233,7 @@ const ItemsStep = ({ draft, setDraft, onNext }) => {
                         <div className="flex items-center gap-2">
                           <button data-testid={`mov-item-${it.id}-minus`} onClick={() => setQty(it, Math.max(0, qty - 1))} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center disabled:opacity-40" disabled={qty === 0}><Minus size={13} /></button>
                           <span className="w-6 text-center text-sm font-bold">{qty}</span>
-                          <button data-testid={`mov-item-${it.id}-plus`} onClick={() => setQty(it, qty + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-black" style={{ backgroundColor: "#77BC1F" }}><Plus size={13} /></button>
+                          <button data-testid={`mov-item-${it.id}-plus`} onClick={() => setQty(it, qty + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-black" style={{ backgroundColor: "#FCC44C" }}><Plus size={13} /></button>
                         </div>
                       </div>
                     );
@@ -308,11 +308,11 @@ const QuoteStep = ({ draft, setDraft, onNext }) => {
           <div className="ml-auto flex items-center gap-2">
             <button data-testid="mov-labour-minus" onClick={() => setDraft({ labour_movers: Math.max(1, (draft.labour_movers || 2) - 1) })} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center"><Minus size={13} /></button>
             <span className="w-6 text-center text-sm font-bold">{draft.labour_movers || 2}</span>
-            <button data-testid="mov-labour-plus" onClick={() => setDraft({ labour_movers: (draft.labour_movers || 2) + 1 })} className="w-8 h-8 rounded-full flex items-center justify-center text-black" style={{ backgroundColor: "#77BC1F" }}><Plus size={13} /></button>
+            <button data-testid="mov-labour-plus" onClick={() => setDraft({ labour_movers: (draft.labour_movers || 2) + 1 })} className="w-8 h-8 rounded-full flex items-center justify-center text-black" style={{ backgroundColor: "#FCC44C" }}><Plus size={13} /></button>
           </div>
         </div>
 
-        <div className="baked-card border border-border p-3 flex items-start gap-2"><ShieldCheck size={16} style={{ color: "#77BC1F" }} className="mt-0.5" /><div className="text-[11px] text-muted-foreground">Verified partners · On-time delivery · Safe & Secure · Insurance included</div></div>
+        <div className="baked-card border border-border p-3 flex items-start gap-2"><ShieldCheck size={16} style={{ color: "#FCC44C" }} className="mt-0.5" /><div className="text-[11px] text-muted-foreground">Verified partners · On-time delivery · Safe & Secure · Insurance included</div></div>
       </div>
       <ExpressFooter onContinue={onNext} disabled={!quote} />
     </>
@@ -353,7 +353,7 @@ const TimeSlotStep = ({ draft, setDraft, onNext }) => {
         <div className="text-sm font-bold">Select moving date</div>
         <div className="flex overflow-x-auto gap-2 pb-1 -mx-4 px-4 no-scrollbar">
           {upcomingDates.map((d) => (
-            <button key={d.iso} data-testid={`mov-date-${d.iso}`} onClick={() => pickDate(d.iso)} className={`shrink-0 w-20 h-16 baked-card border p-2 text-center motion-fast ${date === d.iso ? "border-[#77BC1F] bg-[#77BC1F14] text-[#77BC1F]" : "border-border"}`}>
+            <button key={d.iso} data-testid={`mov-date-${d.iso}`} onClick={() => pickDate(d.iso)} className={`shrink-0 w-20 h-16 baked-card border p-2 text-center motion-fast ${date === d.iso ? "border-[#FCC44C] bg-[#FCC44C14] text-[#FCC44C]" : "border-border"}`}>
               <div className="text-[10px] font-semibold">{d.label.split(" ")[0]}</div>
               <div className="text-lg font-bold">{d.label.split(" ")[1]}</div>
               <div className="text-[10px]">{d.label.split(" ")[2]}</div>
@@ -367,11 +367,11 @@ const TimeSlotStep = ({ draft, setDraft, onNext }) => {
           {slots.map((s) => {
             const active = draft.time_slot_code === s.code;
             return (
-              <button key={s.code} data-testid={`mov-slot-${s.code}`} onClick={() => pickSlot(s.code)} className={`w-full baked-card border p-3 flex items-center gap-3 motion-fast ${active ? "border-[#77BC1F] bg-[#77BC1F14]" : "border-border"}`}>
+              <button key={s.code} data-testid={`mov-slot-${s.code}`} onClick={() => pickSlot(s.code)} className={`w-full baked-card border p-3 flex items-center gap-3 motion-fast ${active ? "border-[#FCC44C] bg-[#FCC44C14]" : "border-border"}`}>
                 <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Clock size={15} /></div>
                 <div className="flex-1 text-left"><div className="text-sm font-bold">{s.name}</div><div className="text-[11px] text-muted-foreground">{s.window}</div></div>
                 <div className="text-right">
-                  {s.badge && <div className="text-[9px] font-bold px-1.5 py-0.5 rounded mb-1" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>{s.badge}</div>}
+                  {s.badge && <div className="text-[9px] font-bold px-1.5 py-0.5 rounded mb-1" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>{s.badge}</div>}
                   <div className="text-xs font-bold">{s.surcharge > 0 ? `+${money(s.surcharge)}` : money(0)}</div>
                 </div>
               </button>
@@ -460,12 +460,12 @@ const ReviewStep = ({ draft, setDraft, resetDraft }) => {
         )}
 
         <label className="flex items-start gap-2 text-xs">
-          <input data-testid="mov-terms" type="checkbox" checked={terms} onChange={(e) => { setTerms(e.target.checked); setDraft({ terms_ok: e.target.checked }); }} className="mt-0.5 w-4 h-4 accent-[#77BC1F]" />
-          <span>I have reviewed all the details and agree to the <a href="#" style={{ color: "#77BC1F" }}>Terms & Conditions</a>.</span>
+          <input data-testid="mov-terms" type="checkbox" checked={terms} onChange={(e) => { setTerms(e.target.checked); setDraft({ terms_ok: e.target.checked }); }} className="mt-0.5 w-4 h-4 accent-[#FCC44C]" />
+          <span>I have reviewed all the details and agree to the <a href="#" style={{ color: "#FCC44C" }}>Terms & Conditions</a>.</span>
         </label>
 
-        <div className="baked-card border p-3 flex items-center gap-2" style={{ borderColor: "#77BC1F44", backgroundColor: "#77BC1F0F" }}>
-          <ShieldCheck size={16} style={{ color: "#77BC1F" }} />
+        <div className="baked-card border p-3 flex items-center gap-2" style={{ borderColor: "#FCC44C44", backgroundColor: "#FCC44C0F" }}>
+          <ShieldCheck size={16} style={{ color: "#FCC44C" }} />
           <div className="text-[11px] text-muted-foreground">Your booking is safe and secure. Only advance is charged today — remaining after move completion.</div>
         </div>
       </div>
@@ -476,7 +476,7 @@ const ReviewStep = ({ draft, setDraft, resetDraft }) => {
 
 const SummaryRow = ({ icon: Icon, label, value }) => (
   <div className="flex items-start gap-2">
-    <Icon size={12} style={{ color: "#77BC1F" }} className="mt-0.5 shrink-0" />
+    <Icon size={12} style={{ color: "#FCC44C" }} className="mt-0.5 shrink-0" />
     <div className="flex-1 min-w-0"><div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div><div className="text-xs font-semibold truncate">{value || "—"}</div></div>
   </div>
 );

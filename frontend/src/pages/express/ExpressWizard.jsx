@@ -36,7 +36,7 @@ export const ExpressStepLocation = () => {
       <ExpressHeader title="Pick-up & Drop Location" step={1} />
       <WizardProgress steps={STEPS} current={0} />
       <div className="flex-1 px-4 pt-2 pb-4 space-y-3">
-        <AddressField testid="exp-pickup" label="Pickup Location" address={draft.pickup} onEdit={pickPickup} tone="#77BC1F" hint="Where should we collect from?" />
+        <AddressField testid="exp-pickup" label="Pickup Location" address={draft.pickup} onEdit={pickPickup} tone="#FCC44C" hint="Where should we collect from?" />
         <AddressField testid="exp-drop" label="Drop-off Location" address={draft.drop} onEdit={pickDrop} tone="#FCC44C" hint="Where are we delivering?" />
       </div>
       <ExpressFooter onContinue={() => navigate("/express/book/receiver")} disabled={!ok} />
@@ -44,8 +44,8 @@ export const ExpressStepLocation = () => {
   );
 };
 
-const AddressField = ({ testid, label, address, onEdit, tone = "#77BC1F", hint }) => (
-  <button data-testid={testid} onClick={onEdit} className="w-full baked-card border border-border p-4 flex items-start gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#77BC1F]">
+const AddressField = ({ testid, label, address, onEdit, tone = "#FCC44C", hint }) => (
+  <button data-testid={testid} onClick={onEdit} className="w-full baked-card border border-border p-4 flex items-start gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#FCC44C]">
     <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${tone}22`, color: tone }}>
       <MapPin size={16} />
     </div>
@@ -95,10 +95,10 @@ export const ExpressStepReceiver = () => {
               const active = (r.preferences || []).includes(p.code);
               const Icon = p.code === "call_before" ? PhoneCall : p.code === "leave_at_door" ? DoorOpen : PenSquare;
               return (
-                <button key={p.code} data-testid={`exp-r-pref-${p.code}`} onClick={() => togglePref(p.code)} className={`baked-card border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${active ? "border-[#77BC1F] bg-[#77BC1F14]" : "border-border"}`}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Icon size={15} /></div>
+                <button key={p.code} data-testid={`exp-r-pref-${p.code}`} onClick={() => togglePref(p.code)} className={`baked-card border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${active ? "border-[#FCC44C] bg-[#FCC44C14]" : "border-border"}`}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Icon size={15} /></div>
                   <div className="flex-1"><div className="text-sm font-semibold">{p.label}</div><div className="text-[10px] text-muted-foreground">{p.description}</div></div>
-                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center ${active ? "border-[#77BC1F] bg-[#77BC1F]" : "border-border"}`}>{active && <CheckCircle2 size={13} className="text-black" />}</div>
+                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center ${active ? "border-[#FCC44C] bg-[#FCC44C]" : "border-border"}`}>{active && <CheckCircle2 size={13} className="text-black" />}</div>
                 </button>
               );
             })}
@@ -175,7 +175,7 @@ export const ExpressStepVehicle = () => {
                 key={v.code}
                 data-testid={`exp-veh-${v.code}`}
                 onClick={() => setDraft({ vehicle_code: v.code })}
-                className={`w-full baked-card border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${selected ? "border-[#77BC1F] bg-[#77BC1F14]" : "border-border hover:border-[#77BC1F44]"}`}
+                className={`w-full baked-card border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${selected ? "border-[#FCC44C] bg-[#FCC44C14]" : "border-border hover:border-[#FCC44C44]"}`}
               >
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
                   {v.code === "bike" || v.code === "scooter" ? <Bike size={22} /> : <Truck size={22} />}
@@ -183,10 +183,10 @@ export const ExpressStepVehicle = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="text-sm font-bold">{v.name}</div>
-                    {isBest && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Star size={9} className="inline mr-0.5" />BEST</span>}
+                    {isBest && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Star size={9} className="inline mr-0.5" />BEST</span>}
                   </div>
                   <div className="text-[11px] text-muted-foreground">Up to {v.max_weight_kg} kg · {v.description}</div>
-                  <div className="text-[10px] font-semibold mt-0.5" style={{ color: "#77BC1F" }}>ETA {v.eta_min_min}-{v.eta_min_max} min</div>
+                  <div className="text-[10px] font-semibold mt-0.5" style={{ color: "#FCC44C" }}>ETA {v.eta_min_min}-{v.eta_min_max} min</div>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-sm font-bold">{q ? money(q.total) : "…"}</div>
@@ -197,8 +197,8 @@ export const ExpressStepVehicle = () => {
           })}
         </div>
 
-        <div className="mt-4 baked-card border p-3 flex items-start gap-3" style={{ borderColor: "#77BC1F44", backgroundColor: "#77BC1F0A" }}>
-          <ShieldCheck size={16} style={{ color: "#77BC1F" }} className="shrink-0 mt-0.5" />
+        <div className="mt-4 baked-card border p-3 flex items-start gap-3" style={{ borderColor: "#FCC44C44", backgroundColor: "#FCC44C0A" }}>
+          <ShieldCheck size={16} style={{ color: "#FCC44C" }} className="shrink-0 mt-0.5" />
           <div><div className="text-xs font-bold">All deliveries are insured</div><div className="text-[10px] text-muted-foreground">Your goods are safe with EXPRESSbakēd.</div></div>
         </div>
       </div>
@@ -214,7 +214,7 @@ const RouteSummary = () => {
   return (
     <div className="mx-4 mt-2 baked-card border border-border p-3 space-y-2">
       <div className="flex items-start gap-2">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><MapPin size={11} /></div>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><MapPin size={11} /></div>
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Pickup</div>
           <div className="text-xs font-semibold truncate">{draft.pickup?.formatted_address || "—"}</div>
@@ -264,7 +264,7 @@ export const ExpressStepPackage = () => {
             {types.map((t) => {
               const active = p.type === t.code;
               return (
-                <button key={t.code} data-testid={`exp-pkg-type-${t.code}`} onClick={() => setPkg("type", t.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#77BC1F] text-[#77BC1F] bg-[#77BC1F14]" : "border-border bg-secondary"}`}>
+                <button key={t.code} data-testid={`exp-pkg-type-${t.code}`} onClick={() => setPkg("type", t.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>
                   {active && <CheckCircle2 size={11} className="inline mr-1" />}{t.name}
                 </button>
               );
@@ -278,7 +278,7 @@ export const ExpressStepPackage = () => {
             {tiers.map((t) => {
               const active = p.weight_range === t.code;
               return (
-                <button key={t.code} data-testid={`exp-pkg-weight-${t.code}`} onClick={() => setPkg("weight_range", t.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#77BC1F] text-[#77BC1F] bg-[#77BC1F14]" : "border-border bg-secondary"}`}>
+                <button key={t.code} data-testid={`exp-pkg-weight-${t.code}`} onClick={() => setPkg("weight_range", t.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>
                   {t.name}
                 </button>
               );
@@ -365,7 +365,7 @@ export const ExpressStepEstimate = () => {
         <ExpressHeader title="Price Estimation" step={5} />
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div className="text-sm font-semibold">Booking details incomplete</div>
-          <button onClick={() => navigate("/express/book/location")} className="mt-4 baked-btn h-11 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>Restart booking</button>
+          <button onClick={() => navigate("/express/book/location")} className="mt-4 baked-btn h-11 px-6 font-bold text-black" style={{ backgroundColor: "#FCC44C" }}>Restart booking</button>
         </div>
       </div>
     );
@@ -380,7 +380,7 @@ export const ExpressStepEstimate = () => {
         <div className="baked-card border border-border p-3 flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>{draft.vehicle_code === "bike" || draft.vehicle_code === "scooter" ? <Bike size={20} /> : <Truck size={20} />}</div>
           <div className="flex-1"><div className="text-sm font-bold capitalize">{draft.vehicle_code.replace("_", " ")}</div><div className="text-[11px] text-muted-foreground">Selected vehicle</div></div>
-          <button data-testid="exp-est-change-veh" onClick={() => navigate("/express/book/vehicle")} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>Change</button>
+          <button data-testid="exp-est-change-veh" onClick={() => navigate("/express/book/vehicle")} className="text-xs font-semibold" style={{ color: "#FCC44C" }}>Change</button>
         </div>
 
         <div className="baked-card border border-border p-4">
@@ -396,7 +396,7 @@ export const ExpressStepEstimate = () => {
               <Row label="Service Fee" value={money(quote.service_fee)} tone />
               <Row label="Insurance" value={money(quote.insurance)} tone />
               {quote.taxes > 0 && <Row label="Taxes" value={money(quote.taxes)} tone />}
-              {quote.promo_discount > 0 && <Row label={`Promo (${quote.promo?.code})`} value={`− ${money(quote.promo_discount)}`} tone="#77BC1F" />}
+              {quote.promo_discount > 0 && <Row label={`Promo (${quote.promo?.code})`} value={`− ${money(quote.promo_discount)}`} tone="#FCC44C" />}
               <div className="border-t border-border my-2" />
               <Row label={<strong>Estimated Total</strong>} value={<strong data-testid="exp-est-total">{money(quote.total)}</strong>} />
               <div className="text-[10px] text-muted-foreground">All prices are inclusive of taxes.</div>
@@ -405,16 +405,16 @@ export const ExpressStepEstimate = () => {
         </div>
 
         <div className="baked-card border border-border p-3 flex items-center gap-3">
-          <ShieldCheck size={16} style={{ color: "#77BC1F" }} />
+          <ShieldCheck size={16} style={{ color: "#FCC44C" }} />
           <div className="flex-1"><div className="text-xs font-bold">Insurance included</div><div className="text-[10px] text-muted-foreground">Your goods are covered up to {money(50000)}</div></div>
-          <div className="text-right"><Clock size={13} style={{ color: "#77BC1F" }} className="ml-auto" /><div className="text-[10px] text-muted-foreground mt-0.5">{quote?.duration_min ?? "—"} min ETA</div></div>
+          <div className="text-right"><Clock size={13} style={{ color: "#FCC44C" }} className="ml-auto" /><div className="text-[10px] text-muted-foreground mt-0.5">{quote?.duration_min ?? "—"} min ETA</div></div>
         </div>
 
         <div className="baked-card border border-border p-3">
           <div className="text-[11px] font-semibold mb-1.5">Have a promo code?</div>
           <div className="flex gap-2">
             <input data-testid="exp-est-promo-input" value={promo} onChange={(e) => setPromo(e.target.value.toUpperCase())} placeholder="Enter promo code" className="flex-1 baked-input h-10 px-3 border border-border bg-secondary/40 text-sm uppercase" />
-            <button data-testid="exp-est-promo-apply" onClick={applyPromo} className="baked-btn h-10 px-4 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>Apply</button>
+            <button data-testid="exp-est-promo-apply" onClick={applyPromo} className="baked-btn h-10 px-4 font-bold text-black" style={{ backgroundColor: "#FCC44C" }}>Apply</button>
           </div>
           <div className="text-[10px] text-muted-foreground mt-1">Final price may vary slightly based on real-time conditions.</div>
         </div>
@@ -422,8 +422,8 @@ export const ExpressStepEstimate = () => {
         <div className="baked-card border border-border p-3">
           <div className="text-[11px] font-semibold mb-1.5">Payment</div>
           <div className="grid grid-cols-2 gap-2">
-            <div data-testid="exp-est-pay-cod" className="baked-card border p-3 flex items-center gap-3" style={{ borderColor: "#77BC1F", backgroundColor: "#77BC1F0F" }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Package size={15} /></div>
+            <div data-testid="exp-est-pay-cod" className="baked-card border p-3 flex items-center gap-3" style={{ borderColor: "#FCC44C", backgroundColor: "#FCC44C0F" }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Package size={15} /></div>
               <div><div className="text-xs font-bold">Cash on Delivery</div><div className="text-[10px] text-muted-foreground">Pay to the driver</div></div>
             </div>
             <div data-testid="exp-est-pay-wallet" className="baked-card border p-3 flex items-center gap-3 border-border opacity-60">
@@ -465,7 +465,7 @@ export const ExpressBookingConfirmation = () => {
       <div className="flex-1 px-4 py-6 space-y-4">
         {success && (
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+            <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
               <CheckCircle2 size={30} />
             </div>
             <div className="text-lg font-bold mt-3">Booking Successful!</div>
@@ -476,7 +476,7 @@ export const ExpressBookingConfirmation = () => {
         <div className="baked-card border border-border p-4 space-y-2">
           <div className="text-sm font-bold">Your {booking.booking_type === "movers" ? "move" : "delivery"}</div>
           <div className="flex items-start gap-2">
-            <MapPin size={13} style={{ color: "#77BC1F" }} className="mt-1" />
+            <MapPin size={13} style={{ color: "#FCC44C" }} className="mt-1" />
             <div><div className="text-[10px] uppercase tracking-widest text-muted-foreground">Pickup</div><div className="text-xs font-semibold">{booking.pickup?.formatted_address}</div></div>
           </div>
           <div className="flex items-start gap-2">
@@ -509,14 +509,14 @@ export const ExpressBookingConfirmation = () => {
 
         {booking.booking_type === "movers" ? (
           <div className="baked-card border border-border p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
               <CheckCircle2 size={16} />
             </div>
             <div className="flex-1"><div className="text-sm font-bold">Move confirmed</div><div className="text-[11px] text-muted-foreground">Our team will call you 24 hours before the move to confirm details.</div></div>
           </div>
         ) : (
           <div className="baked-card border border-border p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center animate-pulse" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center animate-pulse" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
               <Truck size={16} />
             </div>
             <div className="flex-1"><div className="text-sm font-bold">Searching for the best driver…</div><div className="text-[11px] text-muted-foreground">Live tracking opens once assigned.</div></div>
@@ -525,7 +525,7 @@ export const ExpressBookingConfirmation = () => {
 
         <div className="grid grid-cols-2 gap-2">
           <button data-testid="exp-booking-track" onClick={() => navigate(`/express/booking/${booking.id}`)} className="baked-btn h-11 border border-border font-semibold text-sm">Track order</button>
-          <button data-testid="exp-booking-home" onClick={() => navigate("/express")} className="baked-btn h-11 font-bold text-sm text-black" style={{ backgroundColor: "#77BC1F" }}>Book another</button>
+          <button data-testid="exp-booking-home" onClick={() => navigate("/express")} className="baked-btn h-11 font-bold text-sm text-black" style={{ backgroundColor: "#FCC44C" }}>Book another</button>
         </div>
       </div>
     </div>

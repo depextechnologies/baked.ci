@@ -46,13 +46,13 @@ export const WizardProgress = ({ steps, current }) => (
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${
                 done ? "text-black" : active ? "text-black ring-2 ring-offset-2 ring-offset-background" : "bg-secondary text-muted-foreground border border-border"
               }`}
-              style={done || active ? { backgroundColor: "#77BC1F" } : undefined}>
+              style={done || active ? { backgroundColor: "#FCC44C" } : undefined}>
                 {done ? "✓" : i + 1}
               </div>
               <div className={`text-[9px] font-semibold ${active ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</div>
             </div>
             {i < steps.length - 1 && (
-              <div className={`flex-1 h-[2px] mx-1 rounded-full ${done ? "" : "bg-border"}`} style={done ? { backgroundColor: "#77BC1F" } : undefined} />
+              <div className={`flex-1 h-[2px] mx-1 rounded-full ${done ? "" : "bg-border"}`} style={done ? { backgroundColor: "#FCC44C" } : undefined} />
             )}
           </React.Fragment>
         );
@@ -73,7 +73,7 @@ export const ExpressFooter = ({ onContinue, disabled, label = "Continue", loadin
       onClick={onContinue}
       disabled={disabled || loading}
       className="baked-btn h-11 px-6 font-bold text-black motion-fast active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{ backgroundColor: "#77BC1F" }}
+      style={{ backgroundColor: "#FCC44C" }}
     >
       {loading ? "…" : label}
     </button>

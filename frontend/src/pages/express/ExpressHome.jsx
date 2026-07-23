@@ -1,22 +1,206 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Truck, Bike, Package, ArrowRight, MapPin, Plus, Clock, Sparkles, Home, Building2, ChevronRight, Search } from "lucide-react";
+import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
+import { Bell, Wallet2, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Package as PackageIcon, Home as HomeIcon, Boxes, Locate, Search, ClipboardList, Briefcase, Sparkles } from "lucide-react";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useExpressBooking } from "../../contexts/ExpressContext";
-import { MobileHeader } from "../../components/mobile/MobileHeader";
-import { useIsMobile } from "../../hooks/useIsMobile";
 import { api } from "../../lib/api";
 import { useMoney } from "../../components/express/ExpressLayout";
 
 /**
- * ExpressHome — mirrors the PDF Screen 1: map, pickup input, vehicle shortcuts,
- * Bulk Deliveries card and Home Shifting card. Uses shared MobileHeader on
- * mobile and a light desktop layout.
+ * ExpressHome — redesigned to match the approved reference:
+ *   1. Big EXPRESSbakēd wordmark + bell + wallet pill
+ *   2. Address row + module pill (right side)
+ *   3. Hero: interactive Google Map with driver markers + GPS button
+ *   4. Pickup search + Add Stop
+ *   5. Horizontal "Send Now" vehicle cards (large yellow icon)
+ *   6. Bulk Deliveries + Home Shifting cards side-by-side
+ *
+ * Accent: EXPRESSbakēd yellow #FCC44C (never MART green).
  */
+const YELLOW = "#FCC44C";
+const YELLOW_TINT = "#FCC44C22";
+const DARK_MAP_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#181818" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0a0a0a" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a8a8a8" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#2c2c2c" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8f8f8f" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0d2635" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
+];
+
+// Reference points per country — used as the map center + basis for driver sprinkling
+const COUNTRY_CENTER = {
+  CI: { lat: 5.3600, lng: -4.0083, label: "Cocody, Abidjan" },
+  LR: { lat: 6.3005, lng: -10.7969, label: "Sinkor, Monrovia" },
+};
+
+// Deterministically-seeded driver positions around a center (so they don't jitter on re-render).
+const seedDrivers = (lat, lng, count = 7) => {
+  const out = [];
+  const kinds = ["bike", "scooter", "three_wheeler", "truck"];
+  for (let i = 0; i < count; i++) {
+    // Pseudo-random offset ~0.5–3.5 km using a hashed step
+    const a = ((i * 137.508) % 360) * (Math.PI / 180);
+    const r = 0.005 + ((i * 7) % 20) * 0.001;
+    out.push({
+      id: `drv${i}`,
+      lat: lat + Math.sin(a) * r,
+      lng: lng + Math.cos(a) * r,
+      kind: kinds[i % kinds.length],
+    });
+  }
+  return out;
+};
+
+const DriverPin = ({ kind }) => {
+  const Icon = kind === "bike" || kind === "scooter" ? Bike : Truck;
+  return (
+    <div className="relative">
+      <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-2xl border-2" style={{ backgroundColor: YELLOW, borderColor: "#0a0a0a" }}>
+        <Icon size={14} color="#0a0a0a" strokeWidth={2.5} />
+      </div>
+    </div>
+  );
+};
+
+const UserPin = () => (
+  <div className="relative">
+    <div className="absolute -inset-2 rounded-full animate-ping" style={{ backgroundColor: "#3B82F6", opacity: 0.35 }} />
+    <div className="relative w-6 h-6 rounded-full border-[3px] border-white" style={{ backgroundColor: "#3B82F6", boxShadow: "0 4px 12px rgba(59,130,246,0.6)" }} />
+  </div>
+);
+
+const GpsButton = () => {
+  const map = useMap();
+  const center = () => {
+    if (!map || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      map.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      map.setZoom(15);
+    });
+  };
+  return (
+    <button
+      data-testid="exp-map-gps"
+      onClick={center}
+      className="absolute bottom-3 right-3 w-11 h-11 rounded-full flex items-center justify-center shadow-2xl motion-fast active:scale-95"
+      style={{ backgroundColor: "#0a0a0a", border: "1px solid #2a2a2a" }}
+      aria-label="Center on my location"
+    >
+      <Locate size={16} color={YELLOW} strokeWidth={2.5} />
+    </button>
+  );
+};
+
+// ---------------- HEADER ----------------
+const ExpressTopBar = () => {
+  const { activeAddress, openAddressSelector, country } = useApp();
+  const { customer } = useAuth();
+  const money = useMoney();
+  const walletBalance = 0; // wallet MVP shows 0
+  const address = activeAddress?.formatted_address || COUNTRY_CENTER[country?.code || "CI"].label;
+  const eta = country?.delivery_eta_min || "8 mins";
+
+  return (
+    <header className="px-4 pt-4 pb-2">
+      <div className="flex items-center gap-3">
+        {/* Big wordmark */}
+        <div className="flex-1 text-2xl font-black tracking-tight">
+          <span style={{ color: YELLOW }}>EXPRESS</span><span className="text-white/90">bakēd</span>
+        </div>
+        {/* Bell */}
+        <button data-testid="exp-top-bell" className="relative w-11 h-11 rounded-full flex items-center justify-center" style={{ border: "1px solid #2a2a2a" }} aria-label="Notifications">
+          <Bell size={17} className="text-white" />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: YELLOW }} />
+        </button>
+        {/* Wallet pill */}
+        <button
+          data-testid="exp-top-wallet"
+          onClick={() => window.location.assign("/wallet")}
+          className="h-11 px-3 rounded-full flex items-center gap-2 text-sm font-semibold text-white"
+          style={{ border: "1px solid #2a2a2a" }}
+        >
+          <Wallet2 size={15} color={YELLOW} />
+          {money(walletBalance)}
+        </button>
+      </div>
+
+      {/* Row 2: Address left, module pill right */}
+      <div className="flex items-start gap-3 mt-3">
+        <button data-testid="exp-top-address" onClick={openAddressSelector} className="flex-1 flex items-start gap-2 text-left min-w-0">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW_TINT }}>
+            <MapPin size={14} color={YELLOW} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-white truncate flex items-center gap-1">{address}<ChevronDown size={12} className="text-white/60" /></div>
+            <div className="text-[11px] text-white/50">Delivering to you <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
+          </div>
+        </button>
+        <button data-testid="exp-top-module" className="h-11 px-3 rounded-full flex items-center gap-2 text-sm font-semibold text-white shrink-0" style={{ border: "1px solid #2a2a2a" }}>
+          EXPRESS<span style={{ color: YELLOW }}>bakēd</span>
+          <ChevronDown size={12} />
+        </button>
+      </div>
+    </header>
+  );
+};
+
+// ---------------- MAP HERO ----------------
+const MapHero = () => {
+  const { country } = useApp();
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  const center = COUNTRY_CENTER[country?.code || "CI"];
+  const drivers = useMemo(() => seedDrivers(center.lat, center.lng, 7), [center.lat, center.lng]);
+  const [userPos, setUserPos] = useState(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setUserPos(null),
+      { enableHighAccuracy: false, timeout: 4000 }
+    );
+  }, []);
+
+  if (!apiKey) {
+    return <div className="mx-4 h-56 rounded-3xl bg-secondary/50 flex items-center justify-center text-xs text-muted-foreground">Map unavailable — set REACT_APP_GOOGLE_MAPS_API_KEY</div>;
+  }
+
+  return (
+    <div className="mx-4 rounded-3xl overflow-hidden relative h-64" style={{ border: "1px solid #2a2a2a" }}>
+      <APIProvider apiKey={apiKey} libraries={["places", "geocoding"]}>
+        <Map
+          style={{ width: "100%", height: "100%" }}
+          defaultCenter={userPos || center}
+          defaultZoom={14}
+          mapId="baked-express-map"
+          gestureHandling="greedy"
+          disableDefaultUI
+          styles={DARK_MAP_STYLE}
+        >
+          {drivers.map((d) => (
+            <AdvancedMarker key={d.id} position={{ lat: d.lat, lng: d.lng }}>
+              <DriverPin kind={d.kind} />
+            </AdvancedMarker>
+          ))}
+          <AdvancedMarker position={userPos || center}>
+            <UserPin />
+          </AdvancedMarker>
+        </Map>
+        <GpsButton />
+      </APIProvider>
+    </div>
+  );
+};
+
+// ---------------- MAIN HOME ----------------
 export const ExpressHome = () => {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  const { activeAddress, openAddressSelector, country } = useApp();
+  const { openAddressSelector, activeAddress, country } = useApp();
   const { setDraft } = useExpressBooking();
   const [vehicles, setVehicles] = useState([]);
   const money = useMoney();
@@ -25,137 +209,139 @@ export const ExpressHome = () => {
     api.get(`/express/vehicles?country=${country?.code || "CI"}`).then((r) => setVehicles(r.data)).catch(() => setVehicles([]));
   }, [country?.code]);
 
-  const startBooking = useCallback((preSelectedVehicleCode) => {
-    setDraft((d) => ({
-      ...d,
-      pickup: activeAddress || d.pickup,
-      vehicle_code: preSelectedVehicleCode || d.vehicle_code,
-    }));
+  const start = useCallback((code) => {
+    setDraft((d) => ({ ...d, pickup: activeAddress || d.pickup, vehicle_code: code || d.vehicle_code }));
     navigate("/express/book/location");
   }, [activeAddress, setDraft, navigate]);
 
   const shortcutCards = vehicles.filter((v) => ["bike", "three_wheeler", "truck"].includes(v.code));
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {isMobile ? (
-        <MobileHeader variant="home" />
-      ) : (
-        <div className="border-b border-border px-6 py-4 flex items-center gap-3">
-          <div className="text-lg font-bold tracking-wide">EXPRESS<span className="text-[#77BC1F]">bakēd</span></div>
-          <div className="ml-auto text-xs text-muted-foreground">Delivering to {country?.name}</div>
+    <div className="min-h-screen bg-background pb-28">
+      <ExpressTopBar />
+      <MapHero />
+
+      {/* Pickup + Add Stop */}
+      <section className="px-4 mt-3">
+        <div className="rounded-2xl flex items-center gap-2 pl-3 pr-2 h-14" style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}><Search size={14} color={YELLOW} /></div>
+          <button
+            data-testid="exp-home-pickup"
+            onClick={() => openAddressSelector({ title: "Pickup location", onPick: (a) => setDraft({ pickup: a }) })}
+            className="flex-1 text-left text-sm text-white/80 truncate"
+          >
+            {activeAddress ? activeAddress.formatted_address : "Your Pick-up Location?"}
+          </button>
+          <button
+            data-testid="exp-home-add-stop"
+            onClick={() => navigate("/express/book/location")}
+            className="h-10 pl-3 pr-4 rounded-full flex items-center gap-1.5 text-sm font-semibold"
+            style={{ border: "1px solid #2a2a2a", color: "#fff" }}
+          >
+            <Plus size={14} color={YELLOW} /> Add Stop
+          </button>
         </div>
-      )}
-
-      {/* Hero: pickup search */}
-      <section className="px-4 pt-3 pb-2">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Your Pick-up Location?</div>
-        <button
-          data-testid="exp-home-pickup"
-          onClick={() => openAddressSelector({ title: "Choose pickup location" })}
-          className="w-full flex items-center gap-3 h-14 px-4 baked-card border border-border bg-secondary/40 motion-fast active:scale-[0.995] hover:border-[#77BC1F]"
-        >
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
-            <MapPin size={16} />
-          </div>
-          <div className="flex-1 min-w-0 text-left">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Pickup</div>
-            <div className="text-sm font-semibold truncate">{activeAddress?.formatted_address || "Tap to choose pickup"}</div>
-          </div>
-          <ChevronRight size={16} className="text-muted-foreground shrink-0" />
-        </button>
-
-        <button
-          data-testid="exp-home-add-stop"
-          onClick={() => navigate("/express/book/location")}
-          className="w-full mt-2 h-10 rounded-full baked-btn border border-dashed border-border text-xs font-semibold text-muted-foreground motion-fast active:scale-[0.995] hover:text-[#77BC1F] hover:border-[#77BC1F]"
-        >
-          <Plus size={13} className="inline mr-1" /> Add drop-off & start booking
-        </button>
       </section>
 
-      {/* Send Now — vehicle shortcuts */}
-      <section className="px-4 pt-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-base font-bold">Send Now</h2>
-          <Link data-testid="exp-home-see-all" to="/express/book/location" className="text-xs font-semibold" style={{ color: "#77BC1F" }}>See all ›</Link>
+      {/* Send Now — horizontal vehicle cards */}
+      <section className="mt-5">
+        <div className="px-4 flex items-center justify-between mb-3">
+          <h2 className="text-xl font-black tracking-tight">Send Now</h2>
+          <Link data-testid="exp-home-see-all" to="/express/book/location" className="text-xs font-semibold" style={{ color: YELLOW }}>See all →</Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-2 snap-x snap-mandatory">
           {shortcutCards.map((v) => (
-            <button
-              key={v.code}
-              data-testid={`exp-home-vehicle-${v.code}`}
-              onClick={() => startBooking(v.code)}
-              className="baked-card border border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#77BC1F]"
-            >
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
-                {v.code === "bike" || v.code === "scooter" ? <Bike size={22} /> : <Truck size={22} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold">{v.name}</div>
-                <div className="text-[11px] text-muted-foreground truncate">{v.description}</div>
-                <div className="text-[10px] mt-0.5 font-semibold" style={{ color: "#77BC1F" }}>
-                  {v.eta_min_min}-{v.eta_min_max} min · from {money(v.base_price)}
-                </div>
-              </div>
-            </button>
+            <VehicleCard key={v.code} v={v} money={money} onClick={() => start(v.code)} testid={`exp-home-vehicle-${v.code}`} />
           ))}
         </div>
       </section>
 
-      {/* Bulk Deliveries */}
-      <section className="px-4 mt-5">
-        <div data-testid="exp-home-bulk" className="baked-card border border-border p-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(119,188,31,0.10), transparent)" }}>
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Package size={20} /></div>
-            <div className="flex-1">
-              <div className="text-sm font-bold">Bulk Deliveries</div>
-              <div className="text-xs text-muted-foreground">Up to 25% OFF on business deliveries</div>
-              <Link to="/express/book/location" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: "#77BC1F" }}>Learn more <ArrowRight size={12} /></Link>
-            </div>
-          </div>
-        </div>
+      {/* Bulk & Home Shifting */}
+      <section className="px-4 mt-2 grid grid-cols-2 gap-3">
+        <ServiceCard
+          testid="exp-home-bulk"
+          title="Bulk Deliveries"
+          subtitle="Up to 25% OFF on business deliveries"
+          icon={Boxes}
+          onClick={() => navigate("/express/book/location")}
+        />
+        <ServiceCard
+          testid="exp-home-movers"
+          title="Home Shifting"
+          subtitle="Safe & hassle-free moving services"
+          icon={HomeIcon}
+          onClick={() => navigate("/express/movers")}
+        />
       </section>
 
-      {/* Home Shifting */}
-      <section className="px-4 mt-3">
-        <Link data-testid="exp-home-movers" to="/express/movers" className="block baked-card border border-border p-4 motion-fast active:scale-[0.995] hover:border-[#77BC1F]">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Home size={20} /></div>
-            <div className="flex-1">
-              <div className="text-sm font-bold">Home Shifting</div>
-              <div className="text-xs text-muted-foreground">Safe & hassle-free moving services</div>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: "#77BC1F" }}>Learn more <ArrowRight size={12} /></span>
-            </div>
-          </div>
-        </Link>
-      </section>
-
-      {/* Quick actions */}
-      <section className="px-4 mt-5">
-        <div className="grid grid-cols-2 gap-2">
-          <QuickTile testid="exp-home-schedule" icon={Clock} label="Schedule" sub="Book for later" onClick={() => navigate("/express/book/location")} />
-          <QuickTile testid="exp-home-track" icon={Search} label="Track" sub="Existing order" onClick={() => navigate("/express/bookings")} />
-        </div>
-      </section>
-
-      {/* Trust */}
-      <section className="px-4 mt-5">
-        <div className="baked-card border border-border p-3 flex items-center gap-3">
-          <Sparkles size={16} style={{ color: "#77BC1F" }} />
-          <div className="text-[11px] text-muted-foreground">All deliveries are insured. Sit back — we handle the rest.</div>
+      {/* Trust strip */}
+      <section className="px-4 mt-4">
+        <div className="rounded-2xl p-3 flex items-center gap-3" style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}>
+          <Sparkles size={16} color={YELLOW} />
+          <div className="text-[11px] text-white/70">All deliveries are insured · verified drivers · live tracking on every order.</div>
         </div>
       </section>
     </div>
   );
 };
 
-const QuickTile = ({ testid, icon: Icon, label, sub, onClick }) => (
-  <button data-testid={testid} onClick={onClick} className="baked-card border border-border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#77BC1F]">
-    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Icon size={16} /></div>
-    <div className="flex-1 min-w-0">
-      <div className="text-sm font-bold">{label}</div>
-      <div className="text-[10px] text-muted-foreground">{sub}</div>
+// ---------------- VEHICLE CARD ----------------
+const VehicleCard = ({ v, money, onClick, testid }) => {
+  const Icon = v.code === "bike" || v.code === "scooter" ? Bike : Truck;
+  const sub = v.code === "bike" ? "Fast & reliable delivery"
+            : v.code === "three_wheeler" ? "Ideal for medium parcels"
+            : v.code === "truck" ? "For heavy & large items"
+            : v.description;
+  return (
+    <button
+      data-testid={testid}
+      onClick={onClick}
+      className="snap-start shrink-0 w-[260px] rounded-2xl overflow-hidden text-left motion-fast active:scale-[0.99] flex flex-col"
+      style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}
+    >
+      {/* Big icon plate */}
+      <div className="h-32 flex items-center justify-center relative" style={{ background: `radial-gradient(circle at center, ${YELLOW}18, transparent 70%)` }}>
+        <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}>
+          <Icon size={54} color={YELLOW} strokeWidth={2} />
+        </div>
+      </div>
+      <div className="p-4">
+        <div className="text-base font-bold text-white">Send by {v.name}</div>
+        <div className="text-[11px] text-white/60 mt-0.5">{sub}</div>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[10px] font-semibold text-white/80" style={{ border: "1px solid #2a2a2a" }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            {v.eta_min_min}-{v.eta_min_max} mins
+          </span>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ border: "1px solid #2a2a2a" }}>
+            <ArrowRight size={14} color={YELLOW} />
+          </div>
+        </div>
+        <div className="text-[10px] text-white/50 mt-1.5">from <span className="font-semibold text-white">{money(v.base_price)}</span></div>
+      </div>
+    </button>
+  );
+};
+
+// ---------------- SERVICE CARD ----------------
+const ServiceCard = ({ testid, title, subtitle, icon: Icon, onClick }) => (
+  <button
+    data-testid={testid}
+    onClick={onClick}
+    className="rounded-2xl p-4 text-left flex flex-col justify-between min-h-[150px] motion-fast active:scale-[0.99]"
+    style={{ border: "1px solid #2a2a2a", backgroundColor: "#111111" }}
+  >
+    <div>
+      <div className="text-base font-bold text-white leading-tight">{title}</div>
+      <div className="text-[11px] text-white/60 mt-1">{subtitle}</div>
+    </div>
+    <div className="flex items-center justify-between mt-4">
+      <span className="inline-flex items-center gap-1 h-8 px-3 rounded-full text-[10px] font-semibold" style={{ border: "1px solid #2a2a2a", color: "#fff" }}>
+        Learn More <ArrowRight size={11} color={YELLOW} />
+      </span>
+      <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}>
+        <Icon size={20} color={YELLOW} />
+      </div>
     </div>
   </button>
 );
