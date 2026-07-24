@@ -86,7 +86,11 @@ export const ExpressBookings = () => {
         ) : items.length === 0 ? (
           <EmptyState tab={tab} onCta={() => navigate("/express")} />
         ) : (
-          items.map((b) => <BookingCard key={b.id} b={b} onClick={() => navigate(`/express/booking/${b.id}`)} />)
+          items.map((b) => {
+            const isActiveParcel = b.booking_type === "parcel" && ["searching", "driver_assigned", "arriving", "picked_up", "in_transit"].includes(b.status);
+            const target = isActiveParcel ? `/express/booking/${b.id}/track` : `/express/booking/${b.id}`;
+            return <BookingCard key={b.id} b={b} onClick={() => navigate(target)} />;
+          })
         )}
       </div>
     </div>

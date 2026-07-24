@@ -466,24 +466,47 @@ const DRIVER_STATUS = {
   suspended: { color: "#FF4C52", bg: "#FF4C5222", label: "SUSPENDED" },
 };
 
-const emptyDriver = { name: "", phone: "", email: "", country: "CI", city: "", vehicle_type: "scooter", vehicle_reg: "", license_number: "" };
+const emptyDriver = { name: "", phone: "", email: "", country: "CI", city: "", vehicle_type: "scooter", vehicle_reg: "", license_number: "", current_lat: "", current_lng: "", rating: 4.8 };
+
+const EXPRESS_VEHICLES = [
+  { code: "bike",          label: "Bike" },
+  { code: "scooter",       label: "Scooter" },
+  { code: "three_wheeler", label: "3 Wheeler" },
+  { code: "mini_truck",    label: "Mini Truck" },
+  { code: "truck",         label: "Truck" },
+];
 
 export const ModuleDrivers = () => {
   const { meta, code } = useOutletContext();
   const [items, setItems] = useState([]);
   const [editing, setEditing] = useState(null);
+  const isExpress = code === "express";
   const load = async () => setItems((await adminApi.get(`/admin/modules/${code}/drivers`)).data);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [code]);
   const save = async () => {
     if (!editing.name || !editing.phone) return toast.error("Name & phone required");
-    await adminApi.post(`/admin/modules/${code}/drivers`, editing);
+    const payload = { ...editing };
+    // Coerce numeric fields
+    if (payload.current_lat === "" || payload.current_lat == null) delete payload.current_lat;
+    else payload.current_lat = Number(payload.current_lat);
+    if (payload.current_lng === "" || payload.current_lng == null) delete payload.current_lng;
+    else payload.current_lng = Number(payload.current_lng);
+    if (payload.rating !== "" && payload.rating != null) payload.rating = Number(payload.rating);
+    await adminApi.post(`/admin/modules/${code}/drivers`, payload);
     toast.success("Driver added"); setEditing(null); load();
   };
   const setStatus = async (did, status) => {
     await adminApi.patch(`/admin/modules/${code}/drivers/${did}`, { status });
     toast.success(`Driver ${status}`); load();
   };
+  const toggleAvailability = async (d) => {
+    await adminApi.patch(`/admin/modules/${code}/drivers/${d.id}`, { is_available: !d.is_available });
+    toast.success(d.is_available ? "Driver marked busy" : "Driver marked available"); load();
+  };
   const del = async (did) => { await adminApi.delete(`/admin/modules/${code}/drivers/${did}`); load(); };
+  const vehicleOptions = isExpress
+    ? EXPRESS_VEHICLES
+    : [{ code: "bike", label: "Bike" }, { code: "scooter", label: "Scooter" }, { code: "car", label: "Car" }, { code: "van", label: "Van" }];
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -504,9 +527,22 @@ export const ModuleDrivers = () => {
             ))}
             <label className="text-xs"><span className="text-muted-foreground">Vehicle</span>
               <select data-testid="driver-field-vehicle_type" value={editing.vehicle_type} onChange={(e) => setEditing({ ...editing, vehicle_type: e.target.value })} className="baked-input w-full bg-secondary px-2 py-1.5 mt-1">
-                <option value="bike">Bike</option><option value="scooter">Scooter</option><option value="car">Car</option><option value="van">Van</option>
+                {vehicleOptions.map((v) => <option key={v.code} value={v.code}>{v.label}</option>)}
               </select>
             </label>
+            {isExpress && (
+              <>
+                <label className="text-xs"><span className="text-muted-foreground">Current lat</span>
+                  <input data-testid="driver-field-current_lat" value={editing.current_lat ?? ""} onChange={(e) => setEditing({ ...editing, current_lat: e.target.value })} className="baked-input w-full bg-secondary px-2 py-1.5 mt-1" placeholder="e.g. 5.360" />
+                </label>
+                <label className="text-xs"><span className="text-muted-foreground">Current lng</span>
+                  <input data-testid="driver-field-current_lng" value={editing.current_lng ?? ""} onChange={(e) => setEditing({ ...editing, current_lng: e.target.value })} className="baked-input w-full bg-secondary px-2 py-1.5 mt-1" placeholder="e.g. -4.008" />
+                </label>
+                <label className="text-xs"><span className="text-muted-foreground">Rating (0-5)</span>
+                  <input data-testid="driver-field-rating" type="number" step="0.1" min="0" max="5" value={editing.rating ?? 4.8} onChange={(e) => setEditing({ ...editing, rating: e.target.value })} className="baked-input w-full bg-secondary px-2 py-1.5 mt-1" />
+                </label>
+              </>
+            )}
           </div>
           <div className="flex gap-2">
             <Button data-testid="driver-save" onClick={save} className="baked-btn" style={{ backgroundColor: meta.color, color: "#0a1200" }}>Create (pending)</Button>
@@ -522,19 +558,44 @@ export const ModuleDrivers = () => {
               <th className="text-left p-3">Contact</th>
               <th className="text-left p-3">Vehicle</th>
               <th className="text-left p-3">Location</th>
+              {isExpress && <th className="text-left p-3">Availability</th>}
+              {isExpress && <th className="text-left p-3">Rating</th>}
               <th className="text-left p-3">Status</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? (<tr><td colSpan={6} className="p-8 text-center text-sm text-muted-foreground">No drivers yet.</td></tr>) : items.map((d) => {
+            {items.length === 0 ? (<tr><td colSpan={isExpress ? 8 : 6} className="p-8 text-center text-sm text-muted-foreground">No drivers yet.</td></tr>) : items.map((d) => {
               const st = DRIVER_STATUS[d.status] || DRIVER_STATUS.pending;
               return (
                 <tr key={d.id} className="border-t border-border">
                   <td className="p-3"><div className="font-medium">{d.name}</div><div className="text-[10px] text-muted-foreground">{d.license_number || "no license on file"}</div></td>
                   <td className="p-3 text-xs">{d.phone}<div className="text-muted-foreground">{d.email || ""}</div></td>
-                  <td className="p-3 text-xs capitalize">{d.vehicle_type} <span className="text-muted-foreground">· {d.vehicle_reg || "—"}</span></td>
-                  <td className="p-3 text-xs">{d.city ? `${d.city}, ` : ""}{d.country}</td>
+                  <td className="p-3 text-xs capitalize">{(d.vehicle_type || "").replace("_", " ")} <span className="text-muted-foreground">· {d.vehicle_reg || "—"}</span></td>
+                  <td className="p-3 text-xs">
+                    <div>{d.city ? `${d.city}, ` : ""}{d.country}</div>
+                    {isExpress && d.current_lat != null && (
+                      <div className="text-[10px] text-muted-foreground">{Number(d.current_lat).toFixed(4)}, {Number(d.current_lng).toFixed(4)}</div>
+                    )}
+                  </td>
+                  {isExpress && (
+                    <td className="p-3">
+                      <button
+                        data-testid={`driver-avail-${d.id}`}
+                        onClick={() => toggleAvailability(d)}
+                        className="text-[10px] baked-chip px-2 py-0.5 font-semibold"
+                        style={{
+                          backgroundColor: d.is_available ? "#77BC1F22" : "#8b8b8b22",
+                          color: d.is_available ? "#77BC1F" : "#8b8b8b",
+                        }}
+                      >
+                        {d.is_available ? "AVAILABLE" : "BUSY"}
+                      </button>
+                    </td>
+                  )}
+                  {isExpress && (
+                    <td className="p-3 text-xs font-semibold">★ {Number(d.rating || 0).toFixed(1)}</td>
+                  )}
                   <td className="p-3"><span className="text-[10px] baked-chip px-2 py-0.5 font-semibold" style={{ backgroundColor: st.bg, color: st.color }}>{st.label}</span></td>
                   <td className="p-3 text-right text-xs space-x-2">
                     {d.status !== "active" && <button data-testid={`driver-activate-${d.id}`} onClick={() => setStatus(d.id, "active")} className="text-[#77BC1F] hover:underline">Activate</button>}

@@ -1,0 +1,46 @@
+{
+  "summary": "EXPRESSbakēd Phase 2 verified end-to-end. All 11 backend tests in test_express_phase2.py PASS (including the full 2-min demo lifecycle which reaches delivered + payment_status=paid, plus WebSocket streaming with snapshot+location frames, plus dispatch fallback proving bike→scooter/three_wheeler works when all bikes are marked busy). Frontend Live Tracking page (/express/booking/{id}/track) renders correctly on mobile 420x900: map + status card + stepper + route + LIVE ws-status chip (green), driver card appears within seconds with name/rating/vehicle. Admin drivers table for Express shows Availability + Rating columns and driver-avail-{id} toggle flips AVAILABLE↔BUSY correctly; MART drivers table correctly OMITS those columns. Add-driver form for Express has current_lat/current_lng/rating fields; MART form does not. Regression on desktop /express: exactly ONE module nav bar with EXPRESSbakēd active (aria-current=page). Mobile /express top-bar wordmark still present.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Parcel booking confirmation → auto-redirect to /track",
+        "issue": "Spec claims ExpressBookingConfirmation should auto-redirect parcel+success to /track after 1.2s, but no such useEffect/setTimeout is implemented in /app/frontend/src/pages/express/ExpressWizard.jsx (only a manual 'Track order' button navigates to /track). Users must click the button to reach the live-tracking page after confirmation. Not blocking — the button and live-tracking page both work — but spec-vs-code drift.",
+        "affected_selectors": ["exp-booking-track"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_express_phase2.py",
+    "/app/test_reports/pytest/phase2_quick.xml",
+    "/app/test_reports/pytest/phase2_lifecycle.xml"
+  ],
+  "action_items": [
+    "Optional: add the auto-redirect setTimeout(() => navigate(`/express/booking/${booking.id}/track`), 1200) inside ExpressBookingConfirmation useEffect when booking.booking_type==='parcel' && success, to match the spec statement in the review request."
+  ],
+  "critical_code_review_comments": [
+    "dispatch.py `assign_driver_to_booking` uses the correct atomic pattern — updating with filter {is_available: true} and checking modified_count, which prevents race conditions when two bookings hit the same driver simultaneously. Good.",
+    "tracking.py `ConnectionManager.broadcast` prunes dead sockets under a lock — safe against slow/dead clients crashing the simulator. Good.",
+    "tracking.py `run_demo_simulation` transitions driver_assigned → arriving with NO asyncio.sleep in between, so `driver_assigned` state is only observable via WebSocket subscribers (not REST polling). This is why REST-polling tests can miss it. The persisted timeline still contains driver_assigned so history is intact. Consider a brief `await asyncio.sleep(2)` between driver_assigned and arriving to make the assignment feel more real to customers (currently the UI stepper visibly flashes through driver_assigned).",
+    "routes.py `create_parcel_booking` schedules run_demo_simulation via BackgroundTasks — correct. Note: BackgroundTasks fire AFTER the HTTP response, and run_demo_simulation already sleeps 1s at the top before touching the DB — well-behaved.",
+    "routes.py `driver_advance_status` is missing driver-auth (JWT). Acceptable for Phase 2 scaffolding (a comment says Phase 5), but do not deploy to production without adding it — it can currently be called by anyone who knows a booking id.",
+    "ExpressLiveTracking.jsx WebSocket has proper reconnect (3s timer) + cleanup on unmount + guards against message parsing errors. Good implementation.",
+    "The spec-claimed auto-redirect (parcel+success→/track after 1.2s) is missing from ExpressWizard.jsx `ExpressBookingConfirmation`. Only a manual 'Track order' button navigates. Users still get there, just one extra click.",
+    "seed.py `seed_express_drivers` is phone-idempotent — re-runs update phase-2 fields without duplicating docs. Uses golden-angle (137.5°) to distribute drivers around country centers. Good pattern."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_express_phase2.py (NEW - 11 tests covering all Phase 2 backend behaviour)"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed in test_express_phase2.py — vehicles regression, seed of 30 drivers, admin driver CRUD create/patch, dispatch with driver assignment, WebSocket snapshot+location streaming, full 2-min lifecycle to delivered+paid, invalid transition returns 400, valid transition path, bike→fallback dispatch)",
+    "frontend": "100% on tested surfaces — Live Tracking page, LIVE ws-status, driver card populated, admin Express/MART drivers table columns diff, add-driver form field diff, /express desktop nav regression + mobile wordmark"
+  },
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ used; customer via dev OTP (any +225 phone, dev_code returned in /auth/otp/request).",
+  "seed_data_creation": "None manually created. Verified 30 seeded Express drivers exist (15 CI + 15 LR, phone-idempotent from seed_express_drivers). TEST_-prefixed drivers created in TestAdminDriverCRUD and cleaned up via DELETE at end of each test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 2 backend + frontend are working end-to-end. Test file `/app/backend/tests/test_express_phase2.py` includes a slow (~2 min) TestFullDemoLifecycle test — either exclude via `-k 'not FullDemoLifecycle'` for fast smoke or run standalone. WebSocket connectivity uses wss:// on the preview URL. The full lifecycle test polls REST every 1s and asserts the persisted `timeline` array contains all 5 stages (driver_assigned/arriving/picked_up/in_transit/delivered) — this is more reliable than WS which can drop mid-run. EXPRESS_DEMO_MODE=true in backend/.env — do NOT remove. Dispatch fallback test temporarily flips all CI bike drivers to is_available=false, then restores at the end — if a test run is aborted, drivers may be left busy; re-running the test class will restore them.",
+  "rca_of_the_issue": "No production bugs found. One spec-vs-code drift: ExpressBookingConfirmation does not auto-redirect to /track (spec said 1.2s auto-redirect, code only has a manual button). RCA: the review request describes intended behaviour that was not implemented, or was removed. Impact: minor UX — customer manually clicks 'Track order'. Mitigation: add `useEffect(() => { if (success && booking.booking_type==='parcel') { const t=setTimeout(()=>navigate(`/express/booking/${booking.id}/track`), 1200); return ()=>clearTimeout(t); } }, [booking, success]);`"
+}

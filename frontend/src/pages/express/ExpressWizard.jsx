@@ -524,7 +524,7 @@ export const ExpressBookingConfirmation = () => {
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <button data-testid="exp-booking-track" onClick={() => navigate(`/express/booking/${booking.id}`)} className="baked-btn h-11 border border-border font-semibold text-sm">Track order</button>
+          <button data-testid="exp-booking-track" onClick={() => navigate(`/express/booking/${booking.id}/track`)} className="baked-btn h-11 border border-border font-semibold text-sm">Track order</button>
           <button data-testid="exp-booking-home" onClick={() => navigate("/express")} className="baked-btn h-11 font-bold text-sm text-black" style={{ backgroundColor: "#FCC44C" }}>Book another</button>
         </div>
       </div>

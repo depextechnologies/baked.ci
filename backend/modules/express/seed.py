@@ -242,3 +242,85 @@ async def seed_express():
                           {"code": code, "country": country, "name": label, "window": window,
                            "surcharge": int(surcharge * mult), "badge": badge,
                            "sort_order": sort, "active": True})
+
+    # -------- Express drivers (Phase 2) --------
+    await seed_express_drivers()
+
+
+# Country reference centers for driver seed distribution.
+COUNTRY_CENTERS = {
+    "CI": (5.3600, -4.0083, "Cocody"),
+    "LR": (6.3005, -10.7969, "Sinkor"),
+}
+
+# 15 named drivers per country covering all vehicle types (3 per vehicle).
+DRIVER_NAMES_CI = [
+    "Kouassi Traoré", "Yao Konan", "Aïcha Bamba", "Serge Ouattara",
+    "Fatou Diarra", "Adama Coulibaly", "Awa Bakayoko", "Mamadou Cissé",
+    "Sekou Doumbia", "Mariam Kone", "Ibrahim Touré", "Aminata Diallo",
+    "Ismael Fofana", "Yasmine Berté", "Cheikh Kouamé",
+]
+DRIVER_NAMES_LR = [
+    "James Kollie", "Emmanuel Doe", "Grace Toe", "Peter Weah",
+    "Rachel Cooper", "Moses Sirleaf", "Sarah Johnson", "Daniel Kpangbah",
+    "Ruth Kanneh", "Prince Roberts", "Anna Toe", "Samuel Zaza",
+    "Deborah Reeves", "Alex Kruah", "Kadi Barclay",
+]
+VEHICLE_ROTATION = ["bike", "scooter", "three_wheeler", "mini_truck", "truck"]
+
+
+async def seed_express_drivers():
+    """Idempotent seed of 15 active drivers per country, spread around the
+    country's reference center at 0.5–3 km offsets. Uses `phone` as the
+    dedup key so re-runs don't duplicate."""
+    import math
+    for country_code, (clat, clng, city) in COUNTRY_CENTERS.items():
+        names = DRIVER_NAMES_CI if country_code == "CI" else DRIVER_NAMES_LR
+        phone_prefix = "+225" if country_code == "CI" else "+231"
+        for i, name in enumerate(names):
+            vt = VEHICLE_ROTATION[i % len(VEHICLE_ROTATION)]
+            angle = (i * 137.508) % 360 * (math.pi / 180)
+            radius = 0.008 + ((i * 3) % 20) * 0.001  # ~0.9–3 km
+            lat = clat + math.sin(angle) * radius
+            lng = clng + math.cos(angle) * radius
+            phone = f"{phone_prefix}0{100000 + i * 137:07d}"
+            existing = await db.module_drivers.find_one({"phone": phone, "module": "express"})
+            if existing:
+                # Keep phase-2 fields fresh but don't overwrite admin edits
+                await db.module_drivers.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {
+                        "current_lat": lat, "current_lng": lng,
+                        "is_available": existing.get("is_available", True),
+                        "status": existing.get("status") or "active",
+                        "rating": existing.get("rating") or round(4.5 + (i % 5) * 0.1, 1),
+                        "vehicle_type": vt,
+                        "updated_at": _now_iso(),
+                    }},
+                )
+                continue
+            doc = {
+                "id": new_id("drv"),
+                "module": "express",
+                "name": name,
+                "phone": phone,
+                "email": None,
+                "country": country_code,
+                "city": city,
+                "vehicle_type": vt,
+                "vehicle_reg": f"{country_code}-{vt[:3].upper()}-{1000 + i:04d}",
+                "license_number": f"DL-{country_code}-{200000 + i * 11:06d}",
+                "photo_url": None,
+                "rating": round(4.5 + (i % 5) * 0.1, 1),
+                "current_lat": lat,
+                "current_lng": lng,
+                "is_available": True,
+                "active_booking_id": None,
+                "status": "active",
+                "deleted_at": None,
+                "created_at": _now_iso(),
+                "updated_at": _now_iso(),
+                "version": 1,
+            }
+            await db.module_drivers.insert_one(doc)
+

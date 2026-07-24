@@ -55,6 +55,7 @@ import { ExpressStepLocation, ExpressStepReceiver, ExpressStepVehicle, ExpressSt
 import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
 import { ExpressBookings } from "@/pages/express/ExpressBookings";
 import { ExpressServices } from "@/pages/express/ExpressServices";
+import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
 
 function DesktopCustomerShell() {
   return (
@@ -88,6 +89,7 @@ function DesktopCustomerShell() {
         <Route path="/express/book/package" element={<ExpressStepPackage />} />
         <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
         <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
+        <Route path="/express/booking/:id/track" element={<ExpressLiveTracking />} />
         <Route path="/express/bookings" element={<ExpressBookings />} />
         <Route path="/express/services" element={<ExpressServices />} />
         <Route path="/express/parcel" element={<ExpressStepLocation />} />
@@ -138,6 +140,7 @@ function MobileCustomerShell() {
         <Route path="/express/book/package" element={<ExpressStepPackage />} />
         <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
         <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
+        <Route path="/express/booking/:id/track" element={<ExpressLiveTracking />} />
         <Route path="/express/bookings" element={<ExpressBookings />} />
         <Route path="/express/services" element={<ExpressServices />} />
         <Route path="/express/parcel" element={<ExpressStepLocation />} />

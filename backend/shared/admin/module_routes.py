@@ -245,9 +245,13 @@ class DriverIn(BaseModel):
     email: Optional[EmailStr] = None
     country: str = "CI"
     city: str = ""
-    vehicle_type: str = Field("bike", pattern="^(bike|scooter|car|van)$")
+    vehicle_type: str = Field("bike", pattern="^(bike|scooter|three_wheeler|mini_truck|truck|car|van)$")
     vehicle_reg: str = ""
     license_number: str = ""
+    current_lat: Optional[float] = None
+    current_lng: Optional[float] = None
+    rating: Optional[float] = None
+    photo_url: Optional[str] = None
 
 
 DRIVER_STATUSES = {"pending", "active", "inactive", "suspended"}
@@ -273,6 +277,9 @@ async def create_driver(mod: str, payload: DriverIn, admin: dict = Depends(get_c
         "id": new_id("drv"),
         "module": mod,
         "status": "pending",
+        "is_available": True,
+        "active_booking_id": None,
+        "rating": doc.get("rating") if doc.get("rating") is not None else 4.8,
         "created_by": admin["id"],
         "deleted_at": None,
         "created_at": _now_iso(),

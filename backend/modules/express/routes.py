@@ -8,13 +8,18 @@ from __future__ import annotations
 import secrets
 from typing import Optional, List
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from core.db import db
 from core.deps import get_current_customer
 from core.models_base import _now_iso, new_id
 from modules.express.pricing import quote_parcel, quote_movers
+from modules.express.tracking import (
+    manager as ws_manager,
+    run_demo_simulation,
+    demo_mode_enabled,
+)
 
 router = APIRouter(prefix="/express", tags=["express"])
 
@@ -171,7 +176,7 @@ class ParcelBookingIn(BaseModel):
 
 
 @router.post("/bookings/parcel")
-async def create_parcel_booking(payload: ParcelBookingIn, customer: dict = Depends(get_current_customer)):
+async def create_parcel_booking(payload: ParcelBookingIn, background: BackgroundTasks, customer: dict = Depends(get_current_customer)):
     quote = await quote_parcel(
         country=payload.country,
         vehicle_code=payload.vehicle_code,
@@ -206,9 +211,11 @@ async def create_parcel_booking(payload: ParcelBookingIn, customer: dict = Depen
         "total": quote["total"],
         "payment_method": payload.payment_method,
         "payment_status": "pending",
-        "status": "searching",  # driver dispatch happens in Phase 2 (WS + real allocation)
+        "status": "searching",
         "driver_id": None,
         "driver_snapshot": None,
+        "driver_location": None,
+        "eta_seconds": None,
         "timeline": [
             {"code": "created", "label": "Booking created", "at": now},
             {"code": "searching", "label": "Searching for a driver…", "at": now},
@@ -219,6 +226,10 @@ async def create_parcel_booking(payload: ParcelBookingIn, customer: dict = Depen
     }
     await db.express_bookings.insert_one(doc)
     doc.pop("_id", None)
+    # Kick off the driver simulator in DEMO_MODE (production path relies on
+    # driver-app status endpoints below to advance the lifecycle).
+    if demo_mode_enabled():
+        background.add_task(run_demo_simulation, doc["id"])
     return doc
 
 
@@ -332,6 +343,92 @@ async def cancel_booking(booking_id: str, customer: dict = Depends(get_current_c
         raise HTTPException(400, "Cannot cancel this booking")
     r.pop("_id", None)
     return r
+
+
+# ---------- Live Tracking (WebSocket) ----------
+@router.websocket("/ws/bookings/{booking_id}")
+async def ws_booking(ws: WebSocket, booking_id: str):
+    """Live booking stream. Sends an initial snapshot then broadcasts every
+    subsequent status/location update. Auth is deliberately open (booking id
+    is opaque). The client should treat received data as read-only."""
+    await ws_manager.connect(booking_id, ws)
+    try:
+        doc = await db.express_bookings.find_one({"id": booking_id}, {"_id": 0})
+        if doc:
+            # send initial snapshot to just this socket
+            await ws.send_json({
+                "type": "snapshot",
+                "id": doc.get("id"),
+                "ref": doc.get("ref"),
+                "status": doc.get("status"),
+                "pickup": doc.get("pickup"),
+                "drop": doc.get("drop"),
+                "receiver": doc.get("receiver"),
+                "vehicle_code": doc.get("vehicle_code"),
+                "distance_km": doc.get("distance_km"),
+                "duration_min": doc.get("duration_min"),
+                "currency_symbol": doc.get("currency_symbol"),
+                "total": doc.get("total"),
+                "driver_id": doc.get("driver_id"),
+                "driver_snapshot": doc.get("driver_snapshot"),
+                "driver_location": doc.get("driver_location"),
+                "eta_seconds": doc.get("eta_seconds"),
+                "timeline": doc.get("timeline") or [],
+                "updated_at": doc.get("updated_at"),
+            })
+        else:
+            await ws.send_json({"type": "error", "message": "Booking not found"})
+        # Keep the socket open — the manager broadcasts new frames. We only
+        # need to read from the client to detect disconnect.
+        while True:
+            try:
+                _ = await ws.receive_text()
+            except WebSocketDisconnect:
+                break
+    finally:
+        await ws_manager.disconnect(booking_id, ws)
+
+
+# ---------- Driver-app status endpoint (production path) ----------
+# When DEMO_MODE is off, the driver mobile app calls this after each real
+# action. Kept simple/token-less here for Phase 2 scaffolding; a real driver
+# JWT will guard it in Phase 5.
+ALLOWED_TRANSITIONS = {
+    "driver_assigned": {"arriving", "picked_up", "cancelled"},
+    "arriving":        {"picked_up", "cancelled"},
+    "picked_up":       {"in_transit", "cancelled"},
+    "in_transit":      {"delivered", "cancelled"},
+}
+
+
+class DriverStatusIn(BaseModel):
+    status: str  # arriving | picked_up | in_transit | delivered
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+@router.post("/bookings/{booking_id}/driver-status")
+async def driver_advance_status(booking_id: str, payload: DriverStatusIn):
+    from modules.express.tracking import transition_status
+    from modules.express.dispatch import release_driver
+    doc = await db.express_bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Booking not found")
+    curr = doc.get("status")
+    allowed = ALLOWED_TRANSITIONS.get(curr, set())
+    if payload.status not in allowed:
+        raise HTTPException(400, f"Cannot transition {curr!r} → {payload.status!r}")
+    driver_loc = None
+    if payload.lat is not None and payload.lng is not None:
+        driver_loc = {"lat": payload.lat, "lng": payload.lng}
+    extra = {}
+    if payload.status == "delivered":
+        extra["delivered_at"] = _now_iso()
+        extra["payment_status"] = "paid"
+    result = await transition_status(booking_id, payload.status, extra=extra, driver_location=driver_loc)
+    if payload.status == "delivered" and doc.get("driver_id"):
+        await release_driver(doc["driver_id"])
+    return result
 
 
 # ---------- Utilities ----------
