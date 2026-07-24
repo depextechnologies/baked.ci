@@ -48,13 +48,15 @@ const VehicleThumb = ({ code }) => (
  */
 const RoutePolyline = ({ pickup, drop, onMeta }) => {
   const map = useMap();
+  const onMetaRef = React.useRef(onMeta);
+  React.useEffect(() => { onMetaRef.current = onMeta; }, [onMeta]);
   useEffect(() => {
     if (!map || !pickup || !drop || !window.google?.maps) return;
     const svc = new window.google.maps.DirectionsService();
     const renderer = new window.google.maps.DirectionsRenderer({
       map,
       suppressMarkers: true,
-      preserveViewport: false,
+      preserveViewport: true,
       polylineOptions: { strokeColor: YELLOW, strokeWeight: 5, strokeOpacity: 0.9 },
     });
     svc.route(
@@ -67,12 +69,14 @@ const RoutePolyline = ({ pickup, drop, onMeta }) => {
         if (status === "OK" && res) {
           renderer.setDirections(res);
           const leg = res.routes?.[0]?.legs?.[0];
-          if (leg && onMeta) onMeta({ distance_km: leg.distance?.value / 1000, duration_min: Math.round(leg.duration?.value / 60) });
+          if (leg && onMetaRef.current) onMetaRef.current({ distance_km: leg.distance?.value / 1000, duration_min: Math.round(leg.duration?.value / 60) });
         }
       },
     );
     return () => renderer.setMap(null);
-  }, [map, pickup, drop, onMeta]);
+    // Depend only on lat/lng primitives so the effect doesn't fire on every
+    // parent re-render when `pickup`/`drop` object identity changes.
+  }, [map, pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]);
   return null;
 };
 
@@ -109,8 +113,22 @@ export const WizardMap = ({ compact = false }) => {
     return COUNTRY_CENTER[country?.code || "CI"];
   }, [draft?.pickup, country?.code]);
 
-  const distance = meta?.distance_km ?? null;
-  const duration = meta?.duration_min ?? null;
+  // Haversine fallback so distance/ETA chips still show when Directions API
+  // is unavailable (e.g. legacy Directions API not enabled on the key).
+  const fallback = useMemo(() => {
+    const p = draft?.pickup, d = draft?.drop;
+    if (!p || !d) return null;
+    const R = 6371;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const dlat = toRad(d.latitude - p.latitude);
+    const dlng = toRad(d.longitude - p.longitude);
+    const a = Math.sin(dlat / 2) ** 2 + Math.cos(toRad(p.latitude)) * Math.cos(toRad(d.latitude)) * Math.sin(dlng / 2) ** 2;
+    const km = 2 * R * Math.asin(Math.sqrt(a));
+    return { distance_km: km, duration_min: Math.round(km * 3) };
+  }, [draft?.pickup, draft?.drop]);
+
+  const distance = meta?.distance_km ?? fallback?.distance_km ?? null;
+  const duration = meta?.duration_min ?? fallback?.duration_min ?? null;
 
   if (!apiKey) {
     return <div className="w-full h-full bg-secondary rounded-2xl flex items-center justify-center text-xs text-muted-foreground p-4">Set REACT_APP_GOOGLE_MAPS_API_KEY to enable the live map.</div>;
@@ -201,7 +219,7 @@ export const ExpressWizardShell = ({ children }) => (
     {/* Form column */}
     <div className="order-2 md:order-1 flex flex-col min-w-0">{children}</div>
     {/* Desktop persistent map (55%) */}
-    <div className="hidden md:block order-2 sticky top-4 self-start h-[calc(100vh-140px)]">
+    <div className="hidden md:block order-2 sticky top-4 self-start h-[calc(100vh-140px)] min-h-[420px]">
       <WizardMap />
     </div>
   </div>
