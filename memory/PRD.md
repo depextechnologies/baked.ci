@@ -138,6 +138,20 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Theme-adaptive surfaces**: added `.exp-dt-panel` (`hsl(var(--card))` light / `#0f0f0f` dark) and `.exp-dt-tile` (`hsl(var(--muted))` light / `#151515` dark) utility classes in `index.css`. Applied to left panel, right map container, vehicle cards, service cards, explore CTA, and trust banner. Verified light theme toggle flips backgrounds from black-tone to white-tone with readable text.
    - **Google Maps `mapId + styles` warning fixed**: removed unused `styles={DARK_MAP_STYLE}` from both `MapHero` and `DesktopMapHero` (they use `mapId` so cloud styling applies).
    - **Kept untouched (per docx)**: Google Map panel, vehicle cards (Bike/3W/Truck), Parcel Delivery, Home Shifting, Book Now flow, 45/55 desktop split layout.
+- ✅ **EXPRESSbakēd Phase 2 — Sub-feature C: Pricing Engine Admin UI (2026-02-24)** — Super Admin can edit every rate that drives customer quotes, live.
+   - **Route**: `/admin/modules/express/pricing` (Express-only tab in the module workspace, hidden on Mart/others; deep-link guard redirects `/admin/modules/mart/pricing` back to overview).
+   - **Backend** (`/app/backend/shared/admin/module_routes.py`):
+     - `GET /api/admin/modules/express/pricing?country=CI|LR` — aggregated view returning currency, active vehicles, all 5 parcel rules + movers config.
+     - `PATCH /api/admin/modules/express/pricing/{country}/{vehicle_code}` — partial update with whitelisted fields (base_fare, min_fare, price_per_km, price_per_min, waiting_fee, peak_multiplier, night_multiplier, service_fee_pct, insurance_pct, insurance_min, taxes_pct, active). Rejects empty/unknown payloads.
+     - `PATCH /api/admin/modules/express/movers-pricing/{country}` — 15 editable movers fields + active flag.
+     - Full audit trail via `audit_logs` (`express.pricing.update`, `express.movers_pricing.update`).
+   - **Frontend** (`/app/frontend/src/pages/admin/ModulePages.jsx` — new `ModulePricing`):
+     - Country switcher (CI ↔ LR) with live currency change.
+     - Parcel table: 5 vehicles × 11 numeric fields + Active checkbox + per-row Save (dirty state per row).
+     - Movers card: grid of 15 numeric inputs + Active + single Save-movers.
+     - Toast on save + auto-reload.
+   - **Live pricing propagation verified**: admin PATCH bike base_fare 1500 → 3000 → next customer `POST /api/express/quote/parcel` returns base_fare=3000 and total 2 654 → 4 229 CFA. No caching, no restart needed.
+   - **Testing**: `testing_agent_v3_fork` iteration_8.json — 13/13 backend pytest pass (`/app/backend/tests/test_express_pricing_admin.py`, session-scoped snapshot-and-restore fixture guarantees seeded state), 100% frontend on tested surfaces.
    - **Testing**: `testing_agent_v3_fork` iteration_6.json — 12/12 scripted frontend assertions pass. Mobile /express regression check also confirmed.
 
 ## Backlog (prioritised)
