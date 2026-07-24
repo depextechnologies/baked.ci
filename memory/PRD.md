@@ -157,6 +157,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet
 - **P1**: Super Admin Platform (Phase 6), RBAC-guarded admin endpoints, AI Business Insights UI
+- ✅ **EXPRESSbakēd — Booking Wizard Redesign per Fixing_Prompt.docx (2026-02-24)** — full desktop/tablet parity with the Home page's 45/55 layout.
+   - **New component** `/app/frontend/src/components/express/ExpressWizardShell.jsx`:
+     - Desktop (≥ md): 45% left = step form, 55% right = persistent live Google Map (sticky).
+     - Mobile: full-screen form with a compact map card on top of every step.
+     - `<WizardMap>` sub-component: pickup/drop markers (A/B pins), Google Directions polyline (yellow), auto-fit bounds, live distance + ETA + selected-vehicle chip overlays.
+   - **All 5 wizard steps refactored** (Location, Receiver, Vehicle, Package, Estimate) — now render inside `<ExpressWizardShell>` instead of a full-width column. Old `<RouteSummary>` mini-card removed (data lives on the map now).
+   - **Step 3 (Vehicle Select)** now uses official EXPRESSbakēd branded assets (`vehicleImage(code)` from `expressAssets.js`) with the same radial-glow treatment as the home cards — replacing the generic Lucide bike/truck icons.
+   - **Step 5 (Estimate)** shows a branded vehicle thumbnail beside "Change" and a live vehicle chip overlay on the map.
+   - **Kept intact**: header, wizard progress stepper, Continue footer, all backend calls, dispatch + WebSocket tracking flow.
+   - **Verified**: Step 1, 3, 5 desktop screenshots at 1440×900 show the persistent map + branded assets; light theme continues to adapt via `hsl(var(--border/card/muted))`.
 - **P1**: Real SMS OTP (Twilio Verify or Africa's Talking) — swap `OTP_PROVIDER` env
 - **P2**: FOOD / SHOP / EXPRESS / AUTO / IMMO business modules
 - **P2**: Partner Portal, Driver Portal
