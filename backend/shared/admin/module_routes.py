@@ -340,3 +340,124 @@ async def list_module_orders(mod: str, admin: dict = Depends(get_current_admin),
     if status:
         q["status"] = status
     return await db.orders.find(q, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+
+
+
+# ================= EXPRESS PRICING (Sub-feature C) =================
+# Editable rules for the fully configuration-driven pricing engine.
+# Two collections back this UI:
+#   • express_pricing_rules   — per-vehicle per-country parcel pricing
+#   • express_movers_pricing  — per-country packers & movers pricing
+# Rate fields are stored as raw numbers; percentages are stored *as
+# percents* (e.g. 8 = 8%), matching how pricing.py already consumes them.
+
+PARCEL_RULE_FIELDS = {
+    "base_fare", "min_fare", "price_per_km", "price_per_min", "waiting_fee",
+    "peak_multiplier", "night_multiplier",
+    "service_fee_pct", "insurance_pct", "insurance_min", "taxes_pct",
+    "active",
+}
+
+MOVERS_RULE_FIELDS = {
+    "transport_base", "price_per_km",
+    "packing_per_item", "loading_unloading_base", "loading_per_item",
+    "labour_per_mover", "floor_fee", "stair_fee", "toll_permits",
+    "value_per_kg", "insurance_pct", "insurance_min",
+    "taxes_pct", "advance_flat", "advance_pct",
+    "active",
+}
+
+
+class PricingRulePatch(BaseModel):
+    """Partial update payload for one parcel pricing rule.
+
+    All fields optional so the admin UI can PATCH just the changed cells.
+    Numeric fields validated at the boundary — invalid keys are rejected in
+    the handler instead of silently ignored.
+    """
+    base_fare: Optional[float] = None
+    min_fare: Optional[float] = None
+    price_per_km: Optional[float] = None
+    price_per_min: Optional[float] = None
+    waiting_fee: Optional[float] = None
+    peak_multiplier: Optional[float] = None
+    night_multiplier: Optional[float] = None
+    service_fee_pct: Optional[float] = None
+    insurance_pct: Optional[float] = None
+    insurance_min: Optional[float] = None
+    taxes_pct: Optional[float] = None
+    active: Optional[bool] = None
+
+
+class MoversPricingPatch(BaseModel):
+    transport_base: Optional[float] = None
+    price_per_km: Optional[float] = None
+    packing_per_item: Optional[float] = None
+    loading_unloading_base: Optional[float] = None
+    loading_per_item: Optional[float] = None
+    labour_per_mover: Optional[float] = None
+    floor_fee: Optional[float] = None
+    stair_fee: Optional[float] = None
+    toll_permits: Optional[float] = None
+    value_per_kg: Optional[float] = None
+    insurance_pct: Optional[float] = None
+    insurance_min: Optional[float] = None
+    taxes_pct: Optional[float] = None
+    advance_flat: Optional[float] = None
+    advance_pct: Optional[float] = None
+    active: Optional[bool] = None
+
+
+@router.get("/express/pricing")
+async def list_express_pricing(country: str = Query(..., min_length=2, max_length=2), admin: dict = Depends(get_current_admin)):
+    """Aggregated pricing view for one country — used by the admin table."""
+    country = country.upper()
+    supported = await db.countries.find_one({"code": country, "active": True}, {"_id": 0})
+    if not supported:
+        raise HTTPException(404, "Country not active")
+    parcel_rules = await db.express_pricing_rules.find({"country": country}, {"_id": 0}).to_list(50)
+    parcel_rules.sort(key=lambda r: (r.get("vehicle_code") or ""))
+    movers = await db.express_movers_pricing.find_one({"country": country}, {"_id": 0})
+    vehicles = await db.express_vehicles.find({"country": country, "active": True}, {"_id": 0}).sort("sort_order", 1).to_list(50)
+    return {
+        "country": country,
+        "currency": supported.get("currency", "XOF"),
+        "currency_symbol": supported.get("currency_symbol", "CFA"),
+        "vehicles": vehicles,
+        "parcel_rules": parcel_rules,
+        "movers_pricing": movers,
+    }
+
+
+@router.patch("/express/pricing/{country}/{vehicle_code}")
+async def update_parcel_rule(country: str, vehicle_code: str, payload: PricingRulePatch, admin: dict = Depends(get_current_admin)):
+    country = country.upper()
+    changes = {k: v for k, v in payload.model_dump(exclude_none=True).items() if k in PARCEL_RULE_FIELDS}
+    if not changes:
+        raise HTTPException(400, "No editable fields provided")
+    changes["updated_at"] = _now_iso()
+    r = await db.express_pricing_rules.update_one(
+        {"country": country, "vehicle_code": vehicle_code},
+        {"$set": changes},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, f"No pricing rule for {country}/{vehicle_code}")
+    await _audit(admin, "express.pricing.update", f"{country}:{vehicle_code}", changes)
+    return await db.express_pricing_rules.find_one({"country": country, "vehicle_code": vehicle_code}, {"_id": 0})
+
+
+@router.patch("/express/movers-pricing/{country}")
+async def update_movers_rule(country: str, payload: MoversPricingPatch, admin: dict = Depends(get_current_admin)):
+    country = country.upper()
+    changes = {k: v for k, v in payload.model_dump(exclude_none=True).items() if k in MOVERS_RULE_FIELDS}
+    if not changes:
+        raise HTTPException(400, "No editable fields provided")
+    changes["updated_at"] = _now_iso()
+    r = await db.express_movers_pricing.update_one(
+        {"country": country},
+        {"$set": changes},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(404, f"No movers pricing for {country}")
+    await _audit(admin, "express.movers_pricing.update", country, changes)
+    return await db.express_movers_pricing.find_one({"country": country}, {"_id": 0})

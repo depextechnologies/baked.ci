@@ -24,7 +24,7 @@ import {
 import { ModuleWorkspace } from "@/pages/admin/ModuleWorkspace";
 import {
   ModuleOverview, ModuleVendors, ModuleProducts, ModuleOrders,
-  ModuleCustomers, ModuleDrivers, ModuleComingSoon,
+  ModuleCustomers, ModuleDrivers, ModulePricing, ModuleComingSoon,
 } from "@/pages/admin/ModulePages";
 import { Toaster } from "@/components/ui/sonner";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -196,6 +196,7 @@ function App() {
               <Route path="orders" element={<ModuleOrders />} />
               <Route path="customers" element={<ModuleCustomers />} />
               <Route path="drivers" element={<ModuleDrivers />} />
+              <Route path="pricing" element={<ModulePricing />} />
               <Route path="inventory" element={<ModuleComingSoon title="Inventory management" />} />
               <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
               <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />

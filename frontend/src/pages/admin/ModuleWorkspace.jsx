@@ -4,7 +4,7 @@ import { MODULES } from "../../lib/modules";
 import {
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
   LayoutDashboard, Store, Package, ClipboardList, Users, Bike, DollarSign,
-  Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes,
+  Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
 } from "lucide-react";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
@@ -18,6 +18,7 @@ const MODULE_NAV = [
   { seg: "orders", label: "Orders", icon: ClipboardList },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },
   { seg: "drivers", label: "Drivers", icon: Bike },
+  { seg: "pricing", label: "Pricing", icon: Tag, expressOnly: true },
   { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true },
   { seg: "ai", label: "AI Operations", icon: Sparkles, comingSoon: true },
   { seg: "analytics", label: "Analytics", icon: BarChart3, comingSoon: true },
@@ -57,7 +58,7 @@ export const ModuleWorkspace = () => {
       {/* Sub-nav */}
       <div className="border-b border-border overflow-x-auto">
         <div className="flex items-center gap-1 min-w-max pb-2">
-          {MODULE_NAV.filter((n) => !n.martOnly || code === "mart").map((n) => {
+          {MODULE_NAV.filter((n) => (!n.martOnly || code === "mart") && (!n.expressOnly || code === "express")).map((n) => {
             const path = n.seg ? `${base}/${n.seg}` : base;
             const isAct = active(n.seg, n.exact);
             const IconEl = n.icon;

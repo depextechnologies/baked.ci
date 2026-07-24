@@ -625,3 +625,279 @@ export const ModuleComingSoon = ({ title = "Coming soon" }) => {
     </div>
   );
 };
+
+// ============ MODULE PRICING (Express Sub-feature C) ============
+// Editable pricing engine — per-vehicle parcel rates + movers rates.
+// Country switcher (CI / LR). All numeric inputs. PATCH on Save-per-row.
+const PARCEL_FIELDS = [
+  { key: "base_fare",        label: "Base fare",        hint: "Fixed pickup fee" },
+  { key: "min_fare",         label: "Minimum fare",     hint: "Floor billed to customer" },
+  { key: "price_per_km",     label: "Per km",           hint: "Distance rate" },
+  { key: "price_per_min",    label: "Per minute",       hint: "Time rate" },
+  { key: "waiting_fee",      label: "Waiting fee",      hint: "Per minute of driver wait" },
+  { key: "peak_multiplier",  label: "Peak ×",           hint: "e.g. 1.25 = +25%", step: 0.05 },
+  { key: "night_multiplier", label: "Night ×",          hint: "e.g. 1.15 = +15%", step: 0.05 },
+  { key: "service_fee_pct",  label: "Service fee %",    hint: "Platform cut", step: 0.1 },
+  { key: "insurance_pct",    label: "Insurance %",      hint: "of declared value", step: 0.1 },
+  { key: "insurance_min",    label: "Insurance floor",  hint: "Min. insurance premium" },
+  { key: "taxes_pct",        label: "Taxes %",          hint: "VAT / GST", step: 0.1 },
+];
+
+const MOVERS_FIELDS = [
+  { key: "transport_base",         label: "Transport base" },
+  { key: "price_per_km",           label: "Per km" },
+  { key: "packing_per_item",       label: "Packing / item" },
+  { key: "loading_unloading_base", label: "Loading base" },
+  { key: "loading_per_item",       label: "Loading / item" },
+  { key: "labour_per_mover",       label: "Labour / mover" },
+  { key: "floor_fee",              label: "Fee per floor" },
+  { key: "stair_fee",              label: "Stair fee" },
+  { key: "toll_permits",           label: "Tolls / permits" },
+  { key: "value_per_kg",           label: "Value / kg (est.)" },
+  { key: "insurance_pct",          label: "Insurance %", step: 0.1 },
+  { key: "insurance_min",          label: "Insurance floor" },
+  { key: "taxes_pct",              label: "Taxes %", step: 0.1 },
+  { key: "advance_flat",           label: "Advance (flat)" },
+  { key: "advance_pct",            label: "Advance %", step: 0.1 },
+];
+
+const VEHICLE_LABELS = { bike: "Bike", scooter: "Scooter", three_wheeler: "3 Wheeler", mini_truck: "Mini Truck", truck: "Truck" };
+
+const NumberCell = ({ value, onChange, step, testId }) => (
+  <input
+    type="number"
+    data-testid={testId}
+    value={value ?? ""}
+    step={step ?? 1}
+    onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+    className="w-full bg-secondary rounded-md px-2 py-1.5 text-xs text-right tabular-nums border border-transparent focus:border-primary focus:outline-none"
+  />
+);
+
+export const ModulePricing = () => {
+  const { code } = useOutletContext();
+  const navigate = useNavigate();
+  useEffect(() => {
+    // Guard: this page is for Express only. If a user lands here for
+    // another module (via URL), bounce them to the overview.
+    if (code !== "express") navigate(`/admin/modules/${code}`, { replace: true });
+  }, [code, navigate]);
+
+  const [country, setCountry] = useState("CI");
+  const [data, setData] = useState(null);
+  const [dirty, setDirty] = useState({});        // { rowKey: { field: value } }
+  const [saving, setSaving] = useState(null);
+
+  const load = async () => {
+    try {
+      const { data } = await adminApi.get(`/admin/modules/express/pricing?country=${country}`);
+      setData(data);
+      setDirty({});
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Failed to load pricing");
+    }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [country]);
+
+  const rowKey = (vehicle_code) => `parcel:${vehicle_code}`;
+  const moversKey = "movers";
+
+  const setField = (rk, field, value) => setDirty((d) => ({ ...d, [rk]: { ...(d[rk] || {}), [field]: value } }));
+  const clearRow = (rk) => setDirty((d) => { const nd = { ...d }; delete nd[rk]; return nd; });
+
+  const saveParcelRow = async (vehicle_code) => {
+    const rk = rowKey(vehicle_code);
+    const changes = dirty[rk];
+    if (!changes || Object.keys(changes).length === 0) return;
+    setSaving(rk);
+    try {
+      await adminApi.patch(`/admin/modules/express/pricing/${country}/${vehicle_code}`, changes);
+      toast.success(`Updated ${VEHICLE_LABELS[vehicle_code] || vehicle_code} pricing`);
+      clearRow(rk);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Save failed");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveMovers = async () => {
+    const changes = dirty[moversKey];
+    if (!changes || Object.keys(changes).length === 0) return;
+    setSaving(moversKey);
+    try {
+      await adminApi.patch(`/admin/modules/express/movers-pricing/${country}`, changes);
+      toast.success("Updated movers pricing");
+      clearRow(moversKey);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Save failed");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (!data) return <div className="text-sm text-muted-foreground p-6">Loading pricing…</div>;
+
+  const parcelRuleByCode = Object.fromEntries((data.parcel_rules || []).map((r) => [r.vehicle_code, r]));
+  const currency = data.currency_symbol || data.currency || "";
+
+  return (
+    <div className="space-y-6" data-testid="module-pricing">
+      {/* Header */}
+      <div className="flex items-start gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl font-bold">Pricing Engine</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            All rates are configuration-driven — updates apply instantly to the next customer quote.
+            <span className="ml-2 opacity-70">Currency <strong>{currency}</strong></span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {["CI", "LR"].map((c) => (
+            <button
+              key={c}
+              data-testid={`pricing-country-${c.toLowerCase()}`}
+              onClick={() => setCountry(c)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold motion-fast ${country === c ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+            >
+              {c === "CI" ? "🇨🇮 Côte d'Ivoire" : "🇱🇷 Liberia"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Parcel pricing table */}
+      <div className="baked-card border border-border">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold">Parcel Delivery — Per Vehicle</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Applies to standard parcel bookings. Multipliers are absolute (1.25 = +25%). % fields are percents (8 = 8%).</div>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary/40 text-[10px] uppercase text-muted-foreground">
+              <tr>
+                <th className="text-left p-3 sticky left-0 bg-secondary/40 z-10">Vehicle</th>
+                {PARCEL_FIELDS.map((f) => (
+                  <th key={f.key} className="text-right p-3 whitespace-nowrap" title={f.hint}>{f.label}</th>
+                ))}
+                <th className="text-right p-3">Active</th>
+                <th className="p-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {(data.vehicles || []).map((v) => {
+                const rule = parcelRuleByCode[v.code];
+                const rk = rowKey(v.code);
+                const pending = dirty[rk] || {};
+                const val = (field) => (pending[field] !== undefined ? pending[field] : rule?.[field] ?? 0);
+                const hasChanges = Object.keys(pending).length > 0;
+                if (!rule) {
+                  return (
+                    <tr key={v.code} className="border-t border-border">
+                      <td className="p-3 font-medium sticky left-0 bg-background">{VEHICLE_LABELS[v.code] || v.code}</td>
+                      <td colSpan={PARCEL_FIELDS.length + 2} className="p-3 text-xs text-muted-foreground italic">No rule defined — reseed to create.</td>
+                    </tr>
+                  );
+                }
+                return (
+                  <tr key={v.code} className="border-t border-border" data-testid={`pricing-row-${v.code}`}>
+                    <td className="p-3 font-medium sticky left-0 bg-background">{VEHICLE_LABELS[v.code] || v.code}</td>
+                    {PARCEL_FIELDS.map((f) => (
+                      <td key={f.key} className="p-2 min-w-[110px]">
+                        <NumberCell
+                          value={val(f.key)}
+                          step={f.step}
+                          onChange={(n) => setField(rk, f.key, n)}
+                          testId={`pricing-input-${v.code}-${f.key}`}
+                        />
+                      </td>
+                    ))}
+                    <td className="p-2 text-right">
+                      <input
+                        type="checkbox"
+                        data-testid={`pricing-active-${v.code}`}
+                        checked={val("active") !== false}
+                        onChange={(e) => setField(rk, "active", e.target.checked)}
+                        className="accent-primary w-4 h-4"
+                      />
+                    </td>
+                    <td className="p-2 text-right whitespace-nowrap">
+                      <button
+                        data-testid={`pricing-save-${v.code}`}
+                        disabled={!hasChanges || saving === rk}
+                        onClick={() => saveParcelRow(v.code)}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-md motion-fast ${hasChanges ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
+                      >
+                        {saving === rk ? "Saving…" : "Save"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Movers pricing card */}
+      <div className="baked-card border border-border">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold">Packers & Movers</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">One rate set per country. Applied to every home-shifting quote for {country}.</div>
+          </div>
+          {(() => {
+            const changes = dirty[moversKey];
+            const hasChanges = changes && Object.keys(changes).length > 0;
+            return (
+              <button
+                data-testid="pricing-save-movers"
+                disabled={!hasChanges || saving === moversKey}
+                onClick={saveMovers}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-md motion-fast ${hasChanges ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
+              >
+                {saving === moversKey ? "Saving…" : "Save movers"}
+              </button>
+            );
+          })()}
+        </div>
+        {data.movers_pricing ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
+            {MOVERS_FIELDS.map((f) => {
+              const pending = dirty[moversKey] || {};
+              const current = pending[f.key] !== undefined ? pending[f.key] : data.movers_pricing[f.key];
+              return (
+                <label key={f.key} className="block text-xs">
+                  <span className="text-muted-foreground block mb-1">{f.label}</span>
+                  <NumberCell
+                    value={current}
+                    step={f.step}
+                    onChange={(n) => setField(moversKey, f.key, n)}
+                    testId={`pricing-movers-${f.key}`}
+                  />
+                </label>
+              );
+            })}
+            <label className="flex items-center gap-2 text-xs mt-4">
+              <input
+                type="checkbox"
+                data-testid="pricing-movers-active"
+                checked={(dirty[moversKey]?.active ?? data.movers_pricing.active) !== false}
+                onChange={(e) => setField(moversKey, "active", e.target.checked)}
+                className="accent-primary w-4 h-4"
+              />
+              <span>Active</span>
+            </label>
+          </div>
+        ) : (
+          <div className="p-6 text-sm text-muted-foreground italic">No movers pricing configured for {country}.</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
