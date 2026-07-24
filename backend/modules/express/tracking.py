@@ -217,6 +217,8 @@ async def run_demo_simulation(booking_id: str) -> None:
             driver_location={"lat": start_lat, "lng": start_lng},
             eta_seconds=30,
         )
+        # Let the customer see "Driver assigned" for 2s before we start moving.
+        await asyncio.sleep(2.0)
 
         # 2) Driver → pickup (arriving) — 30s
         await transition_status(booking_id, "arriving", eta_seconds=30)

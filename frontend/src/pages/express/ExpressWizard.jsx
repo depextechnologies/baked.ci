@@ -457,6 +457,13 @@ export const ExpressBookingConfirmation = () => {
     api.get(`/express/bookings/${bookingId}`).then((r) => setBooking(r.data)).catch(() => setBooking(null));
   }, [bookingId]);
 
+  // Auto-redirect parcel bookings to live tracking (~1.2s after success paint).
+  useEffect(() => {
+    if (!booking || booking.booking_type !== "parcel" || !success) return;
+    const t = setTimeout(() => navigate(`/express/booking/${booking.id}/track`, { replace: true }), 1200);
+    return () => clearTimeout(t);
+  }, [booking, success, navigate]);
+
   if (!booking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
 
   return (
@@ -469,7 +476,7 @@ export const ExpressBookingConfirmation = () => {
               <CheckCircle2 size={30} />
             </div>
             <div className="text-lg font-bold mt-3">Booking Successful!</div>
-            <p className="text-xs text-muted-foreground mt-1">Ref <strong>{booking.ref}</strong> — we're finding you a driver.</p>
+            <p className="text-xs text-muted-foreground mt-1">Ref <strong>{booking.ref}</strong> &mdash; we&apos;re finding you a driver.</p>
           </div>
         )}
 
