@@ -38,25 +38,29 @@ export const normalizeApiError = (detail) => {
       .filter(Boolean);
     return msgs.length ? msgs.join(" · ") : "Request failed";
   }
-  if (typeof detail === "object") {
-    if (typeof detail.msg === "string") return detail.msg;
-    if (typeof detail.message === "string") return detail.message;
-    try { return JSON.stringify(detail); } catch { return "Request failed"; }
-  }
-  return String(detail);
+  // A non-array object detail is legal (e.g. a structured error). Do not
+  // stringify it — leave it as-is so UI code that inspects .field still works.
+  return detail;
 };
 
-api.interceptors.response.use(
-  (r) => r,
-  (err) => {
-    const d = err?.response?.data;
-    if (d && "detail" in d) {
-      // Preserve the original shape at `raw_detail` in case a caller needs it,
-      // but replace `detail` with a safe rendered string so React children
-      // can never receive a Pydantic error object.
-      d.raw_detail = d.detail;
-      d.detail = normalizeApiError(d.detail);
-    }
-    return Promise.reject(err);
-  },
-);
+/**
+ * Attach a response interceptor that flattens Pydantic array errors into a
+ * string so `toast.error(...)` and JSX children never receive a raw error
+ * object. Non-array `detail` values pass through untouched. Idempotent per
+ * instance; call once at module top-level.
+ */
+export const attachDetailNormalizer = (axiosInstance) => {
+  axiosInstance.interceptors.response.use(
+    (r) => r,
+    (err) => {
+      const d = err?.response?.data;
+      if (d && Array.isArray(d.detail)) {
+        d.raw_detail = d.detail;
+        d.detail = normalizeApiError(d.detail);
+      }
+      return Promise.reject(err);
+    },
+  );
+};
+
+attachDetailNormalizer(api);
