@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { normalizeApiError } from "../lib/api";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API_BASE = `${BACKEND_URL}/api`;
@@ -11,6 +12,19 @@ adminApi.interceptors.request.use((cfg) => {
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;
 });
+// Same detail normalization as the customer axios instance — prevents
+// Pydantic validation errors from crashing the admin React tree.
+adminApi.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    const d = err?.response?.data;
+    if (d && "detail" in d) {
+      d.raw_detail = d.detail;
+      d.detail = normalizeApiError(d.detail);
+    }
+    return Promise.reject(err);
+  },
+);
 
 const Ctx = createContext(null);
 

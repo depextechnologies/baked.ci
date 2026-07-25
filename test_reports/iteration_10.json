@@ -1,0 +1,26 @@
+{
+  "summary": "Verified the React-crash fix for EXPRESSbakēd 'Book Now' 422 handling. All three scenarios PASS on the customer app (/express/book/estimate) at 1440×900. (1) BAD DRAFT (pickup.line1 missing) seeded into sessionStorage → click Book Now → backend returns 422 with Pydantic array; the `api` interceptor in /app/frontend/src/lib/api.js normalizes `detail` into the string 'pickup.line1: Field required', which is rendered as a sonner toast (top-right). No CRA red overlay, no `pageerror`, header/wizard/footer remain fully mounted. (2) REGRESSION: valid draft → Book Now creates booking exp_eed341b06c0e4335 and auto-redirects to /express/booking/{id}/track showing the LIVE tracking screen. (3) normalizeApiError helper unit-verified in-browser for all 5 shapes (string→string, Pydantic array→dot-joined msg, {msg}→msg, generic obj→JSON, null→null). AdminContext.jsx confirmed to import the same helper and register the identical interceptor on adminApi (visual code review, since triggering an admin 422 was out of scope for a frontend-only e2e verification of the same code path already proven on the customer instance).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "api.js interceptor mutates `err.response.data` in place (sets d.detail = string, d.raw_detail = original). This is convenient but not idempotent if another interceptor runs after and re-reads detail. It also mutates the axios error response object shared with any subsequent .catch chains. Fine here since it's the only interceptor, but consider returning a shallow-cloned object to keep the response immutable.",
+    "normalizeApiError joins Pydantic messages with ' · ' (middle-dot separator). Multi-error cases will produce a long string that sonner truncates. Consider `toast.error(msgs[0])` for the primary message with the rest under toast.description, or an array-aware toast helper.",
+    "The interceptor runs for ALL responses whose body has a `detail` key, not just 422s. That is safe for 400/401/403/404/409/500 too (they all use string detail in FastAPI HTTPException), but if any endpoint intentionally returns a structured detail object (e.g., driver-assignment error with fields), UI code reading err.response.data.detail.<field> will now get a JSON string. Consider gating on Array.isArray(d.detail) so string/object detail passes through untouched.",
+    "AdminContext.jsx duplicates the ~10-line interceptor block that lib/api.js already has. Extract into `attachDetailNormalizer(axiosInstance)` in lib/api.js and call it from both places to avoid drift when the shape evolves.",
+    "Persisting from iteration_9: Google Maps Directions REQUEST_DENIED still floods the console 4× per Step 2-5 render (legacy API not enabled + unstable onMeta useEffect dep). Not related to this fix but continues to add noise that can hide real errors during future testing."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (frontend-only)", "frontend": "100% — 3/3 scenarios PASS (primary bad-draft handling, regression happy path, helper unit cases)" },
+  "test_credentials": "Customer OTP dev flow: country_code=+225, phone=0100000001, dev_code returned in /api/auth/otp/request response.",
+  "seed_data_creation": "sessionStorage.baked_express_draft seeded twice (bad draft w/o pickup.line1, then a valid draft). localStorage.baked_access_token set from a live OTP verify. Created live booking exp_eed341b06c0e4335 during regression — will be visible in customer /orders.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fix is at the axios-instance layer (lib/api.js + AdminContext.jsx) so every existing `toast.error(e?.response?.data?.detail || 'Fallback')` call-site is now safe. To reproduce the original crash for regression, remove the interceptor and repeat the bad-draft click-Book-Now flow. Fast path to Step 5 without walking Steps 1-4: seed sessionStorage.baked_express_draft with the payload documented in the review request (with pickup.line1 removed to trigger 422, or kept to get a successful booking).",
+  "rca_of_the_issue": "ROOT CAUSE (pre-fix): FastAPI Pydantic V2 returns 422 with `detail` as an ARRAY of {type, loc, msg, input, url} objects. Call-sites did `toast.error(err.response.data.detail || 'Fallback')`, passing the raw array into sonner → sonner rendered it as JSX children → React threw 'Objects are not valid as a React child (found: object with keys {type, loc, msg, input, url})' which surfaced as a CRA red overlay in dev. MITIGATION (this fix): Added `normalizeApiError(detail)` + a response interceptor on both `api` and `adminApi` that replaces `err.response.data.detail` with a rendered string ('<loc>: <msg> · …') while preserving the original at `raw_detail`. Every existing call-site now silently receives a string. VERIFIED on customer app with a real 422; admin app path is code-equivalent (same helper, same interceptor snippet)."
+}
