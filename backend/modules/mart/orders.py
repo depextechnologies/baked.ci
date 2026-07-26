@@ -15,10 +15,24 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import delete as sa_delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
+from core.db import get_session
 from core.deps import get_current_customer
-from core.models_base import _now_iso, new_id
+from core.models import (
+    AuditLog,
+    Cart,
+    CartItem,
+    Customer,
+    CustomerAddress,
+    MartProduct,
+    Order,
+    OrderItem,
+    RewardEntry,
+    new_id,
+)
+from core.serializers import row_to_dict
 from core.events import event_bus, Events
 from core.providers.payment_provider import get_payment_provider, list_payment_methods
 from core.config import get_country_config
@@ -65,15 +79,54 @@ async def payment_methods(country: str = Query("CI")):
     return list_payment_methods()
 
 
+REWARD_EARN_RATE = 1        # 1 point per unit spent (integer part of subtotal)
+REWARD_CONVERSION = 100     # 100 points = 1 unit of currency
+
+
+async def _snapshot_cart(session: AsyncSession, customer_id: str) -> tuple[Optional[Cart], list[dict], float]:
+    cart = (
+        await session.execute(select(Cart).where(Cart.customer_id == customer_id, Cart.status == "active"))
+    ).scalar_one_or_none()
+    if not cart:
+        return None, [], 0.0
+    items = (await session.execute(select(CartItem).where(CartItem.cart_id == cart.id))).scalars().all()
+    if not items:
+        return cart, [], 0.0
+    lines: list[dict] = []
+    subtotal = 0.0
+    for it in items:
+        p = await session.get(MartProduct, it.product_id)
+        if not p:
+            continue
+        line_total = round(float(p.price) * it.quantity, 2)
+        subtotal += line_total
+        lines.append({
+            "product_id": p.id,
+            "name": p.name,
+            "unit": p.unit,
+            "brand": p.brand,
+            "image": p.image,
+            "price": float(p.price),
+            "quantity": it.quantity,
+            "line_total": line_total,
+            "currency": p.currency,
+        })
+    return cart, lines, round(subtotal, 2)
+
+
 @router.get("/mart/cart/eligibility")
-async def cart_eligibility(customer: dict = Depends(get_current_customer), use_points: int = Query(0, ge=0)):
+async def cart_eligibility(
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+    use_points: int = Query(0, ge=0),
+):
     """Return eligibility for the customer's active cart.
     Frontend uses this as the single-source-of-truth for the checkout gate.
 
     Also previews reward-points redemption when `use_points` is provided.
     """
-    _cart, _lines, subtotal = await _snapshot_cart(customer["id"])
-    country = await get_country_config(customer.get("country", "CI")) or {}
+    _cart, _lines, subtotal = await _snapshot_cart(session, customer.id)
+    country = await get_country_config(session, customer.country or "CI") or {}
     elig = check_order_eligibility(
         subtotal=subtotal,
         country_delivery_fee=country.get("delivery_fee", 0),
@@ -84,7 +137,7 @@ async def cart_eligibility(customer: dict = Depends(get_current_customer), use_p
     elig["currency_symbol"] = country.get("currency_symbol", "")
 
     # Rewards preview
-    available = int(customer.get("reward_points") or 0)
+    available = int(customer.reward_points or 0)
     requested = min(max(0, use_points), available)
     max_discount_allowed = max(0.0, elig["total"] - (country.get("min_order", 0) or 0))
     discount = round(min(requested / REWARD_CONVERSION, max_discount_allowed), 2)
@@ -130,10 +183,6 @@ class CreateOrderIn(BaseModel):
     use_points: int = Field(0, ge=0, description="Number of baked Points to redeem as a discount")
 
 
-REWARD_EARN_RATE = 1        # 1 point per unit spent (integer part of subtotal)
-REWARD_CONVERSION = 100     # 100 points = 1 unit of currency
-
-
 SLOT_LABELS = {
     "express": ("slot_express", "10-15 min · Express"),
     "superfast": ("slot_superfast", "20-30 min · Super Fast"),
@@ -142,39 +191,27 @@ SLOT_LABELS = {
 }
 
 
-async def _snapshot_cart(customer_id: str) -> tuple[dict | None, list[dict], float]:
-    cart = await db.carts.find_one({"customer_id": customer_id, "status": "active"}, {"_id": 0})
-    if not cart or not cart.get("items"):
-        return None, [], 0.0
-    lines: list[dict] = []
-    subtotal = 0.0
-    for it in cart["items"]:
-        p = await db.mart_products.find_one({"id": it["product_id"]}, {"_id": 0})
-        if not p:
-            continue
-        line_total = round(p["price"] * it["quantity"], 2)
-        subtotal += line_total
-        lines.append({
-            "product_id": p["id"],
-            "name": p["name"],
-            "unit": p.get("unit"),
-            "brand": p.get("brand"),
-            "image": p.get("image"),
-            "price": p["price"],
-            "quantity": it["quantity"],
-            "line_total": line_total,
-            "currency": p.get("currency"),
-        })
-    return cart, lines, round(subtotal, 2)
+async def _order_to_dict(session: AsyncSession, order: Order) -> dict:
+    items = (await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+    data = row_to_dict(order, rename={"address_snapshot": "address"})
+    data["items"] = [row_to_dict(i) for i in items]
+    return data
 
 
 @router.post("/orders")
-async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_current_customer)):
-    cart, lines, subtotal = await _snapshot_cart(customer["id"])
+async def create_order(
+    payload: CreateOrderIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    # Everything below participates in one implicit transaction (the session
+    # auto-begins on first use and is only committed once, at the very end) —
+    # any exception raised before that final commit leaves zero partial writes.
+    cart, lines, subtotal = await _snapshot_cart(session, customer.id)
     if not lines:
         raise HTTPException(400, "Cart is empty")
 
-    country = await get_country_config(customer.get("country", "CI")) or {}
+    country = await get_country_config(session, customer.country or "CI") or {}
 
     # Centralised eligibility: total = subtotal + delivery, then check against min_order
     elig = check_order_eligibility(
@@ -191,7 +228,7 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
     currency = country.get("currency", lines[0].get("currency"))
 
     # ---- Rewards redemption ----
-    available_points = int(customer.get("reward_points") or 0)
+    available_points = int(customer.reward_points or 0)
     use_points = min(max(0, payload.use_points), available_points)
     # Never let a redemption drive the total below the minimum-order threshold
     max_discount_allowed = max(0.0, subtotal_after_delivery - (country.get("min_order", 0) or 0))
@@ -201,22 +238,22 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
         use_points = int(points_discount * REWARD_CONVERSION)
     total = round(subtotal_after_delivery - points_discount, 2)
 
-    address = None
+    address_snapshot = None
+    source_address_id = None
     if payload.address_id:
-        address = await db.customer_addresses.find_one({"id": payload.address_id, "customer_id": customer["id"]}, {"_id": 0})
-    if not address and payload.address:
-        # Inline address (mobile checkout) — persist as a customer address for later reuse
-        address_doc = payload.address.model_dump()
-        address_doc.update({
-            "id": new_id("adr"),
-            "customer_id": customer["id"],
-            "country": (address_doc.get("country") or customer.get("country") or "CI").upper(),
-            "created_at": _now_iso(), "updated_at": _now_iso(), "deleted_at": None,
-        })
-        await db.customer_addresses.insert_one(address_doc)
-        address_doc.pop("_id", None)
-        address = address_doc
-    if not address:
+        addr_row = await session.get(CustomerAddress, payload.address_id)
+        if addr_row and addr_row.customer_id == customer.id:
+            address_snapshot = row_to_dict(addr_row)
+            source_address_id = addr_row.id
+    if not address_snapshot and payload.address:
+        addr_doc = payload.address.model_dump()
+        addr_doc["country"] = (addr_doc.get("country") or customer.country or "CI").upper()
+        addr_row = CustomerAddress(**addr_doc, customer_id=customer.id)
+        session.add(addr_row)
+        await session.flush()
+        address_snapshot = row_to_dict(addr_row)
+        source_address_id = addr_row.id
+    if not address_snapshot:
         raise HTTPException(400, "Address is required (provide address_id or inline address)")
 
     # Resolve delivery slot (id + label, else code, else default)
@@ -227,121 +264,141 @@ async def create_order(payload: CreateOrderIn, customer: dict = Depends(get_curr
     if not slot_id:
         slot_id, slot_label = ("slot_express", "10-15 min · Express")
 
-    order_id = new_id("ord")
-    order = {
-        "id": order_id,
-        "number": f"BK{order_id[-8:].upper()}",
-        "customer_id": customer["id"],
-        "module": "mart",
-        "country": customer.get("country", "CI"),
-        "status": "pending",
-        "items": lines,
-        "subtotal": subtotal,
-        "delivery_fee": delivery_fee,
-        "points_redeemed": use_points,
-        "points_discount": points_discount,
-        "points_earned": int(subtotal * REWARD_EARN_RATE),
-        "total": total,
-        "currency": currency,
-        "address": address,
-        "delivery_slot_id": slot_id,
-        "delivery_slot_label": slot_label,
-        "payment_method": payload.payment_method,
-        "payment_status": "pending",
-        "payment_provider_ref": None,
-        "instructions": payload.instructions,
-        "created_at": _now_iso(),
-        "updated_at": _now_iso(),
-        "deleted_at": None,
-        "version": 1,
-    }
-    await db.orders.insert_one(order)
+    points_earned = int(subtotal * REWARD_EARN_RATE)
+    order = Order(
+        number="",  # filled below once we have the generated id
+        customer_id=customer.id,
+        module="mart",
+        country=customer.country or "CI",
+        status="pending",
+        subtotal=subtotal,
+        delivery_fee=delivery_fee,
+        points_redeemed=use_points,
+        points_discount=points_discount,
+        points_earned=points_earned,
+        total=total,
+        currency=currency,
+        address_snapshot=address_snapshot,
+        source_address_id=source_address_id,
+        delivery_slot_id=slot_id,
+        delivery_slot_label=slot_label,
+        payment_method=payload.payment_method,
+        payment_status="pending",
+        instructions=payload.instructions,
+    )
+    session.add(order)
+    await session.flush()
+    order.number = f"BK{order.id[-8:].upper()}"
+    session.add_all(
+        OrderItem(order_id=order.id, **{k: v for k, v in line.items()}) for line in lines
+    )
 
     # Fire OrderCreated
-    await event_bus.publish(Events.ORDER_CREATED, {"order_id": order_id, "customer_id": customer["id"], "total": total})
+    await event_bus.publish(Events.ORDER_CREATED, {"order_id": order.id, "customer_id": customer.id, "total": total})
 
     # Authorize payment (COD auto-authorizes)
     provider = get_payment_provider(payload.payment_method)
+    order_for_provider = {"id": order.id, "number": order.number, "total": total, "currency": currency}
     try:
-        intent = await provider.create_intent(order)
+        intent = await provider.create_intent(order_for_provider)
     except NotImplementedError as e:
         raise HTTPException(400, str(e)) from e
 
-    updates = {
-        "payment_status": intent["status"],
-        "payment_provider": intent.get("provider"),
-        "payment_provider_ref": intent.get("provider_ref"),
-        "updated_at": _now_iso(),
-    }
-    if intent["status"] == "succeeded" or intent["status"] == "authorized":
-        updates["status"] = "confirmed"
-        await event_bus.publish(Events.PAYMENT_COMPLETED, {"order_id": order_id, "amount": total, "provider": intent.get("provider")})
+    order.payment_status = intent["status"]
+    order.payment_provider = intent.get("provider")
+    order.payment_provider_ref = intent.get("provider_ref")
+    if intent["status"] in ("succeeded", "authorized"):
+        order.status = "confirmed"
+        await event_bus.publish(
+            Events.PAYMENT_COMPLETED, {"order_id": order.id, "amount": total, "provider": intent.get("provider")}
+        )
 
         # Rewards: deduct redeemed points, credit earned points, record entries
-        points_delta = order["points_earned"] - order["points_redeemed"]
-        if points_delta != 0 or order["points_redeemed"] > 0:
-            new_balance = max(0, available_points + points_delta)
-            await db.customers.update_one({"id": customer["id"]}, {"$set": {"reward_points": new_balance, "updated_at": _now_iso()}})
-        if order["points_earned"] > 0:
-            await db.reward_entries.insert_one({
-                "id": new_id("rwd"), "customer_id": customer["id"], "kind": "earned",
-                "points": order["points_earned"], "order_id": order_id, "order_number": order["number"],
-                "label": f"Earned on {order['number']}", "created_at": _now_iso(),
-            })
-        if order["points_redeemed"] > 0:
-            await db.reward_entries.insert_one({
-                "id": new_id("rwd"), "customer_id": customer["id"], "kind": "redeemed",
-                "points": -order["points_redeemed"], "order_id": order_id, "order_number": order["number"],
-                "label": f"Redeemed on {order['number']}", "created_at": _now_iso(),
-            })
-    await db.orders.update_one({"id": order_id}, {"$set": updates})
+        points_delta = points_earned - use_points
+        if points_delta != 0 or use_points > 0:
+            customer.reward_points = max(0, available_points + points_delta)
+        if points_earned > 0:
+            session.add(
+                RewardEntry(
+                    customer_id=customer.id, kind="earned", points=points_earned,
+                    order_id=order.id, order_number=order.number, label=f"Earned on {order.number}",
+                )
+            )
+        if use_points > 0:
+            session.add(
+                RewardEntry(
+                    customer_id=customer.id, kind="redeemed", points=-use_points,
+                    order_id=order.id, order_number=order.number, label=f"Redeemed on {order.number}",
+                )
+            )
 
     # Clear the cart
-    await db.carts.update_one({"id": cart["id"]}, {"$set": {"items": [], "updated_at": _now_iso()}})
+    if cart:
+        await session.execute(sa_delete(CartItem).where(CartItem.cart_id == cart.id))
 
     # Analytics
-    await event_bus.publish(Events.ANALYTICS_UPDATED, {"kind": "order_created", "country": order["country"], "total": total, "currency": currency})
+    await event_bus.publish(
+        Events.ANALYTICS_UPDATED, {"kind": "order_created", "country": order.country, "total": total, "currency": currency}
+    )
     # Audit
-    await db.audit_logs.insert_one({
-        "id": new_id("aud"),
-        "actor_id": customer["id"],
-        "actor_kind": "customer",
-        "action": "order.created",
-        "target_id": order_id,
-        "metadata": {"total": total, "currency": currency},
-        "created_at": _now_iso(),
-    })
+    session.add(
+        AuditLog(
+            actor_id=customer.id, actor_kind="customer", action="order.created",
+            target_id=order.id, metadata_={"total": total, "currency": currency},
+        )
+    )
 
-    final = await db.orders.find_one({"id": order_id}, {"_id": 0})
-    return final
+    await session.commit()
+    return await _order_to_dict(session, order)
 
 
 @router.get("/orders/me")
-async def list_my_orders(customer: dict = Depends(get_current_customer), limit: int = Query(30, le=100)):
-    return await db.orders.find(
-        {"customer_id": customer["id"], "deleted_at": None},
-        {"_id": 0},
-    ).sort("created_at", -1).limit(limit).to_list(limit)
+async def list_my_orders(
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(30, le=100),
+):
+    rows = (
+        (
+            await session.execute(
+                select(Order)
+                .where(Order.customer_id == customer.id, Order.deleted_at.is_(None))
+                .order_by(Order.created_at.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [await _order_to_dict(session, o) for o in rows]
 
 
-@router.get("/orders/{order_id}")
-async def get_order(order_id: str, customer: dict = Depends(get_current_customer)):
-    order = await db.orders.find_one({"id": order_id, "customer_id": customer["id"]}, {"_id": 0})
-    if not order:
+async def _get_owned_order(session: AsyncSession, order_id: str, customer_id: str) -> Order:
+    order = await session.get(Order, order_id)
+    if not order or order.customer_id != customer_id:
         raise HTTPException(404, "Order not found")
     return order
 
 
+@router.get("/orders/{order_id}")
+async def get_order(
+    order_id: str, customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    order = await _get_owned_order(session, order_id, customer.id)
+    return await _order_to_dict(session, order)
+
+
 @router.post("/orders/{order_id}/cancel")
-async def cancel_order(order_id: str, customer: dict = Depends(get_current_customer)):
-    order = await db.orders.find_one({"id": order_id, "customer_id": customer["id"]}, {"_id": 0})
-    if not order:
-        raise HTTPException(404, "Order not found")
-    if order["status"] not in ("pending", "confirmed"):
-        raise HTTPException(400, f"Cannot cancel order in status {order['status']}")
-    await db.orders.update_one({"id": order_id}, {"$set": {"status": "cancelled", "updated_at": _now_iso()}})
+async def cancel_order(
+    order_id: str, customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    order = await _get_owned_order(session, order_id, customer.id)
+    if order.status not in ("pending", "confirmed"):
+        raise HTTPException(400, f"Cannot cancel order in status {order.status}")
+    order.status = "cancelled"
+    await session.commit()
     await event_bus.publish(Events.ORDER_UPDATED, {"order_id": order_id, "status": "cancelled"})
-    return await db.orders.find_one({"id": order_id}, {"_id": 0})
+    return await _order_to_dict(session, order)
 
 
 # ---------- tracking (mock/demo) ----------
@@ -370,11 +427,10 @@ def _interp(a: dict, b: dict, t: float) -> dict:
     return {"lat": a["lat"] + (b["lat"] - a["lat"]) * t, "lng": a["lng"] + (b["lng"] - a["lng"]) * t}
 
 
-def _elapsed_seconds(order: dict) -> int:
-    try:
-        created = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
-    except Exception:
-        return 0
+def _elapsed_seconds(order: Order) -> int:
+    created = order.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
     return int((datetime.now(timezone.utc) - created).total_seconds())
 
 
@@ -387,36 +443,34 @@ def _current_stage(elapsed: int) -> str:
 
 
 @router.get("/orders/{order_id}/tracking")
-async def order_tracking(order_id: str, customer: dict = Depends(get_current_customer)):
-    order = await db.orders.find_one({"id": order_id, "customer_id": customer["id"]}, {"_id": 0})
-    if not order:
-        raise HTTPException(404, "Order not found")
-
+async def order_tracking(
+    order_id: str, customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    order = await _get_owned_order(session, order_id, customer.id)
     elapsed = _elapsed_seconds(order)
 
     # Honour cancelled state
-    if order["status"] == "cancelled":
-        return {"order": order, "stage": "cancelled", "timeline": [], "driver": None, "geo": None, "eta_seconds": None}
+    if order.status == "cancelled":
+        return {"order": await _order_to_dict(session, order), "stage": "cancelled", "timeline": [], "driver": None, "geo": None, "eta_seconds": None}
 
     # Compute the demo-progressed stage. If persisted status is "delivered", pin to it.
-    stage = "delivered" if order["status"] == "delivered" else _current_stage(elapsed)
+    stage = "delivered" if order.status == "delivered" else _current_stage(elapsed)
 
     # Persist the auto-advanced status so admins & other views see it consistently
-    persisted = order["status"]
     desired = "delivered" if stage == "delivered" else (
         "on_the_way" if stage == "on_the_way" else
         "picked_up" if stage == "picked_up" else
         "preparing" if stage == "preparing" else
-        order["status"]
+        order.status
     )
-    if desired != persisted:
-        await db.orders.update_one({"id": order_id}, {"$set": {"status": desired, "updated_at": _now_iso()}})
-        order["status"] = desired
+    if desired != order.status:
+        order.status = desired
+        await session.commit()
 
-    country = (order.get("country") or "CI").upper()
+    country = (order.country or "CI").upper()
     geo = _COUNTRY_GEO.get(country) or _COUNTRY_GEO["CI"]
     # If a destination lat/lng exists on the address, use it
-    addr = order.get("address") or {}
+    addr = order.address_snapshot or {}
     if addr.get("latitude") and addr.get("longitude"):
         geo = {"store": geo["store"], "destination": {"lat": addr["latitude"], "lng": addr["longitude"]}}
     # Driver current position interpolated between store→destination for the on-the-way window
@@ -432,10 +486,9 @@ async def order_tracking(order_id: str, customer: dict = Depends(get_current_cus
         driver_pos = geo["destination"]
 
     # Build timeline with timestamps
-    try:
-        started = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
-    except Exception:
-        started = datetime.now(timezone.utc)
+    started = order.created_at
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
     timeline = []
     for code, at, label in _TIMELINE_STAGES:
         completed = elapsed >= at
@@ -450,7 +503,7 @@ async def order_tracking(order_id: str, customer: dict = Depends(get_current_cus
         eta_seconds = max(0, 360 - elapsed)
 
     return {
-        "order": order,
+        "order": await _order_to_dict(session, order),
         "stage": stage,
         "timeline": timeline,
         "driver": driver,
@@ -470,10 +523,15 @@ class RateOrderIn(BaseModel):
 
 
 @router.post("/orders/{order_id}/rate")
-async def rate_order(order_id: str, payload: RateOrderIn, customer: dict = Depends(get_current_customer)):
-    order = await db.orders.find_one({"id": order_id, "customer_id": customer["id"]}, {"_id": 0})
-    if not order:
-        raise HTTPException(404, "Order not found")
-    updates = {"rating": payload.rating, "rating_comment": payload.comment or "", "rated_at": _now_iso(), "updated_at": _now_iso()}
-    await db.orders.update_one({"id": order_id}, {"$set": updates})
-    return await db.orders.find_one({"id": order_id}, {"_id": 0})
+async def rate_order(
+    order_id: str,
+    payload: RateOrderIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    order = await _get_owned_order(session, order_id, customer.id)
+    order.rating = payload.rating
+    order.rating_comment = payload.comment or ""
+    order.rated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return await _order_to_dict(session, order)

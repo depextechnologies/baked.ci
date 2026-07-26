@@ -10,12 +10,15 @@ import json
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
+from core.db import get_session
 from core.deps import get_current_admin, get_optional_customer
+from core.models import AiExecution, Customer, MartProduct, new_id
 from core.providers.ai_provider import get_ai_provider
 from core.events import event_bus, Events
-from core.models_base import _now_iso, new_id
+from core.serializers import row_to_dict
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -39,10 +42,14 @@ SEARCH_SYSTEM = (
 
 
 @router.post("/search")
-async def ai_search(payload: SearchIn, customer: Optional[dict] = Depends(get_optional_customer)):
+async def ai_search(
+    payload: SearchIn,
+    customer: Optional[Customer] = Depends(get_optional_customer),
+    session: AsyncSession = Depends(get_session),
+):
     """Natural language product search — returns structured filters + matched products."""
     provider = get_ai_provider()
-    session_id = f"ai-search-{customer['id']}" if customer else f"ai-search-anon-{new_id()}"
+    session_id = f"ai-search-{customer.id}" if customer else f"ai-search-anon-{new_id()}"
     try:
         raw = await provider.complete(SEARCH_SYSTEM, payload.query, session_id)
     except Exception as e:  # noqa: BLE001
@@ -59,33 +66,36 @@ async def ai_search(payload: SearchIn, customer: Optional[dict] = Depends(get_op
     except Exception:
         parsed = {"intent": "browse", "categories": [], "keywords": [payload.query], "max_price": None, "summary": raw[:120]}
 
-    q = {"country": payload.country.upper(), "module": "mart", "deleted_at": None}
+    stmt = select(MartProduct).where(
+        MartProduct.country == payload.country.upper(), MartProduct.module == "mart", MartProduct.deleted_at.is_(None)
+    )
     if parsed.get("categories"):
-        q["category_slug"] = {"$in": parsed["categories"]}
-    kw = parsed.get("keywords") or []
-    if kw:
-        q["$or"] = [{"name": {"$regex": k, "$options": "i"}} for k in kw]
+        stmt = stmt.where(MartProduct.category_slug.in_(parsed["categories"]))
+    keywords = parsed.get("keywords") or []
+    if keywords:
+        stmt = stmt.where(or_(*(MartProduct.name.ilike(f"%{k}%") for k in keywords)))
     if isinstance(parsed.get("max_price"), (int, float)):
-        q["price"] = {"$lte": parsed["max_price"]}
+        stmt = stmt.where(MartProduct.price <= parsed["max_price"])
 
-    products = await db.mart_products.find(q, {"_id": 0}).limit(24).to_list(24)
+    products = (await session.execute(stmt.limit(24))).scalars().all()
 
     await event_bus.publish(Events.AI_REQUESTED, {
         "feature": "product_search",
         "query": payload.query,
-        "customer_id": customer["id"] if customer else None,
+        "customer_id": customer.id if customer else None,
     })
-    await db.ai_executions.insert_one({
-        "id": new_id("ai"),
-        "feature": "product_search",
-        "query": payload.query,
-        "response": parsed,
-        "matched_count": len(products),
-        "customer_id": customer["id"] if customer else None,
-        "created_at": _now_iso(),
-    })
+    session.add(
+        AiExecution(
+            feature="product_search",
+            query=payload.query,
+            response=parsed,
+            matched_count=len(products),
+            customer_id=customer.id if customer else None,
+        )
+    )
+    await session.commit()
 
-    return {"filters": parsed, "products": products}
+    return {"filters": parsed, "products": [row_to_dict(p) for p in products]}
 
 
 INSIGHTS_SYSTEM = (
@@ -101,9 +111,9 @@ class InsightsIn(BaseModel):
 
 
 @router.post("/insights")
-async def ai_insights(payload: InsightsIn, admin: dict = Depends(get_current_admin)):
+async def ai_insights(payload: InsightsIn, admin: Customer = Depends(get_current_admin)):
     provider = get_ai_provider()
-    session_id = f"ai-insights-{admin['id']}-{new_id()}"
+    session_id = f"ai-insights-{admin.id}-{new_id()}"
     raw = await provider.complete(INSIGHTS_SYSTEM, json.dumps(payload.model_dump()), session_id)
     text = raw.strip()
     if text.startswith("```"):

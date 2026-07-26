@@ -12,10 +12,13 @@ import uuid
 import httpx
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
-from core.models_base import _now_iso, new_id
+from core.db import get_session
+from core.models import Customer, CustomerSession, OtpChallenge
 from core.security import create_access_token
+from core.serializers import customer_to_dict
 from core.providers.otp_provider import get_otp_provider, generate_code
 from core.events import event_bus, Events
 from core.deps import get_current_customer
@@ -51,92 +54,58 @@ def _e164(country_code: str, phone: str) -> str:
     return f"{cc}{digits}"
 
 
-async def _find_or_create_customer_by_phone(e164_phone: str) -> dict:
-    existing = await db.customers.find_one({"phone": e164_phone}, {"_id": 0})
+async def _find_or_create_customer_by_phone(session: AsyncSession, e164_phone: str) -> Customer:
+    existing = (await session.execute(select(Customer).where(Customer.phone == e164_phone))).scalar_one_or_none()
     if existing:
         return existing
-    now = _now_iso()
-    doc = {
-        "id": new_id("cust"),
-        "phone": e164_phone,
-        "email": None,
-        "name": None,
-        "picture": None,
-        "role": "customer",
-        "auth_providers": ["phone"],
-        "country": "CI",
-        "locale": "fr-CI",
-        "verified": False,
-        "created_at": now,
-        "updated_at": now,
-        "deleted_at": None,
-        "created_by": None,
-        "updated_by": None,
-        "version": 1,
-    }
-    await db.customers.insert_one(doc)
-    await event_bus.publish(Events.CUSTOMER_REGISTERED, {"customer_id": doc["id"], "channel": "phone"})
-    doc.pop("_id", None)
-    return doc
+    customer = Customer(phone=e164_phone, role="customer", auth_providers=["phone"], country="CI", locale="fr-CI")
+    session.add(customer)
+    await session.flush()
+    await event_bus.publish(Events.CUSTOMER_REGISTERED, {"customer_id": customer.id, "channel": "phone"})
+    return customer
 
 
-async def _find_or_create_customer_by_google(email: str, name: str, picture: str) -> dict:
-    existing = await db.customers.find_one({"email": email}, {"_id": 0})
+async def _find_or_create_customer_by_google(
+    session: AsyncSession, email: str, name: str, picture: str
+) -> Customer:
+    existing = (await session.execute(select(Customer).where(Customer.email == email))).scalar_one_or_none()
     if existing:
-        # merge google provider
-        providers = list(set(existing.get("auth_providers", []) + ["google"]))
-        await db.customers.update_one(
-            {"id": existing["id"]},
-            {"$set": {"auth_providers": providers, "picture": picture or existing.get("picture"), "updated_at": _now_iso()}},
-        )
-        existing["auth_providers"] = providers
+        existing.auth_providers = sorted(set(existing.auth_providers or []) | {"google"})
+        existing.picture = picture or existing.picture
+        await session.flush()
         return existing
-    now = _now_iso()
-    doc = {
-        "id": new_id("cust"),
-        "phone": None,
-        "email": email,
-        "name": name,
-        "picture": picture,
-        "role": "customer",
-        "auth_providers": ["google"],
-        "country": "CI",
-        "locale": "fr-CI",
-        "verified": True,
-        "created_at": now,
-        "updated_at": now,
-        "deleted_at": None,
-        "created_by": None,
-        "updated_by": None,
-        "version": 1,
-    }
-    await db.customers.insert_one(doc)
-    await event_bus.publish(Events.CUSTOMER_REGISTERED, {"customer_id": doc["id"], "channel": "google"})
-    doc.pop("_id", None)
-    return doc
+    customer = Customer(
+        email=email,
+        name=name,
+        picture=picture,
+        role="customer",
+        auth_providers=["google"],
+        country="CI",
+        locale="fr-CI",
+        verified=True,
+    )
+    session.add(customer)
+    await session.flush()
+    await event_bus.publish(Events.CUSTOMER_REGISTERED, {"customer_id": customer.id, "channel": "google"})
+    return customer
 
 
 # ---------- endpoints ----------
 @router.post("/otp/request")
-async def request_otp(payload: OtpRequestIn):
+async def request_otp(payload: OtpRequestIn, session: AsyncSession = Depends(get_session)):
     e164 = _e164(payload.country_code, payload.phone)
     code = generate_code(6)
     now = datetime.now(timezone.utc)
-    challenge = {
-        "id": new_id("otp"),
-        "phone": e164,
-        "code": code,
-        "attempts": 0,
-        "created_at": now.isoformat(),
-        "expires_at": (now + timedelta(seconds=OTP_TTL_SECONDS)).isoformat(),
-        "consumed": False,
-    }
-    await db.otp_challenges.insert_one(challenge)
+    challenge = OtpChallenge(
+        phone=e164, code=code, attempts=0, expires_at=now + timedelta(seconds=OTP_TTL_SECONDS)
+    )
+    session.add(challenge)
+    await session.commit()
     provider = get_otp_provider()
     delivery = await provider.send_code(e164, code, locale="fr-CI")
-    await event_bus.publish(Events.OTP_REQUESTED, {"phone": e164, "challenge_id": challenge["id"]})
+    await event_bus.publish(Events.OTP_REQUESTED, {"phone": e164, "challenge_id": challenge.id})
     resp = {
-        "challenge_id": challenge["id"],
+        "challenge_id": challenge.id,
         "expires_in": OTP_TTL_SECONDS,
         "masked_phone": e164[:-4] + "****",
     }
@@ -147,33 +116,40 @@ async def request_otp(payload: OtpRequestIn):
 
 
 @router.post("/otp/verify")
-async def verify_otp(payload: OtpVerifyIn):
-    challenge = await db.otp_challenges.find_one({"id": payload.challenge_id}, {"_id": 0})
-    if not challenge or challenge.get("consumed"):
+async def verify_otp(payload: OtpVerifyIn, session: AsyncSession = Depends(get_session)):
+    challenge = await session.get(OtpChallenge, payload.challenge_id)
+    if not challenge or challenge.consumed:
         raise HTTPException(status_code=400, detail="Invalid or used challenge")
-    expires_at = datetime.fromisoformat(challenge["expires_at"])
+    expires_at = challenge.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Code expired")
-    if challenge["attempts"] >= 5:
+    if challenge.attempts >= 5:
         raise HTTPException(status_code=429, detail="Too many attempts")
-    await db.otp_challenges.update_one({"id": challenge["id"]}, {"$inc": {"attempts": 1}})
-    if payload.code != challenge["code"]:
+
+    # Persist the attempt on its own, BEFORE checking the code — a wrong-code
+    # exception below must not roll this back, or rate-limiting never triggers.
+    await session.execute(
+        update(OtpChallenge).where(OtpChallenge.id == challenge.id).values(attempts=OtpChallenge.attempts + 1)
+    )
+    await session.commit()
+
+    if payload.code != challenge.code:
         raise HTTPException(status_code=400, detail="Incorrect code")
 
-    customer = await _find_or_create_customer_by_phone(challenge["phone"])
-    await db.customers.update_one({"id": customer["id"]}, {"$set": {"verified": True, "updated_at": _now_iso()}})
-    customer["verified"] = True
-    await db.otp_challenges.update_one({"id": challenge["id"]}, {"$set": {"consumed": True}})
-    await event_bus.publish(Events.CUSTOMER_VERIFIED, {"customer_id": customer["id"]})
+    customer = await _find_or_create_customer_by_phone(session, challenge.phone)
+    customer.verified = True
+    challenge.consumed = True
+    await session.commit()
 
-    token = create_access_token(customer["id"], role=customer.get("role", "customer"))
-    return {"access_token": token, "token_type": "bearer", "customer": customer}
+    await event_bus.publish(Events.CUSTOMER_VERIFIED, {"customer_id": customer.id})
+    token = create_access_token(customer.id, role=customer.role)
+    return {"access_token": token, "token_type": "bearer", "customer": customer_to_dict(customer)}
 
 
 @router.post("/google/session")
-async def google_session(payload: GoogleSessionIn, response: Response):
+async def google_session(payload: GoogleSessionIn, response: Response, session: AsyncSession = Depends(get_session)):
     """Exchange Emergent Google Auth session_id for an app session cookie + Bearer token."""
     async with httpx.AsyncClient(timeout=10) as http:
         r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": payload.session_id})
@@ -181,19 +157,12 @@ async def google_session(payload: GoogleSessionIn, response: Response):
         raise HTTPException(status_code=401, detail="Invalid Google session")
     data = r.json()
     customer = await _find_or_create_customer_by_google(
-        email=data["email"], name=data.get("name", ""), picture=data.get("picture", "")
+        session, email=data["email"], name=data.get("name", ""), picture=data.get("picture", "")
     )
     session_token = data.get("session_token") or uuid.uuid4().hex
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    await db.customer_sessions.insert_one(
-        {
-            "id": new_id("sess"),
-            "customer_id": customer["id"],
-            "session_token": session_token,
-            "expires_at": expires_at.isoformat(),
-            "created_at": _now_iso(),
-        }
-    )
+    session.add(CustomerSession(customer_id=customer.id, session_token=session_token, expires_at=expires_at))
+    await session.commit()
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -203,19 +172,20 @@ async def google_session(payload: GoogleSessionIn, response: Response):
         samesite="none",
         path="/",
     )
-    token = create_access_token(customer["id"], role=customer.get("role", "customer"))
-    return {"access_token": token, "customer": customer}
+    token = create_access_token(customer.id, role=customer.role)
+    return {"access_token": token, "customer": customer_to_dict(customer)}
 
 
 @router.get("/me")
-async def me(customer: dict = Depends(get_current_customer)):
-    return customer
+async def me(customer: Customer = Depends(get_current_customer)):
+    return customer_to_dict(customer)
 
 
 @router.post("/logout")
-async def logout(request: Request, response: Response):
+async def logout(request: Request, response: Response, session: AsyncSession = Depends(get_session)):
     session_token = request.cookies.get("session_token")
     if session_token:
-        await db.customer_sessions.delete_one({"session_token": session_token})
+        await session.execute(delete(CustomerSession).where(CustomerSession.session_token == session_token))
+        await session.commit()
     response.delete_cookie("session_token", path="/")
     return {"ok": True}

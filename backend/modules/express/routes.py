@@ -1,8 +1,8 @@
 """EXPRESSbakēd — customer-facing REST endpoints.
 
 All configuration (vehicles, package types, pricing rules, mover items) lives
-in Mongo and is editable from Super Admin. Booking status transitions live
-in `express_bookings.timeline` for auditability.
+in Postgres and is editable from Super Admin. Booking status transitions are
+recorded in `express_booking_timeline` for auditability.
 """
 from __future__ import annotations
 import secrets
@@ -10,11 +10,29 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel, Field
+from sqlalchemy import select, or_
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
+from core.db import SessionLocal, get_session
 from core.deps import get_current_customer
-from core.models_base import _now_iso, new_id
+from core.models import (
+    Customer,
+    ExpressBooking,
+    ExpressBookingItem,
+    ExpressBookingTimeline,
+    ExpressDeliveryPref,
+    ExpressMoversCategory,
+    ExpressMoversItem,
+    ExpressMoveType,
+    ExpressPackageType,
+    ExpressTimeSlot,
+    ExpressVehicle,
+    ExpressWeightTier,
+    new_id,
+)
+from core.serializers import row_to_dict
 from modules.express.pricing import quote_parcel, quote_movers
+from modules.express.serializers import booking_to_dict, public_booking_fields
 from modules.express.tracking import (
     manager as ws_manager,
     run_demo_simulation,
@@ -24,35 +42,72 @@ from modules.express.tracking import (
 router = APIRouter(prefix="/express", tags=["express"])
 
 
+def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 # ---------- Configuration reads ----------
 @router.get("/vehicles")
-async def list_vehicles(country: str = Query("CI")):
+async def list_vehicles(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
     """Active vehicles for a given country, sorted by admin-controlled order."""
-    docs = await db.express_vehicles.find(
-        {"country": country.upper(), "active": True}, {"_id": 0}
-    ).sort("sort_order", 1).to_list(20)
-    return docs
+    rows = (
+        (
+            await session.execute(
+                select(ExpressVehicle)
+                .where(ExpressVehicle.country == country.upper(), ExpressVehicle.active.is_(True))
+                .order_by(ExpressVehicle.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/package-types")
-async def list_package_types(country: str = Query("CI")):
-    docs = await db.express_package_types.find(
-        {"country": country.upper(), "active": True}, {"_id": 0}
-    ).sort("sort_order", 1).to_list(30)
-    return docs
+async def list_package_types(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
+    rows = (
+        (
+            await session.execute(
+                select(ExpressPackageType)
+                .where(ExpressPackageType.country == country.upper(), ExpressPackageType.active.is_(True))
+                .order_by(ExpressPackageType.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/weight-tiers")
-async def list_weight_tiers():
+async def list_weight_tiers(session: AsyncSession = Depends(get_session)):
     """Weight-range chips (config-driven so ranges can be relabelled per market)."""
-    docs = await db.express_weight_tiers.find({"active": True}, {"_id": 0}).sort("sort_order", 1).to_list(20)
-    return docs
+    rows = (
+        (await session.execute(select(ExpressWeightTier).where(ExpressWeightTier.active.is_(True)).order_by(ExpressWeightTier.sort_order)))
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/delivery-preferences")
-async def list_delivery_preferences():
-    docs = await db.express_delivery_prefs.find({"active": True}, {"_id": 0}).sort("sort_order", 1).to_list(20)
-    return docs
+async def list_delivery_preferences(session: AsyncSession = Depends(get_session)):
+    rows = (
+        (
+            await session.execute(
+                select(ExpressDeliveryPref).where(ExpressDeliveryPref.active.is_(True)).order_by(ExpressDeliveryPref.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 # ---------- Quotes ----------
@@ -72,8 +127,9 @@ class ParcelQuoteIn(BaseModel):
 
 
 @router.post("/quote/parcel")
-async def parcel_quote(payload: ParcelQuoteIn):
+async def parcel_quote(payload: ParcelQuoteIn, session: AsyncSession = Depends(get_session)):
     return await quote_parcel(
+        session,
         country=payload.country,
         vehicle_code=payload.vehicle_code,
         pickup_lat=payload.pickup_lat, pickup_lng=payload.pickup_lng,
@@ -106,34 +162,65 @@ class MoversQuoteIn(BaseModel):
 
 
 @router.post("/quote/movers")
-async def movers_quote(payload: MoversQuoteIn):
+async def movers_quote(payload: MoversQuoteIn, session: AsyncSession = Depends(get_session)):
     data = payload.model_dump()
-    data["items"] = [it.model_dump() for it in payload.items]
-    return await quote_movers(**data)
+    items = data.pop("items")
+    return await quote_movers(session, items=[it for it in items], **data)
 
 
 # ---------- Movers config ----------
 @router.get("/movers/categories")
-async def movers_categories():
-    return await db.express_movers_categories.find({"active": True}, {"_id": 0}).sort("sort_order", 1).to_list(30)
+async def movers_categories(session: AsyncSession = Depends(get_session)):
+    rows = (
+        (
+            await session.execute(
+                select(ExpressMoversCategory).where(ExpressMoversCategory.active.is_(True)).order_by(ExpressMoversCategory.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/movers/items")
-async def movers_items(category: Optional[str] = Query(None), country: str = Query("CI")):
-    q = {"active": True, "$or": [{"country": country.upper()}, {"country": {"$in": [None, "ALL"]}}]}
+async def movers_items(
+    category: Optional[str] = Query(None), country: str = Query("CI"), session: AsyncSession = Depends(get_session)
+):
+    stmt = select(ExpressMoversItem).where(
+        ExpressMoversItem.active.is_(True),
+        or_(ExpressMoversItem.country == country.upper(), ExpressMoversItem.country.is_(None)),
+    )
     if category:
-        q["category_code"] = category
-    return await db.express_movers_items.find(q, {"_id": 0}).sort("sort_order", 1).to_list(500)
+        stmt = stmt.where(ExpressMoversItem.category_code == category)
+    rows = (await session.execute(stmt.order_by(ExpressMoversItem.sort_order).limit(500))).scalars().all()
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/movers/move-types")
-async def movers_types():
-    return await db.express_move_types.find({"active": True}, {"_id": 0}).sort("sort_order", 1).to_list(20)
+async def movers_types(session: AsyncSession = Depends(get_session)):
+    rows = (
+        (await session.execute(select(ExpressMoveType).where(ExpressMoveType.active.is_(True)).order_by(ExpressMoveType.sort_order)))
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/movers/time-slots")
-async def movers_time_slots(country: str = Query("CI")):
-    return await db.express_time_slots.find({"active": True, "country": country.upper()}, {"_id": 0}).sort("sort_order", 1).to_list(20)
+async def movers_time_slots(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
+    rows = (
+        (
+            await session.execute(
+                select(ExpressTimeSlot)
+                .where(ExpressTimeSlot.active.is_(True), ExpressTimeSlot.country == country.upper())
+                .order_by(ExpressTimeSlot.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 # ---------- Bookings ----------
@@ -175,62 +262,82 @@ class ParcelBookingIn(BaseModel):
     payment_method: str = "cod"
 
 
+def _address_columns(prefix: str, addr: AddressPoint) -> dict:
+    return {
+        f"{prefix}_line1": addr.line1,
+        f"{prefix}_latitude": addr.latitude,
+        f"{prefix}_longitude": addr.longitude,
+        f"{prefix}_formatted_address": addr.formatted_address,
+        f"{prefix}_place_id": addr.place_id,
+        f"{prefix}_landmark": addr.landmark,
+        f"{prefix}_building": addr.building,
+        f"{prefix}_city": addr.city,
+        f"{prefix}_country": addr.country,
+    }
+
+
 @router.post("/bookings/parcel")
-async def create_parcel_booking(payload: ParcelBookingIn, background: BackgroundTasks, customer: dict = Depends(get_current_customer)):
+async def create_parcel_booking(
+    payload: ParcelBookingIn,
+    background: BackgroundTasks,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
     quote = await quote_parcel(
+        session,
         country=payload.country,
         vehicle_code=payload.vehicle_code,
         pickup_lat=payload.pickup.latitude, pickup_lng=payload.pickup.longitude,
         drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
         promo_code=payload.promo_code, declared_value=payload.declared_value,
     )
-    now = _now_iso()
     ref = _make_booking_ref("EXP")
-    doc = {
-        "id": new_id("exp"),
-        "ref": ref,
-        "customer_id": customer["id"],
-        "module": "express",
-        "booking_type": "parcel",
-        "country": payload.country.upper(),
-        "vehicle_code": payload.vehicle_code,
-        "pickup": payload.pickup.model_dump(),
-        "drop": payload.drop.model_dump(),
-        "receiver": payload.receiver.model_dump(),
-        "package": {
-            "type": payload.package_type,
-            "weight_range": payload.package_weight_range,
-            "dimensions": payload.package_dimensions,
-            "notes": payload.package_notes,
-        },
-        "distance_km": quote["distance_km"],
-        "duration_min": quote["duration_min"],
-        "price_breakdown": quote,
-        "currency": quote["currency"],
-        "currency_symbol": quote["currency_symbol"],
-        "total": quote["total"],
-        "payment_method": payload.payment_method,
-        "payment_status": "pending",
-        "status": "searching",
-        "driver_id": None,
-        "driver_snapshot": None,
-        "driver_location": None,
-        "eta_seconds": None,
-        "timeline": [
-            {"code": "created", "label": "Booking created", "at": now},
-            {"code": "searching", "label": "Searching for a driver…", "at": now},
-        ],
-        "scheduled_for": payload.scheduled_for,
-        "created_at": now,
-        "updated_at": now,
-    }
-    await db.express_bookings.insert_one(doc)
-    doc.pop("_id", None)
+    booking = ExpressBooking(
+        id=new_id("exp"),
+        ref=ref,
+        customer_id=customer.id,
+        module="express",
+        booking_type="parcel",
+        country=payload.country.upper(),
+        status="searching",
+        payment_method=payload.payment_method,
+        payment_status="pending",
+        currency=quote["currency"],
+        currency_symbol=quote["currency_symbol"],
+        total=quote["total"],
+        vehicle_code=payload.vehicle_code,
+        **_address_columns("pickup", payload.pickup),
+        **_address_columns("drop", payload.drop),
+        receiver_name=payload.receiver.name,
+        receiver_phone=payload.receiver.phone,
+        receiver_alt_phone=payload.receiver.alt_phone,
+        receiver_building=payload.receiver.building,
+        receiver_landmark=payload.receiver.landmark,
+        receiver_notes=payload.receiver.notes,
+        receiver_preferences=payload.receiver.preferences,
+        package_type=payload.package_type,
+        package_weight_range=payload.package_weight_range,
+        package_dimensions=payload.package_dimensions,
+        package_notes=payload.package_notes,
+        distance_km=quote["distance_km"],
+        duration_min=quote["duration_min"],
+        price_breakdown=quote,
+        scheduled_for=_parse_dt(payload.scheduled_for),
+    )
+    session.add(booking)
+    await session.flush()
+    now = datetime.now(timezone.utc)
+    session.add_all([
+        ExpressBookingTimeline(booking_id=booking.id, code="created", label="Booking created", at=now),
+        ExpressBookingTimeline(booking_id=booking.id, code="searching", label="Searching for a driver…", at=now),
+    ])
+    await session.commit()
+    data = await booking_to_dict(session, booking)
     # Kick off the driver simulator in DEMO_MODE (production path relies on
     # driver-app status endpoints below to advance the lifecycle).
     if demo_mode_enabled():
-        background.add_task(run_demo_simulation, doc["id"])
-    return doc
+        background.add_task(run_demo_simulation, booking.id)
+    return data
 
 
 class MoversBookingIn(BaseModel):
@@ -250,15 +357,25 @@ class MoversBookingIn(BaseModel):
 
 
 @router.post("/bookings/movers")
-async def create_movers_booking(payload: MoversBookingIn, customer: dict = Depends(get_current_customer)):
+async def create_movers_booking(
+    payload: MoversBookingIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
     time_slot_surcharge = 0.0
     if payload.time_slot_code:
-        slot = await db.express_time_slots.find_one(
-            {"code": payload.time_slot_code, "country": payload.country.upper(), "active": True},
-            {"_id": 0},
-        )
-        time_slot_surcharge = float((slot or {}).get("surcharge") or 0)
+        slot = (
+            await session.execute(
+                select(ExpressTimeSlot).where(
+                    ExpressTimeSlot.code == payload.time_slot_code,
+                    ExpressTimeSlot.country == payload.country.upper(),
+                    ExpressTimeSlot.active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+        time_slot_surcharge = float(slot.surcharge) if slot else 0.0
     quote = await quote_movers(
+        session,
         country=payload.country,
         pickup_lat=payload.pickup.latitude, pickup_lng=payload.pickup.longitude,
         drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
@@ -271,78 +388,88 @@ async def create_movers_booking(payload: MoversBookingIn, customer: dict = Depen
         declared_value=payload.declared_value,
         time_slot_surcharge=time_slot_surcharge,
     )
-    now = _now_iso()
     ref = _make_booking_ref("EXPMV")
-    doc = {
-        "id": new_id("mov"),
-        "ref": ref,
-        "customer_id": customer["id"],
-        "module": "express",
-        "booking_type": "movers",
-        "country": payload.country.upper(),
-        "move_type": payload.move_type,
-        "pickup": payload.pickup.model_dump(),
-        "drop": payload.drop.model_dump(),
-        "pickup_building": payload.pickup_building,
-        "drop_building": payload.drop_building,
-        "items": [it.model_dump() for it in payload.items],
-        "custom_items": payload.custom_items,
-        "quote_breakdown": quote,
-        "currency": quote["currency"],
-        "currency_symbol": quote["currency_symbol"],
-        "total": quote["total"],
-        "advance": quote["advance"],
-        "remaining": quote["remaining"],
-        "scheduled_date": payload.scheduled_date,
-        "time_slot_code": payload.time_slot_code,
-        "labour_movers": payload.labour_movers,
-        "payment_method": payload.payment_method,
-        "payment_status": "advance_pending",
-        "status": "confirmed",
-        "timeline": [
-            {"code": "created", "label": "Move booked", "at": now},
-        ],
-        "created_at": now,
-        "updated_at": now,
-    }
-    await db.express_bookings.insert_one(doc)
-    doc.pop("_id", None)
-    return doc
+    booking = ExpressBooking(
+        id=new_id("mov"),
+        ref=ref,
+        customer_id=customer.id,
+        module="express",
+        booking_type="movers",
+        country=payload.country.upper(),
+        status="confirmed",
+        payment_method=payload.payment_method,
+        payment_status="advance_pending",
+        currency=quote["currency"],
+        currency_symbol=quote["currency_symbol"],
+        total=quote["total"],
+        **_address_columns("pickup", payload.pickup),
+        **_address_columns("drop", payload.drop),
+        move_type=payload.move_type,
+        movers_pickup_access=payload.pickup_building,
+        movers_drop_access=payload.drop_building,
+        custom_items=payload.custom_items,
+        quote_breakdown=quote,
+        advance=quote["advance"],
+        remaining=quote["remaining"],
+        scheduled_for=_parse_dt(payload.scheduled_date),
+        time_slot_code=payload.time_slot_code,
+        labour_movers=payload.labour_movers,
+    )
+    session.add(booking)
+    await session.flush()
+    session.add_all(
+        ExpressBookingItem(booking_id=booking.id, item_id=it.item_id, qty=it.qty) for it in payload.items
+    )
+    session.add(
+        ExpressBookingTimeline(
+            booking_id=booking.id, code="created", label="Move booked", at=datetime.now(timezone.utc)
+        )
+    )
+    await session.commit()
+    return await booking_to_dict(session, booking)
 
 
 @router.get("/bookings/mine")
-async def my_bookings(customer: dict = Depends(get_current_customer), status: Optional[str] = Query(None)):
-    q = {"customer_id": customer["id"], "module": "express"}
+async def my_bookings(
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+    status: Optional[str] = Query(None),
+):
+    stmt = select(ExpressBooking).where(ExpressBooking.customer_id == customer.id, ExpressBooking.module == "express")
     if status == "active":
-        q["status"] = {"$in": ["searching", "driver_assigned", "picked", "in_transit", "confirmed"]}
+        stmt = stmt.where(ExpressBooking.status.in_(["searching", "driver_assigned", "picked", "in_transit", "confirmed"]))
     elif status == "completed":
-        q["status"] = "delivered"
+        stmt = stmt.where(ExpressBooking.status == "delivered")
     elif status == "cancelled":
-        q["status"] = "cancelled"
-    docs = await db.express_bookings.find(q, {"_id": 0}).sort("created_at", -1).to_list(100)
-    return docs
+        stmt = stmt.where(ExpressBooking.status == "cancelled")
+    rows = (await session.execute(stmt.order_by(ExpressBooking.created_at.desc()).limit(100))).scalars().all()
+    return [await booking_to_dict(session, b) for b in rows]
 
 
 @router.get("/bookings/{booking_id}")
-async def get_booking(booking_id: str, customer: dict = Depends(get_current_customer)):
-    doc = await db.express_bookings.find_one({"id": booking_id, "customer_id": customer["id"]}, {"_id": 0})
-    if not doc:
+async def get_booking(
+    booking_id: str, customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    booking = await session.get(ExpressBooking, booking_id)
+    if not booking or booking.customer_id != customer.id:
         raise HTTPException(404, "Booking not found")
-    return doc
+    return await booking_to_dict(session, booking)
 
 
 @router.post("/bookings/{booking_id}/cancel")
-async def cancel_booking(booking_id: str, customer: dict = Depends(get_current_customer)):
-    now = _now_iso()
-    r = await db.express_bookings.find_one_and_update(
-        {"id": booking_id, "customer_id": customer["id"], "status": {"$in": ["searching", "driver_assigned", "confirmed"]}},
-        {"$set": {"status": "cancelled", "updated_at": now}, "$push": {"timeline": {"code": "cancelled", "label": "Cancelled by customer", "at": now}}},
-        return_document=True,
-    )
-    if not r:
+async def cancel_booking(
+    booking_id: str, customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    from modules.express.tracking import transition_status
+
+    booking = await session.get(ExpressBooking, booking_id)
+    if (
+        not booking
+        or booking.customer_id != customer.id
+        or booking.status not in ("searching", "driver_assigned", "confirmed")
+    ):
         raise HTTPException(400, "Cannot cancel this booking")
-    r.pop("_id", None)
-    return r
+    return await transition_status(session, booking_id, "cancelled", label="Cancelled by customer")
 
 
 # ---------- Live Tracking (WebSocket) ----------
@@ -353,31 +480,13 @@ async def ws_booking(ws: WebSocket, booking_id: str):
     is opaque). The client should treat received data as read-only."""
     await ws_manager.connect(booking_id, ws)
     try:
-        doc = await db.express_bookings.find_one({"id": booking_id}, {"_id": 0})
-        if doc:
-            # send initial snapshot to just this socket
-            await ws.send_json({
-                "type": "snapshot",
-                "id": doc.get("id"),
-                "ref": doc.get("ref"),
-                "status": doc.get("status"),
-                "pickup": doc.get("pickup"),
-                "drop": doc.get("drop"),
-                "receiver": doc.get("receiver"),
-                "vehicle_code": doc.get("vehicle_code"),
-                "distance_km": doc.get("distance_km"),
-                "duration_min": doc.get("duration_min"),
-                "currency_symbol": doc.get("currency_symbol"),
-                "total": doc.get("total"),
-                "driver_id": doc.get("driver_id"),
-                "driver_snapshot": doc.get("driver_snapshot"),
-                "driver_location": doc.get("driver_location"),
-                "eta_seconds": doc.get("eta_seconds"),
-                "timeline": doc.get("timeline") or [],
-                "updated_at": doc.get("updated_at"),
-            })
-        else:
-            await ws.send_json({"type": "error", "message": "Booking not found"})
+        async with SessionLocal() as session:
+            booking = await session.get(ExpressBooking, booking_id)
+            if booking:
+                data = await booking_to_dict(session, booking)
+                await ws.send_json({"type": "snapshot", **public_booking_fields(data)})
+            else:
+                await ws.send_json({"type": "error", "message": "Booking not found"})
         # Keep the socket open — the manager broadcasts new frames. We only
         # need to read from the client to detect disconnect.
         while True:
@@ -408,13 +517,16 @@ class DriverStatusIn(BaseModel):
 
 
 @router.post("/bookings/{booking_id}/driver-status")
-async def driver_advance_status(booking_id: str, payload: DriverStatusIn):
+async def driver_advance_status(
+    booking_id: str, payload: DriverStatusIn, session: AsyncSession = Depends(get_session)
+):
     from modules.express.tracking import transition_status
     from modules.express.dispatch import release_driver
-    doc = await db.express_bookings.find_one({"id": booking_id}, {"_id": 0})
-    if not doc:
+
+    booking = await session.get(ExpressBooking, booking_id)
+    if not booking:
         raise HTTPException(404, "Booking not found")
-    curr = doc.get("status")
+    curr = booking.status
     allowed = ALLOWED_TRANSITIONS.get(curr, set())
     if payload.status not in allowed:
         raise HTTPException(400, f"Cannot transition {curr!r} → {payload.status!r}")
@@ -423,11 +535,12 @@ async def driver_advance_status(booking_id: str, payload: DriverStatusIn):
         driver_loc = {"lat": payload.lat, "lng": payload.lng}
     extra = {}
     if payload.status == "delivered":
-        extra["delivered_at"] = _now_iso()
+        extra["delivered_at"] = datetime.now(timezone.utc)
         extra["payment_status"] = "paid"
-    result = await transition_status(booking_id, payload.status, extra=extra, driver_location=driver_loc)
-    if payload.status == "delivered" and doc.get("driver_id"):
-        await release_driver(doc["driver_id"])
+    driver_id = booking.driver_id
+    result = await transition_status(session, booking_id, payload.status, extra=extra, driver_location=driver_loc)
+    if payload.status == "delivered" and driver_id:
+        await release_driver(session, driver_id)
     return result
 
 

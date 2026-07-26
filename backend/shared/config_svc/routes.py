@@ -3,9 +3,14 @@
 Adding a new country/module = insert into `countries`/`configurations`. No code change.
 """
 import os
-from fastapi import APIRouter, Query
-from core.db import db
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.db import get_session
 from core.config import get_app_config
+from core.models import Configuration, Country
+from core.serializers import row_to_dict
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -15,24 +20,34 @@ def _is_production() -> bool:
 
 
 @router.get("/countries")
-async def list_countries():
+async def list_countries(session: AsyncSession = Depends(get_session)):
     """Return active countries. In production, only rows explicitly marked
     `production_visible=True` are exposed to the customer UI. QA/dev environments
     see everything so newly seeded countries can be tested before rollout.
     """
-    q: dict = {"active": True}
+    stmt = select(Country).where(Country.active.is_(True))
     if _is_production():
-        q["production_visible"] = True
-    return await db.countries.find(q, {"_id": 0}).to_list(100)
+        stmt = stmt.where(Country.production_visible.is_(True))
+    rows = (await session.execute(stmt)).scalars().all()
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/modules")
-async def list_modules(country: str = Query("CI")):
-    return await db.configurations.find(
-        {"scope": "module", "country": country.upper()}, {"_id": 0}
-    ).sort("order", 1).to_list(20)
+async def list_modules(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
+    rows = (
+        (
+            await session.execute(
+                select(Configuration)
+                .where(Configuration.scope == "module", Configuration.country == country.upper())
+                .order_by(Configuration.order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [{"code": r.module, **row_to_dict(r)} for r in rows]
 
 
 @router.get("/app")
-async def app_config(country: str = Query("CI")):
-    return await get_app_config(country)
+async def app_config(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
+    return await get_app_config(session, country)

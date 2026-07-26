@@ -1,0 +1,168 @@
+{
+  "info": {
+    "name": "BAKĒD - Login Check",
+    "description": "Customer OTP login flow and Admin login flow against the BAKĒD backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost", "type": "string" },
+    { "key": "country_code", "value": "+225", "type": "string" },
+    { "key": "phone", "value": "0102030405", "type": "string" },
+    { "key": "challenge_id", "value": "", "type": "string" },
+    { "key": "dev_code", "value": "", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "admin_email", "value": "", "type": "string" },
+    { "key": "admin_password", "value": "", "type": "string" },
+    { "key": "admin_access_token", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Customer Login (OTP)",
+      "item": [
+        {
+          "name": "1. Request OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"country_code\": \"{{country_code}}\",\n  \"phone\": \"{{phone}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/otp/request", "host": ["{{base_url}}"], "path": ["api", "auth", "otp", "request"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OTP requested', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('challenge_id', data.challenge_id);",
+                  "if (data.dev_code) { pm.collectionVariables.set('dev_code', data.dev_code); }",
+                  "pm.test('challenge_id present', function () { pm.expect(data.challenge_id).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"challenge_id\": \"{{challenge_id}}\",\n  \"code\": \"{{dev_code}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/otp/verify", "host": ["{{base_url}}"], "path": ["api", "auth", "otp", "verify"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login succeeded', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', data.access_token);",
+                  "pm.test('access_token present', function () { pm.expect(data.access_token).to.be.a('string'); });",
+                  "pm.test('customer returned', function () { pm.expect(data.customer).to.have.property('id'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Get Current Customer (/me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Authenticated as logged-in customer', function () { pm.response.to.have.status(200); });",
+                  "pm.test('phone matches', function () { pm.expect(pm.response.json().phone).to.include(pm.collectionVariables.get('phone').replace(/^0/, '')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api", "auth", "logout"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Logout ok', function () { pm.response.to.have.status(200); pm.expect(pm.response.json().ok).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Login",
+      "item": [
+        {
+          "name": "1. Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/admin/auth/login", "host": ["{{base_url}}"], "path": ["api", "admin", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin login succeeded', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('admin_access_token', data.access_token);",
+                  "pm.test('access_token present', function () { pm.expect(data.access_token).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Admin Dashboard (token check)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_access_token}}" }],
+            "url": { "raw": "{{base_url}}/api/admin/dashboard", "host": ["{{base_url}}"], "path": ["api", "admin", "dashboard"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin token accepted', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

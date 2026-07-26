@@ -1,12 +1,15 @@
 """EXPRESSbakēd — pricing engine.
 
 100% configuration-driven. No hardcoded constants: every rate comes from
-`express_pricing_rules` in Mongo (seeded once, editable from Super Admin).
+`express_pricing_rules` (seeded once, editable from Super Admin).
 """
 from __future__ import annotations
 import math
 from typing import Optional, Dict, Any
-from core.db import db
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.models import Country, ExpressMoversPricing, ExpressMoversItem, ExpressPricingRule, ExpressPromo
 
 
 def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -30,25 +33,41 @@ def estimate_duration_min(distance_km: float, vehicle_code: str) -> int:
     return max(5, int(round((distance_km / speed) * 60)))
 
 
-async def _pricing_rule(country: str, vehicle_code: str) -> Dict[str, Any]:
+async def _pricing_rule(session: AsyncSession, country: str, vehicle_code: str) -> Dict[str, Any]:
     """Fetch active pricing rule; falls back to a safe zero-cost skeleton."""
-    doc = await db.express_pricing_rules.find_one(
-        {"country": country.upper(), "vehicle_code": vehicle_code, "active": True},
-        {"_id": 0},
-    )
-    return doc or {
-        "base_fare": 0, "min_fare": 0,
-        "price_per_km": 0, "price_per_min": 0,
-        "waiting_fee": 0,
-        "peak_multiplier": 1.0, "night_multiplier": 1.0,
-        "service_fee_pct": 0, "insurance_pct": 0, "insurance_min": 0,
-        "taxes_pct": 0,
+    rule = (
+        await session.execute(
+            select(ExpressPricingRule).where(
+                ExpressPricingRule.country == country.upper(),
+                ExpressPricingRule.vehicle_code == vehicle_code,
+                ExpressPricingRule.active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if rule is None:
+        return {
+            "base_fare": 0, "min_fare": 0,
+            "price_per_km": 0, "price_per_min": 0,
+            "waiting_fee": 0,
+            "peak_multiplier": 1.0, "night_multiplier": 1.0,
+            "service_fee_pct": 0, "insurance_pct": 0, "insurance_min": 0,
+            "taxes_pct": 0,
+        }
+    return {
+        "base_fare": rule.base_fare, "min_fare": rule.min_fare,
+        "price_per_km": rule.price_per_km, "price_per_min": rule.price_per_min,
+        "waiting_fee": rule.waiting_fee,
+        "peak_multiplier": rule.peak_multiplier, "night_multiplier": rule.night_multiplier,
+        "service_fee_pct": rule.service_fee_pct, "insurance_pct": rule.insurance_pct,
+        "insurance_min": rule.insurance_min, "taxes_pct": rule.taxes_pct,
     }
 
 
-async def _currency(country: str) -> tuple[str, str]:
-    c = await db.countries.find_one({"code": country.upper()}, {"_id": 0}) or {}
-    return c.get("currency", "XOF"), c.get("currency_symbol", "CFA")
+async def _currency(session: AsyncSession, country: str) -> tuple[str, str]:
+    c = await session.get(Country, country.upper())
+    if not c:
+        return "XOF", "CFA"
+    return c.currency or "XOF", c.currency_symbol or "CFA"
 
 
 def _round(currency: str, value: float) -> float:
@@ -59,6 +78,7 @@ def _round(currency: str, value: float) -> float:
 
 
 async def quote_parcel(
+    session: AsyncSession,
     *,
     country: str,
     vehicle_code: str,
@@ -70,8 +90,8 @@ async def quote_parcel(
     declared_value: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Compute the full price breakdown for a parcel booking."""
-    rule = await _pricing_rule(country, vehicle_code)
-    currency, symbol = await _currency(country)
+    rule = await _pricing_rule(session, country, vehicle_code)
+    currency, symbol = await _currency(session, country)
 
     distance_km = round(haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng), 2)
     duration_min = estimate_duration_min(distance_km, vehicle_code)
@@ -101,15 +121,23 @@ async def quote_parcel(
     promo_discount = 0.0
     promo_meta = None
     if promo_code:
-        promo = await db.express_promos.find_one({"code": promo_code.upper(), "active": True, "country": country.upper()}, {"_id": 0})
+        promo = (
+            await session.execute(
+                select(ExpressPromo).where(
+                    ExpressPromo.code == promo_code.upper(),
+                    ExpressPromo.active.is_(True),
+                    ExpressPromo.country == country.upper(),
+                )
+            )
+        ).scalar_one_or_none()
         if promo:
-            if promo.get("kind") == "percent":
-                promo_discount = pre_promo * (float(promo.get("value") or 0) / 100.0)
-                if promo.get("max_discount"):
-                    promo_discount = min(promo_discount, float(promo["max_discount"]))
-            elif promo.get("kind") == "flat":
-                promo_discount = float(promo.get("value") or 0)
-            promo_meta = {"code": promo["code"], "label": promo.get("label"), "kind": promo["kind"]}
+            if promo.kind == "percent":
+                promo_discount = pre_promo * (float(promo.value or 0) / 100.0)
+                if promo.max_discount:
+                    promo_discount = min(promo_discount, float(promo.max_discount))
+            elif promo.kind == "flat":
+                promo_discount = float(promo.value or 0)
+            promo_meta = {"code": promo.code, "label": promo.label, "kind": promo.kind}
 
     taxable = max(0, pre_promo - promo_discount)
     taxes = taxable * (float(rule.get("taxes_pct") or 0) / 100.0)
@@ -136,6 +164,7 @@ async def quote_parcel(
 
 
 async def quote_movers(
+    session: AsyncSession,
     *,
     country: str,
     pickup_lat: float, pickup_lng: float,
@@ -150,8 +179,31 @@ async def quote_movers(
     time_slot_surcharge: float = 0.0,
 ) -> Dict[str, Any]:
     """Packers & Movers quote. Fully backend-driven; no hardcoded constants."""
-    currency, symbol = await _currency(country)
-    rule = await db.express_movers_pricing.find_one({"country": country.upper(), "active": True}, {"_id": 0}) or {}
+    currency, symbol = await _currency(session, country)
+    rule_row = (
+        await session.execute(
+            select(ExpressMoversPricing).where(
+                ExpressMoversPricing.country == country.upper(), ExpressMoversPricing.active.is_(True)
+            )
+        )
+    ).scalar_one_or_none()
+    rule = {
+        "price_per_km": rule_row.price_per_km if rule_row else 0,
+        "transport_base": rule_row.transport_base if rule_row else 0,
+        "packing_per_item": rule_row.packing_per_item if rule_row else 0,
+        "loading_unloading_base": rule_row.loading_unloading_base if rule_row else 0,
+        "loading_per_item": rule_row.loading_per_item if rule_row else 0,
+        "labour_per_mover": rule_row.labour_per_mover if rule_row else 0,
+        "floor_fee": rule_row.floor_fee if rule_row else 0,
+        "stair_fee": rule_row.stair_fee if rule_row else 0,
+        "toll_permits": rule_row.toll_permits if rule_row else 0,
+        "value_per_kg": rule_row.value_per_kg if rule_row else 0,
+        "insurance_pct": rule_row.insurance_pct if rule_row else 0,
+        "insurance_min": rule_row.insurance_min if rule_row else 0,
+        "taxes_pct": rule_row.taxes_pct if rule_row else 0,
+        "advance_flat": rule_row.advance_flat if rule_row else 0,
+        "advance_pct": rule_row.advance_pct if rule_row else 0,
+    }
 
     distance_km = round(haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng), 2)
 
@@ -159,8 +211,18 @@ async def quote_movers(
     item_map = {}
     if items:
         ids = [str(it.get("item_id")) for it in items if it.get("item_id")]
-        docs = await db.express_movers_items.find({"id": {"$in": ids}, "active": True}, {"_id": 0}).to_list(500)
-        item_map = {d["id"]: d for d in docs}
+        rows = (
+            (
+                await session.execute(
+                    select(ExpressMoversItem).where(
+                        ExpressMoversItem.id.in_(ids), ExpressMoversItem.active.is_(True)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        item_map = {r.id: r for r in rows}
 
     total_items = 0
     total_weight = 0.0
@@ -170,7 +232,7 @@ async def quote_movers(
         if not d or qty <= 0:
             continue
         total_items += qty
-        total_weight += float(d.get("weight_kg") or 0) * qty
+        total_weight += float(d.weight_kg or 0) * qty
 
     transportation = distance_km * float(rule.get("price_per_km") or 0) + float(rule.get("transport_base") or 0)
     packing = total_items * float(rule.get("packing_per_item") or 0)

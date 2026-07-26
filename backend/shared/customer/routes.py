@@ -1,11 +1,15 @@
 """Customer profile + addresses."""
-from typing import Optional, List
+import hashlib
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
-from core.models_base import _now_iso, new_id
+from core.db import get_session
 from core.deps import get_current_customer
+from core.models import Country, Customer, CustomerAddress, Order, RewardEntry, SupportTicket, new_id
+from core.serializers import customer_to_dict, row_to_dict
 
 router = APIRouter(prefix="/customers", tags=["customer"])
 
@@ -35,69 +39,96 @@ class AddressIn(BaseModel):
 
 
 @router.get("/me")
-async def get_me(customer: dict = Depends(get_current_customer)):
-    return customer
+async def get_me(customer: Customer = Depends(get_current_customer)):
+    return customer_to_dict(customer)
 
 
 @router.patch("/me")
-async def update_me(payload: CustomerUpdate, customer: dict = Depends(get_current_customer)):
+async def update_me(
+    payload: CustomerUpdate,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
-    updates["updated_at"] = _now_iso()
-    await db.customers.update_one({"id": customer["id"]}, {"$set": updates})
-    return await db.customers.find_one({"id": customer["id"]}, {"_id": 0})
+    for k, v in updates.items():
+        setattr(customer, k, v)
+    await session.commit()
+    return customer_to_dict(customer)
 
 
 @router.get("/me/addresses")
-async def list_addresses(customer: dict = Depends(get_current_customer)) -> List[dict]:
-    return await db.customer_addresses.find(
-        {"customer_id": customer["id"], "deleted_at": None}, {"_id": 0}
-    ).to_list(50)
+async def list_addresses(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+) -> List[dict]:
+    rows = (
+        (
+            await session.execute(
+                select(CustomerAddress).where(
+                    CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.post("/me/addresses")
-async def create_address(payload: AddressIn, customer: dict = Depends(get_current_customer)):
+async def create_address(
+    payload: AddressIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
     doc = payload.model_dump()
-    doc.update(
-        {
-            "id": new_id("addr"),
-            "customer_id": customer["id"],
-            "created_at": _now_iso(),
-            "updated_at": _now_iso(),
-            "deleted_at": None,
-            "version": 1,
-        }
-    )
+    doc["country"] = (doc.get("country") or "CI").upper()
     if payload.is_default:
-        await db.customer_addresses.update_many(
-            {"customer_id": customer["id"]}, {"$set": {"is_default": False}}
+        await session.execute(
+            update(CustomerAddress).where(CustomerAddress.customer_id == customer.id).values(is_default=False)
         )
-    await db.customer_addresses.insert_one(doc)
-    doc.pop("_id", None)
-    return doc
+    address = CustomerAddress(**doc, customer_id=customer.id)
+    session.add(address)
+    await session.commit()
+    return row_to_dict(address)
 
 
 @router.delete("/me/addresses/{address_id}")
-async def delete_address(address_id: str, customer: dict = Depends(get_current_customer)):
-    r = await db.customer_addresses.update_one(
-        {"id": address_id, "customer_id": customer["id"]},
-        {"$set": {"deleted_at": _now_iso()}},
+async def delete_address(
+    address_id: str,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        update(CustomerAddress)
+        .where(CustomerAddress.id == address_id, CustomerAddress.customer_id == customer.id)
+        .values(deleted_at=func.now())
     )
-    if r.matched_count == 0:
+    if result.rowcount == 0:
         raise HTTPException(404, "Address not found")
+    await session.commit()
     return {"ok": True}
 
 
 @router.patch("/me/addresses/{address_id}")
-async def update_address(address_id: str, payload: AddressIn, customer: dict = Depends(get_current_customer)):
-    exists = await db.customer_addresses.find_one({"id": address_id, "customer_id": customer["id"], "deleted_at": None}, {"_id": 0})
-    if not exists:
+async def update_address(
+    address_id: str,
+    payload: AddressIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    address = await session.get(CustomerAddress, address_id)
+    if not address or address.customer_id != customer.id or address.deleted_at is not None:
         raise HTTPException(404, "Address not found")
-    updates = payload.model_dump()
-    updates["updated_at"] = _now_iso()
     if payload.is_default:
-        await db.customer_addresses.update_many({"customer_id": customer["id"]}, {"$set": {"is_default": False}})
-    await db.customer_addresses.update_one({"id": address_id}, {"$set": updates})
-    return await db.customer_addresses.find_one({"id": address_id}, {"_id": 0})
+        await session.execute(
+            update(CustomerAddress).where(CustomerAddress.customer_id == customer.id).values(is_default=False)
+        )
+    updates = payload.model_dump()
+    updates["country"] = (updates.get("country") or "CI").upper()
+    for k, v in updates.items():
+        setattr(address, k, v)
+    await session.commit()
+    return row_to_dict(address)
 
 
 # ---------- Preferences (settings screen) ----------
@@ -113,55 +144,81 @@ class PreferencesIn(BaseModel):
 
 
 @router.get("/me/preferences")
-async def get_prefs(customer: dict = Depends(get_current_customer)):
-    prefs = customer.get("preferences") or {}
-    defaults = {"push_notifications": True, "email_notifications": True, "sms_notifications": True, "language": customer.get("language") or "en", "currency": None, "region": customer.get("country") or "CI", "dark_mode": True, "marketing_opt_in": False}
+async def get_prefs(customer: Customer = Depends(get_current_customer)):
+    prefs = customer.preferences or {}
+    defaults = {
+        "push_notifications": True,
+        "email_notifications": True,
+        "sms_notifications": True,
+        "language": customer.locale or "en",
+        "currency": None,
+        "region": customer.country or "CI",
+        "dark_mode": True,
+        "marketing_opt_in": False,
+    }
     return {**defaults, **prefs}
 
 
 @router.patch("/me/preferences")
-async def set_prefs(payload: PreferencesIn, customer: dict = Depends(get_current_customer)):
+async def set_prefs(
+    payload: PreferencesIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
     incoming = {k: v for k, v in payload.model_dump().items() if v is not None}
-    prefs = {**(customer.get("preferences") or {}), **incoming}
-    await db.customers.update_one({"id": customer["id"]}, {"$set": {"preferences": prefs, "updated_at": _now_iso()}})
+    prefs = {**(customer.preferences or {}), **incoming}
+    customer.preferences = prefs
+    await session.commit()
     return prefs
 
 
 @router.delete("/me")
-async def delete_me(customer: dict = Depends(get_current_customer)):
+async def delete_me(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
     """GDPR: soft-delete the account and scrub PII."""
-    await db.customers.update_one({"id": customer["id"]}, {"$set": {
-        "deleted_at": _now_iso(),
-        "email": None, "phone": None, "name": "Deleted user",
-        "auth_providers": [], "updated_at": _now_iso(),
-    }})
+    customer.deleted_at = func.now()
+    customer.email = None
+    customer.phone = None
+    customer.name = "Deleted user"
+    customer.auth_providers = []
+    await session.commit()
     return {"ok": True}
 
 
 # ---------- Referrals ----------
 def _make_ref_code(cid: str) -> str:
-    import hashlib
     h = hashlib.sha256(cid.encode()).hexdigest().upper()
-    # 6-char alphanumeric, letters + digits
     return "BAKED" + "".join(c for c in h if c.isalnum())[:4]
 
 
-async def _country_currency(country_code: Optional[str]) -> tuple[str, str]:
-    """Look up (currency, symbol) from the countries collection — never hardcode."""
+async def _country_currency(session: AsyncSession, country_code: Optional[str]) -> tuple[str, str]:
+    """Look up (currency, symbol) from the countries table — never hardcode."""
     code = (country_code or "CI").upper()
-    doc = await db.countries.find_one({"code": code}, {"_id": 0}) or {}
-    return doc.get("currency", "XOF"), doc.get("currency_symbol", "CFA")
+    country = await session.get(Country, code)
+    if not country:
+        return "XOF", "CFA"
+    return country.currency or "XOF", country.currency_symbol or "CFA"
 
 
 @router.get("/me/referrals")
-async def my_referrals(customer: dict = Depends(get_current_customer)):
-    code = customer.get("referral_code") or _make_ref_code(customer["id"])
-    if not customer.get("referral_code"):
-        await db.customers.update_one({"id": customer["id"]}, {"$set": {"referral_code": code}})
-    friends_joined = await db.customers.count_documents({"referred_by": code, "deleted_at": None})
+async def my_referrals(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    code = customer.referral_code or _make_ref_code(customer.id)
+    if not customer.referral_code:
+        customer.referral_code = code
+        await session.commit()
+    friends_joined = (
+        await session.execute(
+            select(func.count())
+            .select_from(Customer)
+            .where(Customer.referred_by_customer_id == customer.id, Customer.deleted_at.is_(None))
+        )
+    ).scalar_one()
     total_earned = 0  # No auto-award in MVP
     pending = 0
-    currency, _ = await _country_currency(customer.get("country"))
+    currency, _ = await _country_currency(session, customer.country)
     return {
         "referral_code": code,
         "referral_link": f"https://baked.app/join?ref={code}",
@@ -190,8 +247,21 @@ class TicketIn(BaseModel):
 
 
 @router.get("/me/tickets")
-async def my_tickets(customer: dict = Depends(get_current_customer)):
-    tickets = await db.support_tickets.find({"customer_id": customer["id"], "deleted_at": None}, {"_id": 0}).sort("created_at", -1).to_list(100)
+async def my_tickets(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    rows = (
+        (
+            await session.execute(
+                select(SupportTicket)
+                .where(SupportTicket.customer_id == customer.id, SupportTicket.deleted_at.is_(None))
+                .order_by(SupportTicket.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    tickets = [row_to_dict(t) for t in rows]
     counts = {"open": 0, "in_progress": 0, "resolved": 0, "closed": 0}
     for t in tickets:
         counts[t.get("status", "open")] = counts.get(t.get("status", "open"), 0) + 1
@@ -199,64 +269,77 @@ async def my_tickets(customer: dict = Depends(get_current_customer)):
 
 
 @router.post("/me/tickets")
-async def create_ticket(payload: TicketIn, customer: dict = Depends(get_current_customer)):
+async def create_ticket(
+    payload: TicketIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
     if payload.category not in TICKET_CATEGORIES:
         raise HTTPException(400, f"Invalid category; expected one of {sorted(TICKET_CATEGORIES)}")
-    doc = payload.model_dump()
-    doc.update({
-        "id": new_id("tkt"),
-        "number": "TK" + new_id("").upper().replace("_", "")[:8],
-        "customer_id": customer["id"],
-        "status": "open",
-        "created_at": _now_iso(),
-        "updated_at": _now_iso(),
-        "deleted_at": None,
-        "version": 1,
-    })
-    await db.support_tickets.insert_one(doc)
-    doc.pop("_id", None)
-    return doc
+    ticket = SupportTicket(
+        **payload.model_dump(),
+        number="TK" + new_id("").upper().replace("_", "")[:8],
+        customer_id=customer.id,
+        status="open",
+    )
+    session.add(ticket)
+    await session.commit()
+    return row_to_dict(ticket)
 
 
 @router.get("/me/tickets/{ticket_id}")
-async def get_ticket(ticket_id: str, customer: dict = Depends(get_current_customer)):
-    t = await db.support_tickets.find_one({"id": ticket_id, "customer_id": customer["id"], "deleted_at": None}, {"_id": 0})
-    if not t:
+async def get_ticket(
+    ticket_id: str,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    ticket = await session.get(SupportTicket, ticket_id)
+    if not ticket or ticket.customer_id != customer.id or ticket.deleted_at is not None:
         raise HTTPException(404, "Ticket not found")
-    return t
+    return row_to_dict(ticket)
 
 
 # ---------- Wallet (MVP: balance is 0, transactions derived from paid orders) ----------
 @router.get("/me/wallet")
-async def my_wallet(customer: dict = Depends(get_current_customer)):
+async def my_wallet(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
     """MVP wallet: real 0.00 balance + informational transaction feed from paid orders.
     COD/paid-out-of-wallet orders are listed for completeness but do NOT reduce wallet balance.
     """
-    orders = await db.orders.find(
-        {"customer_id": customer["id"], "deleted_at": None},
-        {"_id": 0}
-    ).sort("created_at", -1).limit(30).to_list(30)
+    orders = (
+        (
+            await session.execute(
+                select(Order)
+                .where(Order.customer_id == customer.id, Order.deleted_at.is_(None))
+                .order_by(Order.created_at.desc())
+                .limit(30)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     module_icons = {"mart": "shopping-bag", "food": "utensils", "shop": "shopping-bag", "express": "truck", "auto": "car", "immo": "home"}
     txns = []
     for o in orders:
         txns.append({
-            "id": f"txn_{o['id']}",
+            "id": f"txn_{o.id}",
             "type": "purchase",
-            "kind": o.get("module", "mart"),
-            "icon": module_icons.get(o.get("module", "mart"), "shopping-bag"),
-            "label": f"{(o.get('module') or 'mart').upper()}bakēd Order",
-            "reference": o.get("number"),
-            "order_id": o["id"],
-            "amount": -float(o.get("total", 0)),  # negative for spend
-            "currency": o.get("currency"),
-            "settled_via": o.get("payment_method", "cod"),
+            "kind": o.module or "mart",
+            "icon": module_icons.get(o.module or "mart", "shopping-bag"),
+            "label": f"{(o.module or 'mart').upper()}bakēd Order",
+            "reference": o.number,
+            "order_id": o.id,
+            "amount": -float(o.total or 0),  # negative for spend
+            "currency": o.currency,
+            "settled_via": o.payment_method or "cod",
             "wallet_impact": 0.0,  # never reduces wallet in MVP (paid outside)
-            "at": o.get("created_at"),
-            "status": o.get("status"),
+            "at": o.created_at.isoformat() if o.created_at else None,
+            "status": o.status,
         })
 
-    country_currency, country_symbol = await _country_currency(customer.get("country"))
+    country_currency, country_symbol = await _country_currency(session, customer.country)
     return {
         "balance": 0.0,
         "currency": country_currency,
@@ -272,13 +355,26 @@ async def my_wallet(customer: dict = Depends(get_current_customer)):
     }
 
 
-# ---------- Rewards (MVP placeholder — points on customer document) ----------
+# ---------- Rewards (MVP placeholder — points on customer row) ----------
 @router.get("/me/rewards")
-async def my_rewards(customer: dict = Depends(get_current_customer)):
-    points = int(customer.get("reward_points") or 0)
-    country_currency, country_symbol = await _country_currency(customer.get("country"))
+async def my_rewards(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+):
+    points = int(customer.reward_points or 0)
+    country_currency, country_symbol = await _country_currency(session, customer.country)
     conversion_rate = 100  # 100 points = 1 unit of currency
-    recent = await db.reward_entries.find({"customer_id": customer["id"]}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
+    recent_rows = (
+        (
+            await session.execute(
+                select(RewardEntry)
+                .where(RewardEntry.customer_id == customer.id)
+                .order_by(RewardEntry.created_at.desc())
+                .limit(20)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         "points": points,
         "worth": round(points / conversion_rate, 2),
@@ -291,7 +387,7 @@ async def my_rewards(customer: dict = Depends(get_current_customer)):
             {"points": 500, "worth": round(500 / conversion_rate, 2)},
             {"points": 1000, "worth": round(1000 / conversion_rate, 2)},
         ],
-        "recent": recent,
+        "recent": [row_to_dict(r) for r in recent_rows],
         "policies": ["Earn 1 point for every unit spent", "Redeem 100 points for 1 unit of discount", "No expiry during MVP"],
         "message": "Rewards are live — earn on every order and redeem at checkout.",
     }

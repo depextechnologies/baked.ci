@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import logging
 from abc import ABC, abstractmethod
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +22,10 @@ class EmergentLlmProvider(AiProvider):
         self.provider = provider
 
     async def complete(self, system: str, user: str, session_id: str) -> str:
+        try:
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
+        except ImportError as e:
+            raise RuntimeError("AI features are not available: emergentintegrations is not installed") from e
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=session_id,

@@ -1,33 +1,51 @@
 """Configuration Engine — Country/Currency/Locale/Module registry.
 
-Data-driven: adding a new country = insert into `configurations` + `countries` collections. No code change.
+Data-driven: adding a new country = insert into `configurations` + `countries` tables. No code change.
 """
 from typing import Optional
-from core.db import db
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.models import Configuration, Country
+from core.serializers import row_to_dict
+
+DEFAULT_COUNTRY = "CI"
 
 
-DEFAULT_COUNTRY = "CI"  # Côte d'Ivoire is the launch market
+async def get_country_config(session: AsyncSession, country_code: str) -> Optional[dict]:
+    country = await session.get(Country, country_code.upper())
+    return row_to_dict(country) if country else None
 
 
-async def get_country_config(country_code: str) -> Optional[dict]:
-    return await db.countries.find_one({"code": country_code.upper()}, {"_id": 0})
+async def get_module_config(session: AsyncSession, module_code: str, country_code: str = DEFAULT_COUNTRY) -> Optional[dict]:
+    row = (
+        await session.execute(
+            select(Configuration).where(
+                Configuration.scope == "module",
+                Configuration.module == module_code,
+                Configuration.country == country_code.upper(),
+            )
+        )
+    ).scalar_one_or_none()
+    return row_to_dict(row) if row else None
 
 
-async def get_module_config(module_code: str, country_code: str = DEFAULT_COUNTRY) -> Optional[dict]:
-    return await db.configurations.find_one(
-        {"scope": "module", "module": module_code, "country": country_code.upper()},
-        {"_id": 0},
-    )
-
-
-async def get_app_config(country_code: str) -> dict:
+async def get_app_config(session: AsyncSession, country_code: str) -> dict:
     """Aggregated public config the frontend needs on boot."""
-    country = await get_country_config(country_code) or {}
-    modules = await db.configurations.find(
-        {"scope": "module", "country": country_code.upper()},
-        {"_id": 0},
-    ).to_list(50)
+    country = await get_country_config(session, country_code) or {}
+    modules = (
+        (
+            await session.execute(
+                select(Configuration)
+                .where(Configuration.scope == "module", Configuration.country == country_code.upper())
+                .order_by(Configuration.order)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         "country": country,
-        "modules": modules,
+        "modules": [{"code": m.module, **row_to_dict(m)} for m in modules],
     }

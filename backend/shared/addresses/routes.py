@@ -7,13 +7,18 @@ proxying utilities. Shared by every BAKĒD business module.
 """
 from __future__ import annotations
 import math
+from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
-from core.models_base import _now_iso, new_id
+from core.db import get_session
 from core.deps import get_current_customer
+from core.models import Country, Customer, MartStore, RecentAddressSearch
+from core.serializers import row_to_dict
 
 router = APIRouter(prefix="/addresses", tags=["addresses"])
 
@@ -34,6 +39,7 @@ async def check_serviceability(
     lat: float = Query(..., description="Latitude of the address"),
     lng: float = Query(..., description="Longitude of the address"),
     country: str = Query("CI", description="ISO country code (CI, LR)"),
+    session: AsyncSession = Depends(get_session),
 ):
     """Return whether BAKĒD delivers to a given coordinate.
 
@@ -41,8 +47,10 @@ async def check_serviceability(
       { serviceable: bool, distance_km, nearest_hub, radius_km, message }
     """
     code = (country or "CI").upper()
-    country_doc = await db.countries.find_one({"code": code, "active": True}, {"_id": 0})
-    if not country_doc:
+    country_row = (
+        await session.execute(select(Country).where(Country.code == code, Country.active.is_(True)))
+    ).scalar_one_or_none()
+    if not country_row:
         return {
             "serviceable": False,
             "distance_km": None,
@@ -50,23 +58,30 @@ async def check_serviceability(
             "radius_km": None,
             "message": "We're not delivering here yet, but we're expanding soon.",
         }
-    radius_km = float(country_doc.get("service_radius_km") or 15)
+    radius_km = float(country_row.service_radius_km or 15)
 
-    hubs = await db.mart_stores.find(
-        {"country": code, "deleted_at": None, "active": {"$ne": False}},
-        {"_id": 0}
-    ).to_list(100)
+    hubs = (
+        (
+            await session.execute(
+                select(MartStore).where(
+                    MartStore.country == code, MartStore.deleted_at.is_(None), MartStore.active.isnot(False)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     nearest = None
     best_dist = None
     for h in hubs:
-        hl, hn = h.get("latitude"), h.get("longitude")
+        hl, hn = h.latitude, h.longitude
         if hl is None or hn is None:
             continue
         d = _haversine_km(lat, lng, float(hl), float(hn))
         if best_dist is None or d < best_dist:
             best_dist = d
-            nearest = {"id": h.get("id"), "name": h.get("name"), "address": h.get("address"), "latitude": hl, "longitude": hn, "distance_km": round(d, 2)}
+            nearest = {"id": h.id, "name": h.name, "address": h.address, "latitude": float(hl), "longitude": float(hn), "distance_km": round(d, 2)}
 
     serviceable = bool(nearest and best_dist is not None and best_dist <= radius_km)
     return {
@@ -93,25 +108,34 @@ class RecentSearchIn(BaseModel):
 
 
 @router.get("/recent-searches")
-async def list_recent(customer: dict = Depends(get_current_customer)) -> List[dict]:
+async def list_recent(
+    customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)
+) -> List[dict]:
     """Return up to 10 recent searches for the current customer (most recent first)."""
-    return await db.recent_address_searches.find(
-        {"customer_id": customer["id"]}, {"_id": 0}
-    ).sort("last_used_at", -1).limit(10).to_list(10)
+    rows = (
+        (
+            await session.execute(
+                select(RecentAddressSearch)
+                .where(RecentAddressSearch.customer_id == customer.id)
+                .order_by(RecentAddressSearch.last_used_at.desc())
+                .limit(10)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [row_to_dict(r) for r in rows]
 
 
 @router.post("/recent-searches")
-async def add_recent(payload: RecentSearchIn, customer: dict = Depends(get_current_customer)):
-    now = _now_iso()
-    # De-duplicate by place_id (preferred) or formatted_address
-    key = {"customer_id": customer["id"]}
-    if payload.place_id:
-        key["place_id"] = payload.place_id
-    else:
-        key["formatted_address"] = payload.formatted_address
-
+async def add_recent(
+    payload: RecentSearchIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    now = datetime.now(timezone.utc)
     doc = {
-        **key,
+        "customer_id": customer.id,
         "place_id": payload.place_id,
         "formatted_address": payload.formatted_address,
         "latitude": payload.latitude,
@@ -120,25 +144,51 @@ async def add_recent(payload: RecentSearchIn, customer: dict = Depends(get_curre
         "country": (payload.country or "CI").upper(),
         "last_used_at": now,
     }
-    existing = await db.recent_address_searches.find_one(key, {"_id": 0})
-    if existing:
-        await db.recent_address_searches.update_one(key, {"$set": doc})
+    # De-duplicate by place_id (preferred) or formatted_address, matching the two
+    # partial-unique indexes on this table.
+    if payload.place_id:
+        index_elements = ["customer_id", "place_id"]
+        index_where = RecentAddressSearch.place_id.isnot(None)
     else:
-        doc.update({"id": new_id("rec"), "created_at": now})
-        await db.recent_address_searches.insert_one(doc)
+        index_elements = ["customer_id", "formatted_address"]
+        index_where = RecentAddressSearch.place_id.is_(None)
+    stmt = pg_insert(RecentAddressSearch).values(**doc)
+    update_cols = {c: stmt.excluded[c] for c in doc if c not in index_elements}
+    stmt = stmt.on_conflict_do_update(index_elements=index_elements, index_where=index_where, set_=update_cols)
+    await session.execute(stmt)
+    await session.commit()
+
     # Trim beyond 10 (oldest first)
-    all_ids = await db.recent_address_searches.find(
-        {"customer_id": customer["id"]}, {"_id": 0, "id": 1, "last_used_at": 1}
-    ).sort("last_used_at", -1).to_list(50)
-    stale = [r["id"] for r in all_ids[10:]]
+    all_rows = (
+        (
+            await session.execute(
+                select(RecentAddressSearch.id)
+                .where(RecentAddressSearch.customer_id == customer.id)
+                .order_by(RecentAddressSearch.last_used_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    stale = all_rows[10:]
     if stale:
-        await db.recent_address_searches.delete_many({"id": {"$in": stale}})
+        for row_id in stale:
+            row = await session.get(RecentAddressSearch, row_id)
+            if row:
+                await session.delete(row)
+        await session.commit()
     return {"ok": True}
 
 
 @router.delete("/recent-searches/{search_id}")
-async def delete_recent(search_id: str, customer: dict = Depends(get_current_customer)):
-    r = await db.recent_address_searches.delete_one({"id": search_id, "customer_id": customer["id"]})
-    if r.deleted_count == 0:
+async def delete_recent(
+    search_id: str,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(RecentAddressSearch, search_id)
+    if not row or row.customer_id != customer.id:
         raise HTTPException(404, "Recent search not found")
+    await session.delete(row)
+    await session.commit()
     return {"ok": True}

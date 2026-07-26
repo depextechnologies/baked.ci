@@ -3,8 +3,29 @@
 Run on startup. Adding a new country = add here + insert.
 """
 from __future__ import annotations
-from core.db import db
-from core.models_base import _now_iso, new_id
+import os
+from sqlalchemy import delete as sa_delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.db import SessionLocal
+from core.models import (
+    AdminUser,
+    AiPrompt,
+    City,
+    Configuration,
+    Country,
+    MartCategory,
+    MartOffer,
+    MartProduct,
+    MartStore,
+    MartSubcategory,
+    ModuleDriver,
+    ModuleVendor,
+    Role,
+    new_id,
+)
+from core.security import hash_password
 
 
 # ---------- data ----------
@@ -417,331 +438,225 @@ MART_DRIVERS = [
 
 
 # ---------- runner ----------
-async def _seed_countries():
+async def _upsert(
+    session: AsyncSession,
+    model,
+    conflict_cols: list[str],
+    values: dict,
+    immutable=("id", "created_at"),
+    index_where=None,
+):
+    """INSERT ... ON CONFLICT (conflict_cols) DO UPDATE, preserving `immutable` columns
+    on existing rows (so re-running the seed never churns ids or created_at).
+
+    `index_where` targets a partial unique index (e.g. express_pricing_rules'
+    unique-per-(country,vehicle_code)-WHERE-active index) when conflict_cols
+    alone don't have a plain unique constraint to arbitrate against.
+    """
+    stmt = pg_insert(model).values(**values)
+    update_cols = {c: stmt.excluded[c] for c in values if c not in conflict_cols and c not in immutable}
+    if hasattr(model, "updated_at") and "updated_at" not in update_cols and "updated_at" not in conflict_cols:
+        update_cols["updated_at"] = func.now()
+    stmt = stmt.on_conflict_do_update(index_elements=conflict_cols, index_where=index_where, set_=update_cols)
+    await session.execute(stmt)
+
+
+async def _seed_countries(session: AsyncSession):
     for c in COUNTRIES:
-        await db.countries.update_one({"code": c["code"]}, {"$set": c}, upsert=True)
+        await _upsert(session, Country, ["code"], c)
 
 
-async def _seed_module_configs():
+async def _seed_module_configs(session: AsyncSession):
     for country in COUNTRIES:
         for m in MODULES:
-            key = {"scope": "module", "module": m["code"], "country": country["code"]}
-            doc = {**key, **m}
-            await db.configurations.update_one(key, {"$set": doc}, upsert=True)
+            values = {
+                "scope": "module", "module": m["code"], "country": country["code"],
+                "name": m["name"], "tagline": m["tagline"], "color": m["color"],
+                "icon": m["icon"], "order": m["order"], "status": m["status"],
+            }
+            await _upsert(session, Configuration, ["scope", "module", "country"], values)
 
 
-async def _seed_categories():
+async def _seed_categories(session: AsyncSession):
     for country in COUNTRIES:
         for order, (slug, fr, en, icon, image) in enumerate(CATEGORIES, start=1):
             name = fr if country["locale"].startswith("fr") else en
-            key = {"slug": slug, "country": country["code"]}
-            doc = {
-                **key,
-                "id": new_id("cat"),
-                "name": name,
-                "name_en": en,
-                "name_fr": fr,
-                "icon": icon,
-                "image": image,
-                "order": order,
-                "module": "mart",
-                "deleted_at": None,
-                "created_at": _now_iso(),
-                "updated_at": _now_iso(),
+            values = {
+                "slug": slug, "country": country["code"], "id": new_id("cat"),
+                "name": name, "name_en": en, "name_fr": fr, "icon": icon, "image": image,
+                "order": order, "module": "mart", "deleted_at": None,
             }
-            existing = await db.mart_categories.find_one(key, {"_id": 0})
-            if existing:
-                doc["id"] = existing["id"]
-                doc["created_at"] = existing.get("created_at", _now_iso())
-            await db.mart_categories.update_one(key, {"$set": doc}, upsert=True)
+            await _upsert(session, MartCategory, ["slug", "country"], values)
 
 
-async def _seed_subcategories():
+async def _seed_subcategories(session: AsyncSession):
     for country in COUNTRIES:
         for cat_slug, subs in SUBCATEGORIES.items():
+            category = (
+                await session.execute(
+                    select(MartCategory).where(MartCategory.slug == cat_slug, MartCategory.country == country["code"])
+                )
+            ).scalar_one_or_none()
+            if not category:
+                continue
             for order, (slug, fr, en, image) in enumerate(subs, start=1):
                 name = fr if country["locale"].startswith("fr") else en
-                key = {"slug": slug, "category_slug": cat_slug, "country": country["code"]}
-                doc = {
-                    **key,
-                    "id": new_id("sub"),
-                    "name": name,
-                    "name_en": en,
-                    "name_fr": fr,
-                    "image": image,
-                    "order": order,
-                    "module": "mart",
-                    "updated_at": _now_iso(),
+                values = {
+                    "slug": slug, "category_id": category.id, "country": country["code"], "id": new_id("sub"),
+                    "name": name, "name_en": en, "name_fr": fr, "image": image, "order": order, "module": "mart",
                 }
-                existing = await db.mart_subcategories.find_one(key, {"_id": 0})
-                if existing:
-                    doc["id"] = existing["id"]
-                await db.mart_subcategories.update_one(key, {"$set": doc}, upsert=True)
+                await _upsert(session, MartSubcategory, ["slug", "category_id"], values)
 
 
-async def _seed_products():
+def _product_values(name, brand, cat_slug, sub_slug, unit, price, was, currency, symbol, image, pop, badge, country, description):
+    return {
+        "name": name, "country": country, "module": "mart", "id": new_id("prd"),
+        "brand": brand, "category_slug": cat_slug, "subcategory_slug": sub_slug,
+        "unit": unit, "price": price, "was_price": was, "currency": currency, "currency_symbol": symbol,
+        "image": image, "images": [image], "popularity": pop, "badge": badge, "in_stock": True,
+        "rating": round(3.8 + (pop % 12) / 10, 1), "review_count": (pop * 3) % 250 + 20,
+        "description": description, "deleted_at": None,
+    }
+
+
+async def _seed_products(session: AsyncSession):
     # CI products
     for name, brand, cat_slug, unit, price, was, image, pop, badge in PRODUCTS_CI:
-        key = {"name": name, "country": "CI", "module": "mart"}
-        doc = {
-            **key,
-            "id": new_id("prd"),
-            "brand": brand,
-            "category_slug": cat_slug,
-            "subcategory_slug": PRODUCT_SUBCATEGORY.get(name),
-            "unit": unit,
-            "price": price,
-            "was_price": was,
-            "currency": "XOF",
-            "currency_symbol": "CFA",
-            "image": image,
-            "images": [image],
-            "popularity": pop,
-            "badge": badge,
-            "in_stock": True,
-            "rating": round(3.8 + (pop % 12) / 10, 1),
-            "review_count": (pop * 3) % 250 + 20,
-            "description": f"{name} - {brand}. Livré en 10-15 minutes chez vous à Abidjan.",
-            "deleted_at": None,
-            "created_at": _now_iso(),
-            "updated_at": _now_iso(),
-        }
-        existing = await db.mart_products.find_one(key, {"_id": 0})
-        if existing:
-            doc["id"] = existing["id"]
-            doc["created_at"] = existing.get("created_at", _now_iso())
-        await db.mart_products.update_one(key, {"$set": doc}, upsert=True)
+        values = _product_values(
+            name, brand, cat_slug, PRODUCT_SUBCATEGORY.get(name), unit, price, was, "XOF", "CFA", image, pop, badge,
+            "CI", f"{name} - {brand}. Livré en 10-15 minutes chez vous à Abidjan.",
+        )
+        await _upsert(session, MartProduct, ["name", "country", "module"], values)
 
     # LR mirror (fewer products, LRD prices — approx 1 USD ≈ 190 LRD, 1 XOF ≈ 0.34 LRD)
     for name, brand, cat_slug, unit, price_xof, was_xof, image, pop, badge in PRODUCTS_CI[:12]:
         lrd = int(round(price_xof * 0.34))
         was_lrd = int(round(was_xof * 0.34)) if was_xof else None
-        key = {"name": name, "country": "LR", "module": "mart"}
-        doc = {
-            **key,
-            "id": new_id("prd"),
-            "brand": brand,
-            "category_slug": cat_slug,
-            "subcategory_slug": PRODUCT_SUBCATEGORY.get(name),
-            "unit": unit,
-            "price": lrd,
-            "was_price": was_lrd,
-            "currency": "LRD",
-            "currency_symbol": "L$",
-            "image": image,
-            "images": [image],
-            "popularity": pop,
-            "badge": badge,
-            "in_stock": True,
-            "rating": round(3.8 + (pop % 12) / 10, 1),
-            "review_count": (pop * 3) % 250 + 20,
-            "description": f"{name} - {brand}. Delivered in 15-20 min in Monrovia.",
-            "deleted_at": None,
-            "created_at": _now_iso(),
-            "updated_at": _now_iso(),
-        }
-        existing = await db.mart_products.find_one(key, {"_id": 0})
-        if existing:
-            doc["id"] = existing["id"]
-        await db.mart_products.update_one(key, {"$set": doc}, upsert=True)
+        values = _product_values(
+            name, brand, cat_slug, PRODUCT_SUBCATEGORY.get(name), unit, lrd, was_lrd, "LRD", "L$", image, pop, badge,
+            "LR", f"{name} - {brand}. Delivered in 15-20 min in Monrovia.",
+        )
+        await _upsert(session, MartProduct, ["name", "country", "module"], values)
 
     # EXTRA_PRODUCTS_CI — 4-8 products per subcategory, subcategory embedded in tuple
     for name, brand, cat_slug, sub_slug, unit, price, was, image, pop, badge in EXTRA_PRODUCTS_CI:
-        key = {"name": name, "country": "CI", "module": "mart"}
-        doc = {
-            **key,
-            "id": new_id("prd"),
-            "brand": brand,
-            "category_slug": cat_slug,
-            "subcategory_slug": sub_slug,
-            "unit": unit,
-            "price": price,
-            "was_price": was,
-            "currency": "XOF",
-            "currency_symbol": "CFA",
-            "image": image,
-            "images": [image],
-            "popularity": pop,
-            "badge": badge,
-            "in_stock": True,
-            "rating": round(3.8 + (pop % 12) / 10, 1),
-            "review_count": (pop * 3) % 250 + 20,
-            "description": f"{name} - {brand}. Livré en 10-15 minutes chez vous à Abidjan.",
-            "deleted_at": None,
-            "created_at": _now_iso(),
-            "updated_at": _now_iso(),
-        }
-        existing = await db.mart_products.find_one(key, {"_id": 0})
-        if existing:
-            doc["id"] = existing["id"]
-            doc["created_at"] = existing.get("created_at", _now_iso())
-        await db.mart_products.update_one(key, {"$set": doc}, upsert=True)
+        values = _product_values(
+            name, brand, cat_slug, sub_slug, unit, price, was, "XOF", "CFA", image, pop, badge,
+            "CI", f"{name} - {brand}. Livré en 10-15 minutes chez vous à Abidjan.",
+        )
+        await _upsert(session, MartProduct, ["name", "country", "module"], values)
 
 
-async def _seed_offers():
+async def _seed_offers(session: AsyncSession):
     for o in OFFERS_CI:
-        key = {"title": o["title"], "country": "CI"}
-        doc = {**key, **o, "active": True, "id": new_id("off"), "updated_at": _now_iso()}
-        existing = await db.mart_offers.find_one(key, {"_id": 0})
-        if existing:
-            doc["id"] = existing["id"]
-        await db.mart_offers.update_one(key, {"$set": doc}, upsert=True)
+        values = {**o, "country": "CI", "active": True, "id": new_id("off")}
+        await _upsert(session, MartOffer, ["title", "country"], values)
 
 
-async def _seed_stores():
+async def _seed_stores(session: AsyncSession):
     for s in STORES_CI + STORES_LR:
-        key = {"name": s["name"], "country": s["country"]}
-        doc = {**key, **s, "id": new_id("str"), "module": "mart", "deleted_at": None, "active": True, "updated_at": _now_iso()}
-        existing = await db.mart_stores.find_one(key, {"_id": 0})
-        if existing:
-            doc["id"] = existing["id"]
-        await db.mart_stores.update_one(key, {"$set": doc}, upsert=True)
+        values = {**s, "id": new_id("str"), "module": "mart", "deleted_at": None, "active": True}
+        await _upsert(session, MartStore, ["name", "country"], values)
 
 
-async def _seed_cities():
+async def _seed_cities(session: AsyncSession):
     for c in CITIES_CI + CITIES_LR:
-        key = {"name": c["name"], "country": c["country"]}
-        doc = {**key, **c, "id": new_id("city"), "active": True, "deleted_at": None, "updated_at": _now_iso()}
-        existing = await db.cities.find_one(key, {"_id": 0})
-        if existing:
-            doc["id"] = existing["id"]
-        await db.cities.update_one(key, {"$set": doc}, upsert=True)
+        values = {**c, "id": new_id("city"), "active": True, "deleted_at": None}
+        await _upsert(session, City, ["name", "country"], values)
 
 
-async def _seed_roles():
+async def _seed_roles(session: AsyncSession):
     for r in ROLES:
-        await db.roles.update_one({"code": r["code"]}, {"$set": {**r, "updated_at": _now_iso()}}, upsert=True)
+        await _upsert(session, Role, ["code"], r)
 
 
-async def _seed_super_admin():
-    """Seed the initial super_admin from env — idempotent."""
-    import os
-    from core.security import hash_password
+async def _seed_super_admin(session: AsyncSession):
+    """Seed the initial super_admin from env — idempotent, and rotates the
+    password/name/role on every restart if the env vars change."""
     email = (os.environ.get("ADMIN_SEED_EMAIL") or "").strip().lower()
     password = os.environ.get("ADMIN_SEED_PASSWORD") or ""
     name = os.environ.get("ADMIN_SEED_NAME") or "Super Admin"
     if not email or not password:
         return
-    existing = await db.admin_users.find_one({"email": email}, {"_id": 0})
-    if existing:
-        # Ensure role is super_admin and password matches env (allows password rotation via env)
-        await db.admin_users.update_one(
-            {"email": email},
-            {"$set": {
-                "role": "super_admin",
-                "password_hash": hash_password(password),
-                "name": name,
-                "deleted_at": None,
-                "updated_at": _now_iso(),
-            }},
-        )
-        return
-    await db.admin_users.insert_one({
-        "id": new_id("adm"),
-        "email": email,
-        "name": name,
-        "role": "super_admin",
-        "password_hash": hash_password(password),
-        "deleted_at": None,
-        "created_at": _now_iso(),
-        "updated_at": _now_iso(),
-        "version": 1,
-    })
+    values = {
+        "id": new_id("adm"), "email": email, "name": name, "role": "super_admin",
+        "password_hash": hash_password(password), "deleted_at": None,
+    }
+    await _upsert(session, AdminUser, ["email"], values)
 
 
-async def _seed_ai_prompts():
+async def _seed_ai_prompts(session: AsyncSession):
     seed = [
         {"name": "MART Product Search", "feature": "product_search", "body": "You are the BAKĒD grocery search assistant for Côte d'Ivoire. Given a natural language query, return structured filters + a friendly one-line summary.", "active": True, "model": "claude-sonnet-4-6"},
         {"name": "Admin Business Insights", "feature": "admin_insights", "body": "Given platform KPIs, return headline + 3-5 insights + 2-4 recommended actions.", "active": True, "model": "claude-sonnet-4-6"},
     ]
     for p in seed:
-        exists = await db.ai_prompts.find_one({"name": p["name"]}, {"_id": 0})
-        if exists:
-            continue
-        await db.ai_prompts.insert_one({**p, "id": new_id("prm"), "created_at": _now_iso(), "updated_at": _now_iso()})
+        # Insert-only (skip if a prompt with this name already exists) — admin-edited
+        # prompt bodies must never be clobbered by a restart, unlike the other
+        # reference tables above.
+        stmt = pg_insert(AiPrompt).values(id=new_id("prm"), **p)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["name"])
+        await session.execute(stmt)
 
 
-async def _seed_module_vendors_and_drivers():
+async def _seed_module_vendors_and_drivers(session: AsyncSession):
     """Seed sample vendors + drivers for the MART module admin workspace."""
     for v in MART_VENDORS:
-        key = {"name": v["name"], "module": "mart"}
-        existing = await db.module_vendors.find_one(key, {"_id": 0})
-        base = {
+        values = {
             **v,
             "module": "mart",
             "country": v.get("country", "CI").upper(),
-            "documents": [],
-            "approved_at": _now_iso() if v.get("status") in ("approved", "active") else None,
-            "approved_by": "system",
+            "id": new_id("ven"),
+            "approved_at": func.now() if v.get("status") in ("approved", "active") else None,
+            # No specific admin performed this — it's an automated seed action, not
+            # a "system" sentinel string (approved_by is a real FK to admin_users.id).
+            "approved_by": None,
             "deleted_at": None,
-            "updated_at": _now_iso(),
         }
-        if existing:
-            base["id"] = existing["id"]
-            base["created_at"] = existing.get("created_at", _now_iso())
-            await db.module_vendors.update_one({"id": existing["id"]}, {"$set": base})
-        else:
-            base["id"] = new_id("ven")
-            base["created_at"] = _now_iso()
-            base["version"] = 1
-            await db.module_vendors.insert_one(base)
+        await _upsert(session, ModuleVendor, ["name", "module"], values)
 
     for d in MART_DRIVERS:
-        key = {"phone": d["phone"], "module": "mart"}
-        existing = await db.module_drivers.find_one(key, {"_id": 0})
-        base = {
-            **d,
-            "module": "mart",
-            "country": d.get("country", "CI").upper(),
-            "deleted_at": None,
-            "updated_at": _now_iso(),
-        }
-        if existing:
-            base["id"] = existing["id"]
-            base["created_at"] = existing.get("created_at", _now_iso())
-            await db.module_drivers.update_one({"id": existing["id"]}, {"$set": base})
-        else:
-            base["id"] = new_id("drv")
-            base["created_at"] = _now_iso()
-            base["version"] = 1
-            await db.module_drivers.insert_one(base)
+        values = {**d, "module": "mart", "country": d.get("country", "CI").upper(), "id": new_id("drv"), "deleted_at": None}
+        await _upsert(session, ModuleDriver, ["phone", "module"], values)
 
 
-async def _cleanup_removed_countries():
+async def _cleanup_removed_countries(session: AsyncSession):
     """One-time cleanup for countries removed from the platform (e.g. GB after 2026-02).
 
-    Idempotent: deletes documents whose country field matches a deprecated code, or
-    hides them by setting deleted_at. Safe to run repeatedly.
+    Idempotent: deletes rows whose country field matches a deprecated code. Safe to
+    run repeatedly. The `countries` row itself is deleted last so it never violates
+    a foreign key from a row this function hasn't cleaned up yet.
     """
     deprecated = ["GB", "LBR"]  # LBR was a mis-seeded 3-letter code; canonical is ISO-2 "LR"
     for code in deprecated:
-        # Hard-remove config/seed rows (all data is re-seedable)
-        await db.countries.delete_many({"code": code})
-        await db.cities.delete_many({"country": code})
-        await db.configurations.delete_many({"country": code})
-        await db.mart_categories.delete_many({"country": code})
-        await db.mart_subcategories.delete_many({"country": code})
-        await db.mart_products.delete_many({"country": code})
-        await db.mart_offers.delete_many({"country": code})
-        await db.mart_stores.delete_many({"country": code})
-        await db.module_vendors.delete_many({"country": code})
-        await db.module_drivers.delete_many({"country": code})
+        await session.execute(sa_delete(City).where(City.country == code))
+        await session.execute(sa_delete(Configuration).where(Configuration.country == code))
+        await session.execute(sa_delete(MartCategory).where(MartCategory.country == code))
+        await session.execute(sa_delete(MartSubcategory).where(MartSubcategory.country == code))
+        await session.execute(sa_delete(MartProduct).where(MartProduct.country == code))
+        await session.execute(sa_delete(MartOffer).where(MartOffer.country == code))
+        await session.execute(sa_delete(MartStore).where(MartStore.country == code))
+        await session.execute(sa_delete(ModuleVendor).where(ModuleVendor.country == code))
+        await session.execute(sa_delete(ModuleDriver).where(ModuleDriver.country == code))
+        await session.execute(sa_delete(Country).where(Country.code == code))
 
 
 async def run_seed():
-    await _cleanup_removed_countries()
-    await _seed_countries()
-    await _seed_module_configs()
-    await _seed_categories()
-    await _seed_subcategories()
-    await _seed_products()
-    await _seed_offers()
-    await _seed_stores()
-    await _seed_cities()
-    await _seed_roles()
-    await _seed_super_admin()
-    await _seed_ai_prompts()
-    await _seed_module_vendors_and_drivers()
+    async with SessionLocal() as session:
+        await _cleanup_removed_countries(session)
+        await _seed_countries(session)
+        await _seed_module_configs(session)
+        await _seed_categories(session)
+        await _seed_subcategories(session)
+        await _seed_products(session)
+        await _seed_offers(session)
+        await _seed_stores(session)
+        await _seed_cities(session)
+        await _seed_roles(session)
+        await _seed_super_admin(session)
+        await _seed_ai_prompts(session)
+        await _seed_module_vendors_and_drivers(session)
+        await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars
     await seed_express()

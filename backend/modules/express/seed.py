@@ -6,8 +6,26 @@ for CI and LR. All values re-editable from Super Admin — nothing is hardcoded
 anywhere in the runtime pricing logic.
 """
 from __future__ import annotations
-from core.db import db
-from core.models_base import _now_iso, new_id
+import math
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.db import SessionLocal
+from core.models import (
+    ExpressDeliveryPref,
+    ExpressMoveType,
+    ExpressMoversCategory,
+    ExpressMoversItem,
+    ExpressMoversPricing,
+    ExpressPackageType,
+    ExpressPricingRule,
+    ExpressTimeSlot,
+    ExpressVehicle,
+    ExpressWeightTier,
+    ModuleDriver,
+    new_id,
+)
+from seed import _upsert
 
 
 VEHICLES = [
@@ -149,102 +167,100 @@ TIME_SLOTS = [
 ]
 
 
-async def _upsert(collection: str, key: dict, doc: dict):
-    """Idempotent upsert preserving `id` if the row already exists."""
-    existing = await db[collection].find_one(key, {"_id": 0})
-    if existing:
-        doc["id"] = existing.get("id") or new_id(collection[:3])
-    else:
-        doc.setdefault("id", new_id(collection[:3]))
-    doc["updated_at"] = _now_iso()
-    doc.setdefault("created_at", doc["updated_at"])
-    await db[collection].update_one(key, {"$set": doc}, upsert=True)
-
-
 async def seed_express():
-    # Vehicles per country
-    for code, name, desc, max_w, eta_min, eta_max, base_ci, base_lr, sort in VEHICLES:
-        for country, base in (("CI", base_ci), ("LR", base_lr)):
-            await _upsert("express_vehicles",
-                          {"code": code, "country": country},
-                          {"code": code, "country": country, "name": name, "description": desc,
-                           "max_weight_kg": max_w, "eta_min_min": eta_min, "eta_min_max": eta_max,
-                           "base_price": base, "sort_order": sort, "active": True,
-                           "icon": code, "image": None})
+    async with SessionLocal() as session:
+        # Vehicles per country
+        for code, name, desc, max_w, eta_min, eta_max, base_ci, base_lr, sort in VEHICLES:
+            for country, base in (("CI", base_ci), ("LR", base_lr)):
+                await _upsert(session, ExpressVehicle, ["code", "country"], {
+                    "id": new_id("veh"), "code": code, "country": country, "name": name, "description": desc,
+                    "max_weight_kg": max_w, "eta_min_min": eta_min, "eta_min_max": eta_max,
+                    "base_price": base, "sort_order": sort, "active": True,
+                    "icon": code, "image": None,
+                })
 
-    # Package types (global — cloned per-country for future variance)
-    for code, name, icon, sort in PACKAGE_TYPES:
-        for country in ("CI", "LR"):
-            await _upsert("express_package_types",
-                          {"code": code, "country": country},
-                          {"code": code, "country": country, "name": name, "icon": icon,
-                           "sort_order": sort, "active": True})
+        # Package types (global — cloned per-country for future variance)
+        for code, name, icon, sort in PACKAGE_TYPES:
+            for country in ("CI", "LR"):
+                await _upsert(session, ExpressPackageType, ["code", "country"], {
+                    "id": new_id("pkg"), "code": code, "country": country, "name": name, "icon": icon,
+                    "sort_order": sort, "active": True,
+                })
 
-    # Weight tiers (global)
-    for code, name, low, high, sort in WEIGHT_TIERS:
-        await _upsert("express_weight_tiers",
-                      {"code": code},
-                      {"code": code, "name": name, "min_kg": low, "max_kg": high or None,
-                       "sort_order": sort, "active": True})
+        # Weight tiers (global)
+        for code, name, low, high, sort in WEIGHT_TIERS:
+            await _upsert(session, ExpressWeightTier, ["code"], {
+                "id": new_id("wt"), "code": code, "name": name, "min_kg": low, "max_kg": high or None,
+                "sort_order": sort, "active": True,
+            })
 
-    # Delivery preferences
-    for code, label, desc, sort in DELIVERY_PREFS:
-        await _upsert("express_delivery_prefs",
-                      {"code": code},
-                      {"code": code, "label": label, "description": desc,
-                       "sort_order": sort, "active": True})
+        # Delivery preferences
+        for code, label, desc, sort in DELIVERY_PREFS:
+            await _upsert(session, ExpressDeliveryPref, ["code"], {
+                "id": new_id("pref"), "code": code, "label": label, "description": desc,
+                "sort_order": sort, "active": True,
+            })
 
-    # Pricing rules per (country, vehicle)
-    for code, _n, _d, _mw, _emin, _emax, base_ci, base_lr, _s in VEHICLES:
-        p = PRICING_PARAMS[code]
-        for country, base, per_km, per_min in (
-            ("CI", base_ci, p["per_km_ci"], p["per_min_ci"]),
-            ("LR", base_lr, p["per_km_lr"], p["per_min_lr"]),
-        ):
-            await _upsert("express_pricing_rules",
-                          {"country": country, "vehicle_code": code},
-                          {**PRICING_TEMPLATE, "country": country, "vehicle_code": code,
-                           "base_fare": base, "min_fare": base,
-                           "price_per_km": per_km, "price_per_min": per_min,
-                           "insurance_min": max(100, int(base * 0.05))})
+        # Pricing rules per (country, vehicle)
+        for code, _n, _d, _mw, _emin, _emax, base_ci, base_lr, _s in VEHICLES:
+            p = PRICING_PARAMS[code]
+            for country, base, per_km, per_min in (
+                ("CI", base_ci, p["per_km_ci"], p["per_min_ci"]),
+                ("LR", base_lr, p["per_km_lr"], p["per_min_lr"]),
+            ):
+                await _upsert(
+                    session, ExpressPricingRule, ["country", "vehicle_code"], {
+                        "id": new_id("pr"), **PRICING_TEMPLATE, "country": country, "vehicle_code": code,
+                        "base_fare": base, "min_fare": base,
+                        "price_per_km": per_km, "price_per_min": per_min,
+                        "insurance_min": max(100, int(base * 0.05)),
+                    },
+                    # Targets the partial unique index (country, vehicle_code) WHERE active —
+                    # every seeded rule is active, so this always matches. Must be the bare
+                    # column (not `.is_(True)`) to textually match the index's predicate.
+                    index_where=ExpressPricingRule.active,
+                )
 
-    # Movers taxonomy
-    for code, name, desc, icon, sort in MOVE_TYPES:
-        await _upsert("express_move_types",
-                      {"code": code},
-                      {"code": code, "name": name, "description": desc, "icon": icon,
-                       "sort_order": sort, "active": True})
+        # Movers taxonomy
+        for code, name, desc, icon, sort in MOVE_TYPES:
+            await _upsert(session, ExpressMoveType, ["code"], {
+                "id": new_id("mvt"), "code": code, "name": name, "description": desc, "icon": icon,
+                "sort_order": sort, "active": True,
+            })
 
-    for code, name, icon, sort in MOVERS_CATEGORIES:
-        await _upsert("express_movers_categories",
-                      {"code": code},
-                      {"code": code, "name": name, "icon": icon, "sort_order": sort, "active": True})
+        for code, name, icon, sort in MOVERS_CATEGORIES:
+            await _upsert(session, ExpressMoversCategory, ["code"], {
+                "id": new_id("mcat"), "code": code, "name": name, "icon": icon, "sort_order": sort, "active": True,
+            })
 
-    for cat, name, weight, labour, base_ci, base_lr, sort in MOVERS_ITEMS:
-        for country, base in (("CI", base_ci), ("LR", base_lr)):
-            await _upsert("express_movers_items",
-                          {"name": name, "category_code": cat, "country": country},
-                          {"category_code": cat, "country": country, "name": name,
-                           "weight_kg": weight, "labour_required": labour,
-                           "base_price": base, "sort_order": sort, "active": True})
+        for cat, name, weight, labour, base_ci, base_lr, sort in MOVERS_ITEMS:
+            for country, base in (("CI", base_ci), ("LR", base_lr)):
+                await _upsert(session, ExpressMoversItem, ["name", "category_code", "country"], {
+                    "id": new_id("mitem"), "category_code": cat, "country": country, "name": name,
+                    "weight_kg": weight, "labour_required": labour,
+                    "base_price": base, "sort_order": sort, "active": True,
+                })
 
-    # Movers pricing per country
-    for country, cfg in MOVERS_PRICING.items():
-        await _upsert("express_movers_pricing",
-                      {"country": country},
-                      {**cfg, "country": country, "active": True})
+        # Movers pricing per country
+        for country, cfg in MOVERS_PRICING.items():
+            await _upsert(session, ExpressMoversPricing, ["country"], {
+                "id": new_id("mvp"), **cfg, "country": country, "active": True,
+            })
 
-    # Time slots per country (LR uses same LRD surcharge magnitudes, scaled ~0.3x)
-    for code, label, window, surcharge, badge, sort in TIME_SLOTS:
-        for country, mult in (("CI", 1.0), ("LR", 0.3)):
-            await _upsert("express_time_slots",
-                          {"code": code, "country": country},
-                          {"code": code, "country": country, "name": label, "window": window,
-                           "surcharge": int(surcharge * mult), "badge": badge,
-                           "sort_order": sort, "active": True})
+        # Time slots per country (LR uses same LRD surcharge magnitudes, scaled ~0.3x)
+        for code, label, window, surcharge, badge, sort in TIME_SLOTS:
+            for country, mult in (("CI", 1.0), ("LR", 0.3)):
+                await _upsert(session, ExpressTimeSlot, ["code", "country"], {
+                    "id": new_id("ts"), "code": code, "country": country, "name": label, "window": window,
+                    "surcharge": int(surcharge * mult), "badge": badge,
+                    "sort_order": sort, "active": True,
+                })
 
-    # -------- Express drivers (Phase 2) --------
-    await seed_express_drivers()
+        await session.commit()
+
+        # -------- Express drivers (Phase 2) --------
+        await seed_express_drivers(session)
+        await session.commit()
 
 
 # Country reference centers for driver seed distribution.
@@ -269,11 +285,10 @@ DRIVER_NAMES_LR = [
 VEHICLE_ROTATION = ["bike", "scooter", "three_wheeler", "mini_truck", "truck"]
 
 
-async def seed_express_drivers():
+async def seed_express_drivers(session: AsyncSession):
     """Idempotent seed of 15 active drivers per country, spread around the
     country's reference center at 0.5–3 km offsets. Uses `phone` as the
     dedup key so re-runs don't duplicate."""
-    import math
     for country_code, (clat, clng, city) in COUNTRY_CENTERS.items():
         names = DRIVER_NAMES_CI if country_code == "CI" else DRIVER_NAMES_LR
         phone_prefix = "+225" if country_code == "CI" else "+231"
@@ -284,43 +299,34 @@ async def seed_express_drivers():
             lat = clat + math.sin(angle) * radius
             lng = clng + math.cos(angle) * radius
             phone = f"{phone_prefix}0{100000 + i * 137:07d}"
-            existing = await db.module_drivers.find_one({"phone": phone, "module": "express"})
+            existing = (
+                await session.execute(
+                    select(ModuleDriver).where(ModuleDriver.phone == phone, ModuleDriver.module == "express")
+                )
+            ).scalar_one_or_none()
             if existing:
                 # Keep phase-2 fields fresh but don't overwrite admin edits
-                await db.module_drivers.update_one(
-                    {"_id": existing["_id"]},
-                    {"$set": {
-                        "current_lat": lat, "current_lng": lng,
-                        "is_available": existing.get("is_available", True),
-                        "status": existing.get("status") or "active",
-                        "rating": existing.get("rating") or round(4.5 + (i % 5) * 0.1, 1),
-                        "vehicle_type": vt,
-                        "updated_at": _now_iso(),
-                    }},
-                )
+                # (is_available/status/rating stay whatever an admin last set).
+                existing.current_lat = lat
+                existing.current_lng = lng
+                existing.vehicle_type = vt
                 continue
-            doc = {
-                "id": new_id("drv"),
-                "module": "express",
-                "name": name,
-                "phone": phone,
-                "email": None,
-                "country": country_code,
-                "city": city,
-                "vehicle_type": vt,
-                "vehicle_reg": f"{country_code}-{vt[:3].upper()}-{1000 + i:04d}",
-                "license_number": f"DL-{country_code}-{200000 + i * 11:06d}",
-                "photo_url": None,
-                "rating": round(4.5 + (i % 5) * 0.1, 1),
-                "current_lat": lat,
-                "current_lng": lng,
-                "is_available": True,
-                "active_booking_id": None,
-                "status": "active",
-                "deleted_at": None,
-                "created_at": _now_iso(),
-                "updated_at": _now_iso(),
-                "version": 1,
-            }
-            await db.module_drivers.insert_one(doc)
+            session.add(
+                ModuleDriver(
+                    id=new_id("drv"),
+                    module="express",
+                    name=name,
+                    phone=phone,
+                    country=country_code,
+                    city=city,
+                    vehicle_type=vt,
+                    vehicle_reg=f"{country_code}-{vt[:3].upper()}-{1000 + i:04d}",
+                    license_number=f"DL-{country_code}-{200000 + i * 11:06d}",
+                    rating=round(4.5 + (i % 5) * 0.1, 1),
+                    current_lat=lat,
+                    current_lng=lng,
+                    is_available=True,
+                    status="active",
+                )
+            )
 

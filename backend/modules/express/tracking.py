@@ -9,18 +9,26 @@ Two responsibilities:
 
 Status vocabulary matches the customer UI:
     searching → driver_assigned → arriving → picked_up → in_transit → delivered
+
+Background tasks (the demo simulator) run outside the FastAPI request
+lifecycle, so they open their own AsyncSession via `SessionLocal` rather than
+sharing a request-scoped one.
 """
 from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Dict, Set
+from datetime import datetime, timezone
+from typing import Dict, Optional, Set
 
 from fastapi import WebSocket
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import db
-from core.models_base import _now_iso
+from core.db import SessionLocal
+from core.models import ExpressBooking, ExpressBookingTimeline
 from modules.express.dispatch import assign_driver_to_booking, driver_snapshot, release_driver
+from modules.express.serializers import booking_to_dict, public_booking_fields
 
 logger = logging.getLogger("baked.express.tracking")
 
@@ -66,28 +74,15 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-# ---------------- Broadcast helpers ---------------- #
-
-def _booking_public(doc: dict) -> dict:
-    """Sanitised booking snapshot for WebSocket subscribers."""
-    keep = {
-        "id", "ref", "status", "booking_type", "vehicle_code", "country",
-        "pickup", "drop", "receiver", "distance_km", "duration_min",
-        "currency", "currency_symbol", "total", "payment_method",
-        "payment_status", "driver_id", "driver_snapshot",
-        "driver_location", "eta_seconds", "timeline", "updated_at",
-    }
-    return {k: doc.get(k) for k in keep if k in doc}
-
-
-async def broadcast_snapshot(booking_id: str) -> dict:
+async def broadcast_snapshot(session: AsyncSession, booking_id: str) -> dict:
     """Reload the booking and broadcast it — safe to call after any mutation."""
-    doc = await db.express_bookings.find_one({"id": booking_id}, {"_id": 0})
-    if not doc:
+    booking = await session.get(ExpressBooking, booking_id)
+    if not booking:
         return {}
-    payload = {"type": "snapshot", **_booking_public(doc)}
+    data = await booking_to_dict(session, booking)
+    payload = {"type": "snapshot", **public_booking_fields(data)}
     await manager.broadcast(booking_id, payload)
-    return doc
+    return data
 
 
 # ---------------- Status transitions ---------------- #
@@ -103,32 +98,34 @@ STATUS_LABELS = {
 
 
 async def transition_status(
+    session: AsyncSession,
     booking_id: str,
     new_status: str,
     extra: dict | None = None,
     driver_location: dict | None = None,
     eta_seconds: int | None = None,
+    label: str | None = None,
 ) -> dict | None:
-    """Persist a status change + append to timeline + broadcast."""
-    now = _now_iso()
-    label = STATUS_LABELS.get(new_status, new_status)
-    update = {"status": new_status, "updated_at": now}
-    if driver_location is not None:
-        update["driver_location"] = driver_location
-    if eta_seconds is not None:
-        update["eta_seconds"] = eta_seconds
-    if extra:
-        update.update(extra)
-    result = await db.express_bookings.find_one_and_update(
-        {"id": booking_id},
-        {"$set": update, "$push": {"timeline": {"code": new_status, "label": label, "at": now}}},
-        return_document=True,
-    )
-    if not result:
+    """Persist a status change + append a timeline entry + broadcast, in one transaction."""
+    booking = await session.get(ExpressBooking, booking_id)
+    if not booking:
         return None
-    result.pop("_id", None)
-    await manager.broadcast(booking_id, {"type": "snapshot", **_booking_public(result)})
-    return result
+    resolved_label = label or STATUS_LABELS.get(new_status, new_status)
+    booking.status = new_status
+    if driver_location is not None:
+        booking.driver_location_lat = driver_location["lat"]
+        booking.driver_location_lng = driver_location["lng"]
+    if eta_seconds is not None:
+        booking.eta_seconds = eta_seconds
+    if extra:
+        for k, v in extra.items():
+            setattr(booking, k, v)
+    now = datetime.now(timezone.utc)
+    session.add(ExpressBookingTimeline(booking_id=booking_id, code=new_status, label=resolved_label, at=now))
+    await session.commit()
+    data = await booking_to_dict(session, booking)
+    await manager.broadcast(booking_id, {"type": "snapshot", **public_booking_fields(data)})
+    return data
 
 
 # ---------------- Location interpolation ---------------- #
@@ -138,6 +135,7 @@ def _lerp(a: float, b: float, t: float) -> float:
 
 
 async def _stream_movement(
+    session: AsyncSession,
     booking_id: str,
     from_lat: float, from_lng: float,
     to_lat: float, to_lng: float,
@@ -152,14 +150,12 @@ async def _stream_movement(
         lat = _lerp(from_lat, to_lat, t)
         lng = _lerp(from_lng, to_lng, t)
         remaining = int((steps - i) * tick_seconds) if eta_countdown else None
-        await db.express_bookings.update_one(
-            {"id": booking_id},
-            {"$set": {
-                "driver_location": {"lat": lat, "lng": lng},
-                "eta_seconds": remaining,
-                "updated_at": _now_iso(),
-            }},
+        await session.execute(
+            update(ExpressBooking)
+            .where(ExpressBooking.id == booking_id)
+            .values(driver_location_lat=lat, driver_location_lng=lng, eta_seconds=remaining)
         )
+        await session.commit()
         await manager.broadcast(booking_id, {
             "type": "location",
             "booking_id": booking_id,
@@ -191,68 +187,56 @@ async def run_demo_simulation(booking_id: str) -> None:
         return
     try:
         await asyncio.sleep(1.0)  # let the HTTP response return first
-        booking = await db.express_bookings.find_one({"id": booking_id}, {"_id": 0})
-        if not booking or booking.get("status") not in ("searching", None):
-            return
+        async with SessionLocal() as session:
+            booking = await session.get(ExpressBooking, booking_id)
+            if not booking or booking.status not in ("searching", None):
+                return
 
-        # 1) Assign a driver
-        driver = await assign_driver_to_booking(booking)
-        if not driver:
-            logger.warning("baked.express.demo no_driver booking=%s", booking_id)
-            # keep it in searching; a real system would retry. Broadcast anyway.
-            await broadcast_snapshot(booking_id)
-            return
+            # 1) Assign a driver
+            driver = await assign_driver_to_booking(session, booking)
+            if not driver:
+                logger.warning("baked.express.demo no_driver booking=%s", booking_id)
+                # keep it in searching; a real system would retry. Broadcast anyway.
+                await broadcast_snapshot(session, booking_id)
+                return
 
-        pickup = booking["pickup"]
-        drop = booking["drop"]
-        start_lat = float(driver.get("current_lat") or pickup["latitude"])
-        start_lng = float(driver.get("current_lng") or pickup["longitude"])
+            pickup_lat, pickup_lng = float(booking.pickup_latitude), float(booking.pickup_longitude)
+            drop_lat, drop_lng = float(booking.drop_latitude), float(booking.drop_longitude)
+            start_lat = float(driver.current_lat) if driver.current_lat is not None else pickup_lat
+            start_lng = float(driver.current_lng) if driver.current_lng is not None else pickup_lng
 
-        await transition_status(
-            booking_id, "driver_assigned",
-            extra={
-                "driver_id": driver["id"],
-                "driver_snapshot": driver_snapshot(driver),
-            },
-            driver_location={"lat": start_lat, "lng": start_lng},
-            eta_seconds=30,
-        )
-        # Let the customer see "Driver assigned" for 2s before we start moving.
-        await asyncio.sleep(2.0)
+            await transition_status(
+                session, booking_id, "driver_assigned",
+                extra={"driver_id": driver.id, "driver_snapshot": driver_snapshot(driver)},
+                driver_location={"lat": start_lat, "lng": start_lng},
+                eta_seconds=30,
+            )
+            # Let the customer see "Driver assigned" for 2s before we start moving.
+            await asyncio.sleep(2.0)
 
-        # 2) Driver → pickup (arriving) — 30s
-        await transition_status(booking_id, "arriving", eta_seconds=30)
-        await _stream_movement(
-            booking_id,
-            start_lat, start_lng,
-            float(pickup["latitude"]), float(pickup["longitude"]),
-            total_seconds=30.0,
-        )
+            # 2) Driver → pickup (arriving) — 30s
+            await transition_status(session, booking_id, "arriving", eta_seconds=30)
+            await _stream_movement(session, booking_id, start_lat, start_lng, pickup_lat, pickup_lng, total_seconds=30.0)
 
-        # 3) Picked up (short beat)
-        await transition_status(
-            booking_id, "picked_up",
-            driver_location={"lat": pickup["latitude"], "lng": pickup["longitude"]},
-            eta_seconds=int(booking.get("duration_min") or 15) * 60 // 4 or 60,
-        )
-        await asyncio.sleep(5.0)
+            # 3) Picked up (short beat)
+            await transition_status(
+                session, booking_id, "picked_up",
+                driver_location={"lat": pickup_lat, "lng": pickup_lng},
+                eta_seconds=int(booking.duration_min or 15) * 60 // 4 or 60,
+            )
+            await asyncio.sleep(5.0)
 
-        # 4) In transit → drop — 80s
-        await transition_status(booking_id, "in_transit", eta_seconds=80)
-        await _stream_movement(
-            booking_id,
-            float(pickup["latitude"]), float(pickup["longitude"]),
-            float(drop["latitude"]), float(drop["longitude"]),
-            total_seconds=80.0,
-        )
+            # 4) In transit → drop — 80s
+            await transition_status(session, booking_id, "in_transit", eta_seconds=80)
+            await _stream_movement(session, booking_id, pickup_lat, pickup_lng, drop_lat, drop_lng, total_seconds=80.0)
 
-        # 5) Delivered
-        await transition_status(
-            booking_id, "delivered",
-            driver_location={"lat": drop["latitude"], "lng": drop["longitude"]},
-            eta_seconds=0,
-            extra={"delivered_at": _now_iso(), "payment_status": "paid"},
-        )
-        await release_driver(driver["id"])
+            # 5) Delivered
+            await transition_status(
+                session, booking_id, "delivered",
+                driver_location={"lat": drop_lat, "lng": drop_lng},
+                eta_seconds=0,
+                extra={"delivered_at": datetime.now(timezone.utc), "payment_status": "paid"},
+            )
+            await release_driver(session, driver.id)
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.express.demo simulation_failed booking=%s err=%s", booking_id, e)

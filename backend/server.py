@@ -14,7 +14,7 @@ import os
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-from core.db import client  # noqa: E402
+from core.db import engine  # noqa: E402
 from shared.auth.routes import router as auth_router  # noqa: E402
 from shared.customer.routes import router as customer_router  # noqa: E402
 from shared.addresses.routes import router as addresses_router  # noqa: E402
@@ -83,4 +83,4 @@ async def _on_startup():
 
 @app.on_event("shutdown")
 async def _on_shutdown():
-    client.close()
+    await engine.dispose()

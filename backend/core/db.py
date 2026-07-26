@@ -1,13 +1,15 @@
-"""Shared MongoDB client. Single-database, multi-collection modular monolith."""
+"""Shared async SQLAlchemy engine/session factory. Single Postgres database, one session per request."""
 import os
-from motor.motor_asyncio import AsyncIOMotorClient
+from typing import AsyncGenerator
 
-_mongo_url = os.environ["MONGO_URL"]
-_db_name = os.environ["DB_NAME"]
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-client = AsyncIOMotorClient(_mongo_url)
-db = client[_db_name]
+DATABASE_URL = os.environ["DATABASE_URL"]
+
+engine = create_async_engine(DATABASE_URL, pool_pre_ping=True, echo=False)
+SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
-def get_db():
-    return db
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with SessionLocal() as session:
+        yield session
