@@ -1,29 +1,43 @@
-# --- Build stage ---
+# ==========================================================
+# Build Stage
+# ==========================================================
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
-COPY package.json yarn.lock* ./
-RUN yarn install --network-timeout 600000
+# Copy dependency files first for better Docker cache
+COPY package.json yarn.lock ./
 
+RUN yarn install \
+    --frozen-lockfile \
+    --network-timeout 600000
+
+# Copy application source
 COPY . .
 
-# Baked into the JS bundle at build time (CRA/craco) — must be the public
-# URL the browser will use, e.g. https://your-domain.com
+# Build-time environment variables
 ARG REACT_APP_BACKEND_URL
-ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+ENV REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
-# Google Maps JS API key for address picker / Express live tracking maps
 ARG REACT_APP_GOOGLE_MAPS_API_KEY
-ENV REACT_APP_GOOGLE_MAPS_API_KEY=$REACT_APP_GOOGLE_MAPS_API_KEY
+ENV REACT_APP_GOOGLE_MAPS_API_KEY=${REACT_APP_GOOGLE_MAPS_API_KEY}
 
 RUN yarn build
 
-# --- Runtime stage ---
+# ==========================================================
+# Runtime Stage
+# ==========================================================
 FROM nginx:1.27-alpine
 
+# Copy built application
 COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
 EXPOSE 80
 
