@@ -6,21 +6,52 @@ import { toast } from "sonner";
 import {
   PlusCircle, CheckCircle2, XCircle, PauseCircle, Play, FileText,
   Upload, Trash2, User as UserIcon, Store, Bike, Package, ClipboardList,
-  Sparkles,
+  Sparkles, Activity, Truck, Timer, RefreshCw, Search, MapPin, Phone,
 } from "lucide-react";
 
 const fmtMoney = (n, ccy) => `${(n || 0).toLocaleString("en-US")} ${ccy || ""}`.trim();
 const fmtDate = (s) => (s ? new Date(s).toLocaleString() : "-");
 
 // ============ MODULE OVERVIEW (Dashboard) ============
+// Express KPI tile config — colour-coded to match the operational state so
+// operators can eyeball the fleet at a glance (green = healthy, yellow =
+// pending action, red = attention).
+const EXPRESS_KPI_META = {
+  active_bookings:   { label: "Active bookings",    icon: Activity, color: "#FCC44C" },
+  searching_now:     { label: "Searching for driver", icon: Search, color: "#FF9500" },
+  completed_today:   { label: "Completed today",    icon: CheckCircle2, color: "#77BC1F" },
+  cancelled_today:   { label: "Cancelled today",    icon: XCircle, color: "#FF4C52" },
+  drivers_available: { label: "Drivers available",  icon: Bike,     color: "#1D9BF0" },
+  avg_trip_min:      { label: "Avg trip (min)",     icon: Timer,    color: "#9B87F5" },
+};
+
+const humanKpiLabel = (k) => k.replace(/_/g, " ");
+
 export const ModuleOverview = () => {
   const { meta, code } = useOutletContext();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [recent, setRecent] = useState(null);
+  const isExpress = code === "express";
+
+  const loadStats = () => adminApi.get(`/admin/modules/${code}/stats`)
+    .then((r) => setData(r.data))
+    .catch(() => setData({ module: code, status: "coming_soon", kpis: {}, revenue: [] }));
+
+  useEffect(() => { loadStats(); /* eslint-disable-next-line */ }, [code]);
+
+  // Live-refresh every 20s for Express so the dashboard reflects the running
+  // simulator without a manual reload. Other modules stay static (cheap).
   useEffect(() => {
-    adminApi.get(`/admin/modules/${code}/stats`)
-      .then((r) => setData(r.data))
-      .catch(() => setData({ module: code, status: "coming_soon", kpis: {}, revenue: [] }));
-  }, [code]);
+    if (!isExpress) return undefined;
+    adminApi.get(`/admin/modules/express/bookings?limit=5`).then((r) => setRecent(r.data.items)).catch(() => {});
+    const t = setInterval(() => {
+      loadStats();
+      adminApi.get(`/admin/modules/express/bookings?limit=5`).then((r) => setRecent(r.data.items)).catch(() => {});
+    }, 20000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpress, code]);
 
   if (data?.status === "coming_soon") {
     return (
@@ -37,15 +68,30 @@ export const ModuleOverview = () => {
   if (!data) return <div className="text-sm text-muted-foreground">Loading…</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-testid={`overview-${code}`}>
+      {/* KPI grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Object.entries(data.kpis).map(([k, v]) => (
-          <div key={k} className="baked-card bg-card border border-border p-4">
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">{k.replace(/_/g, " ")}</div>
-            <div className="text-3xl font-bold mt-2">{v}</div>
-          </div>
-        ))}
+        {Object.entries(data.kpis).map(([k, v]) => {
+          const cfg = isExpress ? EXPRESS_KPI_META[k] : null;
+          const IconEl = cfg?.icon;
+          const tint = cfg?.color || meta.color;
+          return (
+            <div key={k} data-testid={`kpi-${k}`} className="baked-card bg-card border border-border p-4 flex items-center gap-3">
+              {IconEl && (
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${tint}22`, color: tint }}>
+                  <IconEl size={18} />
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide">{cfg?.label || humanKpiLabel(k)}</div>
+                <div className="text-3xl font-bold mt-1 tabular-nums">{v}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Revenue table */}
       {data.revenue?.length > 0 && (
         <div className="baked-card bg-card border border-border p-5">
           <div className="text-sm font-semibold mb-3">Revenue by currency</div>
@@ -60,7 +106,61 @@ export const ModuleOverview = () => {
           </div>
         </div>
       )}
+
+      {/* Recent bookings preview (Express only) — links to the full Bookings tab */}
+      {isExpress && (
+        <div className="baked-card bg-card border border-border">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold">Recent bookings</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Live · refreshes every 20s</div>
+            </div>
+            <button data-testid="overview-view-all-bookings" onClick={() => navigate(`/admin/modules/express/bookings`)} className="text-xs font-semibold text-primary hover:underline">
+              View all →
+            </button>
+          </div>
+          <div className="divide-y divide-border">
+            {recent === null && <div className="p-4 text-xs text-muted-foreground">Loading…</div>}
+            {recent && recent.length === 0 && <div className="p-6 text-center text-xs text-muted-foreground italic">No bookings yet — trigger a customer parcel to see it appear here in real time.</div>}
+            {recent && recent.map((b) => (
+              <div key={b.id} className="p-3 flex items-center gap-3 hover:bg-secondary/40 motion-fast cursor-pointer" onClick={() => navigate(`/admin/modules/express/bookings?ref=${b.ref}`)}>
+                <StatusPill status={b.status} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">{b.ref} <span className="text-muted-foreground font-normal">· {b.receiver_name || "—"}</span></div>
+                  <div className="text-[10px] text-muted-foreground truncate">{b.pickup || "—"} → {b.drop || "—"}</div>
+                </div>
+                <div className="text-right whitespace-nowrap">
+                  <div className="text-xs font-bold">{fmtMoney(b.total, b.currency_symbol)}</div>
+                  <div className="text-[10px] text-muted-foreground">{b.driver_name || <span className="italic">no driver</span>}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
+  );
+};
+
+// Reusable coloured status chip so both the overview preview and the bookings
+// table stay visually consistent with the customer-facing tracking view.
+const STATUS_TONE = {
+  searching:       { color: "#FF9500", bg: "#FF950022", label: "Searching" },
+  driver_assigned: { color: "#1D9BF0", bg: "#1D9BF022", label: "Assigned" },
+  arriving:        { color: "#1D9BF0", bg: "#1D9BF022", label: "Arriving" },
+  picked_up:       { color: "#9B87F5", bg: "#9B87F522", label: "Picked up" },
+  in_transit:      { color: "#9B87F5", bg: "#9B87F522", label: "In transit" },
+  delivered:       { color: "#77BC1F", bg: "#77BC1F22", label: "Delivered" },
+  cancelled:       { color: "#FF4C52", bg: "#FF4C5222", label: "Cancelled" },
+  confirmed:       { color: "#77BC1F", bg: "#77BC1F22", label: "Confirmed" },
+};
+
+const StatusPill = ({ status }) => {
+  const t = STATUS_TONE[status] || { color: "#8b8b8b", bg: "#8b8b8b22", label: (status || "").toUpperCase() };
+  return (
+    <span className="text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{ backgroundColor: t.bg, color: t.color }}>
+      {t.label}
+    </span>
   );
 };
 
@@ -896,6 +996,194 @@ export const ModulePricing = () => {
         ) : (
           <div className="p-6 text-sm text-muted-foreground italic">No movers pricing configured for {country}.</div>
         )}
+      </div>
+    </div>
+  );
+};
+
+
+// ============ MODULE BOOKINGS (Express Sub-feature D) ============
+// Live table of every EXPRESSbakēd booking. Auto-refreshes every 15s so the
+// simulator's status transitions appear in-place. Filters: status + country.
+const EXPRESS_STATUS_FILTERS = [
+  { code: "any",             label: "All" },
+  { code: "active",          label: "Active" },
+  { code: "searching",       label: "Searching" },
+  { code: "driver_assigned", label: "Assigned" },
+  { code: "arriving",        label: "Arriving" },
+  { code: "picked_up",       label: "Picked up" },
+  { code: "in_transit",      label: "In transit" },
+  { code: "delivered",       label: "Delivered" },
+  { code: "cancelled",       label: "Cancelled" },
+];
+
+const fmtRelative = (iso) => {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  const s = Math.round((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return d.toLocaleDateString();
+};
+
+export const ModuleBookings = () => {
+  const { code } = useOutletContext();
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState("active");
+  const [country, setCountry] = useState("any");
+  const [q, setQ] = useState("");
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setBusy(true);
+    try {
+      const params = new URLSearchParams({ status: filter, limit: "100" });
+      if (country !== "any") params.set("country", country);
+      if (q.trim()) params.set("q", q.trim());
+      const r = await adminApi.get(`/admin/modules/express/bookings?${params.toString()}`);
+      setData(r.data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to load bookings");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Initial + on-filter-change fetch, plus a 15s live refresh so operators
+  // can watch the simulator drive bookings through the lifecycle in real time.
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter, country]);
+  useEffect(() => {
+    if (code !== "express") return undefined;
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, country, q]);
+
+  if (code !== "express") {
+    return <div className="text-sm text-muted-foreground p-6">Bookings tab is Express-only.</div>;
+  }
+
+  const items = data?.items || [];
+  return (
+    <div className="space-y-4" data-testid="express-bookings">
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 flex-wrap">
+          {EXPRESS_STATUS_FILTERS.map((s) => (
+            <button
+              key={s.code}
+              data-testid={`bookings-filter-${s.code}`}
+              onClick={() => setFilter(s.code)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold motion-fast ${filter === s.code ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <select
+            data-testid="bookings-country"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="bg-secondary rounded-md px-2 py-1.5 text-xs border border-transparent focus:border-primary focus:outline-none"
+          >
+            <option value="any">All countries</option>
+            <option value="CI">🇨🇮 CI</option>
+            <option value="LR">🇱🇷 LR</option>
+          </select>
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              data-testid="bookings-search"
+              placeholder="ref / receiver / phone"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && load()}
+              className="pl-7 bg-secondary rounded-md px-3 py-1.5 text-xs w-52 border border-transparent focus:border-primary focus:outline-none"
+            />
+          </div>
+          <button data-testid="bookings-refresh" onClick={load} className="w-8 h-8 rounded-md bg-secondary hover:bg-secondary/70 flex items-center justify-center motion-fast" title="Refresh">
+            <RefreshCw size={13} className={busy ? "animate-spin" : ""} />
+          </button>
+        </div>
+      </div>
+
+      {/* Summary count */}
+      <div className="text-[11px] text-muted-foreground">
+        {busy && !data ? "Loading…" : `${data?.total ?? 0} booking${(data?.total ?? 0) === 1 ? "" : "s"}${filter !== "any" ? ` · ${EXPRESS_STATUS_FILTERS.find(s => s.code === filter)?.label.toLowerCase()}` : ""} · Auto-refresh 15s`}
+      </div>
+
+      {/* Table */}
+      <div className="baked-card bg-card border border-border overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary/40 text-[10px] uppercase text-muted-foreground">
+            <tr>
+              <th className="text-left p-3">Ref</th>
+              <th className="text-left p-3">Status</th>
+              <th className="text-left p-3">Route</th>
+              <th className="text-left p-3">Receiver</th>
+              <th className="text-left p-3">Vehicle</th>
+              <th className="text-left p-3">Driver</th>
+              <th className="text-right p-3">Total</th>
+              <th className="text-right p-3">Updated</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan={9} className="p-8 text-center text-xs text-muted-foreground italic">No bookings match the current filter.</td></tr>
+            ) : items.map((b) => (
+              <tr key={b.id} data-testid={`bookings-row-${b.id}`} className="border-t border-border hover:bg-secondary/30 motion-fast">
+                <td className="p-3 whitespace-nowrap">
+                  <div className="text-xs font-bold">{b.ref}</div>
+                  <div className="text-[10px] text-muted-foreground">{b.booking_type} · {b.country}</div>
+                </td>
+                <td className="p-3"><StatusPill status={b.status} /></td>
+                <td className="p-3 max-w-[280px]">
+                  <div className="text-[11px] flex items-center gap-1 truncate"><MapPin size={10} className="shrink-0 text-muted-foreground" /> {b.pickup || "—"}</div>
+                  <div className="text-[11px] flex items-center gap-1 truncate text-muted-foreground"><MapPin size={10} className="shrink-0" /> {b.drop || "—"}</div>
+                  {b.distance_km != null && <div className="text-[9px] text-muted-foreground mt-0.5">{b.distance_km.toFixed(1)} km · {b.duration_min ?? "—"} min</div>}
+                </td>
+                <td className="p-3 whitespace-nowrap">
+                  <div className="text-xs font-medium">{b.receiver_name || "—"}</div>
+                  {b.receiver_phone && <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Phone size={9} /> {b.receiver_phone}</div>}
+                </td>
+                <td className="p-3 text-xs capitalize whitespace-nowrap">
+                  {b.vehicle_code ? (
+                    <span className="inline-flex items-center gap-1">
+                      {(b.vehicle_code === "bike" || b.vehicle_code === "scooter") ? <Bike size={11} /> : <Truck size={11} />}
+                      {b.vehicle_code.replace("_", " ")}
+                    </span>
+                  ) : "—"}
+                </td>
+                <td className="p-3 text-xs whitespace-nowrap">
+                  {b.driver_name ? (
+                    <div>
+                      <div className="font-medium">{b.driver_name}</div>
+                      {b.eta_seconds != null && b.eta_seconds > 0 && <div className="text-[10px] text-muted-foreground">ETA {Math.round(b.eta_seconds / 60)}m</div>}
+                    </div>
+                  ) : <span className="text-muted-foreground italic">unassigned</span>}
+                </td>
+                <td className="p-3 text-right whitespace-nowrap">
+                  <div className="text-xs font-bold tabular-nums">{fmtMoney(b.total, b.currency_symbol)}</div>
+                  <div className="text-[10px] text-muted-foreground capitalize">{b.payment_method || "cod"} · {b.payment_status}</div>
+                </td>
+                <td className="p-3 text-right whitespace-nowrap text-[11px] text-muted-foreground">{fmtRelative(b.updated_at)}</td>
+                <td className="p-3 text-right">
+                  <button
+                    data-testid={`bookings-open-${b.id}`}
+                    onClick={() => navigate(`/express/booking/${b.id}/track`)}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    View
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

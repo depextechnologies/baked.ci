@@ -33,10 +33,12 @@ from core.models import (
     City,
     Country,
     Customer,
+    ExpressBooking,
     MartCategory,
     MartProduct,
     MartStore,
     MartSubcategory,
+    ModuleDriver,
     Order,
     Role,
     new_id,
@@ -523,7 +525,170 @@ async def module_stats(
             },
             "revenue": revenue,
         }
+    if code == "express":
+        # KPIs for Sub-feature D — Express Management Overview.
+        # Time buckets are in UTC to match `TIMESTAMP(timezone=True)` storage.
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        async def _count(*conds) -> int:
+            stmt = select(func.count()).select_from(ExpressBooking).where(*conds)
+            return int((await session.execute(stmt)).scalar_one() or 0)
+
+        active_states = ["searching", "driver_assigned", "arriving", "picked_up", "in_transit"]
+        active_bookings = await _count(ExpressBooking.status.in_(active_states))
+        completed_today = await _count(
+            ExpressBooking.status == "delivered",
+            ExpressBooking.delivered_at.is_not(None),
+            ExpressBooking.delivered_at >= today_start,
+        )
+        searching_now = await _count(ExpressBooking.status == "searching")
+        cancelled_today = await _count(
+            ExpressBooking.status == "cancelled",
+            ExpressBooking.updated_at >= today_start,
+        )
+        drivers_total = int((await session.execute(
+            select(func.count()).select_from(ModuleDriver).where(
+                ModuleDriver.module == "express",
+                ModuleDriver.deleted_at.is_(None),
+            )
+        )).scalar_one() or 0)
+        drivers_available = int((await session.execute(
+            select(func.count()).select_from(ModuleDriver).where(
+                ModuleDriver.module == "express",
+                ModuleDriver.deleted_at.is_(None),
+                ModuleDriver.status == "active",
+                ModuleDriver.is_available.is_(True),
+            )
+        )).scalar_one() or 0)
+
+        # Avg trip duration for today's deliveries (from stored duration_min).
+        avg_row = (await session.execute(
+            select(func.avg(ExpressBooking.duration_min))
+            .where(
+                ExpressBooking.status == "delivered",
+                ExpressBooking.delivered_at.is_not(None),
+                ExpressBooking.delivered_at >= today_start,
+            )
+        )).scalar_one()
+        avg_eta_min = round(float(avg_row), 1) if avg_row is not None else 0
+
+        # Revenue for delivered bookings — paid or COD-collected.
+        rev_rows = (await session.execute(
+            select(
+                ExpressBooking.currency,
+                func.sum(ExpressBooking.total).label("revenue"),
+                func.count().label("count"),
+            )
+            .where(
+                ExpressBooking.status == "delivered",
+                ExpressBooking.payment_status.in_(["authorized", "succeeded", "paid"]),
+            )
+            .group_by(ExpressBooking.currency)
+        )).all()
+        revenue = [
+            {"currency": r.currency, "revenue": float(r.revenue or 0), "count": int(r.count)}
+            for r in rev_rows
+        ]
+
+        return {
+            "module": code,
+            "status": "active",
+            "kpis": {
+                "active_bookings": active_bookings,
+                "completed_today": completed_today,
+                "searching_now": searching_now,
+                "cancelled_today": cancelled_today,
+                "drivers_available": f"{drivers_available}/{drivers_total}",
+                "avg_trip_min": avg_eta_min,
+            },
+            "revenue": revenue,
+        }
     return {"module": code, "status": "coming_soon", "kpis": {}, "revenue": []}
+
+
+# =============== EXPRESS BOOKINGS (live table) ===============
+EXPRESS_STATUS_FILTERS = {
+    "active": ["searching", "driver_assigned", "arriving", "picked_up", "in_transit"],
+    "searching": ["searching"],
+    "driver_assigned": ["driver_assigned"],
+    "arriving": ["arriving"],
+    "picked_up": ["picked_up"],
+    "in_transit": ["in_transit"],
+    "delivered": ["delivered"],
+    "cancelled": ["cancelled"],
+}
+
+
+@router.get("/modules/express/bookings")
+async def list_express_bookings(
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+    status: Optional[str] = Query(None, description="Filter: any | active | searching | driver_assigned | arriving | picked_up | in_transit | delivered | cancelled"),
+    country: Optional[str] = Query(None, min_length=2, max_length=2),
+    q: Optional[str] = Query(None, description="Fuzzy match on ref or receiver name/phone"),
+    limit: int = Query(100, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """Live bookings feed for the Express admin console.
+
+    Includes driver snapshot + pickup/drop for the table view. Sorted by
+    updated_at DESC so newly-progressing bookings float to the top.
+    """
+    stmt = select(ExpressBooking)
+    if status and status != "any":
+        codes = EXPRESS_STATUS_FILTERS.get(status)
+        if not codes:
+            raise HTTPException(400, f"Unknown status filter: {status}")
+        stmt = stmt.where(ExpressBooking.status.in_(codes))
+    if country:
+        stmt = stmt.where(ExpressBooking.country == country.upper())
+    if q:
+        pat = f"%{q}%"
+        stmt = stmt.where(or_(
+            ExpressBooking.ref.ilike(pat),
+            ExpressBooking.receiver_name.ilike(pat),
+            ExpressBooking.receiver_phone.ilike(pat),
+        ))
+    total = int((await session.execute(
+        select(func.count()).select_from(stmt.subquery())
+    )).scalar_one() or 0)
+    rows = (await session.execute(
+        stmt.order_by(ExpressBooking.updated_at.desc()).limit(limit).offset(offset)
+    )).scalars().all()
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": [
+            {
+                "id": b.id,
+                "ref": b.ref,
+                "booking_type": b.booking_type,
+                "status": b.status,
+                "country": b.country,
+                "vehicle_code": b.vehicle_code,
+                "currency_symbol": b.currency_symbol or b.currency,
+                "total": float(b.total or 0),
+                "pickup": b.pickup_formatted_address or b.pickup_line1,
+                "drop": b.drop_formatted_address or b.drop_line1,
+                "receiver_name": b.receiver_name,
+                "receiver_phone": b.receiver_phone,
+                "driver_id": b.driver_id,
+                "driver_name": (b.driver_snapshot or {}).get("name") if b.driver_snapshot else None,
+                "distance_km": float(b.distance_km) if b.distance_km is not None else None,
+                "duration_min": b.duration_min,
+                "eta_seconds": b.eta_seconds,
+                "payment_status": b.payment_status,
+                "payment_method": b.payment_method,
+                "customer_id": b.customer_id,
+                "created_at": b.created_at.isoformat() if b.created_at else None,
+                "updated_at": b.updated_at.isoformat() if b.updated_at else None,
+                "delivered_at": b.delivered_at.isoformat() if b.delivered_at else None,
+            }
+            for b in rows
+        ],
+    }
 
 
 # =============== AUDIT LOGS ===============
