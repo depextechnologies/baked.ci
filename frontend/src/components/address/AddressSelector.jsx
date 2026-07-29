@@ -418,6 +418,8 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
     setCandidate({
       place_id: addr.place_id,
       formatted_address: addr.formatted_address || `${addr.line1}${addr.city ? ", " + addr.city : ""}`,
+      // Preserve line1 so downstream booking payloads (AddressPoint.line1) never fail.
+      line1: addr.line1 || addr.formatted_address,
       latitude: addr.latitude,
       longitude: addr.longitude,
       city: addr.city,
@@ -434,6 +436,8 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
     setCandidate({
       place_id: r.place_id,
       formatted_address: r.formatted_address,
+      // Same defense-in-depth as onPickSaved / onConfirm.
+      line1: r.line1 || r.formatted_address,
       latitude: r.latitude,
       longitude: r.longitude,
       city: r.city,
