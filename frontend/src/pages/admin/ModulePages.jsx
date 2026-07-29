@@ -1074,7 +1074,7 @@ export const ModuleBookings = () => {
           {EXPRESS_STATUS_FILTERS.map((s) => (
             <button
               key={s.code}
-              data-testid={`bookings-filter-${s.code}`}
+              data-testid={`bookings-filter-${s.code === "any" ? "all" : s.code}`}
               onClick={() => setFilter(s.code)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold motion-fast ${filter === s.code ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
             >
