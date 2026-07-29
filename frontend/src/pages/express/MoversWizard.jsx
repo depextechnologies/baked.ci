@@ -6,6 +6,7 @@ import { api } from "../../lib/api";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useMoversBooking } from "../../contexts/ExpressContext";
 import { ExpressHeader, WizardProgress, ExpressFooter, useMoney } from "../../components/express/ExpressLayout";
+import { ExpressWizardShell } from "../../components/express/ExpressWizardShell";
 
 const STEPS = [
   { code: "type",       label: "Type" },
@@ -96,14 +97,14 @@ export const MoversWizard = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <ExpressHeader title="PACKERS & MOVERS" onBack={prev} step={step + 1} totalSteps={STEPS.length} />
       <WizardProgress steps={STEPS} current={step} />
-      <div className="flex-1 flex flex-col">
+      <ExpressWizardShell draft={draft}>
         {step === 0 && <MoveTypeStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 1 && <PickupDropStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 2 && <ItemsStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 3 && <QuoteStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 4 && <TimeSlotStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 5 && <ReviewStep draft={draft} setDraft={setDraft} resetDraft={resetDraft} />}
-      </div>
+      </ExpressWizardShell>
     </div>
   );
 };

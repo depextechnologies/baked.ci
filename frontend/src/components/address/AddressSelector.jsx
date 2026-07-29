@@ -466,10 +466,17 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
   }, [geo, activeCountry]);
 
   const onConfirm = useCallback((addr) => {
+    // Defensive: guarantee `line1` is populated so downstream booking payloads
+    // (which validate against AddressPoint.line1 on the backend) never fail
+    // with "pickup.line1: Field required". Google Places autocomplete usually
+    // returns only `formatted_address`, so we mirror it to `line1` when absent.
+    const finalized = addr && !addr.line1 && (addr.formatted_address || addr.description)
+      ? { ...addr, line1: addr.formatted_address || addr.description }
+      : addr;
     if (onPick) {
-      onPick(addr);
+      onPick(finalized);
     } else {
-      setActiveAddress(addr);
+      setActiveAddress(finalized);
     }
     toast.success(onPick ? "Address selected" : "Delivery address updated");
     onClose();
