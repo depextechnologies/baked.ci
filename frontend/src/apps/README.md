@@ -1,30 +1,31 @@
-# BAKĒD Frontend — Monorepo Layout (Phase 1a scaffolding, 2026-07-30)
+# BAKĒD Frontend — Monorepo Layout (Phase 1a complete, 2026-02)
 
-This directory tree is the target monorepo structure per Fixing_Prompt.docx v2.0.
-It currently coexists with the existing single-app `src/` tree — Phase 1b
-will migrate the existing pages into these buckets without changing behaviour.
+Fixing_Prompt.docx v2.0 target monorepo structure. Phase 1a is **complete**:
+`App.js` is a thin dispatcher, each app owns its own router, and shared UI
+lives in `packages/ui`. All source files still physically reside in the
+legacy folders (`components/`, `pages/`) — that migration is intentionally
+deferred to Phase 1b so this pass is zero-risk.
 
 ## Apps (each will become its own independently-deployable frontend)
 
-| Folder                | Dev route      | Production domain                |
-|-----------------------|----------------|----------------------------------|
-| apps/customer         | /              | baked.ci                         |
-| apps/partner-landing  | /partner       | partner.baked.ci                 |
-| apps/admin            | /admin         | admin.baked.ci                   |
-| apps/driver           | /driver        | driver.baked.ci                  |
-| apps/mart-partner     | /mart-partner  | mart.partner.baked.ci            |
-| apps/food-partner     | /food-partner  | food.partner.baked.ci            |
-| apps/shop-partner     | /shop-partner  | shop.partner.baked.ci            |
-| apps/express-partner  | /express-partner | express.partner.baked.ci       |
-| apps/auto-partner     | /auto-partner  | auto.partner.baked.ci            |
-| apps/immo-partner     | /immo-partner  | immo.partner.baked.ci            |
+| Folder                | Dev route      | Production domain                | Status         |
+|-----------------------|----------------|----------------------------------|----------------|
+| apps/customer         | /              | baked.ci                         | ✅ Phase 1a    |
+| apps/admin            | /admin         | admin.baked.ci                   | ✅ Phase 1a    |
+| apps/partner-landing  | /partner       | partner.baked.ci                 | ✅ Phase 1a    |
+| apps/driver           | /driver        | driver.baked.ci                  | ⏳ Phase 2     |
+| apps/mart-partner     | /mart-partner  | mart.partner.baked.ci            | ⏳ Phase 2 (next) |
+| apps/food-partner     | /food-partner  | food.partner.baked.ci            | ⏳ Phase 2     |
+| apps/shop-partner     | /shop-partner  | shop.partner.baked.ci            | ⏳ Phase 2     |
+| apps/express-partner  | /express-partner | express.partner.baked.ci       | ⏳ Phase 2     |
+| apps/auto-partner     | /auto-partner  | auto.partner.baked.ci            | ⏳ Phase 2     |
+| apps/immo-partner     | /immo-partner  | immo.partner.baked.ci            | ⏳ Phase 2     |
 
 ## Shared packages
 
-- `packages/ui`  — design-system components consumed by every app (buttons,
-  cards, modals, `BakedLogo`, form primitives). Currently re-exports from
-  the existing `src/components/ui` shadcn tree; Phase 1b will make this the
-  canonical location.
+- `packages/ui` — design-system barrel consumed by every app (`BakedLogo`,
+  Shadcn primitives, sonner `toast`). Currently re-exports from
+  `src/components/ui`; Phase 1b will make this the canonical location.
 
 ## Non-frontend shared services (unchanged)
 
@@ -41,7 +42,8 @@ Nginx `server_name` rules — zero application-code changes required.
 
 ## Migration status
 
-- [x] Phase 1a — Scaffolding + Partner Landing app + `/partner` route (this pass)
-- [ ] Phase 1b — Move existing customer + admin pages into `apps/customer/` and
-      `apps/admin/`, convert `frontend/` to yarn workspaces (one focused pass)
+- [x] Phase 1a — Scaffolding + per-app routers (`App.js` is now a dispatcher).
+- [ ] Phase 1b — Physically relocate customer/admin pages under `apps/*`
+      and adopt yarn workspaces (deferred; not blocking).
 - [ ] Phase 2 — Build partner applications in the docx-defined order
+      (MARTbakēd Partner is next).
