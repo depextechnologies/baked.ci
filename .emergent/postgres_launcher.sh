@@ -72,6 +72,13 @@ SQL
 
   # Migrations — absolute path so supervisor's stripped PATH works.
   if [ -x "${ALEMBIC}" ]; then
+    # Second pg_isready gate — after exec swaps postgres binaries the socket
+    # can briefly refuse connections. Waiting here keeps alembic from spitting
+    # a benign but noisy "connection refused" traceback into the supervisor log.
+    for i in $(seq 1 30); do
+      if PGPASSWORD="${APP_PASS}" psql -h 127.0.0.1 -U "${APP_USER}" -d "${APP_DB}" -tAc "SELECT 1" >/dev/null 2>&1; then break; fi
+      sleep 1
+    done
     log "bootstrap: running alembic upgrade head"
     (cd "${APP_DIR}" && "${ALEMBIC}" upgrade head 2>&1) | while read -r L; do log "alembic: ${L}"; done
   else

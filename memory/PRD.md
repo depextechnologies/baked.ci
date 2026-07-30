@@ -211,3 +211,15 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Fix 2 — Self-healing Postgres** (`/etc/supervisor/conf.d/postgres.conf` + `/app/.emergent/postgres_launcher.sh`): supervisor owns PG15. Launcher idempotently creates `baked` role + DB + runs `alembic upgrade head` then `exec`s the postgres binary. Data-dir preserved.
    - **Verified seed magnitudes**: countries=2, express_vehicles=10, mart_categories=18, mart_stores=5, module_drivers=30. All previously-empty endpoints now return real data.
    - **Testing**: `iteration_13.json` — 12/12 backend pytest + 100% frontend pass. Contract-lock file `/app/backend/tests/test_pg_migration_seed.py`.
+
+- ✅ **PostgreSQL Self-Heal v2 — Bulletproof Edition (2026-07-30)** — root-cause fix for the recurring "role baked does not exist" outage.
+   - **Why v1 broke**: v1 called `/etc/init.d/postgresql start` AND `exec sudo -u postgres postgres` — two instances collided for port 5432, so bootstrap ran against the losing instance. All errors were swallowed by `>/dev/null 2>&1 || true`, hiding an `alembic: command not found` (supervisor's stripped PATH didn't include `/root/.venv/bin`).
+   - **v2 launcher** (`/app/.emergent/postgres_launcher.sh`):
+     - Runs bootstrap **in background**, `exec`s **exactly one** foreground postgres → no port race.
+     - `ALTER ROLE ... WITH PASSWORD` on every boot → auto-recovers "role exists but wrong password" drift.
+     - Absolute path `/root/.venv/bin/alembic` → migrations actually run.
+     - Verifies app credentials with `PGPASSWORD=… psql SELECT 1` → any breakage is loud in supervisor stdout.
+     - Second `pg_isready` gate before alembic → clean boot log, no benign tracebacks.
+     - All errors NOT swallowed — every step logs with UTC timestamp.
+   - **Contract**: after ANY `supervisorctl restart postgres` the platform recovers to `/api/health = {status:ok, db:up}` in ≤10 seconds. Data persists on `/var/lib/postgresql/15/main`; role/DB re-created idempotently if the pod ever loses them.
+   - **Testing**: `iteration_14.json` — **9/9 durability tests PASS** across three destructive scenarios (restart, stop→start, password-drift). Regression file `/app/backend/tests/test_postgres_durability.py`.
