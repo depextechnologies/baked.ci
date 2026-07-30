@@ -193,3 +193,14 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **UX polish** (from code-review comment #2): `MoversWizard` now persists `step` in the URL querystring (`?step=4`) via `window.history.replaceState`, so a mid-wizard login round-trip lands the user back on the exact step they were on (previously they got sent back to Step 1 Type).
    - **State persistence** — verified working unchanged: `ExpressContext.jsx` writes both drafts to `sessionStorage` (`baked_express_draft` + `baked_express_movers_draft`) on every `setDraft`; `BakedContexts.jsx.loginWithToken` uses `window.location.href = target` so sessionStorage survives the reload.
    - **Testing**: `iteration_12.json` — 100% pass. `data-testid=exp-wizard-map` present on every Movers step (desktop). Mobile viewport 390x844 renders only the compact map (persistent panel is `hidden md:block`). Directions API is now enabled — the yellow polyline draws correctly.
+
+
+- ✅ **Footer navigation redesign (2026-07-30, Fixing_Prompt.docx)** — content/nav update only, premium black theme preserved.
+   - **Removed** from `/app/frontend/src/components/layout/Footer.jsx`: platform description paragraph, "Platform" column, "Available in" column, and "Platform" wording from the copyright line.
+   - **Added** "Useful Links" spanning 2 sub-columns: Partners & Sellers (SHOPbakēd Seller, FOODbakēd/MARTbakēd/AUTObakēd Partner & Seller) + Business & Resources (IMMObakēd Partner/Agent/Broker, Blog, News, Careers, Help Center).
+   - **Added** "Opportunities" column (replaces Available in): Investor Relations, Franchise Opportunities, Delivery Partner, Driver Registration, Merchant Registration.
+   - **Kept** "Support" column (Help Center, Contact us, Terms, Privacy) per user instruction.
+   - **Grid updated** to `md:grid-cols-5` (brand · Useful Links spans 2 · Opportunities · Support). Typography, hover animations, spacing, black background — all unchanged.
+   - **New landing** `/app/frontend/src/pages/ComingSoonLanding.jsx` — one reusable placeholder that infers title + description from the URL slug via a `SLUG_LABELS` table. Wired into 21 routes (`/shop/seller`, `/food/partner`, `/mart/*`, `/auto/*`, `/immo/*`, `/blog`, `/news`, `/careers`, `/help`, `/contact`, `/terms`, `/privacy`, `/investors`, `/franchise`, `/delivery-partner`, `/driver-registration`, `/merchant-registration`) in **both** the desktop and mobile customer shells (`/app/frontend/src/App.js`) so header + footer wrap them.
+   - **Test-ids**: every footer link has `footer-link-<slug-kebab>` and each landing page has `coming-soon-<slug-kebab>` for automation.
+   - **SEO ready**: each link is a real `<Link>` to a real route (not an anchor) — dedicated landing pages can be authored later without touching the footer again.

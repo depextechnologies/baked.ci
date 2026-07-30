@@ -13,6 +13,7 @@ import { CartPage } from "@/pages/CartPage";
 import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
+import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { AuthCallback } from "@/pages/AuthCallback";
 import { AdminLoginPage } from "@/pages/admin/AdminLoginPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
@@ -98,6 +99,30 @@ function DesktopCustomerShell() {
         <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
         <Route path="/immo" element={<ComingSoonPage />} />
+        {/* Footer landing pages (Fixing_Prompt.docx 2026-07-29). Placeholders
+            until each has its own authored content. Registered in both the
+            desktop and mobile shells so header + footer wrap them. */}
+        <Route path="/shop/seller"           element={<ComingSoonLanding />} />
+        <Route path="/food/partner"          element={<ComingSoonLanding />} />
+        <Route path="/mart/partner"          element={<ComingSoonLanding />} />
+        <Route path="/mart/seller"           element={<ComingSoonLanding />} />
+        <Route path="/auto/partner"          element={<ComingSoonLanding />} />
+        <Route path="/auto/seller"           element={<ComingSoonLanding />} />
+        <Route path="/immo/partner"          element={<ComingSoonLanding />} />
+        <Route path="/immo/agent"            element={<ComingSoonLanding />} />
+        <Route path="/immo/broker"           element={<ComingSoonLanding />} />
+        <Route path="/blog"                  element={<ComingSoonLanding />} />
+        <Route path="/news"                  element={<ComingSoonLanding />} />
+        <Route path="/careers"               element={<ComingSoonLanding />} />
+        <Route path="/help"                  element={<ComingSoonLanding />} />
+        <Route path="/contact"               element={<ComingSoonLanding />} />
+        <Route path="/terms"                 element={<ComingSoonLanding />} />
+        <Route path="/privacy"               element={<ComingSoonLanding />} />
+        <Route path="/investors"             element={<ComingSoonLanding />} />
+        <Route path="/franchise"             element={<ComingSoonLanding />} />
+        <Route path="/delivery-partner"      element={<ComingSoonLanding />} />
+        <Route path="/driver-registration"   element={<ComingSoonLanding />} />
+        <Route path="/merchant-registration" element={<ComingSoonLanding />} />
         <Route path="*" element={<HomePage />} />
       </Routes>
       <Footer />
@@ -149,6 +174,29 @@ function MobileCustomerShell() {
         <Route path="/express/movers/wizard" element={<MoversWizard />} />
         <Route path="/auto" element={<ComingSoonPage />} />
         <Route path="/immo" element={<ComingSoonPage />} />
+        {/* Footer landing pages — mirror of desktop routes so /blog etc. work
+            on mobile too. Single ComingSoonLanding infers title from URL. */}
+        <Route path="/shop/seller"           element={<ComingSoonLanding />} />
+        <Route path="/food/partner"          element={<ComingSoonLanding />} />
+        <Route path="/mart/partner"          element={<ComingSoonLanding />} />
+        <Route path="/mart/seller"           element={<ComingSoonLanding />} />
+        <Route path="/auto/partner"          element={<ComingSoonLanding />} />
+        <Route path="/auto/seller"           element={<ComingSoonLanding />} />
+        <Route path="/immo/partner"          element={<ComingSoonLanding />} />
+        <Route path="/immo/agent"            element={<ComingSoonLanding />} />
+        <Route path="/immo/broker"           element={<ComingSoonLanding />} />
+        <Route path="/blog"                  element={<ComingSoonLanding />} />
+        <Route path="/news"                  element={<ComingSoonLanding />} />
+        <Route path="/careers"               element={<ComingSoonLanding />} />
+        <Route path="/help"                  element={<ComingSoonLanding />} />
+        <Route path="/contact"               element={<ComingSoonLanding />} />
+        <Route path="/terms"                 element={<ComingSoonLanding />} />
+        <Route path="/privacy"               element={<ComingSoonLanding />} />
+        <Route path="/investors"             element={<ComingSoonLanding />} />
+        <Route path="/franchise"             element={<ComingSoonLanding />} />
+        <Route path="/delivery-partner"      element={<ComingSoonLanding />} />
+        <Route path="/driver-registration"   element={<ComingSoonLanding />} />
+        <Route path="/merchant-registration" element={<ComingSoonLanding />} />
         <Route path="*" element={<MobileHome />} />
       </Routes>
       <GlobalLoginDialog />
