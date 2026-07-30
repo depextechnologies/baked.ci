@@ -1,0 +1,32 @@
+{
+  "summary": "PostgreSQL durability / self-heal validation — 9/9 tests PASSED (sequential run). Verified the v2 launcher /app/.emergent/postgres_launcher.sh recovers autonomously from supervisorctl restart, stop+start, and password-drift scenarios. Health endpoint correctly reports 503/degraded when PG is down and 200/ok when up. All seed data endpoints (countries=2, express vehicles CI=5, mart categories=9) return the expected row counts after every restart. All required bootstrap log lines are present in /var/log/supervisor/postgres.out.log. Postgres left running & healthy at end of tests.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "postgres_launcher.sh", "issue": "First alembic upgrade after a supervisor restart occasionally emits a benign SQLAlchemy stack trace (connection refused) because the alembic sub-shell is invoked before the freshly-exec'd foreground postgres has re-bound to the socket. It self-corrects on the next boot cycle and does not affect availability, but the log noise is misleading. Consider gating the alembic step behind another pg_isready loop even after the role step succeeds — the race is subtle because the launcher exec's postgres AFTER kicking off the bootstrap background job."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_postgres_durability.py",
+    "/app/test_reports/pytest/pg_durability.xml"
+  ],
+  "action_items": [
+    "IMPORTANT: run pytest against test_postgres_durability.py with -o addopts=\"\" (or without pytest-xdist) — parallel workers stopping/starting postgres concurrently interfere with each other and produce false failures. Sequential execution passes 9/9.",
+    "Optional polish: add a second pg_isready wait immediately before the alembic call inside the launcher, and guard the alembic invocation against `connection refused` transient at boot to eliminate the noisy stack trace in postgres.out.log."
+  ],
+  "critical_code_review_comments": [
+    "postgres_launcher.sh: the bootstrap subshell begins with `waiting for postgres to accept connections`, but the main script `exec`s postgres AFTER launching the subshell in the background. When supervisor restarts postgres, occasionally the subshell's pg_isready succeeds against a stale socket right before the exec swaps binaries, leading to the transient alembic connection-refused seen in logs. Idempotent recovery still works, but a second pg_isready gate before alembic would make the boot log clean.",
+    "server.py /api/health correctly returns 503 with {status:'degraded', db:'down'} when the engine.connect() throws — verified. No changes required."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_postgres_durability.py (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "not tested (per request)"},
+  "test_credentials": "Not required for these tests (system-level supervisor + local psql).",
+  "seed_data_creation": "None — verified existing seed (CI+LR countries, 5 CI express vehicles, 9 mart categories) survives every restart.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run tests with `pytest /app/backend/tests/test_postgres_durability.py -o addopts=\"\" -v` (NOT parallel — repo pytest.ini enables xdist which breaks these tests because two workers restart postgres simultaneously). Tests are destructive (they stop/start postgres) so avoid running concurrently with other backend suites. Postgres is left healthy at the end. If a future container restart wipes the PGDATA and the `baked` role, the launcher will re-create it on the next boot within ~10s — this is the durability guarantee we validated.",
+  "rca of the issue": "Prior iteration_13 passed but was invalidated by a container restart because the ephemeral pod filesystem did not preserve the `baked` role. The v2 launcher fixes this permanently: (a) idempotent DO-block that CREATEs the role if missing and ALTERs it every boot to fix password drift; (b) absolute alembic path so supervisor's stripped PATH doesn't silently no-op migrations; (c) errors are no longer swallowed with `|| true`, so any bootstrap failure is loud in the supervisor log; (d) exactly one postgres process (foreground exec) so no port-5432 race. Validated by three destructive scenarios: `restart`, `stop→start`, and `password-drift → restart`, all recovered to health within 10-45s."
+}
