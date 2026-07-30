@@ -29,6 +29,8 @@ from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
 
+logger = logging.getLogger("baked")
+
 api_router = APIRouter(prefix="/api")
 
 
@@ -39,7 +41,25 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    return {"status": "ok"}
+    """Deep health check — verifies the app is up AND the DB is reachable.
+
+    Returns 200 with db='up' when SELECT 1 succeeds, 503 with db='down' when
+    the pool cannot round-trip. Previously this endpoint returned 200 even
+    when Postgres was down, silently masking data-integrity outages.
+    """
+    from sqlalchemy import text
+    from fastapi import Response
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "up"}
+    except Exception as e:  # noqa: BLE001
+        logger.error("baked.health db_check_failed err=%s", e)
+        return Response(
+            content='{"status":"degraded","db":"down"}',
+            status_code=503,
+            media_type="application/json",
+        )
 
 
 # --- Shared Platform Foundation ---
@@ -68,7 +88,6 @@ app.add_middleware(
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("baked")
 
 
 @app.on_event("startup")
