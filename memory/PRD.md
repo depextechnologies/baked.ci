@@ -204,3 +204,10 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **New landing** `/app/frontend/src/pages/ComingSoonLanding.jsx` — one reusable placeholder that infers title + description from the URL slug via a `SLUG_LABELS` table. Wired into 21 routes (`/shop/seller`, `/food/partner`, `/mart/*`, `/auto/*`, `/immo/*`, `/blog`, `/news`, `/careers`, `/help`, `/contact`, `/terms`, `/privacy`, `/investors`, `/franchise`, `/delivery-partner`, `/driver-registration`, `/merchant-registration`) in **both** the desktop and mobile customer shells (`/app/frontend/src/App.js`) so header + footer wrap them.
    - **Test-ids**: every footer link has `footer-link-<slug-kebab>` and each landing page has `coming-soon-<slug-kebab>` for automation.
    - **SEO ready**: each link is a real `<Link>` to a real route (not an anchor) — dedicated landing pages can be authored later without touching the footer again.
+
+- ✅ **PostgreSQL Migration Validation & Self-Heal (2026-07-30, Fixing_Prompt.docx)** — resolved the "empty modules + Unable to check delivery zone" outage.
+   - **Root cause**: Postgres process died on container restart; `/api/health` returned `ok` unconditionally so the outage was silent (ingress probes passed, UI rendered but every DB query was 5xxing).
+   - **Fix 1 — DB-aware healthcheck** (`/app/backend/server.py`): `/api/health` now runs `SELECT 1` via `engine.connect()` → 503 `{status:'degraded', db:'down'}` on failure, 200 `{status:'ok', db:'up'}` on success.
+   - **Fix 2 — Self-healing Postgres** (`/etc/supervisor/conf.d/postgres.conf` + `/app/.emergent/postgres_launcher.sh`): supervisor owns PG15. Launcher idempotently creates `baked` role + DB + runs `alembic upgrade head` then `exec`s the postgres binary. Data-dir preserved.
+   - **Verified seed magnitudes**: countries=2, express_vehicles=10, mart_categories=18, mart_stores=5, module_drivers=30. All previously-empty endpoints now return real data.
+   - **Testing**: `iteration_13.json` — 12/12 backend pytest + 100% frontend pass. Contract-lock file `/app/backend/tests/test_pg_migration_seed.py`.
