@@ -1,0 +1,280 @@
+/* =============================================================================
+ * BAKĒD Partner Landing Portal — theme tokens
+ * Scoped to `.partner-landing` so this palette does NOT leak into the customer
+ * or admin apps (they keep their own tokens from App.css / tailwind config).
+ *
+ * Colours & rules verbatim from Fixing_Prompt.docx v1.0 Premium 2026:
+ *   Dark  bg #090909 · cards #121212 · accent #1D9BF0 · border rgba(255,255,255,0.08)
+ *   Light bg #FFFFFF · cards #F8F9FB · accent #1D9BF0 · border rgba(0,0,0,0.08)
+ * ========================================================================= */
+
+.partner-landing {
+  --pl-accent: #1D9BF0;
+  --pl-accent-soft: rgba(29, 155, 240, 0.12);
+  --pl-accent-glow: rgba(29, 155, 240, 0.28);
+
+  color: var(--pl-fg);
+  background: var(--pl-bg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+.partner-landing[data-theme="dark"] {
+  --pl-bg: #090909;
+  --pl-bg-elevated: #0d0d0d;
+  --pl-card: #121212;
+  --pl-card-hover: #171717;
+  --pl-fg: #ffffff;
+  --pl-fg-muted: rgba(255, 255, 255, 0.62);
+  --pl-fg-subtle: rgba(255, 255, 255, 0.42);
+  --pl-border: rgba(255, 255, 255, 0.08);
+  --pl-border-strong: rgba(255, 255, 255, 0.16);
+  --pl-nav-bg: rgba(9, 9, 9, 0.72);
+  --pl-skyline-tint: rgba(9, 9, 9, 0.85);
+}
+
+.partner-landing[data-theme="light"] {
+  --pl-bg: #ffffff;
+  --pl-bg-elevated: #ffffff;
+  --pl-card: #F8F9FB;
+  --pl-card-hover: #F1F3F6;
+  --pl-fg: #0a0a0a;
+  --pl-fg-muted: rgba(10, 10, 10, 0.60);
+  --pl-fg-subtle: rgba(10, 10, 10, 0.40);
+  --pl-border: rgba(10, 10, 10, 0.08);
+  --pl-border-strong: rgba(10, 10, 10, 0.14);
+  --pl-nav-bg: rgba(255, 255, 255, 0.78);
+  --pl-skyline-tint: rgba(255, 255, 255, 0.65);
+}
+
+/* ------------------------------- Typography ------------------------------- */
+
+.pl-display {
+  font-size: clamp(2.6rem, 6.4vw, 5.75rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+.pl-h1  { font-size: clamp(2.2rem, 4vw, 3.5rem);  font-weight: 700; letter-spacing: -0.028em; line-height: 1.06; }
+.pl-h2  { font-size: clamp(1.7rem, 2.6vw, 2.4rem); font-weight: 600; letter-spacing: -0.02em;  line-height: 1.15; }
+.pl-h3  { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
+.pl-body-lg { font-size: 1.125rem; line-height: 1.6; color: var(--pl-fg-muted); }
+.pl-body    { font-size: 0.975rem; line-height: 1.65; color: var(--pl-fg-muted); }
+.pl-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pl-accent);
+}
+
+/* ---------------------------- Reusable primitives ------------------------- */
+
+.pl-container    { max-width: 1240px; margin: 0 auto; padding: 0 clamp(20px, 4vw, 48px); }
+.pl-section      { padding-block: clamp(80px, 10vw, 160px); }
+.pl-section-tight{ padding-block: clamp(64px, 7vw, 112px); }
+
+.pl-card {
+  background: var(--pl-card);
+  border: 1px solid var(--pl-border);
+  border-radius: 24px;
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+              border-color 0.25s ease,
+              box-shadow 0.35s ease,
+              background 0.25s ease;
+}
+.pl-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--pl-accent);
+  background: var(--pl-card-hover);
+  box-shadow: 0 24px 60px -30px var(--pl-accent-glow);
+}
+
+.pl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.005em;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+.pl-btn:active { transform: scale(0.98); }
+
+.pl-btn-primary {
+  background: var(--pl-accent);
+  color: #ffffff;
+  box-shadow: 0 12px 30px -12px rgba(29, 155, 240, 0.55);
+}
+.pl-btn-primary:hover { background: #0f8ce0; box-shadow: 0 18px 40px -12px rgba(29, 155, 240, 0.7); }
+
+.pl-btn-secondary {
+  background: transparent;
+  color: var(--pl-fg);
+  border: 1px solid var(--pl-border-strong);
+}
+.pl-btn-secondary:hover { border-color: var(--pl-accent); color: var(--pl-accent); }
+
+.pl-btn-ghost {
+  background: transparent;
+  color: var(--pl-fg-muted);
+  height: 40px;
+  padding: 0 14px;
+}
+.pl-btn-ghost:hover { color: var(--pl-fg); }
+
+/* --------------------------------- Navbar --------------------------------- */
+
+.pl-nav {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  transition: background 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+  border-bottom: 1px solid transparent;
+}
+.pl-nav[data-scrolled="true"] {
+  background: var(--pl-nav-bg);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom-color: var(--pl-border);
+}
+
+.pl-nav-link {
+  color: var(--pl-fg-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+.pl-nav-link:hover { color: var(--pl-fg); }
+
+/* ---------------------------------- Hero ---------------------------------- */
+
+.pl-hero {
+  position: relative;
+  min-height: calc(100vh - 72px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.pl-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1200px 600px at 20% 30%, rgba(29, 155, 240, 0.14), transparent 60%),
+    radial-gradient(900px 500px at 80% 70%, rgba(29, 155, 240, 0.10), transparent 65%),
+    linear-gradient(180deg, transparent 0%, var(--pl-bg) 92%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'><defs><linearGradient id='s' x1='0' y1='1' x2='0' y2='0'><stop offset='0' stop-color='%23050a15'/><stop offset='1' stop-color='%23122139'/></linearGradient></defs><rect fill='url(%23s)' width='1600' height='900'/><g fill='%23000000' opacity='0.85'><polygon points='0,900 0,620 60,620 60,560 130,560 130,600 210,600 210,540 260,540 260,590 340,590 340,510 410,510 410,570 470,570 470,600 540,600 540,520 610,520 610,580 690,580 690,540 760,540 760,600 830,600 830,560 900,560 900,520 970,520 970,580 1050,580 1050,540 1120,540 1120,600 1200,600 1200,560 1280,560 1280,520 1360,520 1360,580 1440,580 1440,540 1520,540 1520,600 1600,600 1600,900'/></g><g fill='%23fcc44c' opacity='0.55'><circle cx='80' cy='640' r='1.6'/><circle cx='150' cy='580' r='1.4'/><circle cx='230' cy='620' r='1.8'/><circle cx='320' cy='560' r='1.4'/><circle cx='400' cy='600' r='1.6'/><circle cx='480' cy='580' r='1.5'/><circle cx='560' cy='620' r='1.3'/><circle cx='640' cy='560' r='1.7'/><circle cx='720' cy='600' r='1.4'/><circle cx='800' cy='580' r='1.6'/><circle cx='880' cy='540' r='1.4'/><circle cx='960' cy='600' r='1.5'/><circle cx='1040' cy='560' r='1.6'/><circle cx='1120' cy='580' r='1.4'/><circle cx='1200' cy='620' r='1.7'/><circle cx='1280' cy='540' r='1.5'/><circle cx='1360' cy='600' r='1.4'/><circle cx='1440' cy='560' r='1.6'/><circle cx='1520' cy='580' r='1.5'/></g></svg>");
+  background-size: cover, cover, 100% 100%, cover;
+  background-position: center;
+  opacity: 1;
+}
+.partner-landing[data-theme="light"] .pl-hero-bg {
+  background-image:
+    radial-gradient(1200px 600px at 20% 30%, rgba(29, 155, 240, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 80% 70%, rgba(29, 155, 240, 0.06), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,0.4) 0%, var(--pl-bg) 92%),
+    linear-gradient(180deg, #eaf2fb 0%, #ffffff 100%);
+}
+
+/* ----------------------------- Opportunity card --------------------------- */
+
+.pl-opp-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 32px;
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+.pl-opp-card .pl-opp-image {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  opacity: 0.28;
+}
+.partner-landing[data-theme="light"] .pl-opp-card .pl-opp-image { opacity: 0.18; }
+.pl-opp-card:hover .pl-opp-image { transform: scale(1.06); }
+.pl-opp-card:hover { box-shadow: 0 30px 80px -32px var(--pl-accent-glow); }
+
+/* ------------------------------- Timeline --------------------------------- */
+
+.pl-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+  position: relative;
+}
+.pl-timeline::before {
+  content: "";
+  position: absolute;
+  top: 30px; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pl-border-strong), transparent);
+}
+.pl-timeline-node {
+  width: 60px; height: 60px;
+  border-radius: 999px;
+  background: var(--pl-card);
+  border: 1px solid var(--pl-border-strong);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  color: var(--pl-accent);
+  margin: 0 auto 18px;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.pl-timeline-step:hover .pl-timeline-node {
+  transform: translateY(-4px);
+  border-color: var(--pl-accent);
+  box-shadow: 0 12px 30px -14px var(--pl-accent-glow);
+}
+@media (max-width: 900px) {
+  .pl-timeline { grid-template-columns: 1fr; gap: 32px; }
+  .pl-timeline::before { display: none; }
+}
+
+/* --------------------------------- Reveal --------------------------------- */
+
+.pl-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.pl-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --------------------------- Country / theme toggle ----------------------- */
+
+.pl-icon-btn {
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--pl-border);
+  background: transparent;
+  color: var(--pl-fg-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.pl-icon-btn:hover { color: var(--pl-fg); border-color: var(--pl-border-strong); background: var(--pl-card); }
+
+/* --------------------------- Utility & focus ring ------------------------- */
+
+.partner-landing a:focus-visible,
+.partner-landing button:focus-visible {
+  outline: 2px solid var(--pl-accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}

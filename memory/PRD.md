@@ -223,3 +223,19 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
      - All errors NOT swallowed — every step logs with UTC timestamp.
    - **Contract**: after ANY `supervisorctl restart postgres` the platform recovers to `/api/health = {status:ok, db:up}` in ≤10 seconds. Data persists on `/var/lib/postgresql/15/main`; role/DB re-created idempotently if the pod ever loses them.
    - **Testing**: `iteration_14.json` — **9/9 durability tests PASS** across three destructive scenarios (restart, stop→start, password-drift). Regression file `/app/backend/tests/test_postgres_durability.py`.
+- ✅ **v2.0 Phase 1a — Monorepo Frontend Refactor (2026-02, safe route)** — App.js is now a thin dispatcher.
+   - `/app/frontend/src/apps/customer/CustomerApp.jsx` owns the desktop + mobile customer shells, provider stack (Auth, App, Cart, ExpressBooking, MoversBooking), and all `/*` routes.
+   - `/app/frontend/src/apps/admin/AdminApp.jsx` owns `/admin/*` routes (login + layout + module workspace).
+   - `/app/frontend/src/apps/partner-landing/PartnerLandingApp.jsx` owns `/partner/*` — the premium landing portal below.
+   - `/app/frontend/src/App.js` reduced to ~28 lines: three top-level `<Route>` entries dispatching to the three apps. Zero behaviour change, verified with screenshots on all three routes.
+   - `/app/frontend/src/packages/ui/index.js` expanded with more shadcn re-exports so future partner apps import from `@/packages/ui`.
+   - Files still physically live under legacy `pages/` and `components/`; Phase 1b (yarn workspaces + physical relocation) intentionally deferred — not blocking Phase 2.
+
+- ✅ **BAKĒD Partner Landing Portal v1.0 Premium 2026 (2026-02, Fixing_Prompt.docx)** — the premium partner acquisition site at `/partner`.
+   - **Sections implemented**: Hero (full viewport, night skyline gradient + orbiting six-module illustration), Trust Bar (6 icons), Opportunities (2x3 large cards with hover lift + glow, each Apply Now deep-links to future `mart.partner.baked.ci` etc.), Why Partner With BAKĒD (6 stat cards), Growth (50/50 with bespoke growth chart illustration), Testimonial carousel (3 partner quotes, prev/next arrows), How It Works (5-step horizontal timeline with numbered nodes), Final CTA (night skyline BG), Partner Footer (4 cols).
+   - **Theme system** (`/app/frontend/src/apps/partner-landing/partner-landing.css`): CSS-variable palette scoped to `.partner-landing[data-theme]`, dark default, OS preference detection on first visit, `localStorage.baked_partner_theme` persistence, instant swap via header toggle. Palette matches docx: dark #090909 / #121212 / #1D9BF0 with `rgba(255,255,255,0.08)` border; light #FFFFFF / #F8F9FB / #1D9BF0.
+   - **Reusable pieces** (per docx architecture rule): `Navbar` (sticky, transparent → blurred solid on scroll), `ThemeToggle`, `CountrySelector` (CI/LR ready for future countries), `Reveal` (IntersectionObserver scroll reveal), `OpportunityCard`, `HeroEcosystemIllustration`, `GrowthIllustration`, `TestimonialCarousel`, `TimelineSection`.
+   - **Non-goals honoured**: onboarding wizards NOT built (Apply Now CTAs are outbound links only per docx).
+   - **Test-ids**: every interactive element has a `partner-*` `data-testid` (`partner-hero-cta-primary`, `partner-opportunity-mart`, `partner-testimonial-next`, `partner-theme-toggle`, `partner-country-selector`, etc.).
+   - **Footer wiring**: site-wide footer's "Opportunities" column reduced to a single "Partner with baked" entry linking to `/partner` (per docx + user instruction).
+

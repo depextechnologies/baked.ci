@@ -51,13 +51,11 @@ const BUSINESS_RESOURCES = [
   ["Help Center",       "/help"],
 ];
 
-// Opportunities — replaces the "Available in" column
+// Opportunities — per Fixing_Prompt.docx (Premium Partner Portal 2026):
+// keep a single "Partner with baked" menu that opens the dedicated Partner
+// Landing Portal at /partner. All other opportunity entries retired.
 const OPPORTUNITIES = [
-  ["Investor Relations",     "/investors"],
-  ["Franchise Opportunities","/franchise"],
-  ["Delivery Partner",       "/delivery-partner"],
-  ["Driver Registration",    "/driver-registration"],
-  ["Merchant Registration",  "/merchant-registration"],
+  ["Partner with baked", "/partner"],
 ];
 
 // Support — kept as-is per user's request. Existing routes preserved.
