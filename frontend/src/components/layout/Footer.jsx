@@ -51,11 +51,15 @@ const BUSINESS_RESOURCES = [
   ["Help Center",       "/help"],
 ];
 
-// Opportunities — per Fixing_Prompt.docx (Premium Partner Portal 2026):
-// keep a single "Partner with baked" menu that opens the dedicated Partner
-// Landing Portal at /partner. All other opportunity entries retired.
+// Opportunities — three canonical partner entry points (2026-02 revision).
+// "Sell on bakēd" goes to the premium Partner Landing Portal at
+// /Sell-on-baked (see App.js). "Partner With bakēd" and "bakēd delivery"
+// currently render through the reusable ComingSoonLanding via the customer
+// shell — dedicated pages will replace them later without touching this file.
 const OPPORTUNITIES = [
-  ["Partner with baked", "/partner"],
+  ["Partner With bakēd", "/partner"],
+  ["Sell on bakēd",      "/Sell-on-baked"],
+  ["bakēd delivery",     "/baked-delivery"],
 ];
 
 // Support — kept as-is per user's request. Existing routes preserved.

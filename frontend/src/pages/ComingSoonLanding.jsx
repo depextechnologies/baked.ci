@@ -32,6 +32,8 @@ const SLUG_LABELS = {
   "delivery-partner":     ["Delivery Partner",         "Own a fleet? Become a BAKĒD delivery partner."],
   "driver-registration":  ["Driver Registration",      "Earn with EXPRESSbakēd — sign up as a driver."],
   "merchant-registration":["Merchant Registration",    "One form to onboard your business to every BAKĒD module."],
+  "partner":              ["Partner With bakēd",       "A dedicated Partner Portal is on the way — for now, discover partnership opportunities on 'Sell on bakēd'."],
+  "baked-delivery":       ["bakēd delivery",           "Same-day, same-city delivery powered by the BAKĒD dispatch network. Product page coming soon."],
 };
 
 const humanize = (slug) => slug.split("/").map((s) => s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())).join(" · ");

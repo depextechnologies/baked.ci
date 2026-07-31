@@ -11,19 +11,21 @@ import { PartnerLandingApp } from "@/apps/partner-landing/PartnerLandingApp";
  *
  * Per Fixing_Prompt.docx v2.0, the source of truth for each independently-
  * deployable frontend now lives under `src/apps/*`:
- *   /admin/*    → apps/admin/AdminApp        (production: admin.baked.ci)
- *   /partner/*  → apps/partner-landing/*     (production: partner.baked.ci)
- *   /*          → apps/customer/CustomerApp  (production: baked.ci)
+ *   /admin/*         → apps/admin/AdminApp        (production: admin.baked.ci)
+ *   /Sell-on-baked/* → apps/partner-landing/*     (production: sell.baked.ci)
+ *   /*               → apps/customer/CustomerApp  (production: baked.ci)
  *
- * This file's only job is to pick the correct app based on the top-level
- * path prefix (Option A path-based routing until DNS is live).
+ * The `/partner` route is intentionally routed through the customer shell
+ * (renders as a "coming soon" page) — a dedicated Partner Portal will be
+ * built there in a later pass, distinct from the Sell-on-baked seller
+ * landing that lives at `/Sell-on-baked`.
  */
 const App = () => (
   <BrowserRouter>
     <AdminProvider>
       <Routes>
         <Route path="/admin/*" element={<AdminApp />} />
-        <Route path="/partner/*" element={<PartnerLandingApp />} />
+        <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
         <Route path="/*" element={<CustomerApp />} />
       </Routes>
       <Toaster position="top-right" theme="dark" />

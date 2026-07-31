@@ -145,7 +145,7 @@ const Navbar = ({ theme, onToggleTheme }) => {
   return (
     <header className="pl-nav" data-scrolled={scrolled}>
       <div className="pl-container flex items-center justify-between" style={{ height: 72 }}>
-        <Link to="/partner" className="flex items-center gap-3" data-testid="partner-nav-logo">
+        <Link to="/Sell-on-baked" className="flex items-center gap-3" data-testid="partner-nav-logo">
           <BakedLogo size="md" />
         </Link>
 
