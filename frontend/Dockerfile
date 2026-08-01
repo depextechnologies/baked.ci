@@ -32,8 +32,13 @@ FROM nginx:1.27-alpine
 # Copy built application
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx configuration as a template so SERVER_NAME is substituted from
+# the environment at container start (nginx's docker-entrypoint.d scripts
+# run envsubst on *.template files in /etc/nginx/templates/).
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Default used if SERVER_NAME isn't provided at runtime (local dev)
+ENV SERVER_NAME=localhost
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

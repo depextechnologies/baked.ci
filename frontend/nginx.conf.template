@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name baked.ci www.baked.ci;
+    server_name ${SERVER_NAME};
 
     root /usr/share/nginx/html;
     index index.html;
