@@ -59,10 +59,18 @@ api_router.include_router(orders_router)
 
 app.include_router(api_router)
 
+_DEV_ORIGINS = ["http://localhost", "http://localhost:3000", "http://127.0.0.1:3000"]
+_cors_origins_raw = os.environ.get("CORS_ORIGINS", "")
+_allowed_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+if not _allowed_origins:
+    if (os.environ.get("APP_ENV") or "").lower() == "production":
+        raise RuntimeError("CORS_ORIGINS must be set to the site's real origin(s) in production")
+    _allowed_origins = _DEV_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origin_regex=".*",  # reflect the request Origin (required when credentials=True; wildcard "*" is invalid)
+    allow_origins=_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
