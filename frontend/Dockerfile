@@ -6,11 +6,14 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy dependency files first for better Docker cache
-COPY package.json yarn.lock ./
+COPY package*.json ./
 
-RUN yarn install \
-    --frozen-lockfile \
-    --network-timeout 600000
+# Install dependencies
+RUN if [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      npm install; \
+    fi
 
 # Copy application source
 COPY . .
@@ -22,7 +25,7 @@ ENV REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 ARG REACT_APP_GOOGLE_MAPS_API_KEY
 ENV REACT_APP_GOOGLE_MAPS_API_KEY=${REACT_APP_GOOGLE_MAPS_API_KEY}
 
-RUN yarn build
+RUN npm run build
 
 # ==========================================================
 # Runtime Stage
