@@ -56,10 +56,10 @@
 /* ------------------------------- Typography ------------------------------- */
 
 .ph-display {
-  font-size: clamp(2.75rem, 6.6vw, 6rem);
+  font-size: clamp(2.25rem, 4.4vw, 4rem);
   font-weight: 700;
   letter-spacing: -0.038em;
-  line-height: 0.98;
+  line-height: 1.02;
 }
 .ph-h1 { font-size: clamp(2.2rem, 4vw, 3.75rem); font-weight: 700; letter-spacing: -0.028em; line-height: 1.05; }
 .ph-h2 { font-size: clamp(1.75rem, 2.8vw, 2.4rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
