@@ -52,7 +52,7 @@ services:
       postgres:
         condition: service_healthy
 
-    # Internal only - NOT publicly exposed
+    # Backend is accessible only inside Docker network
     expose:
       - "8001"
 
@@ -78,10 +78,9 @@ services:
 
     build:
       context: ./frontend
-
-    args:
-      REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL}
-      REACT_APP_GOOGLE_MAPS_API_KEY: ${REACT_APP_GOOGLE_MAPS_API_KEY}
+      args:
+        REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL}
+        REACT_APP_GOOGLE_MAPS_API_KEY: ${REACT_APP_GOOGLE_MAPS_API_KEY}
 
     restart: unless-stopped
 
@@ -89,12 +88,12 @@ services:
       backend:
         condition: service_healthy
 
-    # ONLY HTTP for initial Let's Encrypt certificate
+    # HTTP only for Let's Encrypt certificate generation
     ports:
       - "80:80"
 
     volumes:
-      # Let's Encrypt HTTP challenge files
+      # Let's Encrypt ACME challenge files
       - certbot_www:/var/www/certbot
 
       # SSL certificates
@@ -133,7 +132,7 @@ services:
       # ACME challenge files shared with Nginx
       - certbot_www:/var/www/certbot
 
-      # Certificates persist on Docker volume
+      # Let's Encrypt certificates
       - certbot_certs:/etc/letsencrypt
 
     networks:
