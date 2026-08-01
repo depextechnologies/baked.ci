@@ -51,15 +51,16 @@ const BUSINESS_RESOURCES = [
   ["Help Center",       "/help"],
 ];
 
-// Opportunities — three canonical partner entry points (2026-02 revision).
-// "Sell on bakēd" goes to the premium Partner Landing Portal at
-// /Sell-on-baked (see App.js). "Partner With bakēd" and "bakēd delivery"
-// currently render through the reusable ComingSoonLanding via the customer
-// shell — dedicated pages will replace them later without touching this file.
+// Opportunities — per Fixing_Prompt.docx (Partner Hub 2026-02):
+// five canonical partner entry points. "Partner with BAKĒD" opens the new
+// /partner hub with four opportunity cards; "Sell on BAKĒD" jumps directly
+// to the seller landing at /Sell-on-baked.
 const OPPORTUNITIES = [
-  ["Partner With bakēd", "/partner"],
-  ["Sell on bakēd",      "/Sell-on-baked"],
-  ["bakēd delivery",     "/baked-delivery"],
+  ["Partner with BAKĒD",       "/partner"],
+  ["Sell on BAKĒD",            "/Sell-on-baked"],
+  ["Franchise Opportunities",  "/franchise"],
+  ["Delivery Partner",         "/delivery-partner"],
+  ["Merchant Registration",    "/merchant-registration"],
 ];
 
 // Support — kept as-is per user's request. Existing routes preserved.

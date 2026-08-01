@@ -63,10 +63,8 @@ const FOOTER_LANDING_PATHS = [
   "/blog", "/news", "/careers", "/help", "/contact",
   "/terms", "/privacy", "/investors", "/franchise",
   "/delivery-partner", "/driver-registration", "/merchant-registration",
-  // v2.0 Opportunities column — /Sell-on-baked has its own dedicated Partner
-  // Landing Portal at App-router level; /partner and /baked-delivery are
-  // still coming soon and render through the customer shell.
-  "/partner", "/baked-delivery",
+  // /baked-delivery kept accessible via direct URL; not linked in the footer.
+  "/baked-delivery",
 ];
 
 const FooterLandingRoutes = () =>

@@ -239,3 +239,12 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Test-ids**: every interactive element has a `partner-*` `data-testid` (`partner-hero-cta-primary`, `partner-opportunity-mart`, `partner-testimonial-next`, `partner-theme-toggle`, `partner-country-selector`, etc.).
    - **Footer wiring**: site-wide footer's "Opportunities" column reduced to a single "Partner with baked" entry linking to `/partner` (per docx + user instruction).
 
+
+- ✅ **BAKĒD Partner Hub — /partner (2026-02, Fixing_Prompt.docx)** — the dedicated multi-partner acquisition portal, distinct from the seller landing at /Sell-on-baked.
+   - **New app** `/app/frontend/src/apps/partner-hub/PartnerHubApp.jsx` + `partner-hub.css`; wired into `App.js` at `/partner/*`.
+   - **Sections**: Hero (Abidjan skyline photo + enterprise grid overlay), Opportunities (2×2 image-forward cards with premium photography — Dark Store, Rent Property, Sell on BAKĒD, Delivery Partner), Why Partner (8 feature cards), Success Stories (4-story testimonial carousel with next/prev), How It Works (5-step timeline with animated gradient line), Final CTA (glassmorphism card on skyline BG), Hub Footer.
+   - **Card destinations** (per docx): MARTbakēd Dark Store → `mart.partner.baked.ci`, Rent Property → mailto (properties@baked.ci), Sell on BAKĒD → internal `/Sell-on-baked` (reuses existing landing), Delivery Partner → `driver.baked.ci`.
+   - **Design distinction from /Sell-on-baked**: amber (#FCC44C) + blue (#1D9BF0) accent blend, real photography instead of illustration, image-top card layout (Blinkit-inspired), enterprise grid mask on hero, glassmorphism on Final CTA. Dark mode default + light mode support with `localStorage.baked_partner_hub_theme` (separate key from the seller landing).
+   - **Test-ids**: `hub-nav-*`, `hub-hero-*`, `hub-opportunity-<id>`, `hub-story-prev/next`, `hub-final-*`, `hub-theme-toggle` for automation.
+   - **Footer Opportunities column** updated per docx to 5 items: Partner with BAKĒD → /partner, Sell on BAKĒD → /Sell-on-baked, Franchise Opportunities → /franchise, Delivery Partner → /delivery-partner, Merchant Registration → /merchant-registration.
+
