@@ -21,6 +21,8 @@ import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
+import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
+import { TermsOfService } from "@/pages/legal/TermsOfService";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { MobileHome } from "@/pages/mobile/MobileHome";
@@ -60,7 +62,7 @@ const FOOTER_LANDING_PATHS = [
   "/shop/seller", "/food/partner", "/mart/partner", "/mart/seller",
   "/auto/partner", "/auto/seller", "/immo/partner", "/immo/agent", "/immo/broker",
   "/blog", "/news", "/careers", "/help", "/contact",
-  "/terms", "/privacy", "/investors", "/franchise",
+  "/investors", "/franchise",
   "/delivery-partner", "/driver-registration", "/merchant-registration",
   // /baked-delivery kept accessible via direct URL; not linked in the footer.
   "/baked-delivery",
@@ -111,6 +113,8 @@ const DesktopCustomerShell = () => (
       <Route path="/express/movers/wizard" element={<MoversWizard />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
       {FooterLandingRoutes()}
       <Route path="*" element={<HomePage />} />
     </Routes>
@@ -161,6 +165,8 @@ const MobileCustomerShell = () => (
       <Route path="/express/movers/wizard" element={<MoversWizard />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
       {FooterLandingRoutes()}
       <Route path="*" element={<MobileHome />} />
     </Routes>
