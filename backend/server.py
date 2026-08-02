@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 import os
+import asyncio
 
 # Load env before anything imports core modules
 ROOT_DIR = Path(__file__).parent
@@ -92,6 +93,31 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 
 @app.on_event("startup")
 async def _on_startup():
+    """Startup hook — wait for Postgres to be ready, then seed.
+
+    RCA (Fixing_Prompt.docx 2026-02): backend regularly restarts before the
+    postgres_launcher has finished binding to port 5432. The seed used to
+    fail silently on the first `Connect call failed` and leave the DB empty,
+    which broke every configuration-driven module (auth, MART, EXPRESS, …).
+    We now retry the DB connection up to ~30s before giving up.
+    """
+    from sqlalchemy import text
+    from core.db import engine as _engine
+
+    logger.info("baked.startup waiting for postgres…")
+    for attempt in range(30):
+        try:
+            async with _engine.begin() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.info("baked.startup postgres ready (attempt %d)", attempt + 1)
+            break
+        except Exception as e:  # noqa: BLE001
+            logger.warning("baked.startup postgres not ready attempt=%d err=%s", attempt + 1, e)
+            await asyncio.sleep(1)
+    else:
+        logger.error("baked.startup postgres never became ready — skipping seed")
+        return
+
     logger.info("baked.startup running seed…")
     try:
         await run_seed()

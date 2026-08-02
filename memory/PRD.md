@@ -256,3 +256,11 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Env**: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in `backend/.env`; `REACT_APP_GOOGLE_CLIENT_ID` in `frontend/.env`.
    - **Verified**: clicking "Continue with Google" opens `accounts.google.com` popup with the correct client_id, `scope=openid profile email`, `response_type=code`. Backend `/api/auth/google/verify` correctly rejects malformed codes. Google Cloud Console origins/redirect URIs must include `baked-platform.preview.emergentagent.com`, `baked.ci`, `www.baked.ci` (owner responsibility documented in test_credentials.md).
 
+
+- ✅ **P0 Regression Fix — Post-PG Migration DB Empty (2026-02-02)** — every configuration table was 0-rows because backend startup race with Postgres silently failed the seed.
+   - **Root cause**: `postgres_launcher.sh` takes ~1–5s after boot before accepting connections. Backend `startup` hook called `run_seed()` immediately, got `Errno 111 Connect call failed`, logged `baked.seed_failed`, and continued anyway. Every restart left the DB empty.
+   - **Fix**: `/app/backend/server.py` `_on_startup` now retries `SELECT 1` up to 30× (1s each) before running seed; if PG never comes up we skip seed and log a critical error instead of silently continuing.
+   - **Impact restored**: MART (categories, products, search, offers), EXPRESS (vehicles, package types, weight tiers, pricing rules, movers), countries, cities, admin users — all populated. Google Sign-In was already correct code-wise; the "intermittent" failure users saw was because `_find_or_create_customer_by_google` had to touch empty tables.
+   - **Verification**: full audit report at `/app/memory/AUDIT_2026-02-02_PG_REGRESSION.md` with row counts, API smoke tests, and screenshot evidence for every module named in the docx acceptance criteria.
+   - **Zero MongoDB residuals**: `grep -rn "motor|pymongo|bson|ObjectId" /app/backend/` returns zero hits; requirements.txt + .env clean.
+
