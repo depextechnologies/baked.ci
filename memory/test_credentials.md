@@ -9,14 +9,23 @@
 - **Client ID**: `360693268275-2aoffi301ndj669975frljudaso8o8dc.apps.googleusercontent.com`
 - **Client Secret**: stored in `backend/.env` as `GOOGLE_CLIENT_SECRET` (never commit)
 - **Frontend env**: `REACT_APP_GOOGLE_CLIENT_ID` in `frontend/.env`
+- **Backend env**:
+  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+  - `APP_BASE_URL=https://baked.ci` (production canonical URL)
+  - `SESSION_COOKIE_DOMAIN=` (empty in preview → host-only cookie; set to `.baked.ci` at production cutover so cookie is shared across baked.ci and *.baked.ci)
 - **Flow**: `useGoogleLogin({ flow: "auth-code", ux_mode: "popup" })` → auth code → backend exchanges with Google using `redirect_uri=postmessage` → verifies id_token → issues app JWT
 - **Backend endpoint**: `POST /api/auth/google/verify` with `{ code }` returns `{ access_token, customer }`
-- **Google Cloud Console setup** — Authorized JavaScript Origins & Redirect URIs must include (owner action):
-  - `https://baked-platform.preview.emergentagent.com` (dev)
-  - `https://baked.ci` (production)
-  - `https://www.baked.ci` (production)
-  - Add `/auth/google` suffix on each for the redirect URI list (even though the popup flow doesn't use it, GIS validates the client)
-- **Zero Emergent references** — the Emergent-managed `/auth/google/session` endpoint has been removed. `AuthCallback.jsx` deleted.
+- **Google Cloud Console setup** — Authorized JavaScript Origins & Redirect URIs (owner action):
+  - `https://baked-platform.preview.emergentagent.com` — preview only, **REMOVE after DNS cutover**
+  - `https://baked.ci` — production (permanent)
+  - `https://www.baked.ci` — production (permanent, optional)
+- **Production cutover checklist**:
+  1. Point `baked.ci` DNS at the deployment
+  2. Set `SESSION_COOKIE_DOMAIN=.baked.ci` in backend/.env and restart backend
+  3. In Google Cloud Console → OAuth Client → **remove** the preview URL from Authorized JS Origins and Authorized redirect URIs
+  4. In Google Cloud Console → OAuth Consent Screen → **remove** `emergentagent.com` from Authorized Domains
+  5. Change `BAKED_ENV=production` in backend/.env
+- **Zero Emergent references** in the OAuth flow — Emergent-managed `/auth/google/session` endpoint removed; `AuthCallback.jsx` deleted.
 
 ## Super Admin (Email + Password)
 - URL: /admin

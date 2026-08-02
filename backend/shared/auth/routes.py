@@ -33,6 +33,10 @@ BAKED_ENV = os.environ.get("BAKED_ENV", "development")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+# Empty in preview → host-only cookie for the responding domain.
+# Set to `.baked.ci` in production → cookie shared across `baked.ci` and any
+# future `*.baked.ci` subdomains (auth.baked.ci, admin.baked.ci, ...).
+SESSION_COOKIE_DOMAIN = os.environ.get("SESSION_COOKIE_DOMAIN") or None
 
 
 # ---------- DTOs ----------
@@ -217,7 +221,8 @@ async def google_verify(
     ))
     await session.commit()
 
-    # Cookie is scoped to the responding host — in prod that's `.baked.ci`.
+    # Cookie is host-only in preview; in prod SESSION_COOKIE_DOMAIN=.baked.ci
+    # shares it across baked.ci and any *.baked.ci subdomain.
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -226,6 +231,7 @@ async def google_verify(
         secure=True,
         samesite="none",
         path="/",
+        domain=SESSION_COOKIE_DOMAIN,
     )
     access_token = create_access_token(customer.id, role=customer.role)
     return {"access_token": access_token, "customer": customer_to_dict(customer)}
