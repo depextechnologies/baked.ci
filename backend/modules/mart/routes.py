@@ -39,11 +39,18 @@ async def list_categories(country: str = Query("CI"), session: AsyncSession = De
 async def list_subcategories(
     country: str = Query("CI"), category: str = Query(...), session: AsyncSession = Depends(get_session)
 ):
+    # `MartSubcategory` links to its parent by `category_id`, not by a
+    # denormalised slug — we join through `MartCategory` and filter on the
+    # parent slug the caller sent (`?category=fruits-vegetables`).
     rows = (
         (
             await session.execute(
                 select(MartSubcategory)
-                .where(MartSubcategory.country == country.upper(), MartSubcategory.category_slug == category)
+                .join(MartCategory, MartCategory.id == MartSubcategory.category_id)
+                .where(
+                    MartSubcategory.country == country.upper(),
+                    MartCategory.slug == category,
+                )
                 .order_by(MartSubcategory.order)
             )
         )
