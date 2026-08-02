@@ -248,3 +248,11 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Test-ids**: `hub-nav-*`, `hub-hero-*`, `hub-opportunity-<id>`, `hub-story-prev/next`, `hub-final-*`, `hub-theme-toggle` for automation.
    - **Footer Opportunities column** updated per docx to 5 items: Partner with BAKĒD → /partner, Sell on BAKĒD → /Sell-on-baked, Franchise Opportunities → /franchise, Delivery Partner → /delivery-partner, Merchant Registration → /merchant-registration.
 
+
+- ✅ **Wave 2 White-Label — Self-Hosted Google Sign-In (2026-02, Fixing_Prompt.docx)** — replaces Emergent-managed Google Auth end-to-end.
+   - **Removed**: `EMERGENT_SESSION_URL` constant, `/api/auth/google/session` endpoint (which POSTed to `demobackend.emergentagent.com`), `AuthCallback.jsx` page, `#session_id=` fragment handling in `CustomerApp.jsx`, `startGoogle()` redirect to `auth.emergentagent.com`. Zero Emergent domains remain in the auth flow.
+   - **Backend** (`/app/backend/shared/auth/routes.py`): new `POST /api/auth/google/verify` accepts `{ code }`, exchanges it with Google's `oauth2.googleapis.com/token` using `redirect_uri=postmessage`, verifies the returned `id_token` via `google.oauth2.id_token.verify_oauth2_token`, then uses the pre-existing `_find_or_create_customer_by_google` helper to link/create the customer and issue an app JWT. Never talks to any Emergent domain.
+   - **Frontend**: added `@react-oauth/google` dependency + `<GoogleOAuthProvider>` at the App root; `PhoneLoginDialog.jsx` "Continue with Google" now calls `useGoogleLogin({ flow: "auth-code", ux_mode: "popup" })` — user sees Google popup, signs in, popup closes, dialog closes. No page redirect.
+   - **Env**: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in `backend/.env`; `REACT_APP_GOOGLE_CLIENT_ID` in `frontend/.env`.
+   - **Verified**: clicking "Continue with Google" opens `accounts.google.com` popup with the correct client_id, `scope=openid profile email`, `response_type=code`. Backend `/api/auth/google/verify` correctly rejects malformed codes. Google Cloud Console origins/redirect URIs must include `baked-platform.preview.emergentagent.com`, `baked.ci`, `www.baked.ci` (owner responsibility documented in test_credentials.md).
+

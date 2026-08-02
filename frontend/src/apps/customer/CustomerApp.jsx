@@ -7,7 +7,7 @@
  * only the router boundary has moved. This unblocks Phase 2 (per-partner
  * apps) without a risky mass file move.
  */
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { AuthProvider, AppProvider, CartProvider } from "@/contexts/BakedContexts";
 import { TopNav } from "@/components/layout/TopNav";
 import { ModuleTabs } from "@/components/layout/ModuleTabs";
@@ -21,7 +21,6 @@ import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
-import { AuthCallback } from "@/pages/AuthCallback";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { MobileHome } from "@/pages/mobile/MobileHome";
@@ -171,9 +170,7 @@ const MobileCustomerShell = () => (
 );
 
 const CustomerShell = () => {
-  const location = useLocation();
   const isMobile = useIsMobile();
-  if (location.hash?.includes("session_id=")) return <AuthCallback />;
   return isMobile ? <MobileCustomerShell /> : <DesktopCustomerShell />;
 };
 

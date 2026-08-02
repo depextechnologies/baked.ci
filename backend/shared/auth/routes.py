@@ -1,7 +1,8 @@
 """Shared Auth module — Unified Customer Identity.
 
 Primary: Mobile + OTP.
-Alternative: Google (Emergent-managed), Email (stub for future).
+Alternative: Google (self-hosted OAuth 2.0 via Google Identity Services),
+             Email (stub for future).
 Produces a single customer identity shared across all 6 BAKĒD business modules.
 """
 from __future__ import annotations
@@ -14,6 +15,8 @@ from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 from core.db import get_session
 from core.models import Customer, CustomerSession, OtpChallenge
@@ -27,7 +30,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 OTP_TTL_SECONDS = 180
 BAKED_ENV = os.environ.get("BAKED_ENV", "development")
-EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 
 # ---------- DTOs ----------
@@ -41,8 +46,11 @@ class OtpVerifyIn(BaseModel):
     code: str
 
 
-class GoogleSessionIn(BaseModel):
-    session_id: str
+class GoogleCredentialIn(BaseModel):
+    # OAuth 2.0 authorization code returned by @react-oauth/google popup
+    # (redirect_uri='postmessage'). Backend exchanges this for an id_token
+    # with Google and then verifies it — never talks to any Emergent domain.
+    code: str
 
 
 # ---------- helpers ----------
@@ -148,21 +156,68 @@ async def verify_otp(payload: OtpVerifyIn, session: AsyncSession = Depends(get_s
     return {"access_token": token, "token_type": "bearer", "customer": customer_to_dict(customer)}
 
 
-@router.post("/google/session")
-async def google_session(payload: GoogleSessionIn, response: Response, session: AsyncSession = Depends(get_session)):
-    """Exchange Emergent Google Auth session_id for an app session cookie + Bearer token."""
+@router.post("/google/verify")
+async def google_verify(
+    payload: GoogleCredentialIn,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+):
+    """Self-hosted Google Sign-In. Exchanges the OAuth 2.0 auth code from
+    Google's popup for an ID token, verifies it, and either links or creates
+    a customer. Fully white-label — never talks to any Emergent domain.
+    """
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="Google Sign-In is not configured")
+
+    # Step 1 — Exchange the auth code with Google for tokens.
+    # `redirect_uri='postmessage'` matches what @react-oauth/google's popup
+    # uses; Google will only accept a matching value here.
     async with httpx.AsyncClient(timeout=10) as http:
-        r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": payload.session_id})
+        r = await http.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "code": payload.code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": "postmessage",
+                "grant_type": "authorization_code",
+            },
+        )
     if r.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid Google session")
-    data = r.json()
+        raise HTTPException(status_code=401, detail=f"Google token exchange failed: {r.text}")
+    tokens = r.json()
+    id_token_str = tokens.get("id_token")
+    if not id_token_str:
+        raise HTTPException(status_code=401, detail="No id_token returned by Google")
+
+    # Step 2 — Verify the ID token signature + audience.
+    try:
+        info = google_id_token.verify_oauth2_token(
+            id_token_str, google_requests.Request(), GOOGLE_CLIENT_ID,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid Google credential: {exc}") from exc
+
+    email = info.get("email")
+    if not email or not info.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Google account email is not verified")
+
+    # Step 3 — Find or create the customer, issue app JWT.
     customer = await _find_or_create_customer_by_google(
-        session, email=data["email"], name=data.get("name", ""), picture=data.get("picture", "")
+        session,
+        email=email,
+        name=info.get("name", ""),
+        picture=info.get("picture", ""),
     )
-    session_token = data.get("session_token") or uuid.uuid4().hex
+
+    session_token = uuid.uuid4().hex
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    session.add(CustomerSession(customer_id=customer.id, session_token=session_token, expires_at=expires_at))
+    session.add(CustomerSession(
+        customer_id=customer.id, session_token=session_token, expires_at=expires_at,
+    ))
     await session.commit()
+
+    # Cookie is scoped to the responding host — in prod that's `.baked.ci`.
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -172,8 +227,8 @@ async def google_session(payload: GoogleSessionIn, response: Response, session: 
         samesite="none",
         path="/",
     )
-    token = create_access_token(customer.id, role=customer.role)
-    return {"access_token": token, "customer": customer_to_dict(customer)}
+    access_token = create_access_token(customer.id, role=customer.role)
+    return {"access_token": access_token, "customer": customer_to_dict(customer)}
 
 
 @router.get("/me")
