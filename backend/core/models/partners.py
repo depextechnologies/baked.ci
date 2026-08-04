@@ -195,3 +195,80 @@ class Warehouse(Base, TimestampMixin):
     property_size_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     service_area_km: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+# ============================================================================
+#                      Warehouse hierarchy (Slice 4b)
+# ============================================================================
+# Full 5-level hierarchy per PRD decision e3 (Warehouse → Zone → Aisle →
+# Rack → Shelf → Bin). Small stores configure only the levels they need —
+# every level below Warehouse is optional and can be empty.
+
+class WarehouseZone(Base, TimestampMixin):
+    __tablename__ = "warehouse_zones"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_wh_zone_code"),
+        Index("ix_wh_zones_warehouse_id", "warehouse_id"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wz"))
+    warehouse_id: Mapped[str] = mapped_column(String, ForeignKey("warehouses.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+class WarehouseAisle(Base, TimestampMixin):
+    __tablename__ = "warehouse_aisles"
+    __table_args__ = (
+        UniqueConstraint("zone_id", "code", name="uq_wh_aisle_code"),
+        Index("ix_wh_aisles_zone_id", "zone_id"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wa"))
+    zone_id: Mapped[str] = mapped_column(String, ForeignKey("warehouse_zones.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+class WarehouseRack(Base, TimestampMixin):
+    __tablename__ = "warehouse_racks"
+    __table_args__ = (
+        UniqueConstraint("aisle_id", "code", name="uq_wh_rack_code"),
+        Index("ix_wh_racks_aisle_id", "aisle_id"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wr"))
+    aisle_id: Mapped[str] = mapped_column(String, ForeignKey("warehouse_aisles.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+class WarehouseShelf(Base, TimestampMixin):
+    __tablename__ = "warehouse_shelves"
+    __table_args__ = (
+        UniqueConstraint("rack_id", "code", name="uq_wh_shelf_code"),
+        Index("ix_wh_shelves_rack_id", "rack_id"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("ws"))
+    rack_id: Mapped[str] = mapped_column(String, ForeignKey("warehouse_racks.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+class WarehouseBin(Base, TimestampMixin):
+    __tablename__ = "warehouse_bins"
+    __table_args__ = (
+        UniqueConstraint("shelf_id", "code", name="uq_wh_bin_code"),
+        Index("ix_wh_bins_shelf_id", "shelf_id"),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wb"))
+    shelf_id: Mapped[str] = mapped_column(String, ForeignKey("warehouse_shelves.id"), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")

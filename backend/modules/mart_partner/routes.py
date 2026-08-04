@@ -567,25 +567,982 @@ async def partner_dashboard(
     partner: Partner = Depends(get_current_partner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Stage-3 dashboard shell — real metrics will land as we build inventory,
-    orders, and payouts. For now we surface a clean empty state so the UI
-    renders and the partner sees exactly what's coming next."""
+    """Stage-3 dashboard shell — real metrics driven by product/order/wallet
+    tables added in Slices 5–7. Values gracefully return 0 when a slice
+    has no data yet."""
+    from core.models import PartnerProduct, PartnerOrder, PartnerWallet, WarehouseZone
     wh = await _primary_warehouse(session, partner.id)
+
+    products_live = await session.scalar(
+        select(func.count(PartnerProduct.id)).where(
+            PartnerProduct.partner_id == partner.id, PartnerProduct.is_active == True,  # noqa: E712
+        )
+    ) or 0
+    inventory_items = await session.scalar(
+        select(func.coalesce(func.sum(PartnerProduct.stock_qty), 0)).where(PartnerProduct.partner_id == partner.id)
+    ) or 0
+
+    today = datetime.now(timezone.utc).date()
+    orders_today = await session.scalar(
+        select(func.count(PartnerOrder.id)).where(
+            PartnerOrder.partner_id == partner.id,
+            func.date(PartnerOrder.created_at) == today,
+        )
+    ) or 0
+    from core.models import Order as CustomerOrder
+    revenue_today = await session.scalar(
+        select(func.coalesce(func.sum(CustomerOrder.total), 0))
+        .select_from(PartnerOrder)
+        .join(CustomerOrder, CustomerOrder.id == PartnerOrder.order_id)
+        .where(
+            PartnerOrder.partner_id == partner.id,
+            PartnerOrder.status.in_(("handed_off", "completed")),
+            func.date(PartnerOrder.created_at) == today,
+        )
+    ) or 0
+
+    wallet_bal = await session.scalar(
+        select(PartnerWallet.balance).where(PartnerWallet.partner_id == partner.id)
+    ) or 0
+
+    zone_count = 0
+    if wh:
+        zone_count = await session.scalar(
+            select(func.count(WarehouseZone.id)).where(WarehouseZone.warehouse_id == wh.id)
+        ) or 0
+
     return {
         "partner": _partner_dict(partner),
         "warehouse": _warehouse_dict(wh) if wh else None,
         "metrics": {
-            "orders_today": 0,
-            "revenue_today": 0,
-            "products_live": 0,
-            "inventory_items": 0,
-            "pending_payouts": 0,
+            "orders_today":     int(orders_today),
+            "revenue_today":    float(revenue_today),
+            "products_live":    int(products_live),
+            "inventory_items":  int(inventory_items),
+            "wallet_balance":   float(wallet_bal),
         },
         "checklist": [
             {"key": "reset_password", "label": "Change your temporary password", "done": not partner.must_reset_password},
-            {"key": "business_profile", "label": "Confirm your business profile", "done": False},
-            {"key": "warehouse", "label": "Set up your warehouse", "done": wh is not None},
-            {"key": "first_product", "label": "Enable your first product (coming soon)", "done": False},
-            {"key": "first_order", "label": "Receive your first order (coming soon)", "done": False},
+            {"key": "warehouse",      "label": "Set up your warehouse zones",   "done": zone_count > 0},
+            {"key": "first_product",  "label": "Add your first product",         "done": products_live > 0},
+            {"key": "first_order",    "label": "Receive your first order",       "done": int(orders_today) > 0 or (await session.scalar(select(func.count(PartnerOrder.id)).where(PartnerOrder.partner_id == partner.id)) or 0) > 0},
         ],
     }
+
+
+# ============================================================================
+#              Warehouse hierarchy — 5 levels (Slice 4b)
+# ============================================================================
+from core.models import (
+    WarehouseZone, WarehouseAisle, WarehouseRack, WarehouseShelf, WarehouseBin,
+)
+
+
+LEVEL_MODEL = {
+    "zone":   (WarehouseZone,   "warehouse_id"),
+    "aisle":  (WarehouseAisle,  "zone_id"),
+    "rack":   (WarehouseRack,   "aisle_id"),
+    "shelf":  (WarehouseShelf,  "rack_id"),
+    "bin":    (WarehouseBin,    "shelf_id"),
+}
+LEVEL_CHILD = {"zone": "aisle", "aisle": "rack", "rack": "shelf", "shelf": "bin", "bin": None}
+
+
+class NodeIn(BaseModel):
+    level: str = Field(..., pattern="^(zone|aisle|rack|shelf|bin)$")
+    parent_id: str
+    code: str = Field(..., min_length=1, max_length=40)
+    name: str = Field(..., min_length=1, max_length=200)
+    sort_order: int = 0
+
+
+class NodeUpdateIn(BaseModel):
+    code: Optional[str] = Field(None, min_length=1, max_length=40)
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+async def _assert_owns_warehouse(session: AsyncSession, partner: Partner, warehouse_id: str) -> Warehouse:
+    wh = await session.get(Warehouse, warehouse_id)
+    if not wh or wh.partner_id != partner.id:
+        raise HTTPException(status_code=404, detail="Warehouse not found")
+    return wh
+
+
+def _node_dict(row, level: str) -> dict:
+    return {
+        "id": row.id, "level": level, "code": row.code, "name": row.name,
+        "sort_order": row.sort_order, "is_active": row.is_active,
+    }
+
+
+@partner_router.get("/warehouse/{warehouse_id}/tree")
+async def warehouse_tree(
+    warehouse_id: str,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the full 5-level hierarchy nested under the warehouse."""
+    wh = await _assert_owns_warehouse(session, partner, warehouse_id)
+
+    zones = (await session.execute(
+        select(WarehouseZone).where(WarehouseZone.warehouse_id == wh.id).order_by(WarehouseZone.sort_order, WarehouseZone.code)
+    )).scalars().all()
+    z_ids = [z.id for z in zones]
+    aisles = (await session.execute(
+        select(WarehouseAisle).where(WarehouseAisle.zone_id.in_(z_ids)).order_by(WarehouseAisle.sort_order, WarehouseAisle.code)
+    )).scalars().all() if z_ids else []
+    a_ids = [a.id for a in aisles]
+    racks = (await session.execute(
+        select(WarehouseRack).where(WarehouseRack.aisle_id.in_(a_ids)).order_by(WarehouseRack.sort_order, WarehouseRack.code)
+    )).scalars().all() if a_ids else []
+    r_ids = [r.id for r in racks]
+    shelves = (await session.execute(
+        select(WarehouseShelf).where(WarehouseShelf.rack_id.in_(r_ids)).order_by(WarehouseShelf.sort_order, WarehouseShelf.code)
+    )).scalars().all() if r_ids else []
+    s_ids = [s.id for s in shelves]
+    bins_ = (await session.execute(
+        select(WarehouseBin).where(WarehouseBin.shelf_id.in_(s_ids)).order_by(WarehouseBin.sort_order, WarehouseBin.code)
+    )).scalars().all() if s_ids else []
+
+    # Nest children under parents in one pass each
+    def _pack(items, key, subitems, subkey, sub_level):
+        by_parent = {}
+        for it in subitems:
+            by_parent.setdefault(getattr(it, key), []).append({**_node_dict(it, sub_level), "children": []})
+        for it in items:
+            it["children"] = by_parent.get(it["id"], [])
+        return items
+
+    bin_nodes   = [_node_dict(b, "bin")   for b in bins_]
+    shelf_nodes = [_node_dict(s, "shelf") for s in shelves]
+    rack_nodes  = [_node_dict(r, "rack")  for r in racks]
+    aisle_nodes = [_node_dict(a, "aisle") for a in aisles]
+    zone_nodes  = [_node_dict(z, "zone")  for z in zones]
+
+    # Manually attach children upwards
+    for s in shelf_nodes:
+        s["children"] = [b for b in bin_nodes if False]  # placeholder overwritten below
+    by_shelf = {}
+    for b in bins_:
+        by_shelf.setdefault(b.shelf_id, []).append(_node_dict(b, "bin"))
+    for s in shelf_nodes:
+        s["children"] = by_shelf.get(s["id"], [])
+
+    by_rack = {}
+    for s in shelves:
+        by_rack.setdefault(s.rack_id, []).append(next(sn for sn in shelf_nodes if sn["id"] == s.id))
+    for r in rack_nodes:
+        r["children"] = by_rack.get(r["id"], [])
+
+    by_aisle = {}
+    for r in racks:
+        by_aisle.setdefault(r.aisle_id, []).append(next(rn for rn in rack_nodes if rn["id"] == r.id))
+    for a in aisle_nodes:
+        a["children"] = by_aisle.get(a["id"], [])
+
+    by_zone = {}
+    for a in aisles:
+        by_zone.setdefault(a.zone_id, []).append(next(an for an in aisle_nodes if an["id"] == a.id))
+    for z in zone_nodes:
+        z["children"] = by_zone.get(z["id"], [])
+
+    return {
+        "warehouse": _warehouse_dict(wh),
+        "zones": zone_nodes,
+        "counts": {
+            "zones": len(zone_nodes), "aisles": len(aisle_nodes),
+            "racks": len(rack_nodes), "shelves": len(shelf_nodes), "bins": len(bin_nodes),
+        },
+    }
+
+
+@partner_router.post("/warehouse/{warehouse_id}/nodes", status_code=201)
+async def create_node(
+    warehouse_id: str, payload: NodeIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    await _assert_owns_warehouse(session, partner, warehouse_id)
+    Model, parent_col = LEVEL_MODEL[payload.level]
+
+    # Verify parent belongs to this partner's warehouse (defense in depth).
+    if payload.level == "zone":
+        if payload.parent_id != warehouse_id:
+            raise HTTPException(status_code=400, detail="Zone parent must be the warehouse id")
+    else:
+        ParentModel = LEVEL_MODEL[{"aisle":"zone","rack":"aisle","shelf":"rack","bin":"shelf"}[payload.level]][0]
+        parent = await session.get(ParentModel, payload.parent_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent node not found")
+
+    row = Model(**{parent_col: payload.parent_id, "code": payload.code, "name": payload.name, "sort_order": payload.sort_order})
+    session.add(row)
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=f"A {payload.level} with code '{payload.code}' already exists under this parent")
+    await session.refresh(row)
+    return _node_dict(row, payload.level)
+
+
+@partner_router.patch("/warehouse/{warehouse_id}/nodes/{level}/{node_id}")
+async def update_node(
+    warehouse_id: str, level: str, node_id: str, payload: NodeUpdateIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    await _assert_owns_warehouse(session, partner, warehouse_id)
+    if level not in LEVEL_MODEL:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    Model, _ = LEVEL_MODEL[level]
+    row = await session.get(Model, node_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Node not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(row, k, v)
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=f"Code '{payload.code}' already exists at this level")
+    await session.refresh(row)
+    return _node_dict(row, level)
+
+
+@partner_router.delete("/warehouse/{warehouse_id}/nodes/{level}/{node_id}", status_code=204)
+async def delete_node(
+    warehouse_id: str, level: str, node_id: str,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Delete a node only if it has no children (409 otherwise)."""
+    await _assert_owns_warehouse(session, partner, warehouse_id)
+    if level not in LEVEL_MODEL:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    Model, _ = LEVEL_MODEL[level]
+    row = await session.get(Model, node_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Node not found")
+    child_level = LEVEL_CHILD[level]
+    if child_level:
+        ChildModel, child_parent_col = LEVEL_MODEL[child_level]
+        count = await session.scalar(
+            select(func.count(ChildModel.id)).where(getattr(ChildModel, child_parent_col) == node_id)
+        )
+        if count:
+            raise HTTPException(status_code=409, detail=f"Delete {count} child {child_level}(s) first")
+    await session.delete(row)
+    await session.commit()
+
+
+# ============================================================================
+#            Products, Orders, Wallet (Slices 5 / 6 / 7)
+# ============================================================================
+from decimal import Decimal
+from core.models.base import new_id
+from core.models import (
+    MartProduct, Order as CustomerOrder, OrderItem,
+    PartnerOrder, PartnerProduct, PartnerWallet, PartnerWalletTxn,
+    PARTNER_ORDER_STATUSES,
+)
+
+
+# ---------------------------------------------------------------- helpers ---
+
+def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = None) -> dict:
+    """Merge partner-owned fields with master fallbacks (for source=master)."""
+    if row.source == "master" and master is not None:
+        name  = master.name
+        brand = master.brand
+        unit  = master.unit
+        image = master.image
+        cat   = master.category_slug
+        sub   = master.subcategory_slug
+        currency = master.currency
+        currency_symbol = master.currency_symbol
+        master_price = float(master.price) if master.price is not None else None
+    else:
+        name  = row.name
+        brand = row.brand
+        unit  = row.unit
+        image = row.image
+        cat   = row.category_slug
+        sub   = row.subcategory_slug
+        currency = row.currency
+        currency_symbol = None
+        master_price = None
+    return {
+        "id": row.id,
+        "source": row.source,
+        "master_product_id": row.master_product_id,
+        "name": name,
+        "brand": brand,
+        "unit": unit,
+        "image": image,
+        "category_slug": cat,
+        "subcategory_slug": sub,
+        "sku_code": row.sku_code,
+        "partner_price": float(row.partner_price),
+        "master_price": master_price,
+        "currency": currency,
+        "currency_symbol": currency_symbol,
+        "stock_qty": row.stock_qty,
+        "low_stock_threshold": row.low_stock_threshold,
+        "is_active": row.is_active,
+        "description": row.description,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+async def _load_masters(session: AsyncSession, ids: list[str]) -> dict[str, MartProduct]:
+    if not ids:
+        return {}
+    rows = (
+        await session.execute(select(MartProduct).where(MartProduct.id.in_(list(set(ids)))))
+    ).scalars().all()
+    return {r.id: r for r in rows}
+
+
+# ============================================================================
+#                             PRODUCTS (Slice 5)
+# ============================================================================
+
+class LinkMasterIn(BaseModel):
+    master_product_id: str
+    partner_price: float = Field(..., gt=0)
+    stock_qty: int = Field(0, ge=0)
+    low_stock_threshold: int = Field(5, ge=0)
+    sku_code: Optional[str] = Field(None, max_length=80)
+
+
+class CustomProductIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+    brand: Optional[str] = Field(None, max_length=120)
+    unit: Optional[str] = Field(None, max_length=60)
+    image: Optional[str] = None
+    category_slug: Optional[str] = Field(None, max_length=80)
+    subcategory_slug: Optional[str] = Field(None, max_length=80)
+    description: Optional[str] = None
+    sku_code: Optional[str] = Field(None, max_length=80)
+    partner_price: float = Field(..., gt=0)
+    currency: str = Field("XOF", min_length=3, max_length=3)
+    stock_qty: int = Field(0, ge=0)
+    low_stock_threshold: int = Field(5, ge=0)
+
+
+class ProductUpdateIn(BaseModel):
+    partner_price: Optional[float] = Field(None, gt=0)
+    stock_qty: Optional[int] = Field(None, ge=0)
+    low_stock_threshold: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+    sku_code: Optional[str] = Field(None, max_length=80)
+    # Custom-only editable fields
+    name: Optional[str] = Field(None, min_length=2, max_length=200)
+    brand: Optional[str] = Field(None, max_length=120)
+    unit: Optional[str] = Field(None, max_length=60)
+    image: Optional[str] = None
+    description: Optional[str] = None
+
+
+@partner_router.get("/products")
+async def list_partner_products(
+    q: Optional[str] = None,
+    active: Optional[bool] = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = select(PartnerProduct).where(PartnerProduct.partner_id == partner.id).order_by(PartnerProduct.created_at.desc())
+    if active is not None:
+        stmt = stmt.where(PartnerProduct.is_active == active)
+    rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
+    masters = await _load_masters(session, [r.master_product_id for r in rows if r.master_product_id])
+
+    items = []
+    for r in rows:
+        m = masters.get(r.master_product_id) if r.master_product_id else None
+        d = _partner_product_dict(r, m)
+        if q:
+            hay = " ".join([str(d.get(k) or "") for k in ("name", "brand", "sku_code")]).lower()
+            if q.lower() not in hay:
+                continue
+        items.append(d)
+
+    total = await session.scalar(
+        select(func.count(PartnerProduct.id)).where(PartnerProduct.partner_id == partner.id)
+    )
+    live = await session.scalar(
+        select(func.count(PartnerProduct.id)).where(
+            PartnerProduct.partner_id == partner.id, PartnerProduct.is_active == True,  # noqa: E712
+        )
+    )
+    return {"items": items, "total": total or 0, "live": live or 0}
+
+
+@partner_router.get("/master-catalog")
+async def search_master_catalog(
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = Query(30, ge=1, le=100),
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Search the shared MART master catalog scoped to the partner's country."""
+    stmt = (
+        select(MartProduct)
+        .where(MartProduct.country == partner.country, MartProduct.module == partner.module)
+        .order_by(MartProduct.popularity.desc(), MartProduct.name.asc())
+    )
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where((MartProduct.name.ilike(like)) | (MartProduct.brand.ilike(like)))
+    if category:
+        stmt = stmt.where(MartProduct.category_slug == category)
+
+    rows = (await session.execute(stmt.limit(limit))).scalars().all()
+
+    # Mark which are already linked so the frontend can disable them.
+    linked_ids = set((await session.execute(
+        select(PartnerProduct.master_product_id).where(
+            PartnerProduct.partner_id == partner.id,
+            PartnerProduct.master_product_id.is_not(None),
+        )
+    )).scalars().all())
+
+    return {
+        "items": [
+            {
+                "id": r.id, "name": r.name, "brand": r.brand, "unit": r.unit,
+                "image": r.image, "category_slug": r.category_slug,
+                "price": float(r.price), "currency": r.currency,
+                "currency_symbol": r.currency_symbol,
+                "already_linked": r.id in linked_ids,
+            }
+            for r in rows
+        ],
+    }
+
+
+@partner_router.post("/products/link", status_code=201)
+async def link_master_product(
+    payload: LinkMasterIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    master = await session.get(MartProduct, payload.master_product_id)
+    if not master or master.country != partner.country:
+        raise HTTPException(status_code=404, detail="Master product not found in your country")
+
+    row = PartnerProduct(
+        partner_id=partner.id,
+        source="master",
+        master_product_id=master.id,
+        partner_price=payload.partner_price,
+        currency=master.currency,
+        stock_qty=payload.stock_qty,
+        low_stock_threshold=payload.low_stock_threshold,
+        sku_code=payload.sku_code,
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="This master product is already in your catalog")
+    await session.refresh(row)
+    return _partner_product_dict(row, master)
+
+
+@partner_router.post("/products/custom", status_code=201)
+async def create_custom_product(
+    payload: CustomProductIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = PartnerProduct(
+        partner_id=partner.id,
+        source="custom",
+        name=payload.name,
+        brand=payload.brand,
+        unit=payload.unit,
+        image=payload.image,
+        category_slug=payload.category_slug,
+        subcategory_slug=payload.subcategory_slug,
+        description=payload.description,
+        sku_code=payload.sku_code,
+        partner_price=payload.partner_price,
+        currency=payload.currency,
+        stock_qty=payload.stock_qty,
+        low_stock_threshold=payload.low_stock_threshold,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return _partner_product_dict(row)
+
+
+@partner_router.patch("/products/{product_id}")
+async def update_partner_product(
+    product_id: str,
+    payload: ProductUpdateIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerProduct, product_id)
+    if not row or row.partner_id != partner.id:
+        raise HTTPException(status_code=404, detail="Product not found")
+    data = payload.model_dump(exclude_unset=True)
+    # Guard: master-linked SKUs can't rename/rebrand — those come from the master
+    if row.source == "master":
+        for k in ("name", "brand", "unit", "image", "description"):
+            data.pop(k, None)
+    for k, v in data.items():
+        setattr(row, k, v)
+    await session.commit()
+    await session.refresh(row)
+    master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
+    return _partner_product_dict(row, master)
+
+
+@partner_router.delete("/products/{product_id}", status_code=204)
+async def delete_partner_product(
+    product_id: str,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerProduct, product_id)
+    if not row or row.partner_id != partner.id:
+        raise HTTPException(status_code=404, detail="Product not found")
+    await session.delete(row)
+    await session.commit()
+
+
+# ============================================================================
+#                             ORDERS (Slice 6)
+# ============================================================================
+
+# Explicit state machine to prevent invalid transitions.
+_ORDER_TRANSITIONS = {
+    "new":         {"accepted", "cancelled"},
+    "accepted":    {"packing", "cancelled"},
+    "packing":     {"ready", "cancelled"},
+    "ready":       {"handed_off", "cancelled"},
+    "handed_off":  {"completed"},
+    "completed":   set(),
+    "cancelled":   set(),
+}
+
+
+def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) -> dict:
+    return {
+        "id": po.id,
+        "order_id": order.id,
+        "order_number": order.number,
+        "status": po.status,
+        "customer_status": order.status,
+        "total": float(order.total),
+        "subtotal": float(order.subtotal),
+        "delivery_fee": float(order.delivery_fee),
+        "currency": order.currency,
+        "payment_method": order.payment_method,
+        "payment_status": order.payment_status,
+        "delivery_slot_label": order.delivery_slot_label,
+        "address": order.address_snapshot,
+        "instructions": order.instructions,
+        "items": [
+            {
+                "id": it.id, "name": it.name, "brand": it.brand, "unit": it.unit,
+                "image": it.image, "price": float(it.price), "quantity": it.quantity,
+                "line_total": float(it.line_total),
+            } for it in items
+        ],
+        "accepted_at":    po.accepted_at.isoformat() if po.accepted_at else None,
+        "ready_at":       po.ready_at.isoformat() if po.ready_at else None,
+        "handed_off_at":  po.handed_off_at.isoformat() if po.handed_off_at else None,
+        "cancelled_at":   po.cancelled_at.isoformat() if po.cancelled_at else None,
+        "cancellation_reason": po.cancellation_reason,
+        "created_at":     po.created_at.isoformat() if po.created_at else None,
+    }
+
+
+@partner_router.get("/orders")
+async def list_partner_orders(
+    status: Optional[str] = Query(None, description="new|accepted|packing|ready|handed_off|completed|cancelled"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = (
+        select(PartnerOrder)
+        .where(PartnerOrder.partner_id == partner.id)
+        .order_by(PartnerOrder.created_at.desc())
+    )
+    if status:
+        if status not in PARTNER_ORDER_STATUSES:
+            raise HTTPException(status_code=400, detail="Invalid status filter")
+        stmt = stmt.where(PartnerOrder.status == status)
+    pos = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
+    if not pos:
+        buckets = {s: 0 for s in PARTNER_ORDER_STATUSES}
+        return {"items": [], "total": 0, "buckets": buckets}
+
+    order_ids = [po.order_id for po in pos]
+    orders = {
+        o.id: o for o in (
+            await session.execute(select(CustomerOrder).where(CustomerOrder.id.in_(order_ids)))
+        ).scalars().all()
+    }
+    items_by_order: dict[str, list[OrderItem]] = {}
+    for it in (
+        await session.execute(select(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+    ).scalars().all():
+        items_by_order.setdefault(it.order_id, []).append(it)
+
+    out = []
+    for po in pos:
+        o = orders.get(po.order_id)
+        if not o:
+            continue
+        out.append(_order_dict(po, o, items_by_order.get(o.id, [])))
+
+    # Status buckets for the tab UI
+    bucket_rows = (await session.execute(
+        select(PartnerOrder.status, func.count(PartnerOrder.id))
+        .where(PartnerOrder.partner_id == partner.id).group_by(PartnerOrder.status)
+    )).all()
+    buckets = {s: 0 for s in PARTNER_ORDER_STATUSES}
+    for s, c in bucket_rows:
+        buckets[s] = c
+
+    return {"items": out, "total": sum(buckets.values()), "buckets": buckets}
+
+
+@partner_router.get("/orders/{partner_order_id}")
+async def get_partner_order(
+    partner_order_id: str,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    po = await session.get(PartnerOrder, partner_order_id)
+    if not po or po.partner_id != partner.id:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order = await session.get(CustomerOrder, po.order_id)
+    items = (await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+    return _order_dict(po, order, list(items))
+
+
+class OrderStatusIn(BaseModel):
+    status: str = Field(..., pattern="^(accepted|packing|ready|handed_off|completed|cancelled)$")
+    reason: Optional[str] = Field(None, max_length=400)
+
+
+@partner_router.post("/orders/{partner_order_id}/status")
+async def update_partner_order_status(
+    partner_order_id: str,
+    payload: OrderStatusIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    po = await session.get(PartnerOrder, partner_order_id)
+    if not po or po.partner_id != partner.id:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if payload.status not in _ORDER_TRANSITIONS.get(po.status, set()):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot transition {po.status} → {payload.status}",
+        )
+
+    now = datetime.now(timezone.utc)
+    po.status = payload.status
+    if payload.status == "accepted":
+        po.accepted_at = now
+    elif payload.status == "ready":
+        po.ready_at = now
+    elif payload.status == "handed_off":
+        po.handed_off_at = now
+    elif payload.status == "cancelled":
+        po.cancelled_at = now
+        po.cancellation_reason = payload.reason
+
+    # On handoff, credit partner wallet (net of 10% platform commission).
+    if payload.status == "handed_off":
+        order = await session.get(CustomerOrder, po.order_id)
+        wallet = await _ensure_wallet(session, partner, order.currency)
+        gross = Decimal(str(order.subtotal))
+        commission = (gross * Decimal("0.10")).quantize(Decimal("0.01"))
+        net = gross - commission
+        await _write_wallet_txn(
+            session, wallet, kind="credit_order", amount=float(net),
+            description=f"Order {order.number} — revenue net of commission",
+            order_id=order.id,
+        )
+        if commission > 0:
+            await _write_wallet_txn(
+                session, wallet, kind="debit_commission", amount=-float(commission),
+                description=f"Order {order.number} — 10% platform commission",
+                order_id=order.id,
+            )
+
+    await session.commit()
+    await session.refresh(po)
+    order = await session.get(CustomerOrder, po.order_id)
+    items = (await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+    return _order_dict(po, order, list(items))
+
+
+# ============================================================================
+#                             WALLET (Slice 7)
+# ============================================================================
+
+async def _ensure_wallet(session: AsyncSession, partner: Partner, currency: str = "XOF") -> PartnerWallet:
+    """Lazily create the partner's wallet on first access."""
+    w = (await session.execute(
+        select(PartnerWallet).where(PartnerWallet.partner_id == partner.id)
+    )).scalar_one_or_none()
+    if w:
+        return w
+    w = PartnerWallet(partner_id=partner.id, currency=currency, balance=0)
+    session.add(w)
+    await session.flush()
+    return w
+
+
+async def _write_wallet_txn(
+    session: AsyncSession, wallet: PartnerWallet, *,
+    kind: str, amount: float, description: str,
+    order_id: Optional[str] = None, reference: Optional[str] = None,
+) -> PartnerWalletTxn:
+    """Append a signed ledger entry and update the materialised balance.
+    Amount sign convention: credits positive, debits negative."""
+    new_balance = float(Decimal(str(wallet.balance)) + Decimal(str(amount)))
+    wallet.balance = new_balance
+    tx = PartnerWalletTxn(
+        wallet_id=wallet.id, kind=kind, amount=amount, currency=wallet.currency,
+        balance_after=new_balance, description=description,
+        order_id=order_id, reference=reference,
+    )
+    session.add(tx)
+    await session.flush()
+    return tx
+
+
+def _wallet_dict(w: PartnerWallet) -> dict:
+    return {
+        "id": w.id, "balance": float(w.balance),
+        "currency": w.currency, "is_active": w.is_active,
+    }
+
+
+def _tx_dict(t: PartnerWalletTxn) -> dict:
+    return {
+        "id": t.id, "kind": t.kind, "amount": float(t.amount),
+        "currency": t.currency, "balance_after": float(t.balance_after),
+        "description": t.description, "order_id": t.order_id,
+        "reference": t.reference,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+    }
+
+
+@partner_router.get("/wallet")
+async def get_wallet(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    w = await _ensure_wallet(session, partner)
+    await session.commit()  # persist lazy create
+    await session.refresh(w)
+
+    txns = (await session.execute(
+        select(PartnerWalletTxn).where(PartnerWalletTxn.wallet_id == w.id)
+        .order_by(PartnerWalletTxn.created_at.desc()).limit(limit).offset(offset)
+    )).scalars().all()
+    total = await session.scalar(
+        select(func.count(PartnerWalletTxn.id)).where(PartnerWalletTxn.wallet_id == w.id)
+    )
+    return {
+        "wallet": _wallet_dict(w),
+        "transactions": [_tx_dict(t) for t in txns],
+        "total": total or 0,
+    }
+
+
+class TopupIn(BaseModel):
+    amount: float = Field(..., gt=0, le=10_000_000)
+    method: str = Field("card", pattern="^(card|mobile_money|bank_transfer)$")
+
+
+@partner_router.post("/wallet/topup")
+async def wallet_topup(
+    payload: TopupIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """MOCKED top-up — no real payment provider wired yet. Marks a synthetic
+    Stripe/mobile-money reference so real integration is a drop-in later."""
+    w = await _ensure_wallet(session, partner)
+    ref = f"mock_{payload.method}_{new_id('t')[2:14]}"  # placeholder external ref
+    tx = await _write_wallet_txn(
+        session, w, kind="credit_topup", amount=payload.amount,
+        description=f"Top-up via {payload.method} (mocked)",
+        reference=ref,
+    )
+    await session.commit()
+    await session.refresh(w)
+    await session.refresh(tx)
+    return {"wallet": _wallet_dict(w), "transaction": _tx_dict(tx), "MOCKED": True}
+
+
+class WithdrawIn(BaseModel):
+    amount: float = Field(..., gt=0)
+    destination: str = Field("bank", pattern="^(bank|mobile_money)$")
+
+
+@partner_router.post("/wallet/withdraw")
+async def wallet_withdraw(
+    payload: WithdrawIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """MOCKED withdrawal request — records a debit and returns success.
+    Real payout wiring lands with the Stripe/Payouts integration."""
+    w = await _ensure_wallet(session, partner)
+    if float(w.balance) < payload.amount:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+    ref = f"mock_payout_{new_id('p')[2:14]}"
+    tx = await _write_wallet_txn(
+        session, w, kind="debit_payout", amount=-payload.amount,
+        description=f"Withdrawal to {payload.destination} (mocked)",
+        reference=ref,
+    )
+    await session.commit()
+    await session.refresh(w)
+    await session.refresh(tx)
+    return {"wallet": _wallet_dict(w), "transaction": _tx_dict(tx), "MOCKED": True}
+
+
+# ============================================================================
+#          DEMO seed — admin-only, creates fake customer orders for a partner
+# ============================================================================
+# Real order routing (customer → partner) will land with the fulfilment slice.
+# Until then, this endpoint lets us demo the partner Orders/Wallet UI end-to-end.
+
+from core.models import Customer
+
+
+@admin_router.post("/partners/{partner_id}/demo-orders", status_code=201)
+async def seed_demo_orders(
+    partner_id: str,
+    count: int = Query(3, ge=1, le=10),
+    session: AsyncSession = Depends(get_session),
+):
+    """DEMO: create N synthetic customer orders assigned to this partner.
+
+    Each order gets 2–3 items copied from the partner's own catalog so totals
+    make sense. Marked with `payment_method="demo"` so we can easily wipe.
+    """
+    partner = await session.get(Partner, partner_id)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+
+    # Pick or create a demo customer
+    demo_email = "demo-customer@baked.ci"
+    customer = (await session.execute(
+        select(Customer).where(func.lower(Customer.email) == demo_email)
+    )).scalar_one_or_none()
+    if not customer:
+        customer = Customer(
+            email=demo_email, name="Demo Customer",
+            phone="+2250700000000", country=partner.country,
+        )
+        session.add(customer)
+        await session.flush()
+
+    # Grab up to 5 partner products
+    psku_rows = (await session.execute(
+        select(PartnerProduct).where(PartnerProduct.partner_id == partner_id).limit(5)
+    )).scalars().all()
+    if not psku_rows:
+        raise HTTPException(status_code=400, detail="Partner has no products yet")
+
+    masters = await _load_masters(session, [r.master_product_id for r in psku_rows if r.master_product_id])
+
+    created = []
+    for i in range(count):
+        # Round-robin pick 2 items per order
+        picks = [psku_rows[j % len(psku_rows)] for j in range(i, i + 2)]
+
+        subtotal = Decimal("0")
+        item_specs = []
+        for p in picks:
+            m = masters.get(p.master_product_id) if p.master_product_id else None
+            name = m.name if m else p.name
+            brand = m.brand if m else p.brand
+            unit = m.unit if m else p.unit
+            image = m.image if m else p.image
+            master_id = p.master_product_id or (m.id if m else None)
+            if not master_id:
+                # custom SKU with no master row — synthesize a mart_products row so
+                # order_items.product_id FK is satisfied. Simpler: skip if no master.
+                # For MVP demo we require at least one linked master SKU.
+                continue
+            qty = 2
+            line = Decimal(str(p.partner_price)) * qty
+            subtotal += line
+            item_specs.append({
+                "master_id": master_id, "name": name, "brand": brand, "unit": unit,
+                "image": image, "price": float(p.partner_price), "qty": qty,
+                "line_total": float(line),
+            })
+
+        if not item_specs:
+            continue
+
+        currency = "XOF"
+        delivery_fee = Decimal("500")
+        total = subtotal + delivery_fee
+
+        # Human-readable order number
+        n = await session.scalar(select(func.count(CustomerOrder.id))) or 0
+        order = CustomerOrder(
+            number=f"DEMO-{(n + 1):05d}",
+            customer_id=customer.id,
+            module=partner.module,
+            country=partner.country,
+            status="pending",
+            subtotal=float(subtotal),
+            delivery_fee=float(delivery_fee),
+            total=float(total),
+            currency=currency,
+            address_snapshot={
+                "label": "Demo Address",
+                "line1": "12 Boulevard Latrille",
+                "city": "Abidjan",
+                "country": partner.country,
+            },
+            payment_method="demo",
+            payment_status="paid",
+        )
+        session.add(order)
+        await session.flush()
+
+        for spec in item_specs:
+            session.add(OrderItem(
+                order_id=order.id, product_id=spec["master_id"],
+                name=spec["name"], brand=spec["brand"], unit=spec["unit"],
+                image=spec["image"], price=spec["price"], quantity=spec["qty"],
+                line_total=spec["line_total"], currency=currency,
+            ))
+
+        po = PartnerOrder(partner_id=partner_id, order_id=order.id, status="new")
+        session.add(po)
+        created.append(order.number)
+
+    await session.commit()
+    return {"created": len(created), "order_numbers": created}

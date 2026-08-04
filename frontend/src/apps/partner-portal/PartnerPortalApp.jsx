@@ -236,9 +236,9 @@ const NAV = [
   { seg: "",         icon: LayoutDashboard, label: "Dashboard" },
   { seg: "profile",  icon: Building2,       label: "Business profile" },
   { seg: "warehouse", icon: WarehouseIcon,  label: "Warehouse" },
-  { seg: "products", icon: Package,         label: "Products",    soon: true },
-  { seg: "orders",   icon: ShoppingBag,     label: "Orders",      soon: true },
-  { seg: "wallet",   icon: Wallet,          label: "Wallet",      soon: true },
+  { seg: "products", icon: Package,         label: "Products" },
+  { seg: "orders",   icon: ShoppingBag,     label: "Orders" },
+  { seg: "wallet",   icon: Wallet,          label: "Wallet" },
 ];
 
 const PortalShell = ({ children }) => {
@@ -398,23 +398,13 @@ const ProfilePage = () => {
   );
 };
 
-const WarehousePage = () => {
-  const { warehouse } = usePartner();
-  if (!warehouse) return <p className="ph-body">No warehouse configured yet.</p>;
-  return (
-    <div data-testid="portal-warehouse-page">
-      <div className="ph-eyebrow">Warehouse</div>
-      <h1 className="ph-h1 mt-2" style={{ color: "var(--ph-fg)" }}>{warehouse.name}</h1>
-      <p className="ph-body mt-2">Primary fulfilment location for your BAKĒD store.</p>
-      <div className="mt-8 max-w-xl rounded-2xl p-6" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
-        <KeyRow icon={MapPin}     label="Address"       value={`${warehouse.address_line}, ${warehouse.city}`} />
-        <KeyRow icon={Building2}  label="Property"      value={warehouse.property_type} />
-        <KeyRow icon={WarehouseIcon} label="Size"       value={warehouse.property_size_sqm ? `${warehouse.property_size_sqm} m²` : "—"} />
-        <KeyRow icon={MapPin}     label="Service area"  value={warehouse.service_area_km ? `${warehouse.service_area_km} km radius` : "—"} />
-      </div>
-    </div>
-  );
-};
+// WarehousePage lives in ./WarehouseEditor to keep this file within the
+// Emergent visual-edits Babel plugin's JSX-depth ceiling.
+import { WarehousePage } from "./WarehouseEditor";
+import { ProductsPage } from "./ProductsPage";
+import { OrdersPage } from "./OrdersPage";
+import { WalletPage } from "./WalletPage";
+
 
 /* -------------------------------------------------------------------------- */
 /*                             Root routing                                   */
@@ -442,6 +432,9 @@ export const PartnerPortalApp = () => {
         <Route path="" element={<Protected><PortalShell><DashboardPage /></PortalShell></Protected>} />
         <Route path="profile" element={<Protected><PortalShell><ProfilePage /></PortalShell></Protected>} />
         <Route path="warehouse" element={<Protected><PortalShell><WarehousePage /></PortalShell></Protected>} />
+        <Route path="products" element={<Protected><PortalShell><ProductsPage /></PortalShell></Protected>} />
+        <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
+        <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
         <Route path="*" element={<Navigate to="/partner-portal" replace />} />
       </Routes>
     </PartnerProvider>
