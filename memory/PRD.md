@@ -309,3 +309,49 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Verified end-to-end via Playwright**: admin approves `MART-CI-2026-0002` → partner logs in with temp password → forced to `/reset-password` → sets new password → dashboard shows "Hi, E2E" + 4 KPI cards (0/0/0/0) + "Get set up" checklist with 2 auto-marked-done → navigated to Business profile + Warehouse pages → signed out → re-logged in with new password → went straight to dashboard (no reset loop). Test creds captured in `/app/memory/test_credentials.md`.
    - **Deliberately deferred**: forgot-password (temp-issued-once-by-admin is enough for MVP); MFA (later); editable business profile (currently read-only — the approval snapshot is source of truth); real KPIs (0/0/0/0 until inventory + orders slice lands).
 
+
+- ✅ **MARTbakēd Partner — Slice 4b: Warehouse Hierarchy (2026-02-04)** — 5-level hierarchy live at `/partner-portal/warehouse`.
+   - **Backend tables** (`/app/backend/core/models/partners.py`): `warehouse_zones` → `_aisles` → `_racks` → `_shelves` → `_bins`, each with `code`, `label`, `parent_id`, `warehouse_id`, position.
+   - **Backend endpoints** `/api/partner/warehouse/nodes` (generic CRUD across all 5 levels) — GET tree, POST create, PATCH rename, DELETE cascade.
+   - **Frontend** `/app/frontend/src/apps/partner-portal/WarehouseEditor.jsx` — expandable tree with add/edit/delete per level; because the Emergent visual-edits Babel plugin overflows on recursive JSX, the recursive `HierarchyNode` is written with `React.createElement()` (documented in code).
+
+- ✅ **MARTbakēd Partner — Slice 5 · Products (Hybrid Catalog) (2026-02-04)** — `/partner-portal/products`.
+   - **New table** `partner_products` (`core/models/partner_commerce.py`) — `source ∈ {master, custom}`, nullable FK to `mart_products`, plus partner-owned `partner_price`, `stock_qty`, `low_stock_threshold`, `is_active`, `sku_code`. Uniqueness on `(partner_id, master_product_id)` prevents duplicate linking.
+   - **Endpoints**: `GET /api/partner/products` · `GET /api/partner/master-catalog?q=&category=` (scoped to partner's country + module, marks already-linked SKUs) · `POST /partner/products/link` · `POST /partner/products/custom` · `PATCH /partner/products/{id}` · `DELETE /partner/products/{id}`.
+   - **Frontend** `/app/frontend/src/apps/partner-portal/ProductsPage.jsx` — stats cards (Total / Live / Hidden), inline edit (price + stock), Hide/Delete, Add-product modal with two tabs: search master catalog OR create fully custom SKU.
+   - **Guard**: master-linked SKUs cannot rename/rebrand (name/brand/unit/image locked to master).
+
+- ✅ **MARTbakēd Partner — Slice 6 · Orders Fulfilment (2026-02-04)** — `/partner-portal/orders`.
+   - **New overlay table** `partner_orders` linking a customer `orders.id` to `partners.id` — leaves customer schema untouched.
+   - **Explicit state machine**: `new → {accepted|cancelled}`, `accepted → {packing|cancelled}`, `packing → {ready|cancelled}`, `ready → {handed_off|cancelled}`, `handed_off → {completed}`, terminal at completed/cancelled. Invalid transitions → HTTP 409.
+   - **Endpoints**: `GET /api/partner/orders?status=…` (with per-bucket counts) · `GET /api/partner/orders/{id}` · `POST /api/partner/orders/{id}/status`.
+   - **Auto-wallet credit on `handed_off`**: gross subtotal is credited, 10% platform commission is debited — both written into `partner_wallet_txns`.
+   - **Frontend** — status tabs with counts, drawer with items/address/totals, sticky action bar, cancellation-reason capture. Admin helper `POST /api/admin/mart-partner/partners/{id}/demo-orders?count=N` seeds demo customer orders so the queue is testable end-to-end.
+
+- ✅ **MARTbakēd Partner — Slice 7 · Wallet (2026-02-04)** — `/partner-portal/wallet`.
+   - **New tables** `partner_wallets` (single row per partner, materialised balance) + `partner_wallet_txns` (append-only ledger with `kind ∈ {credit_order, debit_commission, debit_payout, credit_topup, credit_adjustment, debit_adjustment}` and `balance_after`).
+   - **Endpoints**: `GET /api/partner/wallet` (lazy-creates the wallet) · `POST /partner/wallet/topup` · `POST /partner/wallet/withdraw` — both **MOCKED** with a synthetic `mock_card_xxx` / `mock_payout_xxx` reference; response body includes `MOCKED: true` so the frontend can render an amber notice.
+   - **Frontend** — hero balance card with warm-amber gradient, +Add funds / Withdraw actions, money-in / money-out stats, full transaction ledger with signed amounts and running balance.
+   - **Deliberately deferred**: real Stripe / Wave / Orange Money integration (needs playbook + user API keys); admin adjustments UI; auto-payout schedule.
+
+- ✅ **Dashboard metrics upgraded (2026-02-04)** — `/api/partner/dashboard` now returns real values: `orders_today`, `revenue_today`, `products_live`, `inventory_items`, `wallet_balance`. Checklist auto-marks `first_product` and `first_order` done as soon as data exists.
+
+## MARTbakēd Partner MVP — Status
+- ✅ Slice 1 · Public application (2026-02-03)
+- ✅ Slice 2 · Super Admin review + approval (2026-02-04)
+- ✅ Slice 3 · Portal login + onboarding shell (2026-02-04)
+- ✅ Slice 4b · Warehouse hierarchy (2026-02-04)
+- ✅ Slice 5 · Products (hybrid catalog) (2026-02-04)
+- ✅ Slice 6 · Orders fulfilment (2026-02-04)
+- ✅ Slice 7 · Wallet (mocked payments) (2026-02-04)
+- ⏳ Slice 8 · Real Stripe / Mobile Money for wallet top-up + payouts
+- ⏳ Slice 9 · Customer checkout → partner routing (currently orders are seeded by admin demo endpoint)
+
+## Roadmap (post-MVP)
+- P1: Real Stripe / Wave / Orange Money integration for wallet top-up + payout schedule
+- P1: Customer-checkout → partner-order routing (auto-pick partner by inventory + service area)
+- P1: Reorder button on customer Activities/Orders + Wallet screen
+- P1: Individual partner apps for FOOD, SHOP, EXPRESS, AUTO, IMMO
+- P1: Driver Platform (`driver.baked.ci`)
+- P2: Developer / Docs / Status portals
+- P2: Full Referral Rewards engine

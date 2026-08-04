@@ -317,12 +317,14 @@ const ProductRow = ({ p, onChange }) => {
 
 export const ProductsPage = () => {
   const [state, setState] = useState({ items: [], total: 0, live: 0 });
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
   const load = async () => {
     const { data } = await partnerApi.get("/partner/products");
     setState(data);
+    setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
@@ -349,7 +351,7 @@ export const ProductsPage = () => {
         {[["Total SKUs", state.total], ["Live", state.live], ["Hidden", state.total - state.live]].map(([l, v]) => (
           <div key={l} className="rounded-xl p-4" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
             <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--ph-fg-subtle)" }}>{l}</div>
-            <div className="text-2xl font-bold mt-1" style={{ color: "var(--ph-fg)" }}>{v}</div>
+            <div className="text-2xl font-bold mt-1" style={{ color: "var(--ph-fg)" }}>{loading ? "—" : v}</div>
           </div>
         ))}
       </div>
