@@ -221,8 +221,8 @@ const OPPORTUNITIES = [
     title: "MARTbakēd Dark Store",
     desc: "Operate a smart local fulfillment centre and serve thousands of customers through the MARTbakēd platform. AI inventory, live orders, packing stations — all handled.",
     cta: "Become a Dark Store Partner",
-    href: "https://mart.partner.baked.ci",
-    external: true,
+    href: "/partner/apply",
+    loginHref: "/partner-portal/login",
     image: "https://images.unsplash.com/photo-1553413077-190dd305871c?w=1600&q=80&auto=format&fit=crop",
   },
   {
@@ -289,6 +289,20 @@ const OpportunityCard = ({ opp, index }) => {
                style={{ color: "var(--ph-accent-warm)" }}>
             {opp.cta} <ArrowUpRight size={17} />
           </div>
+
+          {opp.loginHref && (
+            <div className="mt-4">
+              <Link
+                to={opp.loginHref}
+                onClick={(e) => e.stopPropagation()}
+                data-testid={`hub-opportunity-${opp.id}-login`}
+                className="inline-flex items-center gap-1 text-[13px]"
+                style={{ color: "var(--ph-fg-muted)", textDecoration: "underline", textUnderlineOffset: 4 }}
+              >
+                Already a partner? Log in →
+              </Link>
+            </div>
+          )}
         </div>
       </CardLink>
     </Reveal>
