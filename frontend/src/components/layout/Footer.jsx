@@ -34,7 +34,7 @@ const LinkList = ({ items }) => (
 const PARTNERS_SELLERS = [
   ["SHOPbakēd Seller",  "/shop/seller"],
   ["FOODbakēd Partner", "/food/partner"],
-  ["MARTbakēd Partner", "/mart/partner"],
+  ["MARTbakēd Partner", "/partner-portal/login"],
   ["MARTbakēd Seller",  "/mart/seller"],
   ["AUTObakēd Partner", "/auto/partner"],
   ["AUTObakēd Seller",  "/auto/seller"],
