@@ -92,13 +92,28 @@ async def _snapshot_cart(session: AsyncSession, customer_id: str) -> tuple[Optio
     items = (await session.execute(select(CartItem).where(CartItem.cart_id == cart.id))).scalars().all()
     if not items:
         return cart, [], 0.0
+    # Overlay partner pricing here too — checkout eligibility should reflect the
+    # exact price the customer will pay after allocation.
+    from modules.mart_partner.allocation import effective_partner_price
+    products = {p.id: p for p in (
+        await session.execute(select(MartProduct).where(MartProduct.id.in_([it.product_id for it in items])))
+    ).scalars().all()}
+    countries = {p.country for p in products.values() if p}
+    partner_prices: dict[str, dict] = {}
+    for c in countries:
+        partner_prices.update(await effective_partner_price(
+            session, [p.id for p in products.values() if p.country == c], country=c, module="mart",
+        ))
+
     lines: list[dict] = []
     subtotal = 0.0
     for it in items:
-        p = await session.get(MartProduct, it.product_id)
+        p = products.get(it.product_id)
         if not p:
             continue
-        line_total = round(float(p.price) * it.quantity, 2)
+        pp = partner_prices.get(p.id)
+        unit_price = float(pp["partner_price"]) if pp else float(p.price)
+        line_total = round(unit_price * it.quantity, 2)
         subtotal += line_total
         lines.append({
             "product_id": p.id,
@@ -106,7 +121,7 @@ async def _snapshot_cart(session: AsyncSession, customer_id: str) -> tuple[Optio
             "unit": p.unit,
             "brand": p.brand,
             "image": p.image,
-            "price": float(p.price),
+            "price": unit_price,
             "quantity": it.quantity,
             "line_total": line_total,
             "currency": p.currency,
@@ -195,6 +210,32 @@ async def _order_to_dict(session: AsyncSession, order: Order) -> dict:
     items = (await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
     data = row_to_dict(order, rename={"address_snapshot": "address"})
     data["items"] = [row_to_dict(i) for i in items]
+
+    # Attach partner-fulfilment summary so the customer confirmation screen
+    # can render "sourced from N stores" — we join partner_orders → partners.
+    from core.models import PartnerOrder, Partner
+    po_rows = (await session.execute(
+        select(PartnerOrder).where(PartnerOrder.order_id == order.id)
+    )).scalars().all()
+    partners_by_id = {}
+    if po_rows:
+        rows = (await session.execute(
+            select(Partner).where(Partner.id.in_([po.partner_id for po in po_rows]))
+        )).scalars().all()
+        partners_by_id = {p.id: p for p in rows}
+
+    data["partners"] = [
+        {
+            "partner_id": po.partner_id,
+            "partner_name": (partners_by_id.get(po.partner_id).business_name
+                             if partners_by_id.get(po.partner_id) else "Store"),
+            "subtotal": float(po.subtotal or 0),
+            "item_count": int(po.item_count or 0),
+            "status": po.status,
+        }
+        for po in po_rows
+    ]
+    data["partner_count"] = len(po_rows)
     return data
 
 
@@ -207,37 +248,13 @@ async def create_order(
     # Everything below participates in one implicit transaction (the session
     # auto-begins on first use and is only committed once, at the very end) —
     # any exception raised before that final commit leaves zero partial writes.
-    cart, lines, subtotal = await _snapshot_cart(session, customer.id)
+    cart, lines, master_subtotal = await _snapshot_cart(session, customer.id)
     if not lines:
         raise HTTPException(400, "Cart is empty")
 
     country = await get_country_config(session, customer.country or "CI") or {}
 
-    # Centralised eligibility: total = subtotal + delivery, then check against min_order
-    elig = check_order_eligibility(
-        subtotal=subtotal,
-        country_delivery_fee=country.get("delivery_fee", 0),
-        country_free_delivery_over=country.get("free_delivery_over", 0),
-        min_order=country.get("min_order", 0),
-    )
-    if not elig["eligible"]:
-        raise HTTPException(400, f"Minimum order is {country.get('min_order', 0)} {country.get('currency','')}. Add {elig['shortfall']:g} {country.get('currency','')} more to your basket.")
-
-    delivery_fee = elig["delivery_fee"]
-    subtotal_after_delivery = elig["total"]
-    currency = country.get("currency", lines[0].get("currency"))
-
-    # ---- Rewards redemption ----
-    available_points = int(customer.reward_points or 0)
-    use_points = min(max(0, payload.use_points), available_points)
-    # Never let a redemption drive the total below the minimum-order threshold
-    max_discount_allowed = max(0.0, subtotal_after_delivery - (country.get("min_order", 0) or 0))
-    points_discount = round(min(use_points / REWARD_CONVERSION, max_discount_allowed), 2)
-    # Round redemption down to whole points if capped
-    if points_discount < use_points / REWARD_CONVERSION:
-        use_points = int(points_discount * REWARD_CONVERSION)
-    total = round(subtotal_after_delivery - points_discount, 2)
-
+    # ---- Resolve delivery address FIRST — the allocator needs its lat/lng ----
     address_snapshot = None
     source_address_id = None
     if payload.address_id:
@@ -255,6 +272,64 @@ async def create_order(
         source_address_id = addr_row.id
     if not address_snapshot:
         raise HTTPException(400, "Address is required (provide address_id or inline address)")
+
+    # ---- Inventory Allocation ----
+    # Route each cart line to a partner that has stock + is closest to the
+    # delivery address. If ANY line can't be filled we fail the whole checkout
+    # — the customer sees ONE order, so a partial allocation makes no sense.
+    from modules.mart_partner.allocation import allocate
+    plan = await allocate(
+        session,
+        cart_lines=[{"master_product_id": ln["product_id"], "quantity": ln["quantity"]} for ln in lines],
+        country=(customer.country or "CI"),
+        module="mart",
+        delivery_lat=address_snapshot.get("latitude"),
+        delivery_lng=address_snapshot.get("longitude"),
+        delivery_city=address_snapshot.get("city"),
+        lock_stock=True,
+    )
+    if not plan.fulfillable:
+        # Enrich unfulfillable rows with human-friendly names for the UI.
+        gaps = []
+        for u in plan.unfulfillable:
+            for ln in lines:
+                if ln["product_id"] == u.master_product_id:
+                    gaps.append({"name": ln["name"], "quantity": u.quantity_requested,
+                                 "reason": u.reason, "stocked_by_count": u.stocked_by_count})
+                    break
+        raise HTTPException(status_code=400, detail={
+            "code": "not_available_in_area",
+            "message": ("Some items in your cart aren't available in your area yet. "
+                        "MARTbakēd is coming soon to more stores."),
+            "gaps": gaps,
+        })
+
+    # ---- Pricing: partner_price replaces master price for the totals ----
+    subtotal = round(plan.subtotal, 2)
+
+    elig = check_order_eligibility(
+        subtotal=subtotal,
+        country_delivery_fee=country.get("delivery_fee", 0),
+        country_free_delivery_over=country.get("free_delivery_over", 0),
+        min_order=country.get("min_order", 0),
+    )
+    if not elig["eligible"]:
+        raise HTTPException(400, f"Minimum order is {country.get('min_order', 0)} {country.get('currency','')}. Add {elig['shortfall']:g} {country.get('currency','')} more to your basket.")
+
+    delivery_fee = elig["delivery_fee"]
+    subtotal_after_delivery = elig["total"]
+    currency = country.get("currency", plan.currency)
+
+    # ---- Rewards redemption ----
+    available_points = int(customer.reward_points or 0)
+    use_points = min(max(0, payload.use_points), available_points)
+    # Never let a redemption drive the total below the minimum-order threshold
+    max_discount_allowed = max(0.0, subtotal_after_delivery - (country.get("min_order", 0) or 0))
+    points_discount = round(min(use_points / REWARD_CONVERSION, max_discount_allowed), 2)
+    # Round redemption down to whole points if capped
+    if points_discount < use_points / REWARD_CONVERSION:
+        use_points = int(points_discount * REWARD_CONVERSION)
+    total = round(subtotal_after_delivery - points_discount, 2)
 
     # Resolve delivery slot (id + label, else code, else default)
     slot_id = payload.delivery_slot_id
@@ -285,13 +360,40 @@ async def create_order(
         payment_method=payload.payment_method,
         payment_status="pending",
         instructions=payload.instructions,
+        # Consolidation only kicks in when 2+ partners are involved.
+        consolidation_status="pending" if plan.partner_count > 1 else "not_applicable",
     )
     session.add(order)
     await session.flush()
     order.number = f"BK{order.id[-8:].upper()}"
-    session.add_all(
-        OrderItem(order_id=order.id, **{k: v for k, v in line.items()}) for line in lines
-    )
+
+    # ---- Create PartnerOrder rows + tagged OrderItems ----
+    # We deliberately build them in one pass so every OrderItem lands with its
+    # partner_order_id already set (no back-fill pass).
+    from core.models import PartnerOrder as PartnerOrderModel
+    for slice_ in plan.slices:
+        po = PartnerOrderModel(
+            partner_id=slice_.partner_id,
+            order_id=order.id,
+            status="new",
+            subtotal=slice_.subtotal,
+            item_count=sum(al.quantity for al in slice_.lines),
+        )
+        session.add(po)
+        await session.flush()  # need po.id for the OrderItem tagging below
+        for al in slice_.lines:
+            session.add(OrderItem(
+                order_id=order.id,
+                product_id=al.master_product_id,
+                partner_id=slice_.partner_id,
+                partner_order_id=po.id,
+                partner_product_id=al.partner_product_id,
+                name=al.name, brand=al.brand, unit=al.unit, image=al.image,
+                price=al.unit_price,
+                quantity=al.quantity,
+                line_total=round(al.line_total, 2),
+                currency=al.currency,
+            ))
 
     # Fire OrderCreated
     await event_bus.publish(Events.ORDER_CREATED, {"order_id": order.id, "customer_id": customer.id, "total": total})
@@ -344,12 +446,22 @@ async def create_order(
     session.add(
         AuditLog(
             actor_id=customer.id, actor_kind="customer", action="order.created",
-            target_id=order.id, metadata_={"total": total, "currency": currency},
+            target_id=order.id, metadata_={"total": total, "currency": currency,
+                                            "partner_count": plan.partner_count},
         )
     )
 
     await session.commit()
-    return await _order_to_dict(session, order)
+    out = await _order_to_dict(session, order)
+    # Add partner summary so the confirmation screen can show "fulfilled from N stores"
+    out["partners"] = [
+        {"partner_id": s.partner_id, "partner_name": s.partner_name,
+         "warehouse_city": s.warehouse_city, "subtotal": round(s.subtotal, 2),
+         "item_count": sum(al.quantity for al in s.lines)}
+        for s in plan.slices
+    ]
+    out["partner_count"] = plan.partner_count
+    return out
 
 
 @router.get("/orders/me")

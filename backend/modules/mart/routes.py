@@ -86,7 +86,30 @@ async def list_products(
         "newest": MartProduct.created_at.desc(),
     }.get(sort, MartProduct.popularity.desc())
     rows = (await session.execute(stmt.order_by(sort_col).limit(limit))).scalars().all()
-    return [row_to_dict(r) for r in rows]
+
+    # Overlay partner pricing: min partner_price across in-country partners.
+    # When any partner stocks the SKU with `is_active` inventory > 0, the
+    # customer sees THAT price on cards — the master price becomes the
+    # crossed-out MSRP. Falls back to master when no partner offers.
+    from modules.mart_partner.allocation import effective_partner_price
+    partner_prices = await effective_partner_price(
+        session, [r.id for r in rows], country=country.upper(), module="mart",
+    )
+    out = []
+    for r in rows:
+        d = row_to_dict(r)
+        pp = partner_prices.get(r.id)
+        if pp:
+            # Preserve original as `master_price` (RRP) so the UI can show strikethrough
+            d["master_price"] = d.get("price")
+            d["price"] = pp["partner_price"]
+            d["is_stocked_locally"] = pp["any_in_stock"]
+            d["partners_stocking"] = pp["partners_stocking"]
+        else:
+            d["is_stocked_locally"] = False
+            d["partners_stocking"] = 0
+        out.append(d)
+    return out
 
 
 @router.get("/mart/products/{product_id}")
@@ -94,7 +117,19 @@ async def get_product(product_id: str, session: AsyncSession = Depends(get_sessi
     product = await session.get(MartProduct, product_id)
     if not product or product.deleted_at is not None:
         raise HTTPException(404, "Product not found")
-    return row_to_dict(product)
+    d = row_to_dict(product)
+    from modules.mart_partner.allocation import effective_partner_price
+    prices = await effective_partner_price(session, [product.id], country=product.country, module=product.module)
+    pp = prices.get(product.id)
+    if pp:
+        d["master_price"] = d.get("price")
+        d["price"] = pp["partner_price"]
+        d["is_stocked_locally"] = pp["any_in_stock"]
+        d["partners_stocking"] = pp["partners_stocking"]
+    else:
+        d["is_stocked_locally"] = False
+        d["partners_stocking"] = 0
+    return d
 
 
 @router.get("/mart/offers")
@@ -155,23 +190,54 @@ async def _cart_for(session: AsyncSession, customer_id: str) -> Cart:
 
 async def _hydrate_cart(session: AsyncSession, cart: Cart) -> dict:
     items = (await session.execute(select(CartItem).where(CartItem.cart_id == cart.id))).scalars().all()
+    # Overlay partner pricing so the cart shows the exact price the customer
+    # will pay at checkout (partner_price replaces master price where a partner
+    # in the country stocks the SKU).
+    from modules.mart_partner.allocation import effective_partner_price
+    product_ids = [it.product_id for it in items]
+    products = {p.id: p for p in (
+        await session.execute(select(MartProduct).where(MartProduct.id.in_(product_ids)))
+    ).scalars().all()}
+    # Group by country/module (assume single country per cart — typical)
+    countries = {p.country for p in products.values() if p}
+    partner_prices: dict[str, dict] = {}
+    for c in countries:
+        partner_prices.update(await effective_partner_price(
+            session, [p.id for p in products.values() if p.country == c], country=c, module="mart",
+        ))
+
     subtotal = 0.0
     hydrated_items = []
     for item in items:
-        p = await session.get(MartProduct, item.product_id)
+        p = products.get(item.product_id)
         if not p:
             continue
-        line_total = round(float(p.price) * item.quantity, 2)
+        pd = row_to_dict(p)
+        pp = partner_prices.get(p.id)
+        if pp:
+            pd["master_price"] = pd.get("price")
+            pd["price"] = pp["partner_price"]
+            pd["is_stocked_locally"] = pp["any_in_stock"]
+            pd["partners_stocking"] = pp["partners_stocking"]
+        else:
+            pd["is_stocked_locally"] = False
+            pd["partners_stocking"] = 0
+        line_total = round(float(pd["price"]) * item.quantity, 2)
         subtotal += line_total
         hydrated_items.append({
             **row_to_dict(item),
-            "product": row_to_dict(p),
+            "product": pd,
             "line_total": line_total,
         })
     data = row_to_dict(cart)
     data["items"] = hydrated_items
     data["subtotal"] = round(subtotal, 2)
     data["item_count"] = sum(i["quantity"] for i in hydrated_items)
+    # Coming-soon summary for the cart UI banner
+    data["unavailable_items"] = [
+        {"product_id": i["product"]["id"], "name": i["product"]["name"]}
+        for i in hydrated_items if not i["product"].get("is_stocked_locally")
+    ]
     return data
 
 

@@ -99,7 +99,13 @@ export const MobileCheckout = () => {
       await clear();
       nav(`/orders/${data.id}/confirmation`);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not place order");
+      const detail = e?.response?.data?.detail;
+      if (detail && typeof detail === "object" && detail.code === "not_available_in_area") {
+        const names = (detail.gaps || []).map(g => g.name).filter(Boolean).join(", ");
+        toast.error(`${detail.message}${names ? ` (${names})` : ""}`, { duration: 6000 });
+      } else {
+        toast.error(typeof detail === "string" ? detail : "Could not place order");
+      }
     } finally { setPlacing(false); }
   };
 

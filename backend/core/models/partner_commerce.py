@@ -101,23 +101,33 @@ PARTNER_ORDER_STATUSES = (
 
 
 class PartnerOrder(Base, TimestampMixin):
-    """Overlay linking a customer order to the partner that fulfils it."""
+    """Overlay linking a customer order to the partner that fulfils some or all of it.
+
+    A single customer order can have multiple partner_orders when the cart is
+    routed across stores — the customer still sees ONE order/invoice/delivery
+    (see `Order.consolidation_status` for the dispatch state machine).
+    """
 
     __tablename__ = "partner_orders"
     __table_args__ = (
-        UniqueConstraint("order_id", name="uq_partner_orders_order"),
+        # (order_id, partner_id) is unique — one slice per partner per customer order.
+        UniqueConstraint("order_id", "partner_id", name="uq_partner_orders_order_partner"),
         CheckConstraint(
             f"status IN ({','.join(repr(s) for s in PARTNER_ORDER_STATUSES)})",
             name="ck_partner_orders_status",
         ),
         Index("ix_partner_orders_partner_status", "partner_id", "status"),
         Index("ix_partner_orders_partner_created", "partner_id", "created_at"),
+        Index("ix_partner_orders_order", "order_id"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("po"))
     partner_id: Mapped[str] = mapped_column(String, ForeignKey("partners.id"), nullable=False)
     order_id: Mapped[str] = mapped_column(String, ForeignKey("orders.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="new")
+    # This partner's slice of the customer's total order (sum of their line_totals).
+    subtotal: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0, server_default="0")
+    item_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     accepted_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     ready_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     handed_off_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)

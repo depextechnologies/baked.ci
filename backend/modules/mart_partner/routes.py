@@ -1144,8 +1144,11 @@ def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) 
         "order_number": order.number,
         "status": po.status,
         "customer_status": order.status,
-        "total": float(order.total),
-        "subtotal": float(order.subtotal),
+        # Partner-side totals (this partner's slice only)
+        "subtotal": float(po.subtotal or 0),
+        "item_count": int(po.item_count or len(items)),
+        # Customer-side grand total (for context — partner does NOT get paid this)
+        "customer_total": float(order.total),
         "delivery_fee": float(order.delivery_fee),
         "currency": order.currency,
         "payment_method": order.payment_method,
@@ -1153,6 +1156,7 @@ def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) 
         "delivery_slot_label": order.delivery_slot_label,
         "address": order.address_snapshot,
         "instructions": order.instructions,
+        "consolidation_status": getattr(order, "consolidation_status", None),
         "items": [
             {
                 "id": it.id, "name": it.name, "brand": it.brand, "unit": it.unit,
@@ -1192,23 +1196,25 @@ async def list_partner_orders(
         return {"items": [], "total": 0, "buckets": buckets}
 
     order_ids = [po.order_id for po in pos]
+    po_ids = [po.id for po in pos]
     orders = {
         o.id: o for o in (
             await session.execute(select(CustomerOrder).where(CustomerOrder.id.in_(order_ids)))
         ).scalars().all()
     }
-    items_by_order: dict[str, list[OrderItem]] = {}
+    # Only pull THIS partner's slice of items (tagged with partner_order_id)
+    items_by_po: dict[str, list[OrderItem]] = {}
     for it in (
-        await session.execute(select(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+        await session.execute(select(OrderItem).where(OrderItem.partner_order_id.in_(po_ids)))
     ).scalars().all():
-        items_by_order.setdefault(it.order_id, []).append(it)
+        items_by_po.setdefault(it.partner_order_id, []).append(it)
 
     out = []
     for po in pos:
         o = orders.get(po.order_id)
         if not o:
             continue
-        out.append(_order_dict(po, o, items_by_order.get(o.id, [])))
+        out.append(_order_dict(po, o, items_by_po.get(po.id, [])))
 
     # Status buckets for the tab UI
     bucket_rows = (await session.execute(
@@ -1232,7 +1238,9 @@ async def get_partner_order(
     if not po or po.partner_id != partner.id:
         raise HTTPException(status_code=404, detail="Order not found")
     order = await session.get(CustomerOrder, po.order_id)
-    items = (await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+    items = (await session.execute(
+        select(OrderItem).where(OrderItem.partner_order_id == po.id)
+    )).scalars().all()
     return _order_dict(po, order, list(items))
 
 
@@ -1268,12 +1276,25 @@ async def update_partner_order_status(
     elif payload.status == "cancelled":
         po.cancelled_at = now
         po.cancellation_reason = payload.reason
+        # ---- Restore reserved stock on the PartnerProduct rows ----
+        # We only put stock BACK if it was actually decremented (i.e. this
+        # partner_order was created by the allocation engine, so its items
+        # carry partner_product_id).
+        restored_items = (await session.execute(
+            select(OrderItem).where(OrderItem.partner_order_id == po.id)
+        )).scalars().all()
+        for it in restored_items:
+            if it.partner_product_id:
+                pp = await session.get(PartnerProduct, it.partner_product_id)
+                if pp:
+                    pp.stock_qty = int(pp.stock_qty or 0) + int(it.quantity)
 
-    # On handoff, credit partner wallet (net of 10% platform commission).
+    # On handoff, credit partner wallet (net of 10% platform commission) — using
+    # THIS partner's slice of the order, not the customer's grand total.
     if payload.status == "handed_off":
         order = await session.get(CustomerOrder, po.order_id)
         wallet = await _ensure_wallet(session, partner, order.currency)
-        gross = Decimal(str(order.subtotal))
+        gross = Decimal(str(po.subtotal or order.subtotal))
         commission = (gross * Decimal("0.10")).quantize(Decimal("0.01"))
         net = gross - commission
         await _write_wallet_txn(
@@ -1291,7 +1312,9 @@ async def update_partner_order_status(
     await session.commit()
     await session.refresh(po)
     order = await session.get(CustomerOrder, po.order_id)
-    items = (await session.execute(select(OrderItem).where(OrderItem.order_id == order.id))).scalars().all()
+    items = (await session.execute(
+        select(OrderItem).where(OrderItem.partner_order_id == po.id)
+    )).scalars().all()
     return _order_dict(po, order, list(items))
 
 

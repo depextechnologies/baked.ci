@@ -139,14 +139,19 @@ const OrderDrawer = ({ orderId, onClose, onChange }) => {
 
               <div className="mt-4 rounded-xl p-4" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
                 <div className="flex justify-between text-sm py-1" style={{ color: "var(--ph-fg-muted)" }}>
-                  <span>Subtotal</span><span>{money(order.subtotal, order.currency)}</span>
+                  <span>Your slice subtotal</span><span>{money(order.subtotal, order.currency)}</span>
                 </div>
-                <div className="flex justify-between text-sm py-1" style={{ color: "var(--ph-fg-muted)" }}>
-                  <span>Delivery</span><span>{money(order.delivery_fee, order.currency)}</span>
+                <div className="flex justify-between text-xs py-1" style={{ color: "var(--ph-fg-subtle)" }}>
+                  <span>Items to pack</span><span>{order.item_count}</span>
                 </div>
-                <div className="flex justify-between text-base pt-2 mt-2 font-semibold"
-                     style={{ color: "var(--ph-fg)", borderTop: "1px solid var(--ph-border)" }}>
-                  <span>Total</span><span>{money(order.total, order.currency)}</span>
+                {order.consolidation_status && order.consolidation_status !== "not_applicable" && (
+                  <div className="flex justify-between text-xs py-1" style={{ color: "var(--ph-accent-warm)" }}>
+                    <span>Multi-store order</span><span>consolidated delivery</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xs pt-2 mt-2"
+                     style={{ color: "var(--ph-fg-subtle)", borderTop: "1px solid var(--ph-border)" }}>
+                  <span>Customer paid (grand total)</span><span>{money(order.customer_total, order.currency)}</span>
                 </div>
               </div>
             </div>
@@ -252,7 +257,7 @@ export const OrdersPage = () => {
               <div className="flex-1" />
               <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
                     style={{ background: c.bg, color: c.fg }}>{o.status.replace(/_/g, " ")}</span>
-              <div className="font-mono text-sm w-28 text-right" style={{ color: "var(--ph-fg)" }}>{money(o.total, o.currency)}</div>
+              <div className="font-mono text-sm w-28 text-right" style={{ color: "var(--ph-fg)" }}>{money(o.subtotal, o.currency)}</div>
               <ChevronRight size={16} style={{ color: "var(--ph-fg-subtle)" }} />
             </button>
           );

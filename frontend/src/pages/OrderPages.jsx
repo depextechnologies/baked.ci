@@ -58,6 +58,37 @@ export const OrderDetailPage = () => {
               ))}
             </div>
           </section>
+          {/* Fulfilment breakdown — only shows when the order was routed to 1+ partners */}
+          {order.partners?.length > 0 && (
+            <section className="baked-card bg-card border border-border p-5" data-testid="order-partners-panel">
+              <div className="flex items-center gap-2 mb-3">
+                <Package size={18} style={{ color: "#77BC1F" }} />
+                <h3 className="font-semibold">
+                  {order.partner_count > 1
+                    ? (language === "en" ? `Sourced from ${order.partner_count} stores` : `Provient de ${order.partner_count} boutiques`)
+                    : (language === "en" ? "Fulfilled by" : "Assuré par")}
+                </h3>
+              </div>
+              {order.partner_count > 1 && (
+                <p className="text-[11px] text-muted-foreground mb-3">
+                  {language === "en"
+                    ? "We're consolidating your items so you receive one delivery."
+                    : "Nous regroupons vos articles pour une livraison unique."}
+                </p>
+              )}
+              <div className="space-y-2">
+                {order.partners.map(p => (
+                  <div key={p.partner_id} className="flex items-center gap-3 text-sm p-2 rounded-lg bg-secondary/40">
+                    <div className="flex-1">
+                      <div className="font-medium">{p.partner_name}</div>
+                      <div className="text-[11px] text-muted-foreground">{p.item_count} item(s) · {p.status.replace(/_/g, " ")}</div>
+                    </div>
+                    <div className="text-xs font-mono">{formatMoney(p.subtotal, order.currency)}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
         <aside>
           <div className="baked-card bg-card border border-border p-5 sticky top-24 space-y-2">
