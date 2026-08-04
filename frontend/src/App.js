@@ -7,6 +7,7 @@ import { CustomerApp } from "@/apps/customer/CustomerApp";
 import { AdminApp } from "@/apps/admin/AdminApp";
 import { PartnerLandingApp } from "@/apps/partner-landing/PartnerLandingApp";
 import { PartnerHubApp } from "@/apps/partner-hub/PartnerHubApp";
+import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
 
 /**
  * App.js — thin dispatcher (Phase 1a v2.0 monorepo refactor).
@@ -29,6 +30,7 @@ const App = () => (
       <AdminProvider>
         <Routes>
           <Route path="/admin/*" element={<AdminApp />} />
+          <Route path="/partner-portal/*" element={<PartnerPortalApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/*" element={<CustomerApp />} />

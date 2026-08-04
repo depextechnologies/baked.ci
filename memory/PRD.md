@@ -295,3 +295,17 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Sub-nav**: "Applications" tab added to the MARTbakēd module workspace (`ModuleWorkspace.jsx MODULE_NAV`) so Super Admin can reach the queue in one click.
    - **Verified end-to-end via Playwright**: logged in as super admin, approved application `MART-CI-2026-0004` → dialog rendered Partner `prt_01ca4a3d…`, warehouse `Ecobasket Plateau — Main`, temp password `X5kZ05D3b0aS`. Also verified request-info flow on `MART-CI-2026-0001` → status flipped to `additional_info_required`, amber callout shown in drawer. DB confirms 2 partners + 2 warehouses created (`Dark Store Marcory` + `MiniMart Cocody E2E`).
 
+
+- ✅ **MARTbakēd Partner — Slice 3: Portal Login & Onboarding Shell (2026-02-04)** — Stage 3 of the 3-stage flow is fully wired at `/partner-portal/*`.
+   - **Auth**: verified pattern with `integration_playbook_expert_v2` before writing code — shared JWT secret, role="partner" claim, bcrypt via `core.security.hash_password`, `must_reset_password` flag gates the dashboard.
+   - **Backend endpoints** (`/app/backend/modules/mart_partner/routes.py`, new `partner_router`):
+     - `POST /api/partner/auth/login` — email + temp/permanent password → `{access_token, partner, warehouse}`
+     - `POST /api/partner/auth/reset-password` — requires current + new; enforces `!=` and length; clears `must_reset_password`
+     - `GET  /api/partner/auth/me` — returns partner + primary warehouse
+     - `GET  /api/partner/dashboard` — stub metrics + 5-item onboarding checklist (auto-marks reset_password & warehouse when done)
+   - **New dep** `get_current_partner`: mirrors admin dep — Bearer token, decodes JWT with shared secret, checks `role==partner`, loads active Partner row.
+   - **Frontend app** `/app/frontend/src/apps/partner-portal/PartnerPortalApp.jsx` — self-contained module with `PartnerProvider` (axios + localStorage `baked_partner_token`), Login, forced Reset-Password, sidebar Shell, Dashboard, Business Profile, Warehouse pages. Routes: `/partner-portal/{login|reset-password|profile|warehouse|(dashboard)}`. Registered in `App.js` above the customer catch-all.
+   - **Design**: reuses `partner-hub.css` tokens (warm-amber CTAs, dark canvas, glass panels), so the portal is visually consistent with the Partner Hub landing. `data-testid` on every input + nav link + submit for automation.
+   - **Verified end-to-end via Playwright**: admin approves `MART-CI-2026-0002` → partner logs in with temp password → forced to `/reset-password` → sets new password → dashboard shows "Hi, E2E" + 4 KPI cards (0/0/0/0) + "Get set up" checklist with 2 auto-marked-done → navigated to Business profile + Warehouse pages → signed out → re-logged in with new password → went straight to dashboard (no reset loop). Test creds captured in `/app/memory/test_credentials.md`.
+   - **Deliberately deferred**: forgot-password (temp-issued-once-by-admin is enough for MVP); MFA (later); editable business profile (currently read-only — the approval snapshot is source of truth); real KPIs (0/0/0/0 until inventory + orders slice lands).
+

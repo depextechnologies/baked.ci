@@ -415,3 +415,177 @@ async def admin_approve(
         # SHOWN ONCE — admin must hand this to the partner. Never persisted plaintext.
         "temp_password": temp_password,
     }
+
+
+# ============================================================================
+#                    PARTNER PORTAL — Stage 3 (login + shell)
+# ============================================================================
+#
+# Auth pattern mirrors the admin flow verified via integration_playbook_expert_v2:
+#   - Bearer token in Authorization header (same JWT secret, role="partner")
+#   - bcrypt via core.security.hash_password / verify_password
+#   - Force password reset on first login via Partner.must_reset_password flag
+from core.security import verify_password
+from fastapi import Header
+
+
+class PartnerLoginIn(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6, max_length=200)
+
+
+class PartnerPasswordResetIn(BaseModel):
+    current_password: str = Field(..., min_length=6, max_length=200)
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+
+async def get_current_partner(
+    authorization: Optional[str] = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> Partner:
+    """Auth dependency for partner-portal endpoints."""
+    from jwt import ExpiredSignatureError, InvalidTokenError, decode as jwt_decode  # local — module already imported jwt elsewhere
+    import os
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = authorization[7:]
+    try:
+        payload = jwt_decode(token, os.environ["JWT_SECRET"], algorithms=["HS256"])
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    if payload.get("role") != "partner":
+        raise HTTPException(status_code=403, detail="Partner token required")
+    partner = await session.get(Partner, payload.get("sub"))
+    if not partner or not partner.is_active:
+        raise HTTPException(status_code=401, detail="Partner not found or inactive")
+    return partner
+
+
+def _partner_dict(partner: Partner) -> dict:
+    return {
+        "id": partner.id,
+        "business_name": partner.business_name,
+        "business_type": partner.business_type,
+        "owner_name": partner.owner_name,
+        "owner_email": partner.owner_email,
+        "owner_phone": partner.owner_phone,
+        "module": partner.module,
+        "country": partner.country,
+        "must_reset_password": partner.must_reset_password,
+        "is_active": partner.is_active,
+        "approved_at": partner.approved_at.isoformat() if partner.approved_at else None,
+    }
+
+
+def _warehouse_dict(wh: Warehouse) -> dict:
+    return {
+        "id": wh.id,
+        "name": wh.name,
+        "address_line": wh.address_line,
+        "city": wh.city,
+        "country": wh.country,
+        "property_type": wh.property_type,
+        "property_size_sqm": float(wh.property_size_sqm) if wh.property_size_sqm is not None else None,
+        "service_area_km": float(wh.service_area_km) if wh.service_area_km is not None else None,
+    }
+
+
+async def _primary_warehouse(session: AsyncSession, partner_id: str) -> Optional[Warehouse]:
+    return (
+        await session.execute(
+            select(Warehouse).where(Warehouse.partner_id == partner_id, Warehouse.is_active == True)  # noqa: E712
+            .order_by(Warehouse.created_at.asc())
+        )
+    ).scalars().first()
+
+
+partner_router = APIRouter(prefix="/partner", tags=["partner-portal"])
+
+
+@partner_router.post("/auth/login")
+async def partner_login(
+    payload: PartnerLoginIn, session: AsyncSession = Depends(get_session),
+):
+    """Partner sign-in with email + temp/permanent password.
+
+    Response includes `must_reset_password` so the frontend can gate the
+    dashboard behind a password-reset screen on first login.
+    """
+    row = (
+        await session.execute(
+            select(Partner).where(func.lower(Partner.owner_email) == payload.email.lower())
+        )
+    ).scalar_one_or_none()
+    if not row or not row.temp_password_hash:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not row.is_active:
+        raise HTTPException(status_code=403, detail="This partner account is suspended")
+    if not verify_password(payload.password, row.temp_password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    from core.security import create_access_token
+    token = create_access_token(row.id, role="partner")
+    wh = await _primary_warehouse(session, row.id)
+    return {
+        "access_token": token,
+        "partner": _partner_dict(row),
+        "warehouse": _warehouse_dict(wh) if wh else None,
+    }
+
+
+@partner_router.get("/auth/me")
+async def partner_me(
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    wh = await _primary_warehouse(session, partner.id)
+    return {"partner": _partner_dict(partner), "warehouse": _warehouse_dict(wh) if wh else None}
+
+
+@partner_router.post("/auth/reset-password")
+async def partner_reset_password(
+    payload: PartnerPasswordResetIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Change password. Required on first login (`must_reset_password=true`)
+    and available at any time after. Requires current password for safety."""
+    if not verify_password(payload.current_password, partner.temp_password_hash or ""):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="New password must differ from current")
+    partner.temp_password_hash = hash_password(payload.new_password)
+    partner.must_reset_password = False
+    await session.commit()
+    await session.refresh(partner)
+    return {"partner": _partner_dict(partner)}
+
+
+@partner_router.get("/dashboard")
+async def partner_dashboard(
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Stage-3 dashboard shell — real metrics will land as we build inventory,
+    orders, and payouts. For now we surface a clean empty state so the UI
+    renders and the partner sees exactly what's coming next."""
+    wh = await _primary_warehouse(session, partner.id)
+    return {
+        "partner": _partner_dict(partner),
+        "warehouse": _warehouse_dict(wh) if wh else None,
+        "metrics": {
+            "orders_today": 0,
+            "revenue_today": 0,
+            "products_live": 0,
+            "inventory_items": 0,
+            "pending_payouts": 0,
+        },
+        "checklist": [
+            {"key": "reset_password", "label": "Change your temporary password", "done": not partner.must_reset_password},
+            {"key": "business_profile", "label": "Confirm your business profile", "done": False},
+            {"key": "warehouse", "label": "Set up your warehouse", "done": wh is not None},
+            {"key": "first_product", "label": "Enable your first product (coming soon)", "done": False},
+            {"key": "first_order", "label": "Receive your first order (coming soon)", "done": False},
+        ],
+    }
