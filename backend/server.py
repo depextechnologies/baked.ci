@@ -26,7 +26,7 @@ from shared.admin.routes import router as admin_router  # noqa: E402
 from shared.admin.module_routes import router as admin_module_router  # noqa: E402
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
-from modules.mart_partner.routes import router as mart_partner_router  # noqa: E402
+from modules.mart_partner.routes import router as mart_partner_router, admin_router as mart_partner_admin_router  # noqa: E402
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -80,6 +80,7 @@ api_router.include_router(orders_router)
 # Partner Platform — Stage 1 (Public Application). Stage 2 (Super Admin Review)
 # is served under the admin router in a later slice.
 api_router.include_router(mart_partner_router)
+api_router.include_router(mart_partner_admin_router)
 # TODO: food, shop, express, auto, immo
 
 app.include_router(api_router)

@@ -218,3 +218,200 @@ async def check_status(
     if not row:
         raise HTTPException(status_code=404, detail="No application matches that reference and email")
     return _serialise(row)
+
+
+# ============================================================================
+#                    ADMIN — Stage 2: Super Admin Review
+# ============================================================================
+#
+# Everything below requires a super-admin JWT (get_current_admin dependency).
+# Approval materialises a Partner + Warehouse row per the PRD Stage-3 spec.
+import secrets
+
+from shared.admin.routes import get_current_admin
+from core.models import AdminUser, Partner, Warehouse
+from core.security import hash_password
+
+
+admin_router = APIRouter(
+    prefix="/admin/mart-partner",
+    tags=["admin", "mart-partner"],
+    dependencies=[Depends(get_current_admin)],
+)
+
+
+class ReviewNoteIn(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+
+
+@admin_router.get("/applications")
+async def admin_list_applications(
+    status: Optional[str] = None,
+    country: Optional[str] = None,
+    module: Optional[str] = "mart",
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    """Paginated queue view for the admin console.
+
+    Newest-first because the Super Admin is triaging incoming applications.
+    """
+    stmt = select(PartnerApplication).order_by(PartnerApplication.created_at.desc())
+    if status:  stmt = stmt.where(PartnerApplication.status == status)
+    if country: stmt = stmt.where(PartnerApplication.country == country.upper())
+    if module:  stmt = stmt.where(PartnerApplication.module == module)
+    rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
+    total = await session.scalar(select(func.count(PartnerApplication.id)).select_from(PartnerApplication))
+    return {"total": total, "items": [_serialise(r) for r in rows]}
+
+
+@admin_router.get("/applications/{app_id}")
+async def admin_get_application(
+    app_id: str, session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerApplication, app_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return _serialise(row)
+
+
+async def _load_or_404(session: AsyncSession, app_id: str) -> PartnerApplication:
+    row = await session.get(PartnerApplication, app_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return row
+
+
+@admin_router.post("/applications/{app_id}/mark-under-review")
+async def admin_mark_under_review(
+    app_id: str,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await _load_or_404(session, app_id)
+    if row.status in ("approved", "rejected"):
+        raise HTTPException(status_code=409, detail=f"Application already {row.status}")
+    row.status = "under_review"
+    row.reviewed_by_admin_id = admin.id
+    await session.commit()
+    await session.refresh(row)
+    return _serialise(row)
+
+
+@admin_router.post("/applications/{app_id}/request-info")
+async def admin_request_info(
+    app_id: str,
+    payload: ReviewNoteIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await _load_or_404(session, app_id)
+    if row.status in ("approved", "rejected"):
+        raise HTTPException(status_code=409, detail=f"Application already {row.status}")
+    row.status = "additional_info_required"
+    row.additional_info_message = payload.message
+    row.reviewed_by_admin_id = admin.id
+    await session.commit()
+    await session.refresh(row)
+    return _serialise(row)
+
+
+@admin_router.post("/applications/{app_id}/reject")
+async def admin_reject(
+    app_id: str,
+    payload: ReviewNoteIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await _load_or_404(session, app_id)
+    if row.status == "approved":
+        raise HTTPException(status_code=409, detail="Cannot reject an already-approved application")
+    row.status = "rejected"
+    row.rejection_reason = payload.message
+    row.reviewed_at = datetime.now(timezone.utc)
+    row.reviewed_by_admin_id = admin.id
+    await session.commit()
+    await session.refresh(row)
+    return _serialise(row)
+
+
+@admin_router.post("/applications/{app_id}/approve")
+async def admin_approve(
+    app_id: str,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Approve an application AND auto-materialise the Stage-3 records.
+
+    Per PRD Stage 3: "Only after approval shall the system automatically create
+    Partner Account, Partner ID, Login Credentials, Business Profile, Warehouse,
+    Default User Roles, Empty Inventory, Default Dashboard."
+
+    This slice creates: Partner + primary Warehouse + temp password. Inventory
+    tables land in the next slice; the account is already usable to log in as
+    soon as Stage-3 partner-login is wired.
+    """
+    row = await _load_or_404(session, app_id)
+    if row.status == "approved":
+        raise HTTPException(status_code=409, detail="Application already approved")
+
+    now = datetime.now(timezone.utc)
+    # 12-char temp password — copy-once for the admin to hand off to the partner.
+    temp_password = secrets.token_urlsafe(9)
+
+    partner = Partner(
+        application_id=row.id,
+        module=row.module,
+        country=row.country,
+        business_name=row.business_name,
+        business_type=row.business_type,
+        owner_name=row.owner_name,
+        owner_email=row.primary_contact_email,
+        owner_phone=row.primary_contact_phone,
+        temp_password_hash=hash_password(temp_password),
+        approved_at=now,
+        approved_by_admin_id=admin.id,
+    )
+    session.add(partner)
+    await session.flush()  # need partner.id for the warehouse FK
+
+    warehouse = Warehouse(
+        partner_id=partner.id,
+        name=f"{row.business_name} — Main",
+        address_line=row.warehouse_address_line,
+        city=row.warehouse_city,
+        country=row.country,
+        latitude=row.warehouse_latitude,
+        longitude=row.warehouse_longitude,
+        property_type=row.property_type,
+        property_size_sqm=row.property_size_sqm,
+        service_area_km=row.service_area_km,
+    )
+    session.add(warehouse)
+
+    row.status = "approved"
+    row.reviewed_at = now
+    row.reviewed_by_admin_id = admin.id
+    row.partner_id = partner.id
+
+    await session.commit()
+    await session.refresh(row)
+    await session.refresh(partner)
+    await session.refresh(warehouse)
+
+    return {
+        "application": _serialise(row),
+        "partner": {
+            "id": partner.id,
+            "business_name": partner.business_name,
+            "owner_email": partner.owner_email,
+        },
+        "warehouse": {
+            "id": warehouse.id,
+            "name": warehouse.name,
+            "address_line": warehouse.address_line,
+        },
+        # SHOWN ONCE — admin must hand this to the partner. Never persisted plaintext.
+        "temp_password": temp_password,
+    }

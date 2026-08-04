@@ -14,6 +14,7 @@ const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, e
 const MODULE_NAV = [
   { seg: "", exact: true, label: "Overview", icon: LayoutDashboard },
   { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores" },
+  { seg: "applications", label: "Applications", icon: ClipboardList, martOnly: true, note: "Partner applications" },
   { seg: "products", label: "Catalogue", icon: Package, martOnly: true },
   { seg: "inventory", label: "Inventory", icon: Boxes, comingSoon: true },
   { seg: "orders", label: "Orders", icon: ClipboardList },

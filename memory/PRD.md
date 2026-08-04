@@ -277,3 +277,21 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Verified end-to-end via Playwright**: filled 4 steps → submit → backend generated `MART-CI-2026-0002` → confirmation renders with reference, "Application submitted" toast, row persisted to Postgres.
    - **Explicitly deferred**: real file upload for KYC docs (uses URL strings for now — needs object-storage playbook wiring later), email notifications (only console-logged), draft resumption (submit-once-and-review model for MVP).
 
+
+- ✅ **MARTbakēd Partner — Slice 2: Super Admin Review (2026-02-04)** — Stage 2 of the 3-stage flow is fully wired.
+   - **New tables** in `/app/backend/core/models/partners.py`: `partners` (materialised approved partner) and `warehouses` (flat root now; hierarchy tables land in the inventory slice).
+   - **Admin router** appended to `/app/backend/modules/mart_partner/routes.py`, wired under `/api/admin/mart-partner/*`, all endpoints gated by `shared.admin.routes.get_current_admin`:
+     - `GET  /applications` (paginated, filters: status/country/module)
+     - `GET  /applications/{id}` (detail)
+     - `POST /applications/{id}/mark-under-review`
+     - `POST /applications/{id}/request-info` (body: `{message}`)
+     - `POST /applications/{id}/reject`         (body: `{message}`)
+     - `POST /applications/{id}/approve`        — materialises `Partner` + primary `Warehouse` + hashes a `secrets.token_urlsafe(9)` temp password, marks application `approved`, returns `{application, partner, warehouse, temp_password}` (temp password shown once).
+   - **Admin UI** `/app/frontend/src/pages/admin/ModulePartnerApplications.jsx` mounted at `/admin/modules/mart/applications` (also registered under `/admin/modules/:code/partners/applications` for the PRD path):
+     - Queue table with 6 status filters (All / Submitted / Under review / Info requested / Approved / Rejected), search, refresh
+     - Slide-in drawer with grouped sections (Business, Contact, Warehouse, Payouts, Timeline), sticky action bar (Mark reviewing / Request info / Reject / Approve)
+     - Approve → shows a modal with Partner ID, Warehouse name, Owner email, temp password — each in copy-to-clipboard rows, with a "not shown again" warning
+     - Uses `adminApi` (from `AdminContext`) so the admin JWT (`localStorage.baked_admin_token`) is attached automatically
+   - **Sub-nav**: "Applications" tab added to the MARTbakēd module workspace (`ModuleWorkspace.jsx MODULE_NAV`) so Super Admin can reach the queue in one click.
+   - **Verified end-to-end via Playwright**: logged in as super admin, approved application `MART-CI-2026-0004` → dialog rendered Partner `prt_01ca4a3d…`, warehouse `Ecobasket Plateau — Main`, temp password `X5kZ05D3b0aS`. Also verified request-info flow on `MART-CI-2026-0001` → status flipped to `additional_info_required`, amber callout shown in drawer. DB confirms 2 partners + 2 warehouses created (`Dark Store Marcory` + `MiniMart Cocody E2E`).
+

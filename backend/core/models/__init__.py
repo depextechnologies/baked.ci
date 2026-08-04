@@ -35,7 +35,7 @@ from core.models.express import (
     ModuleDriver,
 )
 from core.models.vendors import ModuleVendor, VendorDocument
-from core.models.partners import APPLICATION_STATUSES, PartnerApplication
+from core.models.partners import APPLICATION_STATUSES, Partner, PartnerApplication, Warehouse
 
 __all__ = [
     "Base",
@@ -82,5 +82,7 @@ __all__ = [
     "ModuleVendor",
     "VendorDocument",
     "PartnerApplication",
+    "Partner",
+    "Warehouse",
     "APPLICATION_STATUSES",
 ]

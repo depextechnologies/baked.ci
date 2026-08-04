@@ -19,6 +19,7 @@ import {
   ModuleOverview, ModuleVendors, ModuleProducts, ModuleOrders,
   ModuleCustomers, ModuleDrivers, ModulePricing, ModuleBookings, ModuleComingSoon,
 } from "@/pages/admin/ModulePages";
+import { ModulePartnerApplications } from "@/pages/admin/ModulePartnerApplications";
 
 export const AdminApp = () => (
   <Routes>
@@ -45,6 +46,8 @@ export const AdminApp = () => (
       <Route path="modules/:code" element={<ModuleWorkspace />}>
         <Route index element={<ModuleOverview />} />
         <Route path="vendors" element={<ModuleVendors />} />
+        <Route path="applications" element={<ModulePartnerApplications />} />
+        <Route path="partners/applications" element={<ModulePartnerApplications />} />
         <Route path="products" element={<ModuleProducts />} />
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />

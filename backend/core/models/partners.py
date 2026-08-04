@@ -128,3 +128,70 @@ class PartnerApplication(Base, TimestampMixin):
 
     # When the Super Admin approves, we materialise a Partner row and link it back.
     partner_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+
+
+class Partner(Base, TimestampMixin):
+    """A materialised, approved partner account.
+
+    Created by the Super Admin approval action (Stage 2) from a
+    `PartnerApplication`. This is the record referenced by all Stage-3
+    partner-portal work: warehouses, inventory, products, orders, wallet.
+    """
+
+    __tablename__ = "partners"
+    __table_args__ = (
+        CheckConstraint(
+            "module IN ('mart','food','shop','express','auto','immo')",
+            name="ck_partners_module",
+        ),
+        Index("ix_partners_module_country", "module", "country"),
+        Index("ix_partners_owner_email", "owner_email"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("prt"))
+    application_id: Mapped[str] = mapped_column(
+        String, ForeignKey("partner_applications.id"), nullable=False,
+    )
+    module: Mapped[str] = mapped_column(String(16), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
+    business_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    business_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    owner_email: Mapped[str] = mapped_column(String(200), nullable=False)
+    owner_phone: Mapped[str] = mapped_column(String(40), nullable=False)
+    # Temp password issued at approval; partner must reset on first login (Stage 3).
+    temp_password_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    must_reset_password: Mapped[bool] = mapped_column(default=True, server_default="true")
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    approved_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    approved_by_admin_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("admin_users.id"), nullable=True,
+    )
+
+
+class Warehouse(Base, TimestampMixin):
+    """Physical fulfilment location owned by a partner.
+
+    Full hierarchy (zones/aisles/racks/shelves/bins) will land as separate
+    tables in the inventory slice — kept as a flat root now so we don't
+    over-build before we have real dark-store fleets, per PRD note that
+    "small stores may configure only the levels they require."
+    """
+
+    __tablename__ = "warehouses"
+    __table_args__ = (
+        Index("ix_warehouses_partner_id", "partner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wh"))
+    partner_id: Mapped[str] = mapped_column(String, ForeignKey("partners.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    address_line: Mapped[str] = mapped_column(String(400), nullable=False)
+    city: Mapped[str] = mapped_column(String(120), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
+    latitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    property_type: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    property_size_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    service_area_km: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
