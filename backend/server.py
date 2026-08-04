@@ -26,6 +26,7 @@ from shared.admin.routes import router as admin_router  # noqa: E402
 from shared.admin.module_routes import router as admin_module_router  # noqa: E402
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
+from modules.mart_partner.routes import router as mart_partner_router  # noqa: E402
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -76,6 +77,9 @@ api_router.include_router(admin_module_router)
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)
 api_router.include_router(orders_router)
+# Partner Platform — Stage 1 (Public Application). Stage 2 (Super Admin Review)
+# is served under the admin router in a later slice.
+api_router.include_router(mart_partner_router)
 # TODO: food, shop, express, auto, immo
 
 app.include_router(api_router)
@@ -120,6 +124,13 @@ async def _on_startup():
 
     logger.info("baked.startup running seed…")
     try:
+        # Create any missing tables. Idempotent — SQLAlchemy skips existing
+        # ones. Lets us add new models (e.g. partner_applications) without
+        # a separate migration step in dev/preview. Alembic will replace
+        # this at production-cutover time.
+        from core.models import Base
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
         await run_seed()
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.seed_failed err=%s", e)

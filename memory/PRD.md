@@ -264,3 +264,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Verification**: full audit report at `/app/memory/AUDIT_2026-02-02_PG_REGRESSION.md` with row counts, API smoke tests, and screenshot evidence for every module named in the docx acceptance criteria.
    - **Zero MongoDB residuals**: `grep -rn "motor|pymongo|bson|ObjectId" /app/backend/` returns zero hits; requirements.txt + .env clean.
 
+
+- ✅ **MARTbakēd Partner — Slice 1: Public Application (2026-02-04, per 5-doc Fixing_Prompt bundle)** — Stage 1 of the mandated 3-stage flow (Public Application → Super Admin Review → Partner Portal).
+   - **New table** `partner_applications` (`/app/backend/core/models/partners.py`) with all fields the docx enumerated: business + owner + KYC + warehouse + property + bank/mobile-money + JSONB `kyc_documents` + `extra` catch-all + full lifecycle (`draft`, `submitted`, `under_review`, `additional_info_required`, `approved`, `rejected`). Multi-tenancy naming = `partner_id` per decision g1.
+   - **New router** `/app/backend/modules/mart_partner/routes.py`:
+     - `POST /api/mart-partner/applications` — public submit; generates `MART-CI-2026-NNNN` reference; email+reference pair required for later status lookup.
+     - `GET  /api/mart-partner/applications/status?reference=...&email=...` — public status check; both fields required so a leaked reference alone can't dox another applicant.
+   - **Startup change** `/app/backend/server.py`: added `Base.metadata.create_all()` before seed so new models materialise without a separate migration step (Alembic replaces this at production cutover).
+   - **New frontend app** `/app/frontend/src/apps/partner-hub/PartnerApplyApp.jsx` — 5-step wizard (Business · Owner · Warehouse · Bank · Review), progress rail with amber highlight for the current step, form validation before Continue, confirmation screen showing the generated reference. Routes: `/partner/apply` inside the existing PartnerHubApp; landing "Become a Partner" CTAs now route here.
+   - **Design fidelity**: reuses partner-hub CSS tokens (`--ph-accent-warm`, `--ph-card`, `--ph-glass`) so the wizard is visually indistinguishable from the surrounding hub, no dedicated theme required.
+   - **Test-ids** on every input, next/back button, submit and confirmation reference so testing agents can drive the flow.
+   - **Verified end-to-end via Playwright**: filled 4 steps → submit → backend generated `MART-CI-2026-0002` → confirmation renders with reference, "Application submitted" toast, row persisted to Postgres.
+   - **Explicitly deferred**: real file upload for KYC docs (uses URL strings for now — needs object-storage playbook wiring later), email notifications (only console-logged), draft resumption (submit-once-and-review model for MVP).
+

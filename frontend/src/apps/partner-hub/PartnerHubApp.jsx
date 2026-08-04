@@ -13,7 +13,8 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Routes, Route } from "react-router-dom";
+import { PartnerApplyApp } from "./PartnerApplyApp";
 import {
   ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Sun,
   Warehouse, Building2, ShoppingBag, Bike,
@@ -134,9 +135,9 @@ const Navbar = ({ theme, onToggleTheme }) => {
           <Link to="/" className="ph-btn ph-btn-ghost hidden sm:inline-flex" data-testid="hub-nav-back">
             Back to BAKĒD
           </Link>
-          <a href="#opportunities" className="ph-btn ph-btn-warm" data-testid="hub-nav-cta">
+          <Link to="/partner/apply" className="ph-btn ph-btn-warm" data-testid="hub-nav-cta">
             Become a Partner <ArrowRight size={16} />
-          </a>
+          </Link>
         </div>
       </div>
     </header>
@@ -179,9 +180,9 @@ const Hero = () => (
 
         <Reveal delay={280}>
           <div className="mt-10 flex flex-wrap gap-4">
-            <a href="#opportunities" className="ph-btn ph-btn-warm" data-testid="hub-hero-primary">
+            <Link to="/partner/apply" className="ph-btn ph-btn-warm" data-testid="hub-hero-primary">
               Become a Partner <ArrowRight size={18} />
-            </a>
+            </Link>
             <a href="#opportunities" className="ph-btn ph-btn-secondary" data-testid="hub-hero-secondary">
               Explore Opportunities
             </a>
@@ -541,9 +542,9 @@ const FinalCTASection = () => (
         </Reveal>
         <Reveal delay={260}>
           <div className="mt-10 flex flex-wrap gap-4 justify-center">
-            <a href="#opportunities" className="ph-btn ph-btn-warm" data-testid="hub-final-primary">
+            <Link to="/partner/apply" className="ph-btn ph-btn-warm" data-testid="hub-final-primary">
               Become a Partner <ArrowRight size={18} />
-            </a>
+            </Link>
             <a href="mailto:partners@baked.ci" className="ph-btn ph-btn-secondary" data-testid="hub-final-secondary">
               Contact our team
             </a>
@@ -626,6 +627,24 @@ const HubFooter = () => (
 /*                                Root component                              */
 /* -------------------------------------------------------------------------- */
 
+// Landing page (hero, opportunities, testimonials, timeline, CTA + footer)
+// is shown at /partner. /partner/apply mounts the multi-step application
+// wizard on top of the same partner-hub theme tokens.
+const PartnerHubLanding = ({ theme, toggle }) => (
+  <div className="partner-hub" data-theme={theme}>
+    <Navbar theme={theme} onToggleTheme={toggle} />
+    <main>
+      <Hero />
+      <OpportunitiesSection />
+      <WhyPartnerSection />
+      <SuccessStoriesSection />
+      <HowItWorksSection />
+      <FinalCTASection />
+    </main>
+    <HubFooter />
+  </div>
+);
+
 export const PartnerHubApp = () => {
   const { theme, toggle } = useHubTheme();
 
@@ -636,18 +655,10 @@ export const PartnerHubApp = () => {
   }, []);
 
   return (
-    <div className="partner-hub" data-theme={theme}>
-      <Navbar theme={theme} onToggleTheme={toggle} />
-      <main>
-        <Hero />
-        <OpportunitiesSection />
-        <WhyPartnerSection />
-        <SuccessStoriesSection />
-        <HowItWorksSection />
-        <FinalCTASection />
-      </main>
-      <HubFooter />
-    </div>
+    <Routes>
+      <Route path="/" element={<PartnerHubLanding theme={theme} toggle={toggle} />} />
+      <Route path="/apply" element={<PartnerApplyApp />} />
+    </Routes>
   );
 };
 
