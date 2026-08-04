@@ -620,6 +620,159 @@ async def _seed_module_vendors_and_drivers(session: AsyncSession):
         await _upsert(session, ModuleDriver, ["phone", "module"], values)
 
 
+async def _seed_demo_partners(session: AsyncSession):
+    """Idempotent seed of the two demo MARTbakēd partners.
+
+    Preserves the developer / testing agent's ability to exercise the
+    multi-partner allocation engine end-to-end after any container restart
+    that wipes the Postgres volume. Password: `Alpha1234!Beta` for both.
+
+    Also links a small starter catalog per partner + creates one warehouse
+    row each, so every request against `/api/mart/products` (which is
+    partner-price aware) returns real data instead of falling back to the
+    master RRP.
+    """
+    from core.security import hash_password
+    from core.models import (
+        Partner, PartnerApplication, Warehouse, PartnerProduct, MartProduct,
+    )
+    from sqlalchemy import select
+
+    # SKU catalog is looked up by name (master product IDs are non-deterministic
+    # across DB volume wipes since they use uuid4-style prefixes).
+    demo = [
+        {
+            "id": "prt_alpha_demo_seed",
+            "app_id": "papp_alpha_demo_seed",
+            "business_name": "Partner Alpha Store",
+            "email": "partner-alpha-store@test.example",
+            "phone": "+2250700000001",
+            "sku_prices": [
+                # (master_product_name, partner_price, stock_qty)
+                ("Banane Cavendish",   900, 50),
+                ("Baguette Tradition", 450, 50),
+                ("Lait Frais",         750, 50),
+            ],
+        },
+        {
+            "id": "prt_beta_demo_seed",
+            "app_id": "papp_beta_demo_seed",
+            "business_name": "Partner Beta Store",
+            "email": "partner-beta-store@test.example",
+            "phone": "+2250700000002",
+            "sku_prices": [
+                ("Coca-Cola",           850, 40),
+                ("Baguette Tradition",  420, 40),  # cheaper than Alpha
+                ("Œufs Fermiers",       900, 40),
+                ("Eau Minérale",       1700, 40),
+            ],
+        },
+    ]
+
+    pw_hash = hash_password("Alpha1234!Beta")
+
+    for d in demo:
+        # PartnerApplication first (FK from Partner.application_id).
+        exists_app = await session.get(PartnerApplication, d["app_id"])
+        if not exists_app:
+            session.add(PartnerApplication(
+                id=d["app_id"],
+                module="mart",
+                country="CI",
+                business_name=d["business_name"],
+                business_type="dark_store",
+                owner_name=d["business_name"] + " Owner",
+                primary_contact_name=d["business_name"] + " Owner",
+                primary_contact_email=d["email"],
+                primary_contact_phone=d["phone"],
+                warehouse_address_line="99 Boulevard Latrille",
+                warehouse_city="Abidjan",
+                warehouse_latitude=5.3364,
+                warehouse_longitude=-4.0267,
+                property_type="leased",
+                property_size_sqm=150,
+                service_area_km=7,
+                status="approved",
+                reference=d["app_id"].upper(),
+                submitted_at=func.now(),
+                reviewed_at=func.now(),
+            ))
+            await session.flush()
+
+        # Partner
+        partner = await session.get(Partner, d["id"])
+        if not partner:
+            partner = Partner(
+                id=d["id"],
+                application_id=d["app_id"],
+                module="mart",
+                country="CI",
+                business_name=d["business_name"],
+                business_type="dark_store",
+                owner_name=d["business_name"] + " Owner",
+                owner_email=d["email"],
+                owner_phone=d["phone"],
+                temp_password_hash=pw_hash,
+                must_reset_password=False,
+                is_active=True,
+                approved_at=func.now(),
+                approved_by_admin_id=None,
+            )
+            session.add(partner)
+            await session.flush()
+
+        # Warehouse (one per partner)
+        wh_id = f"wh_{d['id'][4:]}"
+        existing_wh = await session.get(Warehouse, wh_id)
+        if not existing_wh:
+            session.add(Warehouse(
+                id=wh_id,
+                partner_id=d["id"],
+                name=f"{d['business_name']} — Abidjan",
+                address_line="99 Boulevard Latrille",
+                city="Abidjan",
+                country="CI",
+                latitude=5.3364,
+                longitude=-4.0267,
+                service_area_km=7,
+                is_active=True,
+            ))
+
+        # Catalog links — one PartnerProduct per (partner, master SKU).
+        for master_name, price, stock in d["sku_prices"]:
+            master = (await session.execute(
+                select(MartProduct).where(
+                    MartProduct.name == master_name,
+                    MartProduct.country == "CI",
+                    MartProduct.module == "mart",
+                )
+            )).scalar_one_or_none()
+            if not master:
+                continue  # master catalog might not have this SKU yet
+            existing = (await session.execute(
+                select(PartnerProduct).where(
+                    PartnerProduct.partner_id == d["id"],
+                    PartnerProduct.master_product_id == master.id,
+                )
+            )).scalar_one_or_none()
+            if existing:
+                # Refresh price/stock on every boot so the fixture stays reproducible
+                existing.partner_price = price
+                existing.stock_qty = stock
+                existing.is_active = True
+            else:
+                session.add(PartnerProduct(
+                    partner_id=d["id"],
+                    source="master",
+                    master_product_id=master.id,
+                    partner_price=price,
+                    currency=master.currency,
+                    stock_qty=stock,
+                    low_stock_threshold=5,
+                    is_active=True,
+                ))
+
+
 async def _cleanup_removed_countries(session: AsyncSession):
     """One-time cleanup for countries removed from the platform (e.g. GB after 2026-02).
 
@@ -656,6 +809,7 @@ async def run_seed():
         await _seed_super_admin(session)
         await _seed_ai_prompts(session)
         await _seed_module_vendors_and_drivers(session)
+        await _seed_demo_partners(session)
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars

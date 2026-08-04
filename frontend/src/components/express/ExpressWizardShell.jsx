@@ -102,9 +102,13 @@ const FitBounds = ({ pickup, drop }) => {
 
 // ---------- Main map ----------
 
-export const WizardMap = ({ compact = false }) => {
+export const WizardMap = ({ compact = false, draft: draftOverride = null }) => {
   const { country } = useApp();
-  const { draft } = useExpressBooking();
+  const { draft: parcelDraft } = useExpressBooking();
+  // Accept an external draft (e.g. movers) so a single shell serves every
+  // EXPRESSbakēd booking flow. Falls back to the parcel context for the
+  // original Parcel wizard.
+  const draft = draftOverride || parcelDraft;
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const [meta, setMeta] = useState(null);
 
@@ -210,17 +214,17 @@ export const WizardMap = ({ compact = false }) => {
  * Mobile: compact map on top of children. Desktop: 45% children / 55% map,
  * with the map sticky so it never scrolls out of view.
  */
-export const ExpressWizardShell = ({ children }) => (
+export const ExpressWizardShell = ({ children, draft = null }) => (
   <div className="flex-1 grid grid-cols-1 md:grid-cols-[45%_1fr] gap-4 px-4 md:px-6 pt-2 pb-6">
     {/* Mobile-only compact map card, appears above form */}
     <div className="md:hidden order-1">
-      <WizardMap compact />
+      <WizardMap compact draft={draft} />
     </div>
     {/* Form column */}
     <div className="order-2 md:order-1 flex flex-col min-w-0">{children}</div>
     {/* Desktop persistent map (55%) */}
     <div className="hidden md:block order-2 sticky top-4 self-start h-[calc(100vh-140px)] min-h-[420px]">
-      <WizardMap />
+      <WizardMap draft={draft} />
     </div>
   </div>
 );

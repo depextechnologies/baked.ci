@@ -1,0 +1,51 @@
+{
+  "summary": "Slice 8 — Inventory Allocation Engine e2e validation. Backend: 10/11 pytest cases PASSED (/app/backend/tests/test_slice8_allocation.py). Verified: (1) /api/mart/products & /api/mart/products/{id} overlay partner_price with master_price preserved for strikethrough + is_stocked_locally/partners_stocking flags; (2) /api/carts/me hydrate uses partner_price + returns unavailable_items[]; (3) Pastèque-only cart → POST /api/orders correctly returns 400 with detail.code='not_available_in_area' + gaps[]; (4) Multi-partner cart (Banane×2 Alpha-only + Baguette×3 both + Coca×1 Beta-only) creates ONE Order + TWO PartnerOrder rows; (5) Consolidation heuristic works — Baguette routes to Alpha (already in plan) at 450 XOF, NOT to Beta at 420 XOF (Alpha slice item_count=5, Beta slice=1); (6) OrderItems carry partner_id + partner_order_id; (7) Stock decrement on checkout AND full restoration on partner cancel (Banane: stock_before=X → X-5 → X); (8) Partner Orders view returns THIS partner's slice only (correct subtotal, item_count, items list; customer_total shown separately and > subtotal); (9) Invalid state transition new→completed returns 409. ONE FAILURE: Wallet auto-credit on handed_off double-deducts the 10% commission — actual net credited = gross − 2×commission (2520 XOF gained on a 3150 slice, expected 2835). Frontend Playwright: (a) /cart shows amber warning banner 'Coming soon to your area' + Checkout button IS disabled (computed opacity 0.6, pointer-events:none, disabled=true) when an unavailable item is present ✓; (b) Created a fresh multi-partner order → /orders/{id} shows the 'order-partners-panel' with 'Sourced from 2 stores' header + Alpha 5 items · 3,150 CFA + Beta 1 item · 850 CFA panels ✓; (c) Partner-portal /orders correctly renders 3 rows for Alpha with per-slice subtotals (1,800 / 1,800 / 3,150 CFA); (d) Warehouse + Products regression pages both render fine. ONE UI GAP: master_price strikethrough is not visibly rendered on /cart (no <s>/<del>/line-through elements found even though the API returns master_price alongside partner_price).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/partner/orders/{id}/status (status=handed_off)",
+        "issue": "Wallet auto-credit DOUBLE-deducts the 10% commission. In routes.py::update_partner_order_status, `net = gross - commission` is written as `credit_order`, then a SECOND `debit_commission = -commission` transaction is appended — leaving the partner with gross − 2×commission (80% of slice subtotal, not 90%). Observed: slice subtotal=3,150 XOF → wallet gained 2,520 (expected 2,835). Fix: either credit `gross` and debit `commission` (recommended, preserves ledger clarity), OR remove the second debit_commission txn.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CartPage.jsx",
+        "issue": "master_price strikethrough is not rendered visibly. API returns master_price alongside partner price (e.g. Baguette partner_price=420) but no <s>/<del>/line-through element is present in the DOM on /cart. Spec: 'Cart UI shows partner_price as primary + master_price strikethrough when partner < master'. Only the partner price is shown.",
+        "selector": "s, del, [class*='line-through']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_slice8_allocation.py",
+    "/app/test_reports/pytest/slice8_allocation.xml"
+  ],
+  "action_items": [
+    "FIX (critical): remove the double 10% commission deduction in modules/mart_partner/routes.py::update_partner_order_status → either credit `float(gross)` and keep the debit_commission entry (net effect = 90%), or drop the debit_commission txn and keep credit_order=net.",
+    "FIX (medium): render master_price as a strikethrough next to partner_price in CartPage.jsx when master_price is present and > partner_price. Backend already returns both fields on /api/carts/me items → product.{price, master_price}.",
+    "OPTIONAL: verify /api/mart/cart/eligibility uses partner_price (spot-check: subtotal reported matches sum of partner prices)."
+  ],
+  "critical_code_review_comments": [
+    "allocation.py::allocate() – ranking key `(0 if partner in plan_slices else 1, distance_km, -service_area_km, -stock_qty)` correctly implements the consolidation-first heuristic. However price is NEVER a tie-breaker: if a customer is equidistant from two partners and neither is in the plan, the allocator picks by service_area then stock, never by cheaper partner_price. This might disadvantage customers price-wise; consider adding partner_price as the final tiebreaker.",
+    "orders.py::create_order – The consolidation gap message ('Coming soon...') is friendly, but the `gaps` payload only carries {name, quantity, reason, stocked_by_count} — no product_id, so the frontend can't offer a 'remove' quick-action. Adding master_product_id to each gap would let /cart deep-link the remove button.",
+    "mart_partner/routes.py::update_partner_order_status – gross uses `Decimal(str(po.subtotal or order.subtotal))`. `po.subtotal` may legitimately be 0.0 for legacy single-partner demo rows created before Slice 8 (seed_demo_orders doesn't set subtotal), and the falsy `or` will silently fall back to order.subtotal. That is DESIRED for legacy rows but hides bugs where subtotal was correctly 0 (shouldn't happen but worth an explicit `is None` check).",
+    "allocation.py::effective_partner_price – when NO partner in the country has stock but some have inactive-stock offers, min_price falls back to any offer (including 0-stock). Good UX but the returned `any_in_stock=False` should make /cart mark the item as unavailable — the flow depends on the frontend actually honoring that flag. Verified today it does (Pastèque cart flow works).",
+    "mart/routes.py::_hydrate_cart – now O(N) partner-pricing lookup per cart, fine at MVP scale but could be memoised at the session level."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_slice8_allocation.py (new — 11 pytest cases covering the full Slice 8 surface)"
+  ],
+  "success_rate": {"backend": "91% (10/11)", "frontend": "≈95% (cart + order-confirmation + partner-orders + warehouse + products all pass; strikethrough missing)"},
+  "test_credentials": "Customer OTP: fresh phone per test — dev_code returned by /api/auth/otp/request. Partners: partner-alpha-store@test.example / partner-beta-store@test.example — password Alpha1234!Beta. Verified working.",
+  "seed_data_creation": "Tests created several customer orders (multi-partner + single-partner + coming-soon-rejected), which accumulate PartnerOrder rows on both Alpha and Beta. Also drove one PartnerOrder from new → handed_off, crediting Alpha's wallet. Two additional confirmed orders exist for Alpha in `new` status from the frontend flow (BK52E544C9 and BK55BA4869 — 1 item each, 1,800 XOF each — banane×2) plus the pre-existing BKE9944203 (2 items, 3,150 XOF). Stock on partner_products for Banane/Baguette/Coca has been decremented from earlier test runs — plenty of headroom remains (Alpha banane started 900).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest /app/backend/tests/test_slice8_allocation.py -o addopts='' -v` — expects 11/11 once the double-commission bug is fixed. The single failing test is `TestWalletCreditFromSlice::test_handoff_credits_slice_subtotal_net_commission`. For the frontend regression, the pre-existing multi-partner order id `ord_fed54e3255ba4869` mentioned in the review request appears to be inaccessible/purged (customer session couldn't view it); use a freshly-created multi-partner order instead — the flow is: OTP-login → POST cart items (banane×2, baguette×3, coca×1) → POST /api/orders → GET /orders/{id} → 'order-partners-panel' + 'Sourced from 2 stores' rendered correctly. Frontend localStorage key for customer is `baked_access_token`.",
+  "rca of the issue": "Wallet double-commission RCA: in `update_partner_order_status` when transitioning to `handed_off`, the code computes `gross = po.subtotal`, `commission = gross*0.10`, `net = gross - commission`, then writes credit_order with amount=net AND debit_commission with amount=-commission. Ledger math: balance_change = +net + (-commission) = (gross-commission)+(-commission) = gross - 2×commission. Fix: change `amount=float(net)` to `amount=float(gross)` on the credit_order write — this keeps the ledger showing a clean 'gross revenue + 10% commission' split. Reproduction: any partner handoff (accept→pack→ready→handed_off), then GET /api/partner/wallet — balance gains only 80% of slice subtotal instead of 90%. This slipped through iter-15 because that test only asserted 'balance strictly increased'."
+}

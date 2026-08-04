@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Home as HomeIcon, Building2, Truck, Package as PackageIcon, MapPin, Sparkles, ShieldCheck, Star, Plus, Minus, Info, Clock, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Sofa, Bed, Utensils, Briefcase, Trees, Boxes, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -6,6 +6,7 @@ import { api } from "../../lib/api";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useMoversBooking } from "../../contexts/ExpressContext";
 import { ExpressHeader, WizardProgress, ExpressFooter, useMoney } from "../../components/express/ExpressLayout";
+import { ExpressWizardShell } from "../../components/express/ExpressWizardShell";
 
 const STEPS = [
   { code: "type",       label: "Type" },
@@ -81,12 +82,25 @@ const MiniFeature = ({ icon: Icon, label }) => (
 export const MoversWizard = () => {
   const navigate = useNavigate();
   const { draft, setDraft, resetDraft } = useMoversBooking();
-  const [step, setStep] = useState(0);
+  // Step index is persisted in the URL querystring so a mid-wizard login
+  // (which does a full-page reload via BakedContexts.loginWithToken) still
+  // returns the user to the exact step they were on.
   const search = new URLSearchParams(window.location.search);
+  const initialStep = Math.max(0, Math.min(STEPS.length - 1, parseInt(search.get("step") || "0", 10) || 0));
+  const [step, setStepState] = useState(initialStep);
+
   useEffect(() => {
     const type = search.get("type");
     if (type && !draft.move_type) setDraft({ move_type: type });
   }, []); // eslint-disable-line
+
+  const setStep = useCallback((next) => {
+    setStepState(next);
+    const params = new URLSearchParams(window.location.search);
+    if (next === 0) params.delete("step"); else params.set("step", String(next));
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? "?" + qs : ""}`);
+  }, []);
 
   const goto = (i) => setStep(Math.max(0, Math.min(STEPS.length - 1, i)));
   const next = () => goto(step + 1);
@@ -96,14 +110,14 @@ export const MoversWizard = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <ExpressHeader title="PACKERS & MOVERS" onBack={prev} step={step + 1} totalSteps={STEPS.length} />
       <WizardProgress steps={STEPS} current={step} />
-      <div className="flex-1 flex flex-col">
+      <ExpressWizardShell draft={draft}>
         {step === 0 && <MoveTypeStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 1 && <PickupDropStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 2 && <ItemsStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 3 && <QuoteStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 4 && <TimeSlotStep draft={draft} setDraft={setDraft} onNext={next} />}
         {step === 5 && <ReviewStep draft={draft} setDraft={setDraft} resetDraft={resetDraft} />}
-      </div>
+      </ExpressWizardShell>
     </div>
   );
 };

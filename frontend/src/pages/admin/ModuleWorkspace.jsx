@@ -5,6 +5,7 @@ import {
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
   LayoutDashboard, Store, Package, ClipboardList, Users, Bike, DollarSign,
   Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
+  Activity,
 } from "lucide-react";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
@@ -13,9 +14,11 @@ const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, e
 const MODULE_NAV = [
   { seg: "", exact: true, label: "Overview", icon: LayoutDashboard },
   { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores" },
+  { seg: "applications", label: "Applications", icon: ClipboardList, martOnly: true, note: "Partner applications" },
   { seg: "products", label: "Catalogue", icon: Package, martOnly: true },
   { seg: "inventory", label: "Inventory", icon: Boxes, comingSoon: true },
   { seg: "orders", label: "Orders", icon: ClipboardList },
+  { seg: "bookings", label: "Bookings", icon: Activity, expressOnly: true },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },
   { seg: "drivers", label: "Drivers", icon: Bike },
   { seg: "pricing", label: "Pricing", icon: Tag, expressOnly: true },

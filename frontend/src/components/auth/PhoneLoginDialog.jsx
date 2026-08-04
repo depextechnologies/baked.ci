@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useGoogleLogin } from "@react-oauth/google";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { BakedLogo } from "../layout/BakedLogo";
@@ -98,10 +99,35 @@ export const PhoneLoginDialog = ({ open, onOpenChange }) => {
     if (e.key === "ArrowRight" && i < OTP_LEN - 1) otpRefs.current[i + 1]?.focus();
   };
 
-  const startGoogle = () => {
+  const googleLogin = useGoogleLogin({
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    // ux_mode: 'popup' with flow: 'auth-code' lets us keep the BAKĒD-styled
+    // button while still getting a secure server-verified sign-in. Google
+    // uses redirect_uri='postmessage' internally — no page redirect happens.
+    flow: "auth-code",
+    ux_mode: "popup",
+    onSuccess: async ({ code }) => {
+      setBusy(true);
+      try {
+        const { data } = await api.post("/auth/google/verify", { code });
+        await loginWithToken(data.access_token, data.customer);
+        toast.success(`Welcome, ${data.customer.name || "back"}!`);
+        onOpenChange(false);
+      } catch (e) {
+        toast.error(e?.response?.data?.detail || "Google sign-in failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    onError: () => toast.error("Google sign-in was cancelled"),
+  });
+
+  const startGoogle = () => {
+    if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
+      toast.error("Google Sign-In is not configured");
+      return;
+    }
+    googleLogin();
   };
 
   return (

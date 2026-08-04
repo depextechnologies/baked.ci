@@ -172,3 +172,213 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - **P2**: Partner Portal, Driver Portal
 - **P2**: Notifications engine, Analytics, Search (OpenSearch), Media (MinIO)
 - **P2**: RabbitMQ swap for the event bus (interface preserved)
+
+- ✅ **EXPRESSbakēd — Sub-feature D: Super Admin Management Overview (2026-07-29, PostgreSQL baseline)** — first admin feature shipped on the new SQLAlchemy stack.
+   - **Backend** (`/app/backend/shared/admin/routes.py`):
+     - Extended `GET /api/admin/modules/express/stats` — 6 live KPIs: `active_bookings`, `completed_today`, `searching_now`, `cancelled_today`, `drivers_available` (string `n/n`), `avg_trip_min`. Revenue rollup per currency for delivered+paid bookings.
+     - New `GET /api/admin/modules/express/bookings` — paginated live table with `status` (any/active/searching/driver_assigned/arriving/picked_up/in_transit/delivered/cancelled), `country` (CI/LR), and `q` (fuzzy on ref/receiver_name/receiver_phone) filters. Sorted by `updated_at DESC`.
+     - Full driver snapshot + pickup/drop denormalised into the response so the admin table needs zero joins client-side.
+   - **Frontend** (`/app/frontend/src/pages/admin/ModulePages.jsx`):
+     - `ModuleOverview` — 6 coloured KPI tiles (icon + label + value) using `EXPRESS_KPI_META` (yellow/orange/green/red/blue/purple). 20s live-refresh. "Recent bookings" preview card with `View all →` navigation.
+     - New `ModuleBookings` — filter chip row (All/Active/Searching/Assigned/Arriving/Picked up/In transit/Delivered/Cancelled), country selector, search input, refresh button, dense table with `StatusPill` + route + receiver + vehicle + driver + total + relative time + "View" deep-link to `/express/booking/{id}/track`. 15s live-refresh so the simulator's status transitions appear in-place.
+     - `data-testid` per spec: `overview-express`, `kpi-<key>` × 6, `overview-view-all-bookings`, `module-tab-bookings`, `bookings-filter-<code>` (with `bookings-filter-all` alias), `bookings-country`, `bookings-search`, `bookings-refresh`, `bookings-row-<id>`, `bookings-open-<id>`.
+   - **Workspace routing** (`ModuleWorkspace.jsx`, `App.js`): new sub-nav item `{seg:'bookings', expressOnly:true}` + `<Route path='bookings' element={<ModuleBookings />} />`.
+   - **Verified live**: created a customer booking; overview flipped `active_bookings:0→1`, `drivers_available:30/30→29/30`; recent-bookings preview showed the new booking; Bookings tab showed the row and refreshed automatically as the simulator advanced status from Arriving → Picked up.
+   - **Testing**: `testing_agent` iteration_11.json — **14/14 backend + 100% frontend pass, zero bugs**. Full backend regression file at `/app/backend/tests/test_admin_express_overview.py` (runs in ~7s).
+
+- ✅ **EXPRESSbakēd — Movers wizard 45/55 map + `pickup.line1` bug fix (2026-07-29)** — from `Fixing_Prompt.docx`.
+   - **PART A** — `MoversWizard.jsx`: all 6 steps now wrap their body in `<ExpressWizardShell draft={draft}>` so the desktop layout matches Parcel (45% form · 55% persistent Google Map with A/B markers + Directions polyline + distance/duration/vehicle chip overlays). Mobile keeps the compact map card on top.
+   - **PART A** — `ExpressWizardShell.jsx`: `WizardMap` and `ExpressWizardShell` now accept an optional `draft` prop. When omitted the shell keeps using `useExpressBooking()` (Parcel context, unchanged). When provided (Movers) it drives the map from the passed draft — one shell, two flows.
+   - **PART B** — `AddressSelector.jsx`: `onConfirm`, `onPickSaved`, `onPickRecent` all now mirror `formatted_address` (or `description`) to `line1` when Google Places omits a discrete street line. Root-caused the "pickup not selected" error to a 422 from Pydantic `AddressPoint.line1: str` — the interceptor was rendering that as a toast, but the user saw it after login because the mid-wizard `openLogin('/express/book/estimate')` → OTP → hard reload re-hydrated a draft whose pickup carried no `line1`.
+   - **UX polish** (from code-review comment #2): `MoversWizard` now persists `step` in the URL querystring (`?step=4`) via `window.history.replaceState`, so a mid-wizard login round-trip lands the user back on the exact step they were on (previously they got sent back to Step 1 Type).
+   - **State persistence** — verified working unchanged: `ExpressContext.jsx` writes both drafts to `sessionStorage` (`baked_express_draft` + `baked_express_movers_draft`) on every `setDraft`; `BakedContexts.jsx.loginWithToken` uses `window.location.href = target` so sessionStorage survives the reload.
+   - **Testing**: `iteration_12.json` — 100% pass. `data-testid=exp-wizard-map` present on every Movers step (desktop). Mobile viewport 390x844 renders only the compact map (persistent panel is `hidden md:block`). Directions API is now enabled — the yellow polyline draws correctly.
+
+
+- ✅ **Footer navigation redesign (2026-07-30, Fixing_Prompt.docx)** — content/nav update only, premium black theme preserved.
+   - **Removed** from `/app/frontend/src/components/layout/Footer.jsx`: platform description paragraph, "Platform" column, "Available in" column, and "Platform" wording from the copyright line.
+   - **Added** "Useful Links" spanning 2 sub-columns: Partners & Sellers (SHOPbakēd Seller, FOODbakēd/MARTbakēd/AUTObakēd Partner & Seller) + Business & Resources (IMMObakēd Partner/Agent/Broker, Blog, News, Careers, Help Center).
+   - **Added** "Opportunities" column (replaces Available in): Investor Relations, Franchise Opportunities, Delivery Partner, Driver Registration, Merchant Registration.
+   - **Kept** "Support" column (Help Center, Contact us, Terms, Privacy) per user instruction.
+   - **Grid updated** to `md:grid-cols-5` (brand · Useful Links spans 2 · Opportunities · Support). Typography, hover animations, spacing, black background — all unchanged.
+   - **New landing** `/app/frontend/src/pages/ComingSoonLanding.jsx` — one reusable placeholder that infers title + description from the URL slug via a `SLUG_LABELS` table. Wired into 21 routes (`/shop/seller`, `/food/partner`, `/mart/*`, `/auto/*`, `/immo/*`, `/blog`, `/news`, `/careers`, `/help`, `/contact`, `/terms`, `/privacy`, `/investors`, `/franchise`, `/delivery-partner`, `/driver-registration`, `/merchant-registration`) in **both** the desktop and mobile customer shells (`/app/frontend/src/App.js`) so header + footer wrap them.
+   - **Test-ids**: every footer link has `footer-link-<slug-kebab>` and each landing page has `coming-soon-<slug-kebab>` for automation.
+   - **SEO ready**: each link is a real `<Link>` to a real route (not an anchor) — dedicated landing pages can be authored later without touching the footer again.
+
+- ✅ **PostgreSQL Migration Validation & Self-Heal (2026-07-30, Fixing_Prompt.docx)** — resolved the "empty modules + Unable to check delivery zone" outage.
+   - **Root cause**: Postgres process died on container restart; `/api/health` returned `ok` unconditionally so the outage was silent (ingress probes passed, UI rendered but every DB query was 5xxing).
+   - **Fix 1 — DB-aware healthcheck** (`/app/backend/server.py`): `/api/health` now runs `SELECT 1` via `engine.connect()` → 503 `{status:'degraded', db:'down'}` on failure, 200 `{status:'ok', db:'up'}` on success.
+   - **Fix 2 — Self-healing Postgres** (`/etc/supervisor/conf.d/postgres.conf` + `/app/.emergent/postgres_launcher.sh`): supervisor owns PG15. Launcher idempotently creates `baked` role + DB + runs `alembic upgrade head` then `exec`s the postgres binary. Data-dir preserved.
+   - **Verified seed magnitudes**: countries=2, express_vehicles=10, mart_categories=18, mart_stores=5, module_drivers=30. All previously-empty endpoints now return real data.
+   - **Testing**: `iteration_13.json` — 12/12 backend pytest + 100% frontend pass. Contract-lock file `/app/backend/tests/test_pg_migration_seed.py`.
+
+- ✅ **PostgreSQL Self-Heal v2 — Bulletproof Edition (2026-07-30)** — root-cause fix for the recurring "role baked does not exist" outage.
+   - **Why v1 broke**: v1 called `/etc/init.d/postgresql start` AND `exec sudo -u postgres postgres` — two instances collided for port 5432, so bootstrap ran against the losing instance. All errors were swallowed by `>/dev/null 2>&1 || true`, hiding an `alembic: command not found` (supervisor's stripped PATH didn't include `/root/.venv/bin`).
+   - **v2 launcher** (`/app/.emergent/postgres_launcher.sh`):
+     - Runs bootstrap **in background**, `exec`s **exactly one** foreground postgres → no port race.
+     - `ALTER ROLE ... WITH PASSWORD` on every boot → auto-recovers "role exists but wrong password" drift.
+     - Absolute path `/root/.venv/bin/alembic` → migrations actually run.
+     - Verifies app credentials with `PGPASSWORD=… psql SELECT 1` → any breakage is loud in supervisor stdout.
+     - Second `pg_isready` gate before alembic → clean boot log, no benign tracebacks.
+     - All errors NOT swallowed — every step logs with UTC timestamp.
+   - **Contract**: after ANY `supervisorctl restart postgres` the platform recovers to `/api/health = {status:ok, db:up}` in ≤10 seconds. Data persists on `/var/lib/postgresql/15/main`; role/DB re-created idempotently if the pod ever loses them.
+   - **Testing**: `iteration_14.json` — **9/9 durability tests PASS** across three destructive scenarios (restart, stop→start, password-drift). Regression file `/app/backend/tests/test_postgres_durability.py`.
+- ✅ **v2.0 Phase 1a — Monorepo Frontend Refactor (2026-02, safe route)** — App.js is now a thin dispatcher.
+   - `/app/frontend/src/apps/customer/CustomerApp.jsx` owns the desktop + mobile customer shells, provider stack (Auth, App, Cart, ExpressBooking, MoversBooking), and all `/*` routes.
+   - `/app/frontend/src/apps/admin/AdminApp.jsx` owns `/admin/*` routes (login + layout + module workspace).
+   - `/app/frontend/src/apps/partner-landing/PartnerLandingApp.jsx` owns `/partner/*` — the premium landing portal below.
+   - `/app/frontend/src/App.js` reduced to ~28 lines: three top-level `<Route>` entries dispatching to the three apps. Zero behaviour change, verified with screenshots on all three routes.
+   - `/app/frontend/src/packages/ui/index.js` expanded with more shadcn re-exports so future partner apps import from `@/packages/ui`.
+   - Files still physically live under legacy `pages/` and `components/`; Phase 1b (yarn workspaces + physical relocation) intentionally deferred — not blocking Phase 2.
+
+- ✅ **BAKĒD Partner Landing Portal v1.0 Premium 2026 (2026-02, Fixing_Prompt.docx)** — the premium partner acquisition site at `/partner`.
+   - **Sections implemented**: Hero (full viewport, night skyline gradient + orbiting six-module illustration), Trust Bar (6 icons), Opportunities (2x3 large cards with hover lift + glow, each Apply Now deep-links to future `mart.partner.baked.ci` etc.), Why Partner With BAKĒD (6 stat cards), Growth (50/50 with bespoke growth chart illustration), Testimonial carousel (3 partner quotes, prev/next arrows), How It Works (5-step horizontal timeline with numbered nodes), Final CTA (night skyline BG), Partner Footer (4 cols).
+   - **Theme system** (`/app/frontend/src/apps/partner-landing/partner-landing.css`): CSS-variable palette scoped to `.partner-landing[data-theme]`, dark default, OS preference detection on first visit, `localStorage.baked_partner_theme` persistence, instant swap via header toggle. Palette matches docx: dark #090909 / #121212 / #1D9BF0 with `rgba(255,255,255,0.08)` border; light #FFFFFF / #F8F9FB / #1D9BF0.
+   - **Reusable pieces** (per docx architecture rule): `Navbar` (sticky, transparent → blurred solid on scroll), `ThemeToggle`, `CountrySelector` (CI/LR ready for future countries), `Reveal` (IntersectionObserver scroll reveal), `OpportunityCard`, `HeroEcosystemIllustration`, `GrowthIllustration`, `TestimonialCarousel`, `TimelineSection`.
+   - **Non-goals honoured**: onboarding wizards NOT built (Apply Now CTAs are outbound links only per docx).
+   - **Test-ids**: every interactive element has a `partner-*` `data-testid` (`partner-hero-cta-primary`, `partner-opportunity-mart`, `partner-testimonial-next`, `partner-theme-toggle`, `partner-country-selector`, etc.).
+   - **Footer wiring**: site-wide footer's "Opportunities" column reduced to a single "Partner with baked" entry linking to `/partner` (per docx + user instruction).
+
+
+- ✅ **BAKĒD Partner Hub — /partner (2026-02, Fixing_Prompt.docx)** — the dedicated multi-partner acquisition portal, distinct from the seller landing at /Sell-on-baked.
+   - **New app** `/app/frontend/src/apps/partner-hub/PartnerHubApp.jsx` + `partner-hub.css`; wired into `App.js` at `/partner/*`.
+   - **Sections**: Hero (Abidjan skyline photo + enterprise grid overlay), Opportunities (2×2 image-forward cards with premium photography — Dark Store, Rent Property, Sell on BAKĒD, Delivery Partner), Why Partner (8 feature cards), Success Stories (4-story testimonial carousel with next/prev), How It Works (5-step timeline with animated gradient line), Final CTA (glassmorphism card on skyline BG), Hub Footer.
+   - **Card destinations** (per docx): MARTbakēd Dark Store → `mart.partner.baked.ci`, Rent Property → mailto (properties@baked.ci), Sell on BAKĒD → internal `/Sell-on-baked` (reuses existing landing), Delivery Partner → `driver.baked.ci`.
+   - **Design distinction from /Sell-on-baked**: amber (#FCC44C) + blue (#1D9BF0) accent blend, real photography instead of illustration, image-top card layout (Blinkit-inspired), enterprise grid mask on hero, glassmorphism on Final CTA. Dark mode default + light mode support with `localStorage.baked_partner_hub_theme` (separate key from the seller landing).
+   - **Test-ids**: `hub-nav-*`, `hub-hero-*`, `hub-opportunity-<id>`, `hub-story-prev/next`, `hub-final-*`, `hub-theme-toggle` for automation.
+   - **Footer Opportunities column** updated per docx to 5 items: Partner with BAKĒD → /partner, Sell on BAKĒD → /Sell-on-baked, Franchise Opportunities → /franchise, Delivery Partner → /delivery-partner, Merchant Registration → /merchant-registration.
+
+
+- ✅ **Wave 2 White-Label — Self-Hosted Google Sign-In (2026-02, Fixing_Prompt.docx)** — replaces Emergent-managed Google Auth end-to-end.
+   - **Removed**: `EMERGENT_SESSION_URL` constant, `/api/auth/google/session` endpoint (which POSTed to `demobackend.emergentagent.com`), `AuthCallback.jsx` page, `#session_id=` fragment handling in `CustomerApp.jsx`, `startGoogle()` redirect to `auth.emergentagent.com`. Zero Emergent domains remain in the auth flow.
+   - **Backend** (`/app/backend/shared/auth/routes.py`): new `POST /api/auth/google/verify` accepts `{ code }`, exchanges it with Google's `oauth2.googleapis.com/token` using `redirect_uri=postmessage`, verifies the returned `id_token` via `google.oauth2.id_token.verify_oauth2_token`, then uses the pre-existing `_find_or_create_customer_by_google` helper to link/create the customer and issue an app JWT. Never talks to any Emergent domain.
+   - **Frontend**: added `@react-oauth/google` dependency + `<GoogleOAuthProvider>` at the App root; `PhoneLoginDialog.jsx` "Continue with Google" now calls `useGoogleLogin({ flow: "auth-code", ux_mode: "popup" })` — user sees Google popup, signs in, popup closes, dialog closes. No page redirect.
+   - **Env**: `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in `backend/.env`; `REACT_APP_GOOGLE_CLIENT_ID` in `frontend/.env`.
+   - **Verified**: clicking "Continue with Google" opens `accounts.google.com` popup with the correct client_id, `scope=openid profile email`, `response_type=code`. Backend `/api/auth/google/verify` correctly rejects malformed codes. Google Cloud Console origins/redirect URIs must include `baked-platform.preview.emergentagent.com`, `baked.ci`, `www.baked.ci` (owner responsibility documented in test_credentials.md).
+
+
+- ✅ **P0 Regression Fix — Post-PG Migration DB Empty (2026-02-02)** — every configuration table was 0-rows because backend startup race with Postgres silently failed the seed.
+   - **Root cause**: `postgres_launcher.sh` takes ~1–5s after boot before accepting connections. Backend `startup` hook called `run_seed()` immediately, got `Errno 111 Connect call failed`, logged `baked.seed_failed`, and continued anyway. Every restart left the DB empty.
+   - **Fix**: `/app/backend/server.py` `_on_startup` now retries `SELECT 1` up to 30× (1s each) before running seed; if PG never comes up we skip seed and log a critical error instead of silently continuing.
+   - **Impact restored**: MART (categories, products, search, offers), EXPRESS (vehicles, package types, weight tiers, pricing rules, movers), countries, cities, admin users — all populated. Google Sign-In was already correct code-wise; the "intermittent" failure users saw was because `_find_or_create_customer_by_google` had to touch empty tables.
+   - **Verification**: full audit report at `/app/memory/AUDIT_2026-02-02_PG_REGRESSION.md` with row counts, API smoke tests, and screenshot evidence for every module named in the docx acceptance criteria.
+   - **Zero MongoDB residuals**: `grep -rn "motor|pymongo|bson|ObjectId" /app/backend/` returns zero hits; requirements.txt + .env clean.
+
+
+- ✅ **MARTbakēd Partner — Slice 1: Public Application (2026-02-04, per 5-doc Fixing_Prompt bundle)** — Stage 1 of the mandated 3-stage flow (Public Application → Super Admin Review → Partner Portal).
+   - **New table** `partner_applications` (`/app/backend/core/models/partners.py`) with all fields the docx enumerated: business + owner + KYC + warehouse + property + bank/mobile-money + JSONB `kyc_documents` + `extra` catch-all + full lifecycle (`draft`, `submitted`, `under_review`, `additional_info_required`, `approved`, `rejected`). Multi-tenancy naming = `partner_id` per decision g1.
+   - **New router** `/app/backend/modules/mart_partner/routes.py`:
+     - `POST /api/mart-partner/applications` — public submit; generates `MART-CI-2026-NNNN` reference; email+reference pair required for later status lookup.
+     - `GET  /api/mart-partner/applications/status?reference=...&email=...` — public status check; both fields required so a leaked reference alone can't dox another applicant.
+   - **Startup change** `/app/backend/server.py`: added `Base.metadata.create_all()` before seed so new models materialise without a separate migration step (Alembic replaces this at production cutover).
+   - **New frontend app** `/app/frontend/src/apps/partner-hub/PartnerApplyApp.jsx` — 5-step wizard (Business · Owner · Warehouse · Bank · Review), progress rail with amber highlight for the current step, form validation before Continue, confirmation screen showing the generated reference. Routes: `/partner/apply` inside the existing PartnerHubApp; landing "Become a Partner" CTAs now route here.
+   - **Design fidelity**: reuses partner-hub CSS tokens (`--ph-accent-warm`, `--ph-card`, `--ph-glass`) so the wizard is visually indistinguishable from the surrounding hub, no dedicated theme required.
+   - **Test-ids** on every input, next/back button, submit and confirmation reference so testing agents can drive the flow.
+   - **Verified end-to-end via Playwright**: filled 4 steps → submit → backend generated `MART-CI-2026-0002` → confirmation renders with reference, "Application submitted" toast, row persisted to Postgres.
+   - **Explicitly deferred**: real file upload for KYC docs (uses URL strings for now — needs object-storage playbook wiring later), email notifications (only console-logged), draft resumption (submit-once-and-review model for MVP).
+
+
+- ✅ **MARTbakēd Partner — Slice 2: Super Admin Review (2026-02-04)** — Stage 2 of the 3-stage flow is fully wired.
+   - **New tables** in `/app/backend/core/models/partners.py`: `partners` (materialised approved partner) and `warehouses` (flat root now; hierarchy tables land in the inventory slice).
+   - **Admin router** appended to `/app/backend/modules/mart_partner/routes.py`, wired under `/api/admin/mart-partner/*`, all endpoints gated by `shared.admin.routes.get_current_admin`:
+     - `GET  /applications` (paginated, filters: status/country/module)
+     - `GET  /applications/{id}` (detail)
+     - `POST /applications/{id}/mark-under-review`
+     - `POST /applications/{id}/request-info` (body: `{message}`)
+     - `POST /applications/{id}/reject`         (body: `{message}`)
+     - `POST /applications/{id}/approve`        — materialises `Partner` + primary `Warehouse` + hashes a `secrets.token_urlsafe(9)` temp password, marks application `approved`, returns `{application, partner, warehouse, temp_password}` (temp password shown once).
+   - **Admin UI** `/app/frontend/src/pages/admin/ModulePartnerApplications.jsx` mounted at `/admin/modules/mart/applications` (also registered under `/admin/modules/:code/partners/applications` for the PRD path):
+     - Queue table with 6 status filters (All / Submitted / Under review / Info requested / Approved / Rejected), search, refresh
+     - Slide-in drawer with grouped sections (Business, Contact, Warehouse, Payouts, Timeline), sticky action bar (Mark reviewing / Request info / Reject / Approve)
+     - Approve → shows a modal with Partner ID, Warehouse name, Owner email, temp password — each in copy-to-clipboard rows, with a "not shown again" warning
+     - Uses `adminApi` (from `AdminContext`) so the admin JWT (`localStorage.baked_admin_token`) is attached automatically
+   - **Sub-nav**: "Applications" tab added to the MARTbakēd module workspace (`ModuleWorkspace.jsx MODULE_NAV`) so Super Admin can reach the queue in one click.
+   - **Verified end-to-end via Playwright**: logged in as super admin, approved application `MART-CI-2026-0004` → dialog rendered Partner `prt_01ca4a3d…`, warehouse `Ecobasket Plateau — Main`, temp password `X5kZ05D3b0aS`. Also verified request-info flow on `MART-CI-2026-0001` → status flipped to `additional_info_required`, amber callout shown in drawer. DB confirms 2 partners + 2 warehouses created (`Dark Store Marcory` + `MiniMart Cocody E2E`).
+
+
+- ✅ **MARTbakēd Partner — Slice 3: Portal Login & Onboarding Shell (2026-02-04)** — Stage 3 of the 3-stage flow is fully wired at `/partner-portal/*`.
+   - **Auth**: verified pattern with `integration_playbook_expert_v2` before writing code — shared JWT secret, role="partner" claim, bcrypt via `core.security.hash_password`, `must_reset_password` flag gates the dashboard.
+   - **Backend endpoints** (`/app/backend/modules/mart_partner/routes.py`, new `partner_router`):
+     - `POST /api/partner/auth/login` — email + temp/permanent password → `{access_token, partner, warehouse}`
+     - `POST /api/partner/auth/reset-password` — requires current + new; enforces `!=` and length; clears `must_reset_password`
+     - `GET  /api/partner/auth/me` — returns partner + primary warehouse
+     - `GET  /api/partner/dashboard` — stub metrics + 5-item onboarding checklist (auto-marks reset_password & warehouse when done)
+   - **New dep** `get_current_partner`: mirrors admin dep — Bearer token, decodes JWT with shared secret, checks `role==partner`, loads active Partner row.
+   - **Frontend app** `/app/frontend/src/apps/partner-portal/PartnerPortalApp.jsx` — self-contained module with `PartnerProvider` (axios + localStorage `baked_partner_token`), Login, forced Reset-Password, sidebar Shell, Dashboard, Business Profile, Warehouse pages. Routes: `/partner-portal/{login|reset-password|profile|warehouse|(dashboard)}`. Registered in `App.js` above the customer catch-all.
+   - **Design**: reuses `partner-hub.css` tokens (warm-amber CTAs, dark canvas, glass panels), so the portal is visually consistent with the Partner Hub landing. `data-testid` on every input + nav link + submit for automation.
+   - **Verified end-to-end via Playwright**: admin approves `MART-CI-2026-0002` → partner logs in with temp password → forced to `/reset-password` → sets new password → dashboard shows "Hi, E2E" + 4 KPI cards (0/0/0/0) + "Get set up" checklist with 2 auto-marked-done → navigated to Business profile + Warehouse pages → signed out → re-logged in with new password → went straight to dashboard (no reset loop). Test creds captured in `/app/memory/test_credentials.md`.
+   - **Deliberately deferred**: forgot-password (temp-issued-once-by-admin is enough for MVP); MFA (later); editable business profile (currently read-only — the approval snapshot is source of truth); real KPIs (0/0/0/0 until inventory + orders slice lands).
+
+
+- ✅ **MARTbakēd Partner — Slice 4b: Warehouse Hierarchy (2026-02-04)** — 5-level hierarchy live at `/partner-portal/warehouse`.
+   - **Backend tables** (`/app/backend/core/models/partners.py`): `warehouse_zones` → `_aisles` → `_racks` → `_shelves` → `_bins`, each with `code`, `label`, `parent_id`, `warehouse_id`, position.
+   - **Backend endpoints** `/api/partner/warehouse/nodes` (generic CRUD across all 5 levels) — GET tree, POST create, PATCH rename, DELETE cascade.
+   - **Frontend** `/app/frontend/src/apps/partner-portal/WarehouseEditor.jsx` — expandable tree with add/edit/delete per level; because the Emergent visual-edits Babel plugin overflows on recursive JSX, the recursive `HierarchyNode` is written with `React.createElement()` (documented in code).
+
+- ✅ **MARTbakēd Partner — Slice 5 · Products (Hybrid Catalog) (2026-02-04)** — `/partner-portal/products`.
+   - **New table** `partner_products` (`core/models/partner_commerce.py`) — `source ∈ {master, custom}`, nullable FK to `mart_products`, plus partner-owned `partner_price`, `stock_qty`, `low_stock_threshold`, `is_active`, `sku_code`. Uniqueness on `(partner_id, master_product_id)` prevents duplicate linking.
+   - **Endpoints**: `GET /api/partner/products` · `GET /api/partner/master-catalog?q=&category=` (scoped to partner's country + module, marks already-linked SKUs) · `POST /partner/products/link` · `POST /partner/products/custom` · `PATCH /partner/products/{id}` · `DELETE /partner/products/{id}`.
+   - **Frontend** `/app/frontend/src/apps/partner-portal/ProductsPage.jsx` — stats cards (Total / Live / Hidden), inline edit (price + stock), Hide/Delete, Add-product modal with two tabs: search master catalog OR create fully custom SKU.
+   - **Guard**: master-linked SKUs cannot rename/rebrand (name/brand/unit/image locked to master).
+
+- ✅ **MARTbakēd Partner — Slice 6 · Orders Fulfilment (2026-02-04)** — `/partner-portal/orders`.
+   - **New overlay table** `partner_orders` linking a customer `orders.id` to `partners.id` — leaves customer schema untouched.
+   - **Explicit state machine**: `new → {accepted|cancelled}`, `accepted → {packing|cancelled}`, `packing → {ready|cancelled}`, `ready → {handed_off|cancelled}`, `handed_off → {completed}`, terminal at completed/cancelled. Invalid transitions → HTTP 409.
+   - **Endpoints**: `GET /api/partner/orders?status=…` (with per-bucket counts) · `GET /api/partner/orders/{id}` · `POST /api/partner/orders/{id}/status`.
+   - **Auto-wallet credit on `handed_off`**: gross subtotal is credited, 10% platform commission is debited — both written into `partner_wallet_txns`.
+   - **Frontend** — status tabs with counts, drawer with items/address/totals, sticky action bar, cancellation-reason capture. Admin helper `POST /api/admin/mart-partner/partners/{id}/demo-orders?count=N` seeds demo customer orders so the queue is testable end-to-end.
+
+- ✅ **MARTbakēd Partner — Slice 7 · Wallet (2026-02-04)** — `/partner-portal/wallet`.
+   - **New tables** `partner_wallets` (single row per partner, materialised balance) + `partner_wallet_txns` (append-only ledger with `kind ∈ {credit_order, debit_commission, debit_payout, credit_topup, credit_adjustment, debit_adjustment}` and `balance_after`).
+   - **Endpoints**: `GET /api/partner/wallet` (lazy-creates the wallet) · `POST /partner/wallet/topup` · `POST /partner/wallet/withdraw` — both **MOCKED** with a synthetic `mock_card_xxx` / `mock_payout_xxx` reference; response body includes `MOCKED: true` so the frontend can render an amber notice.
+   - **Frontend** — hero balance card with warm-amber gradient, +Add funds / Withdraw actions, money-in / money-out stats, full transaction ledger with signed amounts and running balance.
+   - **Deliberately deferred**: real Stripe / Wave / Orange Money integration (needs playbook + user API keys); admin adjustments UI; auto-payout schedule.
+
+- ✅ **Dashboard metrics upgraded (2026-02-04)** — `/api/partner/dashboard` now returns real values: `orders_today`, `revenue_today`, `products_live`, `inventory_items`, `wallet_balance`. Checklist auto-marks `first_product` and `first_order` done as soon as data exists.
+
+## MARTbakēd Partner MVP — Status
+- ✅ Slice 1 · Public application (2026-02-03)
+- ✅ Slice 2 · Super Admin review + approval (2026-02-04)
+- ✅ Slice 3 · Portal login + onboarding shell (2026-02-04)
+- ✅ Slice 4b · Warehouse hierarchy (2026-02-04)
+- ✅ Slice 5 · Products (hybrid catalog) (2026-02-04)
+- ✅ Slice 6 · Orders fulfilment (2026-02-04)
+- ✅ Slice 7 · Wallet (mocked payments) (2026-02-04)
+- ⏳ Slice 8 · Real Stripe / Mobile Money for wallet top-up + payouts
+- ⏳ Slice 9 · Customer checkout → partner routing (currently orders are seeded by admin demo endpoint)
+
+## Roadmap (post-MVP)
+- P1: Real Stripe / Wave / Orange Money integration for wallet top-up + payout schedule
+- P1: Customer-checkout → partner-order routing (auto-pick partner by inventory + service area)
+- P1: Reorder button on customer Activities/Orders + Wallet screen
+- P1: Individual partner apps for FOOD, SHOP, EXPRESS, AUTO, IMMO
+- P1: Driver Platform (`driver.baked.ci`)
+- P2: Developer / Docs / Status portals
+- P2: Full Referral Rewards engine
+
+- ✅ **MARTbakēd Partner — Slice 8 · Customer→Partner Routing (2026-02-04)** — Inventory Allocation Engine live at every checkout.
+   - **New module** `/app/backend/modules/mart_partner/allocation.py` — deterministic greedy allocator with consolidation-first heuristic (prefers a partner already in the plan → nearest distance → largest service radius → deepest stock). Distance is haversine on lat/lng when available, else same-city step function.
+   - **Consolidated multi-partner orders**: customer always sees ONE order / ONE invoice / ONE payment / ONE delivery; internally we create 1..N `partner_orders` rows (uniqueness moved to composite `(order_id, partner_id)`). New fields: `partner_orders.subtotal` + `item_count`; `order_items.partner_id` + `partner_order_id` + `partner_product_id`; `orders.consolidation_status` + `partial_delivery_allowed`.
+   - **Stock reservation & restoration**: `partner_products.stock_qty` is decremented under `SELECT ... FOR UPDATE` at checkout; restored automatically when the partner transitions the order to `cancelled`.
+   - **Partner-specific pricing on browse + cart**: `GET /api/mart/products` (list + single) and `GET /api/carts/me` now overlay `price = min(partner_price)` across in-country partners, preserving the original as `master_price` for strikethrough display; adds `is_stocked_locally` + `partners_stocking` flags. Cart also returns `unavailable_items[]` so the UI can surface a "Coming soon to your area" banner.
+   - **"Coming soon" fail-fast on checkout**: when any cart line has no partner in country, `POST /api/orders` returns `400 { detail: { code: 'not_available_in_area', message, gaps: [{name, quantity, reason, stocked_by_count}] } }`. Frontend cart disables the Checkout button + shows an amber banner; checkout error handler renders a toast with the missing item names.
+   - **Wallet ledger — audit-friendly (fixed 2026-02-04)**: on partner handoff, ledger writes `+gross` (`credit_order`) then `-commission` (`debit_commission`) — cleaner ledger than the previous "net-of-commission" single credit, and no more double-deduction bug found by the testing agent.
+   - **Order confirmation** — new "Sourced from N stores" panel on `/orders/{id}` (customer app) shows each partner's slice + status. Partner Portal's Orders view now correctly returns only THIS partner's slice of items (filtered by `partner_order_id`) with per-partner `subtotal` + `item_count` and shows the `customer_total` separately.
+
+- **Phase B deferred** (Slice 9 · Consolidation Dispatch):
+   - Driver pickup-route optimizer (distance + readiness + traffic)
+   - Consolidation-hub concept for city-wide multi-store pickups
+   - Admin `partial_delivery_allowed` toggle to bypass the "wait for all partners" gate
+   - Real Stripe / Wave / Orange Money for wallet top-up + payouts
+
+## MARTbakēd Partner MVP — Status
+- ✅ Slice 1 · Public application (2026-02-03)
+- ✅ Slice 2 · Super Admin review + approval (2026-02-04)
+- ✅ Slice 3 · Portal login + onboarding shell (2026-02-04)
+- ✅ Slice 4b · Warehouse hierarchy (2026-02-04)
+- ✅ Slice 5 · Products (hybrid catalog) (2026-02-04)
+- ✅ Slice 6 · Orders fulfilment (2026-02-04)
+- ✅ Slice 7 · Wallet (mocked payments) (2026-02-04)
+- ✅ Slice 8 · Customer→Partner routing + consolidated orders (2026-02-04)
+- ⏳ Slice 9 · Consolidation dispatch orchestrator (Phase B)
+- ⏳ Slice 10 · Real Stripe / Mobile Money for wallet top-up + payouts

@@ -85,7 +85,14 @@ export const CheckoutPage = () => {
       toast.success(language === "en" ? "Order placed!" : "Commande passée !");
       navigate(`/orders/${data.id}`);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Order failed");
+      const detail = e?.response?.data?.detail;
+      // "Coming soon" from allocation engine — detail is an object with gaps
+      if (detail && typeof detail === "object" && detail.code === "not_available_in_area") {
+        const names = (detail.gaps || []).map(g => g.name).filter(Boolean).join(", ");
+        toast.error(`${detail.message}${names ? ` (${names})` : ""}`, { duration: 6000 });
+      } else {
+        toast.error(typeof detail === "string" ? detail : "Order failed");
+      }
     } finally { setBusy(false); }
   };
 

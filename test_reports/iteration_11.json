@@ -1,0 +1,35 @@
+{
+  "summary": "Sub-feature D — Super Admin Express Management Overview: End-to-end backend + frontend testing on the new PostgreSQL baseline. Backend: 14/14 pytest cases passed in /app/backend/tests/test_admin_express_overview.py covering /api/admin/modules/express/stats KPI shape+values, live KPI updates after a fresh parcel booking (active_bookings incremented +1, drivers_available dropped from 30/30 -> 28/30 confirming the simulator reserved drivers), /api/admin/modules/express/bookings list shape+all fields, status filter matrix (searching/active-family/delivered/any), unknown status -> 400, country filter (CI/LR/invalid returns empty), fuzzy search by ref/partial-ref/receiver name/phone, and 401 for unauth. Frontend: logged in as super admin, verified all 6 KPI tiles render with correct data-testids (kpi-active_bookings, kpi-completed_today, kpi-searching_now, kpi-cancelled_today, kpi-drivers_available, kpi-avg_trip_min), Recent bookings card + View all → link navigates to /admin/modules/express/bookings, filter chips render (with one minor testid naming note below), country selector + search + refresh present, bookings rows have data-testid='bookings-row-<id>' with 'View' link data-testid='bookings-open-<id>', regression MART overview still shows its 6 KPIs and does NOT show module-tab-bookings.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_express_overview.py",
+    "/app/test_reports/pytest/subfeatureD_results.xml"
+  ],
+  "action_items": [
+    "MINOR/NAMING (not blocking): The 'All' filter chip on /admin/modules/express/bookings uses data-testid='bookings-filter-any' (the internal EXPRESS_STATUS_FILTERS code is 'any'), while the review request literally listed 'bookings-filter-all'. All other chips (active/searching/driver_assigned/arriving/picked_up/in_transit/delivered/cancelled) match exactly. If E1 wants strict spec match, either rename the code to 'all' in EXPRESS_STATUS_FILTERS + adjust the API bypass (currently `if status && status != 'any'`), OR add a duplicate data-testid alias. Not a bug, just a naming choice — the chip is fully functional."
+  ],
+  "critical_code_review_comments": [
+    "ModulePages.jsx is now ~1192 lines — approaching the >700 line threshold. Consider splitting ModuleOverview, ModuleBookings, StatusPill and shared config into separate files for maintainability.",
+    "Live-refresh setInterval in ModuleBookings uses [filter, country, q] as deps but only calls `load()` inside — every keystroke in the search input restarts the 15s timer. Consider using a ref or debouncing.",
+    "In routes.py list_express_bookings, `q` search uses ILIKE with a raw %pattern% — fine for now but on larger tables consider a trigram index on ref/receiver_phone/receiver_name.",
+    "drivers_available is returned as a string '28/30' — this makes it inconsistent with the other numeric KPIs; frontend has to special-case it. Acceptable per spec but noted."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_express_overview.py (created)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Super admin depexopenai@gmail.com / baked@2026#!$@ (from /app/memory/test_credentials.md). Customer: +225 <random 10-digit>, dev OTP code returned in /api/auth/otp/request response.",
+  "seed_data_creation": "Two TEST_ parcel bookings created during live-KPI + search tests (receiver 'TEST Overview', phone 0100000000). They will auto-complete via the simulator within ~2 min.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Full backend regression file lives at /app/backend/tests/test_admin_express_overview.py — runs in ~7s. The simulator (EXPRESS_DEMO_MODE=true) is live in preview: any created booking will get a driver reserved within ~4-5s and go through the lifecycle in ~2min. When re-testing, expect drivers_available to fluctuate. Backend endpoint contract: /api/admin/modules/express/stats (KPI keys: active_bookings, completed_today, searching_now, cancelled_today, drivers_available (STRING 'n/n'), avg_trip_min) and /api/admin/modules/express/bookings?status=<any|active|searching|driver_assigned|arriving|picked_up|in_transit|delivered|cancelled>&country=<CI|LR>&q=<text>&limit&offset. Frontend testids all correct except 'All' filter uses -any suffix (see action_items).",
+  "rca of the issue": "N/A — no bugs found."
+}

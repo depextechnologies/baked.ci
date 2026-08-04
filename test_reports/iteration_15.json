@@ -1,0 +1,36 @@
+{
+  "summary": "Full e2e validation of MARTbakēd Partner Slices 5–7 (Products / Orders / Wallet). Backend: 23/23 pytest cases PASSED in /app/backend/tests/test_partner_slice5_7.py, covering auth guards (401 when unauth), master-catalog search, link-master (with duplicate → 409), custom-SKU create, patch (price/stock + is_active), delete + persistence GET check, order buckets + invalid filter (400), state-machine happy path new→accepted→packing→ready→handed_off→completed, invalid transition (new→completed) → 409, wallet auto-credit on handed_off (net of 10% commission verified: balance strictly increased), wallet topup with MOCKED=true flag, withdraw success, withdraw insufficient → 400, invalid topup method → 422, and warehouse tree regression (still 200). Frontend Playwright flow: login → dashboard → sidebar entries Products/Orders/Wallet all render without 'SOON' tag → Products page renders + Add product modal opens with both 'master' + 'custom' tabs (6 custom inputs) → Orders page renders 7 status tabs, row click opens the right-side drawer → Wallet renders balance, top-up (250 CFA card) + withdraw (100 CFA bank) both complete, balance goes 13,840 → 14,090 → 13,990 CFA end-to-end → Warehouse route still loads (regression OK). All required data-testids are present.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Products page (initial paint)", "issues": ["TOTAL SKUS / LIVE / HIDDEN metric cards flash '0' before the catalog fetch resolves (no skeleton/spinner). Not a bug — data does hydrate a moment later — but a small `—` placeholder while `loading` would match the polish of Dashboard tiles."]},
+    {"screen": "Wallet balance", "issues": ["Balance briefly renders as '—' before first fetch resolves. Same minor polish opportunity as Products; considered acceptable for MVP."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_partner_slice5_7.py",
+    "/app/test_reports/pytest/partner_slice5_7.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes.py::wallet_topup / wallet_withdraw both return `MOCKED: true` in the response body — perfect for a MVP demo and easy to remove once real Stripe/payout wiring lands. Note however that top-up currently accepts arbitrarily large amounts up to 10M with no idempotency-key or provider verification, so if this is ever exposed to a real partner (even accidentally) they can inflate their balance. Behind admin gating or feature-flag until Slice 8. (Not blocking Slice 5–7 sign-off.)",
+    "routes.py::update_partner_order_status writes wallet txns from a Decimal-quantised amount using Decimal(str(order.subtotal)); the commission math is correct but subtotal is stored as float in the model. Rounding is safe for CFA (no decimals) but will need a cast fix if we ever activate a fractional-currency market like EUR. (Not blocking.)",
+    "routes.py::seed_demo_orders silently `continue`s when a picked SKU has no master_product_id, and if all picks are custom-only, `created` = 0. Endpoint still returns 201 with `created: 0` — consider returning 400 with a clear message so the admin knows why nothing appeared. Low priority.",
+    "ProductsPage.jsx uses `useEffect(...search())` on tab open without a debounce; each keystroke does NOT trigger re-fetch (search only runs on Enter/button click), which is fine, but master list can grow large — consider adding a small results-count indicator or virtualization when the master catalog eventually crosses ~100 rows.",
+    "OrdersPage.jsx – drawer 'Loading…' state has no explicit test-id; the current `data-testid=\"order-drawer\"` renders in both loading and loaded states, which caused a benign 0-actions read in my Playwright script until I added a small wait. Consider `data-testid=\"order-drawer-loaded\"` on the ready state so future test authors get a clean latch.",
+    "WalletPage.jsx / ProductsPage.jsx – initial-render 0s / '—' placeholders would benefit from a shared `<Skeleton />` primitive so the portal feels consistent with the Dashboard tiles."
+  ],
+  "updated_files": ["/app/backend/tests/test_partner_slice5_7.py (new)"],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (all flows executed successfully)"},
+  "test_credentials": "Used /app/memory/test_credentials.md partner creds (e2e-portal@test.example / MyNewPortalPassword123!) — worked first try.",
+  "seed_data_creation": "Backend tests linked one previously-unlinked master product (Chocolat au Lait or similar) to the partner catalog and created + deleted a `TEST_Custom Baguette` SKU. Also transitioned one pre-existing `new` order all the way to `completed`, which auto-credited the wallet. Wallet was topped up by 5,000 + 3,000 CFA and 1,000 CFA withdrawn during tests. Frontend tests added a further +250 CFA top-up and -100 CFA withdrawal. Final wallet balance ≈ 13,990 CFA. Products catalog left with 3 live SKUs. State can be re-used by the next testing agent — no cleanup required per session context.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run backend suite with `pytest /app/backend/tests/test_partner_slice5_7.py -o addopts=\"\" -v` (avoid xdist — a couple of tests share partner state). Partner login route is `/api/partner/auth/login` (NOT `/api/partner/login`). Order state machine transitions are irreversible so state accumulates across runs — the state-machine happy-path test auto-skips if no 'new' orders remain; to top up the queue use `POST /api/admin/mart-partner/partners/prt_2e201a26943743a1/demo-orders?count=3` with a super-admin token. All /api/partner/* endpoints require Bearer JWT with role=partner (unauth calls return 401 — verified).",
+  "rca of the issue": "No blocking issues found. The only two 'noise' items are minor first-paint metric-tile flashes on Products & Wallet pages (0 / — before hydrate). Feature slice is production-ready pending real payment-provider wiring for wallet mock endpoints."
+}

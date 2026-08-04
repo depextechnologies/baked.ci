@@ -190,6 +190,13 @@ class Order(Base, AuditMixin):
     payment_provider: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     payment_provider_ref: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     instructions: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Consolidation flow (Phase B — driver dispatch): tracks whether all partner
+    # orders are packed and ready for pickup. `not_applicable` = single-partner order
+    # (legacy or fully allocated to one partner).
+    consolidation_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending", server_default="pending",
+    )  # pending | consolidating | ready_for_delivery | dispatched | delivered | not_applicable
+    partial_delivery_allowed: Mapped[bool] = mapped_column(default=False, server_default="false")
     rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     rating_comment: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     rated_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
@@ -201,6 +208,11 @@ class OrderItem(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("oi"))
     order_id: Mapped[str] = mapped_column(String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     product_id: Mapped[str] = mapped_column(String, ForeignKey("mart_products.id"), nullable=False)
+    # Which partner is fulfilling this item — nullable for pre-routing legacy orders
+    # (FK added in a follow-up ALTER to avoid circular import; kept as loose FK string here).
+    partner_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("partners.id"), nullable=True)
+    partner_order_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("partner_orders.id", ondelete="SET NULL"), nullable=True)
+    partner_product_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("partner_products.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     unit: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     brand: Mapped[Optional[str]] = mapped_column(String, nullable=True)

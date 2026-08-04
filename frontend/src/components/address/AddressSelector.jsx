@@ -418,6 +418,8 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
     setCandidate({
       place_id: addr.place_id,
       formatted_address: addr.formatted_address || `${addr.line1}${addr.city ? ", " + addr.city : ""}`,
+      // Preserve line1 so downstream booking payloads (AddressPoint.line1) never fail.
+      line1: addr.line1 || addr.formatted_address,
       latitude: addr.latitude,
       longitude: addr.longitude,
       city: addr.city,
@@ -434,6 +436,8 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
     setCandidate({
       place_id: r.place_id,
       formatted_address: r.formatted_address,
+      // Same defense-in-depth as onPickSaved / onConfirm.
+      line1: r.line1 || r.formatted_address,
       latitude: r.latitude,
       longitude: r.longitude,
       city: r.city,
@@ -466,10 +470,17 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
   }, [geo, activeCountry]);
 
   const onConfirm = useCallback((addr) => {
+    // Defensive: guarantee `line1` is populated so downstream booking payloads
+    // (which validate against AddressPoint.line1 on the backend) never fail
+    // with "pickup.line1: Field required". Google Places autocomplete usually
+    // returns only `formatted_address`, so we mirror it to `line1` when absent.
+    const finalized = addr && !addr.line1 && (addr.formatted_address || addr.description)
+      ? { ...addr, line1: addr.formatted_address || addr.description }
+      : addr;
     if (onPick) {
-      onPick(addr);
+      onPick(finalized);
     } else {
-      setActiveAddress(addr);
+      setActiveAddress(finalized);
     }
     toast.success(onPick ? "Address selected" : "Delivery address updated");
     onClose();
