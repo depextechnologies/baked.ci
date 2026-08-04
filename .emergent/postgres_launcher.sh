@@ -29,6 +29,20 @@ APP_DIR=/app/backend
 
 log() { echo "[pg-launcher $(date -u +%FT%TZ)] $*"; }
 
+# ---- 0) Wait for NSS/sudoers to know about the `postgres` user. ----
+# Under supervisor, this script can start faster than glibc's user database
+# has finished loading (particularly right after a container restart). If
+# `sudo -u postgres` fires before that, sudo dies with "unknown user
+# postgres" and supervisor kills us with FATAL/Exited too quickly, then
+# we loop forever. Guarding with `getent` fixes it.
+for i in $(seq 1 30); do
+  if getent passwd postgres >/dev/null 2>&1 && sudo -n -u postgres true 2>/dev/null; then
+    log "user 'postgres' resolvable after ${i}s"
+    break
+  fi
+  sleep 1
+done
+
 # ---- 1) Kick off the bootstrap in the background so we can then exec PG. ----
 # The bootstrap waits for the socket, then upserts role + DB + migrations.
 (

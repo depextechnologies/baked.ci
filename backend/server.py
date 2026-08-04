@@ -86,6 +86,49 @@ api_router.include_router(partner_portal_router)
 
 app.include_router(api_router)
 
+# ---- Postgres-outage-friendly middleware ----
+# When Postgres goes briefly unreachable (container restart, VM reschedule),
+# every request bubbles up a `ConnectionRefusedError` / `OperationalError`
+# from asyncpg. Without this middleware, uvicorn returns a raw 500 with the
+# full traceback in the body — the frontend's react-error-overlay catches
+# that and shows a scary red "Uncaught runtime errors" panel. This handler
+# collapses those into a clean 503 JSON that the customer app can render
+# as a friendly "We're briefly reconnecting to the database" toast.
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from asyncpg.exceptions import PostgresConnectionError  # type: ignore
+from sqlalchemy.exc import OperationalError, DBAPIError, InterfaceError
+
+
+@app.middleware("http")
+async def _pg_outage_shield(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except (ConnectionRefusedError, OperationalError, InterfaceError,
+            PostgresConnectionError) as e:
+        logger.error("baked.pg_outage path=%s err=%s", request.url.path, e)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "db_unavailable",
+                "detail": "The database is briefly unreachable — please retry in a few seconds.",
+            },
+            headers={"Retry-After": "3"},
+        )
+    except DBAPIError as e:
+        # DBAPIError with `connection_invalidated` means the pool got booted
+        # because postgres restarted mid-request; treat identically.
+        if getattr(e, "connection_invalidated", False):
+            logger.error("baked.pg_outage path=%s connection_invalidated", request.url.path)
+            return JSONResponse(
+                status_code=503,
+                content={"code": "db_unavailable",
+                         "detail": "The database just recovered — please retry."},
+                headers={"Retry-After": "3"},
+            )
+        raise
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
