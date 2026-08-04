@@ -1291,15 +1291,15 @@ async def update_partner_order_status(
 
     # On handoff, credit partner wallet (net of 10% platform commission) — using
     # THIS partner's slice of the order, not the customer's grand total.
+    # Ledger records TWO rows for clean audit: +gross (revenue) then -commission.
     if payload.status == "handed_off":
         order = await session.get(CustomerOrder, po.order_id)
         wallet = await _ensure_wallet(session, partner, order.currency)
         gross = Decimal(str(po.subtotal or order.subtotal))
         commission = (gross * Decimal("0.10")).quantize(Decimal("0.01"))
-        net = gross - commission
         await _write_wallet_txn(
-            session, wallet, kind="credit_order", amount=float(net),
-            description=f"Order {order.number} — revenue net of commission",
+            session, wallet, kind="credit_order", amount=float(gross),
+            description=f"Order {order.number} — gross revenue",
             order_id=order.id,
         )
         if commission > 0:

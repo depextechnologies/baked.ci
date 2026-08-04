@@ -355,3 +355,30 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - P1: Driver Platform (`driver.baked.ci`)
 - P2: Developer / Docs / Status portals
 - P2: Full Referral Rewards engine
+
+- ✅ **MARTbakēd Partner — Slice 8 · Customer→Partner Routing (2026-02-04)** — Inventory Allocation Engine live at every checkout.
+   - **New module** `/app/backend/modules/mart_partner/allocation.py` — deterministic greedy allocator with consolidation-first heuristic (prefers a partner already in the plan → nearest distance → largest service radius → deepest stock). Distance is haversine on lat/lng when available, else same-city step function.
+   - **Consolidated multi-partner orders**: customer always sees ONE order / ONE invoice / ONE payment / ONE delivery; internally we create 1..N `partner_orders` rows (uniqueness moved to composite `(order_id, partner_id)`). New fields: `partner_orders.subtotal` + `item_count`; `order_items.partner_id` + `partner_order_id` + `partner_product_id`; `orders.consolidation_status` + `partial_delivery_allowed`.
+   - **Stock reservation & restoration**: `partner_products.stock_qty` is decremented under `SELECT ... FOR UPDATE` at checkout; restored automatically when the partner transitions the order to `cancelled`.
+   - **Partner-specific pricing on browse + cart**: `GET /api/mart/products` (list + single) and `GET /api/carts/me` now overlay `price = min(partner_price)` across in-country partners, preserving the original as `master_price` for strikethrough display; adds `is_stocked_locally` + `partners_stocking` flags. Cart also returns `unavailable_items[]` so the UI can surface a "Coming soon to your area" banner.
+   - **"Coming soon" fail-fast on checkout**: when any cart line has no partner in country, `POST /api/orders` returns `400 { detail: { code: 'not_available_in_area', message, gaps: [{name, quantity, reason, stocked_by_count}] } }`. Frontend cart disables the Checkout button + shows an amber banner; checkout error handler renders a toast with the missing item names.
+   - **Wallet ledger — audit-friendly (fixed 2026-02-04)**: on partner handoff, ledger writes `+gross` (`credit_order`) then `-commission` (`debit_commission`) — cleaner ledger than the previous "net-of-commission" single credit, and no more double-deduction bug found by the testing agent.
+   - **Order confirmation** — new "Sourced from N stores" panel on `/orders/{id}` (customer app) shows each partner's slice + status. Partner Portal's Orders view now correctly returns only THIS partner's slice of items (filtered by `partner_order_id`) with per-partner `subtotal` + `item_count` and shows the `customer_total` separately.
+
+- **Phase B deferred** (Slice 9 · Consolidation Dispatch):
+   - Driver pickup-route optimizer (distance + readiness + traffic)
+   - Consolidation-hub concept for city-wide multi-store pickups
+   - Admin `partial_delivery_allowed` toggle to bypass the "wait for all partners" gate
+   - Real Stripe / Wave / Orange Money for wallet top-up + payouts
+
+## MARTbakēd Partner MVP — Status
+- ✅ Slice 1 · Public application (2026-02-03)
+- ✅ Slice 2 · Super Admin review + approval (2026-02-04)
+- ✅ Slice 3 · Portal login + onboarding shell (2026-02-04)
+- ✅ Slice 4b · Warehouse hierarchy (2026-02-04)
+- ✅ Slice 5 · Products (hybrid catalog) (2026-02-04)
+- ✅ Slice 6 · Orders fulfilment (2026-02-04)
+- ✅ Slice 7 · Wallet (mocked payments) (2026-02-04)
+- ✅ Slice 8 · Customer→Partner routing + consolidated orders (2026-02-04)
+- ⏳ Slice 9 · Consolidation dispatch orchestrator (Phase B)
+- ⏳ Slice 10 · Real Stripe / Mobile Money for wallet top-up + payouts
