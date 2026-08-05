@@ -20,12 +20,21 @@ import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
  *   /*               → apps/customer/CustomerApp  (production: baked.ci)
  *
  * `GoogleOAuthProvider` wraps every app so any dialog (customer login,
- * partner sign-in, admin) can invoke `<GoogleLogin>` without prop-drilling.
+ * partner sign-in, admin) can invoke `<GoogleLogin>`/`useGoogleLogin`
+ * without prop-drilling. It must always be mounted, even when no client ID
+ * is configured: `useGoogleLogin` (see PhoneLoginDialog) requires this
+ * provider as an ancestor and is called unconditionally from a
+ * dialog that's mounted globally, not just when the login dialog opens.
+ * We fall back to a placeholder ID rather than the real (possibly empty)
+ * one — Google's SDK only checks that client_id is *present* at init time,
+ * so an empty string throws immediately on load, but a placeholder loads
+ * fine and only fails later if a user actually attempts to sign in, which
+ * `PhoneLoginDialog.startGoogle()` already blocks when unconfigured.
  */
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 const App = () => (
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || "not-configured"}>
     <BrowserRouter>
       <AdminProvider>
         <Routes>
