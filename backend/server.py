@@ -142,13 +142,25 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 
 @app.on_event("startup")
 async def _on_startup():
-    """Startup hook — wait for Postgres to be ready, then seed.
+    """Startup hook — wait for Postgres, run Alembic migrations, then seed.
 
     RCA (Fixing_Prompt.docx 2026-02): backend regularly restarts before the
     postgres_launcher has finished binding to port 5432. The seed used to
     fail silently on the first `Connect call failed` and leave the DB empty,
     which broke every configuration-driven module (auth, MART, EXPRESS, …).
     We now retry the DB connection up to ~30s before giving up.
+
+    RCA (2026-02-04 data-loss bug): the previous startup called
+    `Base.metadata.create_all()`, which races Alembic's `CREATE EXTENSION
+    IF NOT EXISTS pg_trgm` and can silently skip the pg_trgm-dependent
+    indexes on `mart_products`. The schema block also lived inside the same
+    try/except as the seed, so a schema failure silently masked a missing
+    seed too. We now:
+      1. Run Alembic migrations programmatically to `head`, in-process.
+      2. If that fails, we raise — startup halts so the pod restarts and
+         the operator sees a real error instead of an empty database.
+      3. Seed runs in its own try/except so a seed regression can never
+         hide a schema regression, and vice-versa.
     """
     from sqlalchemy import text
     from core.db import engine as _engine
@@ -164,18 +176,35 @@ async def _on_startup():
             logger.warning("baked.startup postgres not ready attempt=%d err=%s", attempt + 1, e)
             await asyncio.sleep(1)
     else:
-        logger.error("baked.startup postgres never became ready — skipping seed")
+        logger.error("baked.startup postgres never became ready — skipping migrations + seed")
         return
 
-    logger.info("baked.startup running seed…")
+    # ---- 1) Schema: run Alembic migrations to head (in-process) ----
+    # This replaces the old `Base.metadata.create_all()` call. Migrations
+    # own DDL end-to-end now, so `CREATE EXTENSION pg_trgm` runs before
+    # any index that depends on it, and every schema change lands with a
+    # proper revision history instead of implicit auto-DDL from Python
+    # models.
     try:
-        # Create any missing tables. Idempotent — SQLAlchemy skips existing
-        # ones. Lets us add new models (e.g. partner_applications) without
-        # a separate migration step in dev/preview. Alembic will replace
-        # this at production-cutover time.
-        from core.models import Base
-        async with _engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        logger.info("baked.startup running alembic upgrade head…")
+        from alembic.config import Config
+        from alembic import command as alembic_command
+        cfg = Config(str(ROOT_DIR / "alembic.ini"))
+        # env.py already reads DATABASE_URL from .env; nothing to inject here.
+        # Run in a threadpool because alembic uses a sync engine internally.
+        await asyncio.to_thread(alembic_command.upgrade, cfg, "head")
+        logger.info("baked.startup alembic upgrade head complete")
+    except Exception as e:  # noqa: BLE001
+        logger.exception("baked.startup migrations_failed err=%s", e)
+        # Deliberately DO NOT swallow: a schema failure at boot must halt
+        # startup so ops sees a real signal. Previously we masked this by
+        # bundling it with the seed try/except.
+        raise
+
+    # ---- 2) Seed: separate try/except so a schema regression can never
+    # silently hide a seed regression, and vice-versa. ----
+    try:
+        logger.info("baked.startup running seed…")
         await run_seed()
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.seed_failed err=%s", e)

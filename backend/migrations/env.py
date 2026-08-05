@@ -16,7 +16,12 @@ config = context.config
 config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # `disable_existing_loggers=False` is critical — the default (True)
+    # nukes every logger created before this point, including the `baked`
+    # logger set up in server.py. That's why our "seed done" / "startup
+    # complete" INFO lines went silent after we started running Alembic
+    # in-process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 from core.models import Base  # noqa: E402
 
