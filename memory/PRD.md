@@ -382,3 +382,19 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - ✅ Slice 8 · Customer→Partner routing + consolidated orders (2026-02-04)
 - ⏳ Slice 9 · Consolidation dispatch orchestrator (Phase B)
 - ⏳ Slice 10 · Real Stripe / Mobile Money for wallet top-up + payouts
+
+- ✅ **MARTbakēd Partner — Slice B · Staff & RBAC (2026-02-10)** — Owners can now invite teammates with scoped roles.
+   - **New tables** (`0003_partner_staff` migration): `partner_staff` (id, partner_id, email, name, role, password_hash, invite_token, invite_expires_at, is_active, must_reset_password, last_login_at) + `partner_staff_audit_log` (append-only).
+   - **Roles**: `owner` (implicit, from Partner row), `manager`, `packer`, `cashier`. `manager` = everything except staff-mgmt + wallet withdraw settings; `packer` = view orders + update status + view products + edit `stock_qty` only; `cashier` = view orders + wallet + top-up.
+   - **New endpoints** — `POST /api/partner/auth/staff-login`, `GET /api/partner/staff`, `POST /api/partner/staff/invite`, `POST /api/partner/staff/accept-invite`, `PATCH /api/partner/staff/{id}`, `DELETE /api/partner/staff/{id}`.
+   - **JWT extension**: staff tokens carry `role="partner_staff"` + `staff_role` + `partner_id` claims. `get_current_partner` accepts both owner + staff tokens; new `PartnerActor` + `require_role(...)` deps enforce per-endpoint role gates.
+   - **Endpoints role-gated**: `POST /products/link|custom`, `DELETE /products/{id}`, `POST /orders/{id}/status`, `POST /wallet/topup`, `POST /wallet/withdraw`, all `POST/PATCH/DELETE /warehouse/*/nodes`. `PATCH /products/{id}` allows packers to modify `stock_qty` only.
+   - **Frontend** — new **Team** sidebar entry (owner/manager only); sidebar tabs auto-hide by role; staff badge next to email in the sidebar; combined owner+staff login page (frontend tries owner-login, falls back to staff-login on 401); new `/partner-portal/accept-invite` public page for setting password after invite.
+   - **SMTP integration** — new `core/mailer.py`. When `SMTP_HOST` set, invite emails send automatically; otherwise the invite URL is returned in the API response so the owner can share it via WhatsApp/SMS.
+   - **All actions audited** into `partner_staff_audit_log` for the upcoming Slice D Analytics/Reports view.
+
+## MARTbakēd Partner MVP — Status
+- ✅ Slice B · Staff & RBAC (2026-02-10)
+- ⏳ Slice F · Notifications (SMS/email on new orders, real SMS providers)
+- ⏳ Slice H · Return / Refund handling
+- ⏳ Slice D · Analytics dashboard

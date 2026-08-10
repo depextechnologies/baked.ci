@@ -43,6 +43,9 @@ from core.models.partner_commerce import (
     PARTNER_ORDER_STATUSES, PARTNER_WALLET_TX_KINDS,
     PartnerOrder, PartnerProduct, PartnerWallet, PartnerWalletTxn,
 )
+from core.models.partner_staff import (
+    PARTNER_STAFF_ROLES, PartnerStaff, PartnerStaffAuditLog,
+)
 
 __all__ = [
     "Base",
@@ -101,6 +104,9 @@ __all__ = [
     "PartnerOrder",
     "PartnerWallet",
     "PartnerWalletTxn",
+    "PartnerStaff",
+    "PartnerStaffAuditLog",
     "PARTNER_ORDER_STATUSES",
     "PARTNER_WALLET_TX_KINDS",
+    "PARTNER_STAFF_ROLES",
 ]

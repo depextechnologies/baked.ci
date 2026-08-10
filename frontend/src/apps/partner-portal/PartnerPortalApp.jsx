@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Loader2, LogOut, LayoutDashboard, Building2, Warehouse as WarehouseIcon,
   Package, ShoppingBag, Wallet, ChevronRight, CheckCircle2, Circle, KeyRound,
-  MapPin, Mail, Phone, Store,
+  MapPin, Mail, Phone, Store, Users,
 } from "lucide-react";
 import { BakedLogo } from "@/components/layout/BakedLogo";
 import "@/apps/partner-hub/partner-hub.css";
@@ -40,24 +40,45 @@ const Ctx = createContext(null);
 export const usePartner = () => useContext(Ctx);
 
 const PartnerProvider = ({ children }) => {
-  const [state, setState] = useState({ partner: null, warehouse: null, loading: true });
+  const [state, setState] = useState({ partner: null, warehouse: null, staff: null, role: null, loading: true });
 
   const load = async () => {
-    if (!localStorage.getItem(TOKEN_KEY)) { setState({ partner: null, warehouse: null, loading: false }); return; }
+    if (!localStorage.getItem(TOKEN_KEY)) { setState({ partner: null, warehouse: null, staff: null, role: null, loading: false }); return; }
     try {
       const { data } = await partnerApi.get("/partner/auth/me");
-      setState({ partner: data.partner, warehouse: data.warehouse, loading: false });
+      setState({
+        partner: data.partner,
+        warehouse: data.warehouse,
+        staff: data.staff || null,
+        role: data.staff ? data.staff.role : "owner",
+        loading: false,
+      });
     } catch {
       localStorage.removeItem(TOKEN_KEY);
-      setState({ partner: null, warehouse: null, loading: false });
+      setState({ partner: null, warehouse: null, staff: null, role: null, loading: false });
     }
   };
   useEffect(() => { load(); }, []);
 
+  // Try owner login first, fall back to staff-login. That way the same
+  // sign-in form works for both — no separate URL, no user-visible mode toggle.
   const login = async (email, password) => {
-    const { data } = await partnerApi.post("/partner/auth/login", { email, password });
+    let data;
+    try {
+      ({ data } = await partnerApi.post("/partner/auth/login", { email, password }));
+    } catch (ownerErr) {
+      if (ownerErr?.response?.status === 401) {
+        ({ data } = await partnerApi.post("/partner/auth/staff-login", { email, password }));
+      } else throw ownerErr;
+    }
     localStorage.setItem(TOKEN_KEY, data.access_token);
-    setState({ partner: data.partner, warehouse: data.warehouse, loading: false });
+    setState({
+      partner: data.partner,
+      warehouse: data.warehouse || null,
+      staff: data.staff || null,
+      role: data.staff ? data.staff.role : "owner",
+      loading: false,
+    });
     return data.partner;
   };
 
@@ -69,7 +90,7 @@ const PartnerProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
-    setState({ partner: null, warehouse: null, loading: false });
+    setState({ partner: null, warehouse: null, staff: null, role: null, loading: false });
   };
 
   const value = useMemo(() => ({ ...state, login, resetPassword, logout, refresh: load }), [state]);
@@ -232,6 +253,14 @@ const PartnerResetPasswordPage = () => {
 /*                              Portal shell                                  */
 /* -------------------------------------------------------------------------- */
 
+// Role → visible tabs. Owners see everything (implicit).
+const NAV_ROLE_ACCESS = {
+  owner:   ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
+  manager: ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
+  packer:  ["", "warehouse", "products", "orders"],
+  cashier: ["", "orders", "wallet"],
+};
+
 const NAV = [
   { seg: "",         icon: LayoutDashboard, label: "Dashboard" },
   { seg: "profile",  icon: Building2,       label: "Business profile" },
@@ -239,13 +268,16 @@ const NAV = [
   { seg: "products", icon: Package,         label: "Products" },
   { seg: "orders",   icon: ShoppingBag,     label: "Orders" },
   { seg: "wallet",   icon: Wallet,          label: "Wallet" },
+  { seg: "team",     icon: Users,           label: "Team" },
 ];
 
 const PortalShell = ({ children }) => {
-  const { partner, warehouse, logout } = usePartner();
+  const { partner, warehouse, logout, role, staff } = usePartner();
   const nav = useNavigate();
   const loc = useLocation();
   const activeSeg = loc.pathname.replace(/^\/partner-portal\/?/, "").split("/")[0] || "";
+  const visible = new Set(NAV_ROLE_ACCESS[role] || NAV_ROLE_ACCESS.owner);
+  const visibleNav = NAV.filter(n => visible.has(n.seg));
 
   return (
     <div className="partner-hub" data-theme="dark" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "260px 1fr" }}>
@@ -259,10 +291,19 @@ const PortalShell = ({ children }) => {
         </div>
 
         <div className="mt-8 mb-2 text-xs font-semibold" style={{ color: "var(--ph-fg)" }}>{partner?.business_name}</div>
-        <div className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>{partner?.owner_email}</div>
+        <div className="text-xs flex items-center gap-2" style={{ color: "var(--ph-fg-subtle)" }}>
+          <span>{staff ? staff.email : partner?.owner_email}</span>
+          {role && role !== "owner" && (
+            <span data-testid="portal-role-badge"
+                  className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+                  style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+              {role}
+            </span>
+          )}
+        </div>
 
         <nav className="mt-8 space-y-1">
-          {NAV.map((n) => {
+          {visibleNav.map((n) => {
             const Icon = n.icon;
             const isActive = activeSeg === n.seg;
             return (
@@ -329,7 +370,7 @@ const DashboardPage = () => {
   return (
     <div data-testid="portal-dashboard-page">
       <div className="ph-eyebrow">Welcome back</div>
-      <h1 className="ph-h1 mt-2" style={{ color: "var(--ph-fg)" }}>Hi, {partner.owner_name.split(" ")[0]}.</h1>
+      <h1 className="ph-h1 mt-2" style={{ color: "var(--ph-fg)" }}>Hi, {(partner.owner_name || partner.business_name || "").split(" ")[0] || "there"}.</h1>
       <p className="ph-body mt-2 max-w-2xl">
         This is your MARTbakēd Partner dashboard for <b style={{ color: "var(--ph-fg)" }}>{partner.business_name}</b>
         {warehouse && <> — operating out of <b style={{ color: "var(--ph-fg)" }}>{warehouse.name}</b>.</>}
@@ -404,6 +445,7 @@ import { WarehousePage } from "./WarehouseEditor";
 import { ProductsPage } from "./ProductsPage";
 import { OrdersPage } from "./OrdersPage";
 import { WalletPage } from "./WalletPage";
+import { TeamPage, AcceptInvitePage } from "./TeamPage";
 
 
 /* -------------------------------------------------------------------------- */
@@ -435,6 +477,8 @@ export const PartnerPortalApp = () => {
         <Route path="products" element={<Protected><PortalShell><ProductsPage /></PortalShell></Protected>} />
         <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
         <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
+        <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />
+        <Route path="accept-invite" element={<AcceptInvitePage />} />
         <Route path="*" element={<Navigate to="/partner-portal" replace />} />
       </Routes>
     </PartnerProvider>

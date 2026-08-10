@@ -5,27 +5,38 @@
 - Password: `baked@2026#!$@`
 
 ## MARTbakēd Partner Portal — Multi-store test set
-Two active partners in Côte d'Ivoire (Abidjan, service radius 7 km) — created
-so we can exercise the Inventory Allocation Engine's multi-partner routing.
 
-- **Partner Alpha Store**  (`prt_c762370005f649db`)
-  - Email: `partner-alpha-store@test.example`
-  - Password: `Alpha1234!Beta`
-  - Stocks: Banane Cavendish (900), Baguette Tradition (450), Lait UHT (750)
+### Partner Alpha Store (`prt_alpha_demo_seed`) — Owner login
+- Email: `partner-alpha-store@test.example`
+- Password: `Alpha1234!Beta`
 
-- **Partner Beta Store**   (`prt_302c83e9b8e34e30`)
-  - Email: `partner-beta-store@test.example`
-  - Password: `Alpha1234!Beta`
-  - Stocks: Coca-Cola (850), Baguette Tradition (420 — cheaper of the two),
-    Œufs Fermiers (900), Eau Minérale (1700)
+### Partner Beta Store (`prt_beta_demo_seed`) — Owner login
+- Email: `partner-beta-store@test.example`
+- Password: `Alpha1234!Beta`
 
-Baguette is intentionally stocked by BOTH partners so the allocator's
-"consolidate to fewer stores" tie-breaker can be observed.
+### Alpha Team — Staff logins (Slice B RBAC)
+- Email: `picker1@example.com`  ·  Password: `Packer1234!`  ·  Role: **packer**
+
+New staff can be invited from `/partner-portal/team` (owner + manager only).
 
 ## Customer OTP (Côte d'Ivoire — dev mode)
-Any Ivorian mobile number works — the OTP is returned in the API response
+Any Ivorian mobile number works — OTP is returned in the API response
 (`dev_code`) since SMS is mocked in dev.
 
 ## Emergent LLM Key
 - Present in `EMERGENT_LLM_KEY` in `/app/backend/.env`
 - Model: claude-sonnet-4-6
+
+## Optional SMTP (Slice B staff invites — falls back to in-app link)
+When configured, staff-invite emails will be sent. If any of these are missing,
+the invite link is returned in the API response so the owner can share it manually.
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=<username>
+SMTP_PASSWORD=<password>
+SMTP_FROM_EMAIL=no-reply@baked.ci
+SMTP_FROM_NAME=BAKĒD
+SMTP_USE_TLS=true
+```

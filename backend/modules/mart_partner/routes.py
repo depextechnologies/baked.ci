@@ -443,7 +443,16 @@ async def get_current_partner(
     authorization: Optional[str] = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> Partner:
-    """Auth dependency for partner-portal endpoints."""
+    """Auth dependency for partner-portal endpoints.
+
+    Accepts BOTH:
+      * `role=partner`        (owner token — legacy `/partner/auth/login`)
+      * `role=partner_staff`  (teammate token — Slice B `/partner/auth/staff-login`)
+
+    Returns the Partner row either way — endpoints that need finer-grained
+    role checks should additionally depend on `require_role(...)` from
+    `staff_routes.py`.
+    """
     from jwt import ExpiredSignatureError, InvalidTokenError, decode as jwt_decode  # local — module already imported jwt elsewhere
     import os
     if not authorization or not authorization.startswith("Bearer "):
@@ -455,9 +464,19 @@ async def get_current_partner(
         raise HTTPException(status_code=401, detail="Session expired")
     except InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    if payload.get("role") != "partner":
+
+    role_claim = payload.get("role")
+    if role_claim == "partner":
+        partner = await session.get(Partner, payload.get("sub"))
+    elif role_claim == "partner_staff":
+        from core.models import PartnerStaff
+        staff = await session.get(PartnerStaff, payload.get("sub"))
+        if not staff or not staff.is_active:
+            raise HTTPException(status_code=401, detail="Staff account inactive")
+        partner = await session.get(Partner, staff.partner_id)
+    else:
         raise HTTPException(status_code=403, detail="Partner token required")
-    partner = await session.get(Partner, payload.get("sub"))
+
     if not partner or not partner.is_active:
         raise HTTPException(status_code=401, detail="Partner not found or inactive")
     return partner
@@ -503,6 +522,10 @@ async def _primary_warehouse(session: AsyncSession, partner_id: str) -> Optional
 
 partner_router = APIRouter(prefix="/partner", tags=["partner-portal"])
 
+# Role-based dependencies from Slice B — imported lazily to avoid a
+# circular import (staff_routes.py imports Partner from this module).
+from modules.mart_partner.staff_routes import require_role  # noqa: E402
+
 
 @partner_router.post("/auth/login")
 async def partner_login(
@@ -538,9 +561,34 @@ async def partner_login(
 async def partner_me(
     partner: Partner = Depends(get_current_partner),
     session: AsyncSession = Depends(get_session),
+    authorization: Optional[str] = Header(default=None),
 ):
+    """Owner AND staff both hit this to hydrate the portal on load. When
+    the token is a staff token, `staff` is populated so the frontend can
+    gate UI by role; owners get `staff=null`."""
+    from jwt import decode as jwt_decode
+    import os as _os
+    from core.models import PartnerStaff as _PartnerStaff
+
     wh = await _primary_warehouse(session, partner.id)
-    return {"partner": _partner_dict(partner), "warehouse": _warehouse_dict(wh) if wh else None}
+    staff_dict = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            claims = jwt_decode(authorization[7:], _os.environ["JWT_SECRET"], algorithms=["HS256"])
+            if claims.get("role") == "partner_staff":
+                staff = await session.get(_PartnerStaff, claims.get("sub"))
+                if staff:
+                    staff_dict = {
+                        "id": staff.id, "email": staff.email, "name": staff.name,
+                        "role": staff.role, "is_active": staff.is_active,
+                    }
+        except Exception:  # noqa: BLE001
+            pass
+    return {
+        "partner": _partner_dict(partner),
+        "warehouse": _warehouse_dict(wh) if wh else None,
+        "staff": staff_dict,
+    }
 
 
 @partner_router.post("/auth/reset-password")
@@ -758,7 +806,8 @@ async def warehouse_tree(
     }
 
 
-@partner_router.post("/warehouse/{warehouse_id}/nodes", status_code=201)
+@partner_router.post("/warehouse/{warehouse_id}/nodes", status_code=201,
+                     dependencies=[Depends(require_role("owner", "manager"))])
 async def create_node(
     warehouse_id: str, payload: NodeIn,
     partner: Partner = Depends(get_current_partner),
@@ -788,7 +837,8 @@ async def create_node(
     return _node_dict(row, payload.level)
 
 
-@partner_router.patch("/warehouse/{warehouse_id}/nodes/{level}/{node_id}")
+@partner_router.patch("/warehouse/{warehouse_id}/nodes/{level}/{node_id}",
+                      dependencies=[Depends(require_role("owner", "manager"))])
 async def update_node(
     warehouse_id: str, level: str, node_id: str, payload: NodeUpdateIn,
     partner: Partner = Depends(get_current_partner),
@@ -812,7 +862,8 @@ async def update_node(
     return _node_dict(row, level)
 
 
-@partner_router.delete("/warehouse/{warehouse_id}/nodes/{level}/{node_id}", status_code=204)
+@partner_router.delete("/warehouse/{warehouse_id}/nodes/{level}/{node_id}", status_code=204,
+                       dependencies=[Depends(require_role("owner", "manager"))])
 async def delete_node(
     warehouse_id: str, level: str, node_id: str,
     partner: Partner = Depends(get_current_partner),
@@ -1027,7 +1078,8 @@ async def search_master_catalog(
     }
 
 
-@partner_router.post("/products/link", status_code=201)
+@partner_router.post("/products/link", status_code=201,
+                     dependencies=[Depends(require_role("owner", "manager"))])
 async def link_master_product(
     payload: LinkMasterIn,
     partner: Partner = Depends(get_current_partner),
@@ -1057,7 +1109,8 @@ async def link_master_product(
     return _partner_product_dict(row, master)
 
 
-@partner_router.post("/products/custom", status_code=201)
+@partner_router.post("/products/custom", status_code=201,
+                     dependencies=[Depends(require_role("owner", "manager"))])
 async def create_custom_product(
     payload: CustomProductIn,
     partner: Partner = Depends(get_current_partner),
@@ -1091,6 +1144,8 @@ async def update_partner_product(
     payload: ProductUpdateIn,
     partner: Partner = Depends(get_current_partner),
     session: AsyncSession = Depends(get_session),
+    # We need the actor to know the role — packers can only edit stock_qty.
+    actor=Depends(require_role("owner", "manager", "packer")),
 ):
     row = await session.get(PartnerProduct, product_id)
     if not row or row.partner_id != partner.id:
@@ -1100,6 +1155,17 @@ async def update_partner_product(
     if row.source == "master":
         for k in ("name", "brand", "unit", "image", "description"):
             data.pop(k, None)
+    # Guard: packers can only adjust stock counts (e.g. damage during picking).
+    # Anything else (price, active flag, SKU code) requires manager+.
+    if actor.role == "packer":
+        allowed = {"stock_qty"}
+        stripped = {k: v for k, v in data.items() if k in allowed}
+        if not stripped:
+            raise HTTPException(status_code=403, detail={
+                "code": "insufficient_role",
+                "message": "Packers may only adjust stock_qty on products.",
+            })
+        data = stripped
     for k, v in data.items():
         setattr(row, k, v)
     await session.commit()
@@ -1108,7 +1174,8 @@ async def update_partner_product(
     return _partner_product_dict(row, master)
 
 
-@partner_router.delete("/products/{product_id}", status_code=204)
+@partner_router.delete("/products/{product_id}", status_code=204,
+                       dependencies=[Depends(require_role("owner", "manager"))])
 async def delete_partner_product(
     product_id: str,
     partner: Partner = Depends(get_current_partner),
@@ -1249,7 +1316,8 @@ class OrderStatusIn(BaseModel):
     reason: Optional[str] = Field(None, max_length=400)
 
 
-@partner_router.post("/orders/{partner_order_id}/status")
+@partner_router.post("/orders/{partner_order_id}/status",
+                     dependencies=[Depends(require_role("owner", "manager", "packer"))])
 async def update_partner_order_status(
     partner_order_id: str,
     payload: OrderStatusIn,
@@ -1401,7 +1469,8 @@ class TopupIn(BaseModel):
     method: str = Field("card", pattern="^(card|mobile_money|bank_transfer)$")
 
 
-@partner_router.post("/wallet/topup")
+@partner_router.post("/wallet/topup",
+                     dependencies=[Depends(require_role("owner", "manager", "cashier"))])
 async def wallet_topup(
     payload: TopupIn,
     partner: Partner = Depends(get_current_partner),
@@ -1427,7 +1496,8 @@ class WithdrawIn(BaseModel):
     destination: str = Field("bank", pattern="^(bank|mobile_money)$")
 
 
-@partner_router.post("/wallet/withdraw")
+@partner_router.post("/wallet/withdraw",
+                     dependencies=[Depends(require_role("owner", "manager"))])
 async def wallet_withdraw(
     payload: WithdrawIn,
     partner: Partner = Depends(get_current_partner),
