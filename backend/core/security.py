@@ -6,6 +6,10 @@ import jwt
 from passlib.context import CryptContext
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "baked-dev-secret")
+if (os.environ.get("APP_ENV") or "").lower() == "production" and (
+    JWT_SECRET in ("baked-dev-secret", "change-me-to-a-long-random-value") or len(JWT_SECRET) < 32
+):
+    raise RuntimeError("JWT_SECRET must be set to a real random value (32+ chars) in production")
 JWT_ALG = "HS256"
 JWT_ACCESS_TTL_MIN = int(os.environ.get("JWT_ACCESS_TTL_MIN", "1440"))
 
