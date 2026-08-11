@@ -405,5 +405,12 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 ## MARTbakēd Partner MVP — Status
 - ✅ Slice B · Staff & RBAC (2026-02-10) + store-scoped login (2026-02-11)
 - ✅ Slice F · Notifications (SMS + email on new orders) — Twilio + Plain SMTP (2026-02-11)
+- ✅ **Multi-Dark-Store Foundation — Phase 1 (2026-02-11)** — True multi-store architecture per Fixing_Prompt_2026-02-11.docx:
+    - **Schema (Alembic 0005_multi_store_foundation)**: `warehouses.status` lifecycle enum (11 states — only `active` fulfils orders); richer store profile columns (region, operating_hours JSONB, time_zone, store_type, warehouse_capacity_sqm, opening_date, contact_email, contact_phone, store_manager_staff_id); `partner_staff.warehouse_id` (primary store FK); `partner_staff.employee_code` (unique per partner); new `partner_staff_store_assignments` link table (multi-store forward-compat); extended `partner_staff` role CHECK (+supervisor, inventory_manager, warehouse_manager, customer_support).
+    - **Runtime code generator** `modules/mart_partner/codes.py` — `next_store_code()` produces `MRT-ABJ-{seq:03d}` (with IATA-style city aliases: ABJ/ACC/LOS/DKR/…), `next_employee_code()` produces `EMP-{CITY3}-{seq:03d}` per-partner. Race-safe.
+    - **Staff login rewrite** — accepts `identifier` (email OR EMP-ABJ-001); refuses login when `warehouse.status != 'active'` with 403 `store_not_operational`; every wrong-cred path returns uniform 401 to prevent field-leak.
+    - **Backend enforcement (Fixing_Prompt §16)** — `PartnerActor.store_id` from JWT, `require_store_context` FastAPI dep, and `_assert_owns_warehouse` now returns 403 `cross_store_denied` when a staff member touches a same-partner sibling warehouse. Owner tokens remain unrestricted across their partner's warehouses.
+    - **Verified**: 10 pytest cases in `tests/test_phase1_multi_store.py` (login by email/code, wrong store, cross-store, wrong-password uniformity, lifecycle guard, cross-store warehouse enforcement, owner unrestricted, code generators). All pass.
+- ⏳ Phase 2 UX (Store-context banner, Employee CRUD UI, Super Admin Stores page)
 - ⏳ Slice H · Return / Refund handling
 - ⏳ Slice D · Analytics dashboard

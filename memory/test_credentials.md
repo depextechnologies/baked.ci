@@ -16,15 +16,24 @@
 - Password: `Alpha1234!Beta`
 - Store code: `MRT-ABJ-002`
 
-### Alpha Team — Staff logins (Slice B RBAC)
-Login page: `/partner-portal/staff-login`
+### Alpha Team — Staff logins (Slice B RBAC + Phase 1 multi-store)
+Login page: `/partner/staff-login`. Staff login accepts EITHER email OR employee_code.
 
-| Email                    | Password       | Role     | Store Code   |
-| ------------------------ | -------------- | -------- | ------------ |
-| `picker1@example.com`    | `Packer1234!`  | packer   | MRT-ABJ-001  |
-| `manager1@example.com`   | `Packer1234!`  | manager  | MRT-ABJ-001  |
+| Employee ID   | Email                    | Password       | Role     | Store Code   |
+| ------------- | ------------------------ | -------------- | -------- | ------------ |
+| `EMP-ABJ-001` | `picker1@example.com`    | `Packer1234!`  | packer   | MRT-ABJ-001  |
+| `EMP-ABJ-002` | `manager1@example.com`   | `Packer1234!`  | manager  | MRT-ABJ-001  |
 
-New staff can be invited from `/partner-portal/team` (owner + manager only).
+Extended roles now supported: owner (Partner row), manager, packer, cashier,
+supervisor, inventory_manager, warehouse_manager, customer_support.
+
+Store lifecycle statuses: pending, under_review, additional_info_required,
+approved, rejected, setup_required, setup_in_progress, **active** (only
+this state accepts staff logins & orders), temporarily_suspended,
+maintenance, closed.
+
+New staff can be invited from `/partner-portal/team` (owner + manager only)
+— an `employee_code` is auto-generated (EMP-{CITY3}-{seq:03d}) at invite time.
 
 ## Customer OTP (Côte d'Ivoire — dev mode)
 Any Ivorian mobile number works — OTP is returned in the API response

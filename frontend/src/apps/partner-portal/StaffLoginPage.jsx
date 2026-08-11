@@ -25,21 +25,22 @@ const errMsg = (e) => {
 };
 
 export const StaffLoginPage = () => {
-  const [storeId, setStoreId] = useState("");
-  const [email,   setEmail]   = useState("");
-  const [pw,      setPw]      = useState("");
-  const [busy,    setBusy]    = useState(false);
+  const [storeId,    setStoreId]    = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [pw,         setPw]         = useState("");
+  const [busy,       setBusy]       = useState(false);
   const navigate = useNavigate();
 
   const submit = async (e) => {
     e.preventDefault();
     if (!storeId.trim()) return toast.error("Enter your Store ID");
-    if (!email.trim() || !pw)  return toast.error("Enter your email and password");
+    if (!identifier.trim() || !pw)  return toast.error("Enter your Employee ID or email and password");
     setBusy(true);
     try {
       const { data } = await partnerApi.post("/partner/auth/staff-login", {
         store_id: storeId.trim().toUpperCase(),
-        email: email.trim().toLowerCase(),
+        // Send both fields — backend accepts `identifier` (new) or `email` (legacy).
+        identifier: identifier.includes("@") ? identifier.trim().toLowerCase() : identifier.trim().toUpperCase(),
         password: pw,
       });
       localStorage.setItem("baked_partner_token", data.access_token);
@@ -103,15 +104,15 @@ export const StaffLoginPage = () => {
             </label>
 
             <label className="block text-xs" style={{ color: "var(--ph-fg-subtle)" }}>
-              Employee email
+              Employee ID or email
               <div className="relative mt-1">
                 <User size={14} style={{ color: "var(--ph-fg-subtle)",
                                          position: "absolute", left: 12, top: 15 }} />
                 <input
-                  type="email" required
-                  value={email} onChange={e => setEmail(e.target.value)}
+                  type="text" required
+                  value={identifier} onChange={e => setIdentifier(e.target.value)}
                   className={FIELD + " pl-9"} style={fieldStyle}
-                  placeholder="you@yourstore.example"
+                  placeholder="EMP-ABJ-001 or you@yourstore.example"
                   autoComplete="username"
                   data-testid="staff-login-email" />
               </div>

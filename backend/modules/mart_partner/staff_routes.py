@@ -32,7 +32,12 @@ from core.security import (
 )
 from core.models import (
     PARTNER_STAFF_ROLES, Partner, PartnerStaff, PartnerStaffAuditLog,
+    WAREHOUSE_STATUS_OPERATIONAL, Warehouse,
 )
+
+# Roles a partner_staff row may actually store (owner lives on Partner).
+_STORED_ROLES = tuple(r for r in PARTNER_STAFF_ROLES if r != "owner")
+_STORED_ROLES_PATTERN = "^(" + "|".join(_STORED_ROLES) + ")$"
 
 
 # ============================================================================
@@ -42,17 +47,23 @@ from core.models import (
 # A single object we can pass down into every endpoint so callers don't need
 # to care whether the caller is the owner (Partner row) or a staff row.
 class PartnerActor:
-    __slots__ = ("partner", "staff", "role", "actor_id", "actor_email", "actor_kind")
+    __slots__ = ("partner", "staff", "role", "actor_id", "actor_email",
+                 "actor_kind", "store_id", "store_code")
 
     def __init__(
         self, *, partner: Partner, staff: Optional[PartnerStaff], role: str,
+        store_id: Optional[str] = None, store_code: Optional[str] = None,
     ):
         self.partner      = partner
         self.staff        = staff
-        self.role         = role  # 'owner' | 'manager' | 'packer' | 'cashier'
+        self.role         = role  # 'owner' | 'manager' | 'packer' | 'cashier' | 'supervisor' | ...
         self.actor_kind   = "owner" if staff is None else "staff"
         self.actor_id     = partner.id if staff is None else staff.id
         self.actor_email  = partner.owner_email if staff is None else staff.email
+        # Store context — set for staff tokens (from JWT claim), None for owners
+        # (owners can operate across all their stores).
+        self.store_id     = store_id
+        self.store_code   = store_code
 
     @property
     def partner_id(self) -> str:
@@ -96,7 +107,11 @@ async def get_partner_actor(
         partner = await session.get(Partner, staff.partner_id)
         if not partner or not partner.is_active:
             raise HTTPException(status_code=401, detail="Partner not found or inactive")
-        return PartnerActor(partner=partner, staff=staff, role=staff.role)
+        return PartnerActor(
+            partner=partner, staff=staff, role=staff.role,
+            store_id=payload.get("store_id"),
+            store_code=payload.get("store_code"),
+        )
 
     raise HTTPException(status_code=403, detail="Partner token required")
 
@@ -123,6 +138,41 @@ def require_role(*allowed: str):
     return _dep
 
 
+def require_store_context(actor: PartnerActor = Depends(get_partner_actor)) -> PartnerActor:
+    """FastAPI dependency: guarantees the request is scoped to a specific store.
+
+    Owners are allowed through (they can operate across every one of their
+    stores — the endpoint itself should still filter by owner.partner_id).
+    Staff MUST have a `store_id` claim in their JWT, else 403 no_store_context.
+
+    Fixing_Prompt §16: DO NOT TRUST any store_id submitted by the client.
+    Every store-scoped endpoint reads the store from THIS dep, not from the
+    request body / path / query.
+    """
+    if actor.actor_kind == "staff" and not actor.store_id:
+        raise HTTPException(status_code=403, detail={
+            "code": "no_store_context",
+            "message": "Please sign in through Staff Login to select your store.",
+        })
+    return actor
+
+
+def enforce_store_id(actor: PartnerActor, claimed_store_id: Optional[str]) -> None:
+    """Assert a client-supplied `store_id` matches the JWT-bound store.
+
+    For staff tokens: `claimed_store_id` (if present) must equal actor.store_id
+    → mismatch is a 403 cross_store_denied. For owner tokens, any of the
+    partner's warehouses is acceptable — callers should validate ownership.
+    """
+    if actor.actor_kind != "staff":
+        return
+    if claimed_store_id and claimed_store_id != actor.store_id:
+        raise HTTPException(status_code=403, detail={
+            "code": "cross_store_denied",
+            "message": "You are not authorised to act on that store.",
+        })
+
+
 # ============================================================================
 #                                Router
 # ============================================================================
@@ -133,22 +183,32 @@ staff_router = APIRouter(prefix="/partner", tags=["partner-staff"])
 # --- Pydantic ---------------------------------------------------------------
 
 class StaffLoginIn(BaseModel):
-    email: EmailStr
+    # Employee ID / Username / email — per Fixing_Prompt §5. Accept either.
+    # An email-looking value is matched against `partner_staff.email`, any
+    # other value is matched against `partner_staff.employee_code`.
+    identifier: str = Field(..., min_length=3, max_length=200,
+                            description="Email OR Employee ID (EMP-XXX-000).")
     # No min_length on login — we want ALL wrong-credential paths to return
     # a uniform 401 "Invalid credentials" so we don't leak the server-side
     # password policy through 422 validation errors.
     password: str = Field(..., max_length=200)
-    store_id: Optional[str] = Field(
-        None, min_length=2, max_length=32,
-        description="Human-readable store code (e.g. MRT-ABJ-001). Optional "
-                    "for backwards-compat; required for the new /partner/staff-login screen.",
+    store_id: str = Field(
+        ..., min_length=2, max_length=32,
+        description="Human-readable store code (e.g. MRT-ABJ-001). Required.",
     )
+    # Back-compat: older clients still send `email`; accept it as an alias.
+    email: Optional[EmailStr] = Field(default=None, exclude=True)
 
 
 class StaffInviteIn(BaseModel):
     email: EmailStr
     name: str = Field(..., min_length=2, max_length=200)
-    role: str = Field(..., pattern="^(manager|packer|cashier)$")
+    role: str = Field(..., pattern=_STORED_ROLES_PATTERN)
+    warehouse_id: Optional[str] = Field(
+        default=None,
+        description="Primary store the teammate reports to. Defaults to the "
+                    "inviter's active store when omitted.",
+    )
 
 
 class StaffAcceptInviteIn(BaseModel):
@@ -157,7 +217,7 @@ class StaffAcceptInviteIn(BaseModel):
 
 
 class StaffPatchIn(BaseModel):
-    role: Optional[str] = Field(None, pattern="^(manager|packer|cashier)$")
+    role: Optional[str] = Field(default=None, pattern=_STORED_ROLES_PATTERN)
     is_active: Optional[bool] = None
 
 
@@ -166,6 +226,7 @@ class StaffPatchIn(BaseModel):
 def _staff_dict(s: PartnerStaff) -> dict:
     return {
         "id": s.id, "email": s.email, "name": s.name, "role": s.role,
+        "employee_code": s.employee_code, "warehouse_id": s.warehouse_id,
         "is_active": s.is_active, "must_reset_password": s.must_reset_password,
         "invite_pending": s.invite_accepted_at is None and s.password_hash is None,
         "last_login_at": s.last_login_at.isoformat() if s.last_login_at else None,
@@ -197,32 +258,63 @@ def _invite_url(token: str) -> str:
 async def staff_login(
     payload: StaffLoginIn, session: AsyncSession = Depends(get_session),
 ):
-    # Store ID as CONTEXT, not credential (per Fixing_Prompt 2026-02-10):
-    #   1. If provided, resolve store → verify exists + active.
-    #   2. On successful auth, verify the employee is ASSIGNED to that store
-    #      (currently 1 partner : 1 warehouse, so check partner ownership).
-    #   3. Every failure surface is the same "Invalid credentials" so we
-    #      don't leak "store exists but no such user" oracles to attackers.
-    from core.models import Warehouse
-    resolved_store = None
-    if payload.store_id:
-        resolved_store = (await session.execute(
-            select(Warehouse).where(Warehouse.code == payload.store_id.strip().upper())
-        )).scalar_one_or_none()
-        if not resolved_store or not resolved_store.is_active:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+    # Multi-store login (Fixing_Prompt §14):
+    #   1. Resolve store by code → must exist AND be operational (`active`).
+    #   2. Resolve staff by email OR employee_code.
+    #   3. Verify password.
+    #   4. Verify staff belongs to that store (partner_id + warehouse_id).
+    #   5. Emit JWT with store context claims.
+    # Wrong-credential + inactive-store paths ALL return uniform 401
+    # "Invalid credentials" — never leak which piece failed.
 
-    row = (await session.execute(
-        select(PartnerStaff).where(func.lower(PartnerStaff.email) == payload.email.lower())
+    identifier = (payload.identifier or payload.email or "").strip()
+    if not identifier:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    resolved_store = (await session.execute(
+        select(Warehouse).where(Warehouse.code == payload.store_id.strip().upper())
     )).scalar_one_or_none()
+    if not resolved_store:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if resolved_store.status not in WAREHOUSE_STATUS_OPERATIONAL:
+        # Store exists but isn't accepting logins. Audit and refuse with a
+        # SPECIFIC (non-401) error so the client can tell the user what to do.
+        session.add(PartnerStaffAuditLog(
+            partner_id=resolved_store.partner_id,
+            actor_kind="anonymous", actor_id="anonymous",
+            actor_email=identifier[:200],
+            action="staff.login_store_not_operational",
+            target_id=resolved_store.id,
+            detail=f"status={resolved_store.status}",
+        ))
+        await session.commit()
+        raise HTTPException(status_code=403, detail={
+            "code": "store_not_operational",
+            "message": f"This store is currently {resolved_store.status.replace('_', ' ')}.",
+        })
+
+    # Email OR employee_code — the "@" sniff-test is enough because
+    # employee_code is guaranteed to be uppercase + hyphenated.
+    if "@" in identifier:
+        query = select(PartnerStaff).where(
+            func.lower(PartnerStaff.email) == identifier.lower()
+        )
+    else:
+        query = select(PartnerStaff).where(
+            PartnerStaff.employee_code == identifier.upper(),
+        )
+    row = (await session.execute(query)).scalar_one_or_none()
     if not row or not row.password_hash or not row.is_active:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not verify_password(payload.password, row.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # If a store was supplied, the staff MUST belong to the partner owning it.
-    if resolved_store and resolved_store.partner_id != row.partner_id:
-        # Log the cross-store attempt for the security audit trail
+    # The staff MUST belong to the partner that owns this store. If they have
+    # a primary `warehouse_id`, it MUST match. (Legacy staff without a primary
+    # store default to the partner scope for backwards-compat.)
+    partner_owns_store = (resolved_store.partner_id == row.partner_id)
+    warehouse_matches   = (row.warehouse_id in (None, resolved_store.id))
+    if not (partner_owns_store and warehouse_matches):
         session.add(PartnerStaffAuditLog(
             partner_id=row.partner_id,
             actor_kind="staff", actor_id=row.id, actor_email=row.email,
@@ -247,13 +339,14 @@ async def staff_login(
         row.id, role="partner_staff",
         extra={
             "staff_role": row.role, "partner_id": partner.id,
-            "store_id":   resolved_store.id   if resolved_store else None,
-            "store_code": resolved_store.code if resolved_store else None,
+            "employee_code": row.employee_code,
+            "store_id":   resolved_store.id,
+            "store_code": resolved_store.code,
         },
     )
     await _log(session, PartnerActor(partner=partner, staff=row, role=row.role),
                action="staff.login",
-               detail=f"store={payload.store_id}" if payload.store_id else None)
+               detail=f"store={payload.store_id} via={'email' if '@' in identifier else 'employee_code'}")
     await session.commit()
 
     return {
@@ -265,11 +358,11 @@ async def staff_login(
             "owner_name": partner.owner_name, "owner_email": partner.owner_email,
             "module": partner.module, "country": partner.country,
         },
-        "store": (
-            {"id": resolved_store.id, "code": resolved_store.code,
-             "name": resolved_store.name, "city": resolved_store.city}
-            if resolved_store else None
-        ),
+        "store": {
+            "id": resolved_store.id, "code": resolved_store.code,
+            "name": resolved_store.name, "city": resolved_store.city,
+            "status": resolved_store.status,
+        },
     }
 
 
@@ -318,9 +411,51 @@ async def invite_staff(
     if existing:
         raise HTTPException(status_code=409, detail="A teammate with this email already exists")
 
+    # Resolve target warehouse (Fixing_Prompt §12 — explicit store assignment).
+    #   * If invoker is staff, always default to their JWT-bound store.
+    #   * Otherwise, use the invite payload's warehouse_id or the owner's
+    #     first active warehouse.
+    target_warehouse_id: Optional[str] = None
+    if actor.actor_kind == "staff":
+        target_warehouse_id = actor.store_id
+    elif payload.warehouse_id:
+        target_warehouse_id = payload.warehouse_id
+    else:
+        wh_row = (await session.execute(
+            select(Warehouse).where(
+                Warehouse.partner_id == actor.partner_id, Warehouse.is_active
+            ).order_by(Warehouse.created_at.asc())
+        )).scalar_one_or_none()
+        target_warehouse_id = wh_row.id if wh_row else None
+
+    # Validate warehouse belongs to actor's partner + is operational
+    target_warehouse = None
+    if target_warehouse_id:
+        target_warehouse = await session.get(Warehouse, target_warehouse_id)
+        if not target_warehouse or target_warehouse.partner_id != actor.partner_id:
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_warehouse",
+                "message": "That store doesn't belong to your account.",
+            })
+        if target_warehouse.status not in WAREHOUSE_STATUS_OPERATIONAL:
+            raise HTTPException(status_code=400, detail={
+                "code": "store_not_operational",
+                "message": f"Cannot invite to a store that is {target_warehouse.status.replace('_', ' ')}.",
+            })
+
+    # Auto-generate an employee_code. City3 is derived from the target store
+    # (falls back to XXX for legacy partners).
+    from modules.mart_partner.codes import next_employee_code
+    emp_code = await next_employee_code(
+        session, partner_id=actor.partner_id,
+        city=(target_warehouse.city if target_warehouse else None),
+    )
+
     token = secrets.token_urlsafe(24)
     row = PartnerStaff(
         partner_id=actor.partner_id,
+        warehouse_id=target_warehouse_id,
+        employee_code=emp_code,
         email=payload.email.lower(),
         name=payload.name.strip(),
         role=payload.role,
@@ -333,6 +468,13 @@ async def invite_staff(
     )
     session.add(row)
     await session.flush()
+
+    # Create the primary store assignment row for multi-store forward-compat.
+    if target_warehouse_id:
+        from core.models import PartnerStaffStoreAssignment
+        session.add(PartnerStaffStoreAssignment(
+            staff_id=row.id, warehouse_id=target_warehouse_id, is_primary=True,
+        ))
 
     invite_url = _invite_url(token)
 

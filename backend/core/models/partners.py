@@ -41,6 +41,25 @@ APPLICATION_STATUSES = (
 )
 
 
+# Warehouse (dark-store) lifecycle — per Fixing_Prompt §9 (multi-store arch).
+# Only WAREHOUSE_STATUS_OPERATIONAL rows can fulfil customer orders.
+WAREHOUSE_STATUSES = (
+    "pending",
+    "under_review",
+    "additional_info_required",
+    "approved",
+    "rejected",
+    "setup_required",
+    "setup_in_progress",
+    "active",
+    "temporarily_suspended",
+    "maintenance",
+    "closed",
+)
+WAREHOUSE_STATUS_OPERATIONAL = {"active"}
+WAREHOUSE_STATUS_MANAGEABLE  = {"active", "temporarily_suspended", "maintenance"}
+
+
 class PartnerApplication(Base, TimestampMixin):
     """A public partner application submitted from `/partner/apply`.
 
@@ -181,6 +200,11 @@ class Warehouse(Base, TimestampMixin):
     __tablename__ = "warehouses"
     __table_args__ = (
         Index("ix_warehouses_partner_id", "partner_id"),
+        Index("ix_warehouses_status", "status"),
+        CheckConstraint(
+            f"status IN ({','.join(repr(s) for s in WAREHOUSE_STATUSES)})",
+            name="ck_warehouses_status",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wh"))
@@ -191,13 +215,27 @@ class Warehouse(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     address_line: Mapped[str] = mapped_column(String(400), nullable=False)
     city: Mapped[str] = mapped_column(String(120), nullable=False)
+    region: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     latitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
     property_type: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     property_size_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    warehouse_capacity_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     service_area_km: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    # Lifecycle status — per Fixing_Prompt §9. Only 'active' fulfils orders.
+    status: Mapped[str] = mapped_column(String(40), nullable=False, server_default="active")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    # Richer store profile (Fixing_Prompt §11)
+    operating_hours: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    time_zone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    store_type: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    opening_date: Mapped[Optional[datetime]] = mapped_column(nullable=True)  # DB DATE column; ORM treats as datetime-optional
+    contact_email: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    contact_phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    # Store manager staff id (nullable FK-less pointer; we validate in app layer
+    # to avoid circular FK with partner_staff).
+    store_manager_staff_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 
 # ============================================================================

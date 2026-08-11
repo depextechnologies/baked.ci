@@ -468,17 +468,26 @@ async def get_current_partner(
     role_claim = payload.get("role")
     if role_claim == "partner":
         partner = await session.get(Partner, payload.get("sub"))
+        staff_store_id = None
     elif role_claim == "partner_staff":
         from core.models import PartnerStaff
         staff = await session.get(PartnerStaff, payload.get("sub"))
         if not staff or not staff.is_active:
             raise HTTPException(status_code=401, detail="Staff account inactive")
         partner = await session.get(Partner, staff.partner_id)
+        staff_store_id = payload.get("store_id")
     else:
         raise HTTPException(status_code=403, detail="Partner token required")
 
     if not partner or not partner.is_active:
         raise HTTPException(status_code=401, detail="Partner not found or inactive")
+    # Stash the JWT-bound store_id on the Partner instance so downstream
+    # helpers (like `_assert_owns_warehouse`) can enforce store scoping
+    # without every endpoint threading a new argument through.
+    #
+    # Fixing_Prompt §16: NEVER trust a store_id submitted by the client.
+    # This value comes exclusively from a signed JWT.
+    partner._staff_store_id = staff_store_id  # type: ignore[attr-defined]
     return partner
 
 
@@ -716,6 +725,16 @@ async def _assert_owns_warehouse(session: AsyncSession, partner: Partner, wareho
     wh = await session.get(Warehouse, warehouse_id)
     if not wh or wh.partner_id != partner.id:
         raise HTTPException(status_code=404, detail="Warehouse not found")
+    # Store-scope enforcement — Fixing_Prompt §16. Staff tokens carry a
+    # `store_id` claim and MUST NOT act on any other warehouse under the
+    # same partner. Owner tokens are unrestricted (they can operate across
+    # every store they own).
+    staff_store_id = getattr(partner, "_staff_store_id", None)
+    if staff_store_id and staff_store_id != wh.id:
+        raise HTTPException(status_code=403, detail={
+            "code": "cross_store_denied",
+            "message": "You are not authorised to act on that store.",
+        })
     return wh
 
 

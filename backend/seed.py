@@ -738,8 +738,19 @@ async def _seed_demo_partners(session: AsyncSession):
                 latitude=5.3364,
                 longitude=-4.0267,
                 service_area_km=7,
+                status="active",
                 is_active=True,
+                time_zone="Africa/Abidjan",
+                store_type="dark_store",
+                contact_email=d["email"],
+                contact_phone=d["phone"],
             ))
+        else:
+            # Ensure existing seed rows are healed to `active`
+            existing_wh.status = "active"
+            existing_wh.is_active = True
+            existing_wh.time_zone = existing_wh.time_zone or "Africa/Abidjan"
+            existing_wh.store_type = existing_wh.store_type or "dark_store"
 
         # Catalog links — one PartnerProduct per (partner, master SKU).
         for master_name, price, stock in d["sku_prices"]:
@@ -779,11 +790,13 @@ async def _seed_demo_partners(session: AsyncSession):
     # /partner/auth/staff-login flow has a working fixture every boot.
     staff_pw_hash = hash_password("Packer1234!")
     demo_staff = [
-        # (partner_id, email, name, role, password_hash)
-        ("prt_alpha_demo_seed", "picker1@example.com", "Alpha Packer One", "packer"),
-        ("prt_alpha_demo_seed", "manager1@example.com", "Alpha Manager One", "manager"),
+        # (partner_id, warehouse_id, employee_code, email, name, role)
+        ("prt_alpha_demo_seed", "wh_alpha_demo_seed", "EMP-ABJ-001",
+         "picker1@example.com",  "Alpha Packer One", "packer"),
+        ("prt_alpha_demo_seed", "wh_alpha_demo_seed", "EMP-ABJ-002",
+         "manager1@example.com", "Alpha Manager One", "manager"),
     ]
-    for partner_id, email, name, role in demo_staff:
+    for partner_id, warehouse_id, emp_code, email, name, role in demo_staff:
         existing = (await session.execute(
             select(PartnerStaff).where(
                 PartnerStaff.partner_id == partner_id,
@@ -797,10 +810,14 @@ async def _seed_demo_partners(session: AsyncSession):
             existing.role = role
             existing.is_active = True
             existing.must_reset_password = False
+            existing.warehouse_id  = warehouse_id
+            existing.employee_code = emp_code
             existing.invite_accepted_at = existing.invite_accepted_at or datetime.now(timezone.utc)
         else:
             session.add(PartnerStaff(
                 partner_id=partner_id,
+                warehouse_id=warehouse_id,
+                employee_code=emp_code,
                 email=email,
                 name=name,
                 role=role,
@@ -808,6 +825,27 @@ async def _seed_demo_partners(session: AsyncSession):
                 must_reset_password=False,
                 invite_accepted_at=datetime.now(timezone.utc),
                 is_active=True,
+            ))
+    # Ensure a PartnerStaffStoreAssignment row exists for every seeded staff.
+    from core.models import PartnerStaffStoreAssignment
+    for partner_id, warehouse_id, emp_code, email, *_ in demo_staff:
+        staff_row = (await session.execute(
+            select(PartnerStaff).where(
+                PartnerStaff.partner_id == partner_id,
+                PartnerStaff.email == email,
+            )
+        )).scalar_one()
+        existing_assign = (await session.execute(
+            select(PartnerStaffStoreAssignment).where(
+                PartnerStaffStoreAssignment.staff_id == staff_row.id,
+                PartnerStaffStoreAssignment.warehouse_id == warehouse_id,
+            )
+        )).scalar_one_or_none()
+        if not existing_assign:
+            session.add(PartnerStaffStoreAssignment(
+                staff_id=staff_row.id,
+                warehouse_id=warehouse_id,
+                is_primary=True,
             ))
 
 
