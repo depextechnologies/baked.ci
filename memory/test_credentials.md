@@ -9,13 +9,20 @@
 ### Partner Alpha Store (`prt_alpha_demo_seed`) — Owner login
 - Email: `partner-alpha-store@test.example`
 - Password: `Alpha1234!Beta`
+- Store code: `MRT-ABJ-001`
 
 ### Partner Beta Store (`prt_beta_demo_seed`) — Owner login
 - Email: `partner-beta-store@test.example`
 - Password: `Alpha1234!Beta`
+- Store code: `MRT-ABJ-002`
 
 ### Alpha Team — Staff logins (Slice B RBAC)
-- Email: `picker1@example.com`  ·  Password: `Packer1234!`  ·  Role: **packer**
+Login page: `/partner-portal/staff-login`
+
+| Email                    | Password       | Role     | Store Code   |
+| ------------------------ | -------------- | -------- | ------------ |
+| `picker1@example.com`    | `Packer1234!`  | packer   | MRT-ABJ-001  |
+| `manager1@example.com`   | `Packer1234!`  | manager  | MRT-ABJ-001  |
 
 New staff can be invited from `/partner-portal/team` (owner + manager only).
 

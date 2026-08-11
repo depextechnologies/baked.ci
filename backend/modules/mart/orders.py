@@ -371,6 +371,7 @@ async def create_order(
     # We deliberately build them in one pass so every OrderItem lands with its
     # partner_order_id already set (no back-fill pass).
     from core.models import PartnerOrder as PartnerOrderModel
+    partner_slices_for_notification: list[tuple[str, str]] = []
     for slice_ in plan.slices:
         po = PartnerOrderModel(
             partner_id=slice_.partner_id,
@@ -381,6 +382,7 @@ async def create_order(
         )
         session.add(po)
         await session.flush()  # need po.id for the OrderItem tagging below
+        partner_slices_for_notification.append((slice_.partner_id, po.id))
         for al in slice_.lines:
             session.add(OrderItem(
                 order_id=order.id,
@@ -452,6 +454,16 @@ async def create_order(
     )
 
     await session.commit()
+
+    # Slice F — fire partner notifications (SMS + email). Fire-and-forget so
+    # a slow SMS provider never adds latency to the customer's checkout.
+    try:
+        from modules.mart_partner.notifications import dispatch_new_order_notifications
+        dispatch_new_order_notifications(order.id, partner_slices_for_notification)
+    except Exception:  # noqa: BLE001
+        import logging
+        logging.getLogger("baked").exception("notify.new_order.dispatch_failed")
+
     out = await _order_to_dict(session, order)
     # Add partner summary so the confirmation screen can show "fulfilled from N stores"
     out["partners"] = [

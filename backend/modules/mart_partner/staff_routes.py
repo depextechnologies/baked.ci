@@ -134,7 +134,15 @@ staff_router = APIRouter(prefix="/partner", tags=["partner-staff"])
 
 class StaffLoginIn(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=200)
+    # No min_length on login — we want ALL wrong-credential paths to return
+    # a uniform 401 "Invalid credentials" so we don't leak the server-side
+    # password policy through 422 validation errors.
+    password: str = Field(..., max_length=200)
+    store_id: Optional[str] = Field(
+        None, min_length=2, max_length=32,
+        description="Human-readable store code (e.g. MRT-ABJ-001). Optional "
+                    "for backwards-compat; required for the new /partner/staff-login screen.",
+    )
 
 
 class StaffInviteIn(BaseModel):
@@ -189,6 +197,21 @@ def _invite_url(token: str) -> str:
 async def staff_login(
     payload: StaffLoginIn, session: AsyncSession = Depends(get_session),
 ):
+    # Store ID as CONTEXT, not credential (per Fixing_Prompt 2026-02-10):
+    #   1. If provided, resolve store → verify exists + active.
+    #   2. On successful auth, verify the employee is ASSIGNED to that store
+    #      (currently 1 partner : 1 warehouse, so check partner ownership).
+    #   3. Every failure surface is the same "Invalid credentials" so we
+    #      don't leak "store exists but no such user" oracles to attackers.
+    from core.models import Warehouse
+    resolved_store = None
+    if payload.store_id:
+        resolved_store = (await session.execute(
+            select(Warehouse).where(Warehouse.code == payload.store_id.strip().upper())
+        )).scalar_one_or_none()
+        if not resolved_store or not resolved_store.is_active:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
     row = (await session.execute(
         select(PartnerStaff).where(func.lower(PartnerStaff.email) == payload.email.lower())
     )).scalar_one_or_none()
@@ -197,17 +220,40 @@ async def staff_login(
     if not verify_password(payload.password, row.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # If a store was supplied, the staff MUST belong to the partner owning it.
+    if resolved_store and resolved_store.partner_id != row.partner_id:
+        # Log the cross-store attempt for the security audit trail
+        session.add(PartnerStaffAuditLog(
+            partner_id=row.partner_id,
+            actor_kind="staff", actor_id=row.id, actor_email=row.email,
+            action="staff.login_cross_store_denied",
+            target_id=resolved_store.id,
+            detail=f"attempted_store={payload.store_id}",
+        ))
+        await session.commit()
+        raise HTTPException(status_code=403, detail={
+            "code": "wrong_store",
+            "message": "You are not assigned to that store.",
+        })
+
     partner = await session.get(Partner, row.partner_id)
     if not partner or not partner.is_active:
-        raise HTTPException(status_code=401, detail="Partner account inactive")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     row.last_login_at = datetime.now(timezone.utc)
+    # store_id + store_code in the JWT so the backend can enforce it on
+    # every store-scoped request without an extra DB round-trip.
     token = create_access_token(
         row.id, role="partner_staff",
-        extra={"staff_role": row.role, "partner_id": partner.id},
+        extra={
+            "staff_role": row.role, "partner_id": partner.id,
+            "store_id":   resolved_store.id   if resolved_store else None,
+            "store_code": resolved_store.code if resolved_store else None,
+        },
     )
     await _log(session, PartnerActor(partner=partner, staff=row, role=row.role),
-               action="staff.login")
+               action="staff.login",
+               detail=f"store={payload.store_id}" if payload.store_id else None)
     await session.commit()
 
     return {
@@ -215,13 +261,15 @@ async def staff_login(
         "expires_in": JWT_ACCESS_TTL_MIN * 60,
         "staff": _staff_dict(row),
         "partner": {
-            "id": partner.id,
-            "business_name": partner.business_name,
-            "owner_name": partner.owner_name,
-            "owner_email": partner.owner_email,
-            "module": partner.module,
-            "country": partner.country,
+            "id": partner.id, "business_name": partner.business_name,
+            "owner_name": partner.owner_name, "owner_email": partner.owner_email,
+            "module": partner.module, "country": partner.country,
         },
+        "store": (
+            {"id": resolved_store.id, "code": resolved_store.code,
+             "name": resolved_store.name, "city": resolved_store.city}
+            if resolved_store else None
+        ),
     }
 
 

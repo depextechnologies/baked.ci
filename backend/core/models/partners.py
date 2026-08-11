@@ -185,6 +185,9 @@ class Warehouse(Base, TimestampMixin):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wh"))
     partner_id: Mapped[str] = mapped_column(String, ForeignKey("partners.id"), nullable=False)
+    # Human-readable store identifier used at staff login (e.g. MRT-ABJ-001).
+    # Populated by migration 0004 for existing rows, and by seed for new ones.
+    code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     address_line: Mapped[str] = mapped_column(String(400), nullable=False)
     city: Mapped[str] = mapped_column(String(120), nullable=False)

@@ -90,6 +90,7 @@ const PartnerProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("baked_partner_store");
     setState({ partner: null, warehouse: null, staff: null, role: null, loading: false });
   };
 
@@ -291,7 +292,25 @@ const PortalShell = ({ children }) => {
         </div>
 
         <div className="mt-8 mb-2 text-xs font-semibold" style={{ color: "var(--ph-fg)" }}>{partner?.business_name}</div>
-        <div className="text-xs flex items-center gap-2" style={{ color: "var(--ph-fg-subtle)" }}>
+        {(() => {
+          // Show the store context (code + city) when a staff session
+          // was scoped to a specific store at login. Cached in localStorage
+          // by StaffLoginPage; safe to fall back to warehouse if absent.
+          let s = null;
+          try { s = JSON.parse(localStorage.getItem("baked_partner_store") || "null"); } catch { /* noop */ }
+          const code = s?.code || warehouse?.code;
+          const city = s?.city || s?.name || warehouse?.name;
+          if (!code) return null;
+          return (
+            <div data-testid="portal-store-context"
+                 className="text-[11px] mt-1 flex items-center gap-2 px-2 py-1 rounded"
+                 style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+              <span className="font-mono tracking-wider">{code}</span>
+              {city && <span style={{ opacity: 0.7 }}>· {city}</span>}
+            </div>
+          );
+        })()}
+        <div className="text-xs mt-2 flex items-center gap-2" style={{ color: "var(--ph-fg-subtle)" }}>
           <span>{staff ? staff.email : partner?.owner_email}</span>
           {role && role !== "owner" && (
             <span data-testid="portal-role-badge"

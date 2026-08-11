@@ -501,6 +501,7 @@ def _partner_dict(partner: Partner) -> dict:
 def _warehouse_dict(wh: Warehouse) -> dict:
     return {
         "id": wh.id,
+        "code": wh.code,
         "name": wh.name,
         "address_line": wh.address_line,
         "city": wh.city,

@@ -13,7 +13,8 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link, Routes, Route } from "react-router-dom";
+import { Link, Routes, Route, useNavigate } from "react-router-dom";
+import { StaffLoginPage } from "@/apps/partner-portal/StaffLoginPage";
 import { PartnerApplyApp } from "./PartnerApplyApp";
 import {
   ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Sun,
@@ -135,6 +136,10 @@ const Navbar = ({ theme, onToggleTheme }) => {
           <Link to="/" className="ph-btn ph-btn-ghost hidden sm:inline-flex" data-testid="hub-nav-back">
             Back to BAKĒD
           </Link>
+          <Link to="/partner/staff-login" className="ph-btn ph-btn-ghost hidden sm:inline-flex"
+                data-testid="hub-nav-staff-login">
+            Staff login
+          </Link>
           <Link to="/partner/apply" className="ph-btn ph-btn-warm" data-testid="hub-nav-cta">
             Become a Partner <ArrowRight size={16} />
           </Link>
@@ -182,6 +187,9 @@ const Hero = () => (
           <div className="mt-10 flex flex-wrap gap-4">
             <Link to="/partner/apply" className="ph-btn ph-btn-warm" data-testid="hub-hero-primary">
               Become a Partner <ArrowRight size={18} />
+            </Link>
+            <Link to="/partner/staff-login" className="ph-btn ph-btn-secondary" data-testid="hub-hero-staff-login">
+              Staff Login →
             </Link>
             <a href="#opportunities" className="ph-btn ph-btn-secondary" data-testid="hub-hero-secondary">
               Explore Opportunities
@@ -262,15 +270,19 @@ const OPPORTUNITIES = [
 
 const OpportunityCard = ({ opp, index }) => {
   const Icon = opp.icon;
-  const CardLink = opp.external ? "a" : Link;
-  const linkProps = opp.external
-    ? { href: opp.href, target: "_blank", rel: "noopener noreferrer" }
-    : { to: opp.href };
+  const nav = useNavigate();
+  const openMain = () => {
+    if (opp.external) window.open(opp.href, "_blank", "noopener,noreferrer");
+    else nav(opp.href);
+  };
   return (
     <Reveal delay={index * 90}>
-      <CardLink
-        {...linkProps}
-        className="ph-opp-card"
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={openMain}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMain(); } }}
+        className="ph-opp-card cursor-pointer"
         data-testid={`hub-opportunity-${opp.id}`}
       >
         <div className="ph-opp-image">
@@ -304,7 +316,7 @@ const OpportunityCard = ({ opp, index }) => {
             </div>
           )}
         </div>
-      </CardLink>
+      </div>
     </Reveal>
   );
 };
@@ -672,6 +684,7 @@ export const PartnerHubApp = () => {
     <Routes>
       <Route path="/" element={<PartnerHubLanding theme={theme} toggle={toggle} />} />
       <Route path="/apply" element={<PartnerApplyApp />} />
+      <Route path="/staff-login" element={<StaffLoginPage />} />
     </Routes>
   );
 };

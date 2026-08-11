@@ -635,7 +635,9 @@ async def _seed_demo_partners(session: AsyncSession):
     from core.security import hash_password
     from core.models import (
         Partner, PartnerApplication, Warehouse, PartnerProduct, MartProduct,
+        PartnerStaff,
     )
+    from datetime import datetime, timezone
     from sqlalchemy import select
 
     # SKU catalog is looked up by name (master product IDs are non-deterministic
@@ -671,7 +673,7 @@ async def _seed_demo_partners(session: AsyncSession):
 
     pw_hash = hash_password("Alpha1234!Beta")
 
-    for d in demo:
+    for idx, d in enumerate(demo, start=1):
         # PartnerApplication first (FK from Partner.application_id).
         exists_app = await session.get(PartnerApplication, d["app_id"])
         if not exists_app:
@@ -728,6 +730,7 @@ async def _seed_demo_partners(session: AsyncSession):
             session.add(Warehouse(
                 id=wh_id,
                 partner_id=d["id"],
+                code=f"MRT-ABJ-{idx:03d}",
                 name=f"{d['business_name']} — Abidjan",
                 address_line="99 Boulevard Latrille",
                 city="Abidjan",
@@ -771,6 +774,41 @@ async def _seed_demo_partners(session: AsyncSession):
                     low_stock_threshold=5,
                     is_active=True,
                 ))
+
+    # Demo staff (Slice B RBAC) — idempotent packer on the Alpha store so the
+    # /partner/auth/staff-login flow has a working fixture every boot.
+    staff_pw_hash = hash_password("Packer1234!")
+    demo_staff = [
+        # (partner_id, email, name, role, password_hash)
+        ("prt_alpha_demo_seed", "picker1@example.com", "Alpha Packer One", "packer"),
+        ("prt_alpha_demo_seed", "manager1@example.com", "Alpha Manager One", "manager"),
+    ]
+    for partner_id, email, name, role in demo_staff:
+        existing = (await session.execute(
+            select(PartnerStaff).where(
+                PartnerStaff.partner_id == partner_id,
+                PartnerStaff.email == email,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            # Refresh password/role/is_active on every boot so the fixture
+            # stays reproducible even after a manual DB tweak.
+            existing.password_hash = staff_pw_hash
+            existing.role = role
+            existing.is_active = True
+            existing.must_reset_password = False
+            existing.invite_accepted_at = existing.invite_accepted_at or datetime.now(timezone.utc)
+        else:
+            session.add(PartnerStaff(
+                partner_id=partner_id,
+                email=email,
+                name=name,
+                role=role,
+                password_hash=staff_pw_hash,
+                must_reset_password=False,
+                invite_accepted_at=datetime.now(timezone.utc),
+                is_active=True,
+            ))
 
 
 async def _cleanup_removed_countries(session: AsyncSession):

@@ -392,9 +392,18 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Frontend** — new **Team** sidebar entry (owner/manager only); sidebar tabs auto-hide by role; staff badge next to email in the sidebar; combined owner+staff login page (frontend tries owner-login, falls back to staff-login on 401); new `/partner-portal/accept-invite` public page for setting password after invite.
    - **SMTP integration** — new `core/mailer.py`. When `SMTP_HOST` set, invite emails send automatically; otherwise the invite URL is returned in the API response so the owner can share it via WhatsApp/SMS.
    - **All actions audited** into `partner_staff_audit_log` for the upcoming Slice D Analytics/Reports view.
+   - **Store-scoped staff login (2026-02-11)** — Warehouses got a unique `code` (e.g. `MRT-ABJ-001`); `/api/partner/auth/staff-login` now accepts `store_id` (the store code). Login is a 3-field flow — store code + email + password. Cross-store attempts return 403 `wrong_store`, wrong-store OR bad creds return uniform 401 "Invalid credentials". Idempotent seed adds `picker1@example.com` (packer) and `manager1@example.com` (manager) both under Alpha store.
+
+- ✅ **MARTbakēd Partner — Slice F · Notifications (2026-02-11)** — Partners get real-time alerts on new orders.
+   - **New provider** `core/providers/sms_provider.py` (DevSmsProvider + TwilioSmsProvider). Reuses `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + (`TWILIO_MESSAGING_SERVICE_SID` OR `TWILIO_FROM_PHONE`). Set via `SMS_PROVIDER=twilio`.
+   - **OTP provider rewired** — `TwilioSmsProvider` (Twilio Messaging API, sends the code we generate) + `TwilioVerifyProvider` (Twilio Verify service). Both are now fully implemented and no longer raise `NotImplementedError`. Missing credentials → graceful `{delivered:false}` fallback, never crashes the app.
+   - **Dispatcher** `modules/mart_partner/notifications.py` — fire-and-forget `asyncio.create_task` per partner slice. SMS + email in French. Failures logged only, never propagated to the customer response path.
+   - **Hook point** — `POST /api/orders` gathers `(partner_id, partner_order_id)` per slice and dispatches after `session.commit()`. Zero customer-facing latency added.
+   - **Existing mailer reused** — Slice B's `core/mailer.py` (Plain SMTP) sends the HTML/text order-alert email. SMTP unconfigured → `mailer.no_op` log, no error.
+   - **Verified**: end-to-end curl smoke — order → `sms.dev to=+225… body='[BAKĒD] Nouvelle commande #… — N articles, X XOF'` + `mailer` fires within 100ms. 10 unit tests pass in `tests/test_slice_f_notifications.py`.
 
 ## MARTbakēd Partner MVP — Status
-- ✅ Slice B · Staff & RBAC (2026-02-10)
-- ⏳ Slice F · Notifications (SMS/email on new orders, real SMS providers)
+- ✅ Slice B · Staff & RBAC (2026-02-10) + store-scoped login (2026-02-11)
+- ✅ Slice F · Notifications (SMS + email on new orders) — Twilio + Plain SMTP (2026-02-11)
 - ⏳ Slice H · Return / Refund handling
 - ⏳ Slice D · Analytics dashboard

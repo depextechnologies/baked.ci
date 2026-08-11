@@ -1,0 +1,36 @@
+{
+  "summary": "Frontend E2E testing of Staff Login (Slice B) for MARTbakēd Partner MVP. 6 of 7 tests PASS. Renders, happy path (redirect + token), wrong store code, cross-store denial, owner-login CTA, and both Partner Hub CTAs (hero + nav) all work correctly. Only TEST 5 (wrong password = 'wrong') fails because backend Pydantic validation rejects passwords <8 chars with HTTP 422 BEFORE credential check, and the frontend does not map 422 to a friendly toast — user sees a raw axios error 'Request failed with status code 422'. A 12-char wrong password ('wrongpass123') correctly returns 401 and displays 'Invalid credentials' toast, confirming the credential-check path is fine; only the 422 handling is a UX gap.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/partner/auth/staff-login", "issue": "Password Pydantic min_length validation returns 422 for short passwords such as 'wrong'. From a security-UX perspective this leaks that the password field has a min length. Consider returning a generic 401 'Invalid credentials' for all failed logins regardless of password length, OR reduce/remove min_length constraint on login (only enforce on registration/password-change)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "StaffLoginPage.jsx", "issue": "422 responses are not mapped to a friendly toast — user sees raw 'Request failed with status code 422' from axios. Should surface backend's detail message or fall back to 'Invalid credentials'.", "selector": "[data-testid=staff-login-submit]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Partner Hub landing (/partner)", "issues": ["React hydration warning: <a> descendant of <a> inside OpportunityCard (hub-opportunity-dark-store contains hub-opportunity-dark-store-login). Non-blocking but generates console error."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Map non-2xx staff-login responses (401, 403, 422) to friendly toast messages in StaffLoginPage.jsx — use error.response.data.detail when present, else 'Invalid credentials'.",
+    "Optionally relax password min_length on the staff-login Pydantic model so short wrong passwords also yield 401 'Invalid credentials' (parity with test spec).",
+    "Fix nested <a> in PartnerHubApp OpportunityCard (line ~279 vs 302) to remove hydration warning."
+  ],
+  "critical_code_review_comments": [
+    "StaffLoginPage.jsx should have a single error handler that reads err.response?.data?.detail and defaults to 'Invalid credentials' — currently 422 leaks raw axios message.",
+    "Consider harmonising all failure statuses to 401 for login endpoints to prevent enumeration/user experience inconsistencies."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not retested per instructions)", "frontend": "86% (6/7)"},
+  "test_credentials": "picker1@example.com / Packer1234! (MRT-ABJ-001) — worked as expected",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Slice B Staff Login is functionally solid. All success/redirect/token/toast flows work. Only remaining gap is 422 error mapping on frontend + optional backend password min_length relaxation. Backend curl smoke tests already validated by main agent; no backend re-run needed. Hydration warning on /partner nested <a> is pre-existing.",
+  "rca of the issue": "TEST 5 'wrong password' expected 'Invalid credentials' toast. The staff-login Pydantic request model enforces password min_length (likely 8). When user submits password='wrong' (5 chars), FastAPI returns 422 with validation error BEFORE the credential-check code runs. The frontend catch block does not extract err.response.data.detail for 422, so axios' default message 'Request failed with status code 422' is displayed in the sonner toast. Reproduction: submit any password shorter than backend min_length -> 422 raw toast. Mitigation: (1) in StaffLoginPage handleSubmit, replace generic toast with `toast.error(err?.response?.data?.detail || 'Invalid credentials')`, or (2) remove min_length from the login Pydantic model so all bad-creds return 401."
+}
