@@ -514,7 +514,13 @@ def _warehouse_dict(wh: Warehouse) -> dict:
         "name": wh.name,
         "address_line": wh.address_line,
         "city": wh.city,
+        "region": getattr(wh, "region", None),
         "country": wh.country,
+        "status": wh.status,
+        "time_zone": getattr(wh, "time_zone", None),
+        "store_type": getattr(wh, "store_type", None),
+        "contact_email": getattr(wh, "contact_email", None),
+        "contact_phone": getattr(wh, "contact_phone", None),
         "property_type": wh.property_type,
         "property_size_sqm": float(wh.property_size_sqm) if wh.property_size_sqm is not None else None,
         "service_area_km": float(wh.service_area_km) if wh.service_area_km is not None else None,
@@ -580,7 +586,7 @@ async def partner_me(
     import os as _os
     from core.models import PartnerStaff as _PartnerStaff
 
-    wh = await _primary_warehouse(session, partner.id)
+    wh = None
     staff_dict = None
     if authorization and authorization.startswith("Bearer "):
         try:
@@ -591,9 +597,23 @@ async def partner_me(
                     staff_dict = {
                         "id": staff.id, "email": staff.email, "name": staff.name,
                         "role": staff.role, "is_active": staff.is_active,
+                        "employee_code": staff.employee_code,
+                        "warehouse_id": staff.warehouse_id,
                     }
+                # Staff sessions are ALWAYS scoped to the JWT store — even
+                # if the partner has multiple warehouses, only THIS one is
+                # relevant for the operational UI (Fixing_Prompt §17).
+                scoped_store_id = claims.get("store_id")
+                if scoped_store_id:
+                    wh = await session.get(Warehouse, scoped_store_id)
         except Exception:  # noqa: BLE001
             pass
+
+    # Owner sessions (or staff sessions with a missing store claim) fall
+    # back to the partner's primary warehouse.
+    if wh is None:
+        wh = await _primary_warehouse(session, partner.id)
+
     return {
         "partner": _partner_dict(partner),
         "warehouse": _warehouse_dict(wh) if wh else None,

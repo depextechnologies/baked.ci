@@ -1,0 +1,51 @@
+{
+  "summary": "E2E frontend testing of Phase 2 Partner Portal: Store Context Banner + enhanced Team CRUD. 7/10 tests PASS. TEST 7, 8, 9 FAIL due to a real BACKEND permission bug — PATCH and DELETE /api/partner/staff/{id} require role 'owner' only, but UI (and product spec) allow managers to change role / deactivate / remove teammates. Manager1 gets 403 on those calls.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PATCH /api/partner/staff/{staff_id}", "issue": "Returns 403 for logged-in manager. Dependency require_role('owner') should be require_role('owner','manager') per product spec and UI (canManage = owner||manager in TeamPage.jsx). Blocks role change and deactivate/reactivate for managers.", "priority": "CRITICAL"},
+      {"endpoint": "DELETE /api/partner/staff/{staff_id}", "issue": "Same as above — require_role('owner') should include 'manager'. Blocks Remove teammate for managers.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "InviteModal", "issue": "No data-testid on the modal close (X) button and no data-testid='invite-close'. Makes automated modal dismissal fragile. On invite-success screen, only 'Invite another' + X icon are present.", "selector": "[data-testid=staff-invite-modal] button (X icon)", "priority": "LOW"},
+      {"component": "RoleEditor (TeamPage)", "issue": "Save button lacks data-testid (e.g., team-role-save-{email}). The review request references team-role-save- selector which does not exist in code.", "selector": "RoleEditor Save button", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Change role / Deactivate / Remove (manager)", "issue": "Frontend allows manager to click these actions but backend returns 403; user only sees an error toast. Either restrict UI to owner-only or fix backend perms (recommended per spec).", "affected_selectors": ["[data-testid^=team-edit-]", "[data-testid^=team-toggle-]", "[data-testid^=team-delete-]"]}
+    ],
+    "design_issues": []
+  },
+  "detailed_test_results": {
+    "TEST1_staff_login_by_employee_code": "PASS — /partner/staff-login with MRT-ABJ-001 + EMP-ABJ-002 + Packer1234! → redirected to /partner-portal, localStorage.baked_partner_token set.",
+    "TEST2_store_banner_dashboard": "PASS — portal-store-banner visible; code='MRT-ABJ-001', status='Active'; 'Signed in as manager1@example.com' + MANAGER badge visible in banner.",
+    "TEST3_banner_persists_across_screens": "PASS — banner visible on Warehouse, Products, Orders, Wallet, Team (sticky top).",
+    "TEST4_team_page_employee_codes": "PASS — portal-team-page renders; team-emp-code-picker1@example.com='EMP-ABJ-001', team-emp-code-manager1@example.com='EMP-ABJ-002'; Owner row with OWNER badge visible.",
+    "TEST5_invite_modal_7_roles": "PASS — All 7 role buttons present: manager, supervisor, warehouse_manager, inventory_manager, packer, cashier, customer_support.",
+    "TEST6_invite_new_supervisor": "PASS — invite-success shown, invite-employee-code='EMP-ABJ-003' (matches EMP-ABJ-\\d+), invite-copy visible; new row for supervisor-test@example.com with SUPERVISOR badge added to Team list.",
+    "TEST7_change_role": "FAIL — Backend PATCH /api/partner/staff/stf_8fd837bcdc9744d6 returns 403 for manager. Role badge did not update. Root cause: require_role('owner') in /app/backend/modules/mart_partner/staff_routes.py line 576.",
+    "TEST8_deactivate_reactivate": "FAIL — Same 403 (PATCH is_active). Row stays active; no 'Deactivated' badge.",
+    "TEST9_delete_invite": "FAIL — DELETE /api/partner/staff/{id} also requires 'owner' (line 596). Manager cannot remove. Row remains.",
+    "TEST10_packer_rbac_sidebar": "PASS — Signed in as picker1@example.com; sidebar shows only Dashboard, Warehouse, Products, Orders (no Team/Business profile/Wallet); banner code='MRT-ABJ-001' and PACKER badge in banner."
+  },
+  "test_report_links": [],
+  "action_items": [
+    "BACKEND (CRITICAL): In /app/backend/modules/mart_partner/staff_routes.py lines ~576 and ~596, change `require_role('owner')` to `require_role('owner','manager')` for PATCH /staff/{id} and DELETE /staff/{id} to match invite-permission scope and product spec, or explicitly restrict UI (canManage) in TeamPage.jsx to 'owner' only. Recommended: expand backend perms.",
+    "FRONTEND (LOW): Add data-testid='team-role-save-{email}' to RoleEditor Save button and data-testid='invite-close' to InviteModal close (X) button for stable automation.",
+    "DATA CLEANUP: Test invite supervisor-test@example.com / EMP-ABJ-003 (stf_8fd837bcdc9744d6) is still present in the DB because manager cannot delete. Please clean up manually via admin API or owner login."
+  ],
+  "critical_code_review_comments": [
+    "Permission mismatch between UI (canManage = owner||manager) and backend (owner-only for PATCH/DELETE staff). Either widen backend or narrow UI; leaving the gap causes silent 403s and broken UX for managers.",
+    "RoleEditor Save button lacks a stable data-testid – review request explicitly names `team-role-save-{email}`; add it.",
+    "InviteModal close/X button has no data-testid – reduces testability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only run; but 2 endpoints found broken for manager role)", "frontend": "70% (7/10)"},
+  "test_credentials": "Alpha Manager: EMP-ABJ-002 / manager1@example.com / Packer1234! (MRT-ABJ-001); Alpha Packer: EMP-ABJ-001 / picker1@example.com / Packer1234!",
+  "seed_data_creation": "Created 1 invited supervisor (supervisor-test@example.com, EMP-ABJ-003) that could NOT be deleted due to backend 403. Needs cleanup by main agent.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After fixing require_role for PATCH/DELETE staff, re-run TESTS 7, 8, 9 as manager. Also verify DELETE cleans up EMP-ABJ-003. Consider also adding missing data-testids noted above.",
+  "rca of the issue": "Bug: Manager cannot change role, deactivate, or remove teammates. Repro: Login as manager1@example.com on MRT-ABJ-001 → Team page → click 'Change role' on any non-self row → change select and Save → observe 403 in network for PATCH /api/partner/staff/{id}. Same for Deactivate and Remove buttons. Root cause: staff_routes.py PATCH and DELETE endpoints use `require_role('owner')` while POST /invite uses `require_role('owner','manager')`. Mitigation: change decorator to include 'manager' (line 576 & 596) OR reduce UI canManage to owner-only in TeamPage.jsx."
+}

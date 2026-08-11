@@ -402,15 +402,19 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Existing mailer reused** — Slice B's `core/mailer.py` (Plain SMTP) sends the HTML/text order-alert email. SMTP unconfigured → `mailer.no_op` log, no error.
    - **Verified**: end-to-end curl smoke — order → `sms.dev to=+225… body='[BAKĒD] Nouvelle commande #… — N articles, X XOF'` + `mailer` fires within 100ms. 10 unit tests pass in `tests/test_slice_f_notifications.py`.
 
+- ✅ **Multi-Dark-Store Foundation — Phase 2 UI (2026-02-11)** — Portal now shows store context everywhere and gives owners+managers a self-service Team CRUD:
+    - **Persistent Store Context Banner** (`PartnerPortalApp.jsx` → `StoreContextBanner`) — sticky top bar visible on every `/partner-portal/*` screen. Renders store code, name, city, lifecycle status pill (Active/Suspended/Maintenance/…) and "Signed in as {email} · {ROLE}". Reads scoped store from JWT-cached localStorage first, falls back to partner's default warehouse for owner sessions.
+    - **`/auth/me` upgraded** — staff sessions now return their **JWT-scoped** warehouse (not the partner's first store); response includes new `employee_code` + `warehouse_id` on the staff dict and `status/time_zone/store_type/region/contact_*` on the warehouse dict.
+    - **Enhanced Team page + Employee CRUD** (`TeamPage.jsx`) — owners AND managers can now invite in any of 7 roles (manager, supervisor, warehouse_manager, inventory_manager, packer, cashier, customer_support), view each teammate's auto-generated `EMP-{CITY3}-###` code, change role via inline `RoleEditor`, deactivate/reactivate, and remove. Backend widened `PATCH /partner/staff/{id}` + `DELETE /partner/staff/{id}` to `require_role("owner","manager")` with a peer-manager guardrail (a manager can't modify another manager → 403 `cannot_modify_peer_manager`).
+    - **Owner login page CTA** — `/partner-portal/login` now shows a prominent "Staff member? Staff Login →" link. Heading renamed to "Owner sign in".
+    - **Extended `NAV_ROLE_ACCESS`** — sidebar visibility rules cover all 8 roles (supervisor+warehouse_manager get full ops nav, inventory_manager gets warehouse+products+orders, customer_support gets orders only).
+    - **Verified**: iteration_18 → 7/10 pass (3 legit backend bugs found); iteration_19 → 5/5 retest pass (100%) including manager permissions, deactivate/reactivate cycle, delete, testids for automation, Owner→Staff CTA.
+
 ## MARTbakēd Partner MVP — Status
 - ✅ Slice B · Staff & RBAC (2026-02-10) + store-scoped login (2026-02-11)
 - ✅ Slice F · Notifications (SMS + email on new orders) — Twilio + Plain SMTP (2026-02-11)
-- ✅ **Multi-Dark-Store Foundation — Phase 1 (2026-02-11)** — True multi-store architecture per Fixing_Prompt_2026-02-11.docx:
-    - **Schema (Alembic 0005_multi_store_foundation)**: `warehouses.status` lifecycle enum (11 states — only `active` fulfils orders); richer store profile columns (region, operating_hours JSONB, time_zone, store_type, warehouse_capacity_sqm, opening_date, contact_email, contact_phone, store_manager_staff_id); `partner_staff.warehouse_id` (primary store FK); `partner_staff.employee_code` (unique per partner); new `partner_staff_store_assignments` link table (multi-store forward-compat); extended `partner_staff` role CHECK (+supervisor, inventory_manager, warehouse_manager, customer_support).
-    - **Runtime code generator** `modules/mart_partner/codes.py` — `next_store_code()` produces `MRT-ABJ-{seq:03d}` (with IATA-style city aliases: ABJ/ACC/LOS/DKR/…), `next_employee_code()` produces `EMP-{CITY3}-{seq:03d}` per-partner. Race-safe.
-    - **Staff login rewrite** — accepts `identifier` (email OR EMP-ABJ-001); refuses login when `warehouse.status != 'active'` with 403 `store_not_operational`; every wrong-cred path returns uniform 401 to prevent field-leak.
-    - **Backend enforcement (Fixing_Prompt §16)** — `PartnerActor.store_id` from JWT, `require_store_context` FastAPI dep, and `_assert_owns_warehouse` now returns 403 `cross_store_denied` when a staff member touches a same-partner sibling warehouse. Owner tokens remain unrestricted across their partner's warehouses.
-    - **Verified**: 10 pytest cases in `tests/test_phase1_multi_store.py` (login by email/code, wrong store, cross-store, wrong-password uniformity, lifecycle guard, cross-store warehouse enforcement, owner unrestricted, code generators). All pass.
-- ⏳ Phase 2 UX (Store-context banner, Employee CRUD UI, Super Admin Stores page)
+- ✅ Multi-Dark-Store Foundation — Phase 1 (backend/schema) + Phase 2 (UI) (2026-02-11)
+- ⏳ Super Admin Stores CRUD & lifecycle actions
+- ⏳ Warehouse-scoped inventory (partner_products.warehouse_id)
 - ⏳ Slice H · Return / Refund handling
 - ⏳ Slice D · Analytics dashboard

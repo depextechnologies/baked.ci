@@ -573,12 +573,22 @@ async def accept_invite(
 @staff_router.patch("/staff/{staff_id}")
 async def update_staff(
     staff_id: str, payload: StaffPatchIn,
-    actor: PartnerActor = Depends(require_role("owner")),
+    # Managers can adjust roles + activation on the teammates they invited;
+    # matches the invite-permission scope so UI + backend never disagree.
+    actor: PartnerActor = Depends(require_role("owner", "manager")),
     session: AsyncSession = Depends(get_session),
 ):
     row = await session.get(PartnerStaff, staff_id)
     if not row or row.partner_id != actor.partner_id:
         raise HTTPException(status_code=404, detail="Teammate not found")
+    # Guardrail: a manager can NEVER modify an owner (there isn't one in
+    # partner_staff today, but future-proof against seeded rows) nor another
+    # manager — only owner can demote/deactivate a peer manager.
+    if actor.role == "manager" and row.role == "manager" and row.id != actor.actor_id:
+        raise HTTPException(status_code=403, detail={
+            "code": "cannot_modify_peer_manager",
+            "message": "Only the owner can modify another manager.",
+        })
     if payload.role:
         row.role = payload.role
     if payload.is_active is not None:
@@ -593,12 +603,18 @@ async def update_staff(
 @staff_router.delete("/staff/{staff_id}", status_code=204)
 async def delete_staff(
     staff_id: str,
-    actor: PartnerActor = Depends(require_role("owner")),
+    actor: PartnerActor = Depends(require_role("owner", "manager")),
     session: AsyncSession = Depends(get_session),
 ):
     row = await session.get(PartnerStaff, staff_id)
     if not row or row.partner_id != actor.partner_id:
         raise HTTPException(status_code=404, detail="Teammate not found")
+    # Peer-manager guardrail (same rationale as PATCH above).
+    if actor.role == "manager" and row.role == "manager" and row.id != actor.actor_id:
+        raise HTTPException(status_code=403, detail={
+            "code": "cannot_modify_peer_manager",
+            "message": "Only the owner can remove another manager.",
+        })
     await session.delete(row)
     await _log(session, actor, action="staff.delete", target_id=staff_id)
     await session.commit()

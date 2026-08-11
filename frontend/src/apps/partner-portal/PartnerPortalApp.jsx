@@ -156,7 +156,7 @@ const PartnerLoginPage = () => {
         </div>
 
         <div className="rounded-3xl p-8" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
-          <h1 className="ph-h2" style={{ color: "var(--ph-fg)" }}>Sign in</h1>
+          <h1 className="ph-h2" style={{ color: "var(--ph-fg)" }}>Owner sign in</h1>
           <p className="text-sm mt-1" style={{ color: "var(--ph-fg-muted)" }}>
             Use the email and temp password sent to you at approval.
           </p>
@@ -171,9 +171,33 @@ const PartnerLoginPage = () => {
             </Field>
             <button type="submit" disabled={busy} className="ph-btn ph-btn-warm w-full justify-center" data-testid="portal-login-submit">
               {busy ? <Loader2 size={16} className="animate-spin" /> : null}
-              {busy ? "Signing in…" : "Sign in"}
+              {busy ? "Signing in…" : "Sign in as owner"}
             </button>
           </form>
+
+          {/* Staff Login CTA — teammates use a store-scoped 3-field flow */}
+          <div className="mt-6 pt-6" style={{ borderTop: "1px solid var(--ph-border)" }}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium" style={{ color: "var(--ph-fg)" }}>
+                  Staff member?
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--ph-fg-subtle)" }}>
+                  Sign in with your Store ID + Employee ID / email.
+                </div>
+              </div>
+              <Link to="/partner/staff-login"
+                    className="text-sm font-medium px-4 h-10 inline-flex items-center rounded-lg"
+                    style={{
+                      color: "var(--ph-accent-warm)",
+                      border: "1px solid var(--ph-accent-warm)",
+                      textDecoration: "none",
+                    }}
+                    data-testid="portal-login-to-staff">
+                Staff Login →
+              </Link>
+            </div>
+          </div>
         </div>
 
         <p className="text-center text-xs mt-8" style={{ color: "var(--ph-fg-subtle)" }}>
@@ -256,10 +280,14 @@ const PartnerResetPasswordPage = () => {
 
 // Role → visible tabs. Owners see everything (implicit).
 const NAV_ROLE_ACCESS = {
-  owner:   ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
-  manager: ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
-  packer:  ["", "warehouse", "products", "orders"],
-  cashier: ["", "orders", "wallet"],
+  owner:             ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
+  manager:           ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
+  supervisor:        ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
+  warehouse_manager: ["", "profile", "warehouse", "products", "orders", "team"],
+  inventory_manager: ["", "warehouse", "products", "orders"],
+  packer:            ["", "warehouse", "products", "orders"],
+  cashier:           ["", "orders", "wallet"],
+  customer_support:  ["", "orders"],
 };
 
 const NAV = [
@@ -357,7 +385,104 @@ const PortalShell = ({ children }) => {
         </button>
       </aside>
 
-      <main className="p-10 overflow-y-auto">{children}</main>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", overflow: "hidden" }}>
+        <StoreContextBanner />
+        <main className="p-10 overflow-y-auto flex-1">{children}</main>
+      </div>
+    </div>
+  );
+};
+
+
+/* -------------------------------------------------------------------------- */
+/*                     Persistent Store Context Banner                        */
+/*   Fixing_Prompt §17/§19 — every operational screen must expose the        */
+/*   active store code/name so a distracted staff member never confuses      */
+/*   inventory or orders across stores.                                       */
+/* -------------------------------------------------------------------------- */
+
+const STATUS_META = {
+  active:                  { color: "#7ee6b0", label: "Active" },
+  temporarily_suspended:   { color: "#ff9090", label: "Suspended" },
+  maintenance:             { color: "#ffbf3c", label: "Maintenance" },
+  setup_in_progress:       { color: "#7edcff", label: "Setup" },
+  setup_required:          { color: "#7edcff", label: "Setup required" },
+  under_review:            { color: "#ffbf3c", label: "Under review" },
+  additional_info_required:{ color: "#ffbf3c", label: "Info required" },
+  pending:                 { color: "#a0a0b8", label: "Pending" },
+  approved:                { color: "#7ee6b0", label: "Approved" },
+  rejected:                { color: "#ff9090", label: "Rejected" },
+  closed:                  { color: "#a0a0b8", label: "Closed" },
+};
+
+const StoreContextBanner = () => {
+  const { warehouse, partner, staff, role } = usePartner();
+  // Prefer the JWT-scoped store (from staff-login) cached in localStorage;
+  // fall back to the partner's default warehouse for owner sessions.
+  let scoped = null;
+  try { scoped = JSON.parse(localStorage.getItem("baked_partner_store") || "null"); } catch { /* noop */ }
+  const store = scoped || warehouse;
+  if (!store) return null;
+
+  const status = store.status || warehouse?.status || "active";
+  const meta = STATUS_META[status] || STATUS_META.active;
+  const cityLine = [store.city, store.region].filter(Boolean).join(" · ");
+
+  return (
+    <div
+      data-testid="portal-store-banner"
+      className="flex items-center gap-4 px-8 py-3"
+      style={{
+        background: "var(--ph-bg-elevated)",
+        borderBottom: "1px solid var(--ph-border)",
+        position: "sticky",
+        top: 0,
+        zIndex: 20,
+      }}
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+             style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+          <WarehouseIcon size={16} />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span data-testid="portal-store-banner-code"
+                  className="font-mono text-xs tracking-wider px-2 py-1 rounded"
+                  style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+              {store.code}
+            </span>
+            <span className="text-sm font-medium truncate" style={{ color: "var(--ph-fg)" }}>
+              {store.name}
+            </span>
+            <span data-testid="portal-store-banner-status"
+                  className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                  style={{
+                    background: "rgba(255,255,255,.04)",
+                    color: meta.color,
+                    border: `1px solid ${meta.color}44`,
+                  }}>
+              {meta.label}
+            </span>
+          </div>
+          {cityLine && (
+            <div className="text-[11px] mt-0.5 truncate" style={{ color: "var(--ph-fg-subtle)" }}>
+              {cityLine}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="hidden md:flex items-center gap-2 text-[11px]"
+           style={{ color: "var(--ph-fg-subtle)" }}>
+        <span>Signed in as</span>
+        <span style={{ color: "var(--ph-fg-muted)" }}>{staff?.email || partner?.owner_email}</span>
+        {role && role !== "owner" && (
+          <span className="uppercase tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+            {role.replace(/_/g, " ")}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

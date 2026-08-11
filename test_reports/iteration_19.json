@@ -1,0 +1,26 @@
+{
+  "summary": "Retest of iteration_18 failed TESTs 7/8/9 as MANAGER plus new TESTs 11 and 12. All 5 tests PASS after backend widening of PATCH/DELETE /partner/staff/{id} to allow role in ('owner','manager') and after frontend added invite-close + team-role-select/save/cancel testids.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "TEST_7_change_role_as_manager": "PASS — invited phase2-retest@example.com as supervisor, edited role, changed to Inventory Manager via team-role-select-*, save-* triggered 'Role updated' toast and INVENTORY MANAGER badge appeared.",
+    "TEST_8_deactivate_reactivate_as_manager": "PASS — team-toggle-* first click → 'Deactivated' toast/badge, second click → 'Reactivated' toast.",
+    "TEST_9_remove_as_manager": "PASS — team-delete-* with dialog auto-accept → 'Teammate removed' toast, row vanished.",
+    "TEST_11_owner_login_staff_cta": "PASS — /partner-portal/login shows 'Owner sign in' heading; portal-login-to-staff link visible with text 'Staff Login →'; click redirects to /partner/staff-login with staff-login-store-id input visible.",
+    "TEST_12_testids_present": "PASS — invite-close visible on modal; team-role-select-*, team-role-save-*, team-role-cancel-* all present when RoleEditor open."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only run)", "frontend": "100% (5/5)"},
+  "test_credentials": "Manager staff login: store MRT-ABJ-001, manager1@example.com / Packer1234!",
+  "seed_data_creation": "TEST 9 cleaned up the invited phase2-retest@example.com row.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 2 partner-portal TeamPage fully verified for MANAGER role permissions (invite/edit/deactivate/reactivate/remove). Owner→Staff login CTA verified. All required data-testids in place. Note for future: staff login identifier field testid is 'staff-login-email' (not 'staff-login-identifier') — accepts both email and Employee ID."
+}
