@@ -402,6 +402,13 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Existing mailer reused** — Slice B's `core/mailer.py` (Plain SMTP) sends the HTML/text order-alert email. SMTP unconfigured → `mailer.no_op` log, no error.
    - **Verified**: end-to-end curl smoke — order → `sms.dev to=+225… body='[BAKĒD] Nouvelle commande #… — N articles, X XOF'` + `mailer` fires within 100ms. 10 unit tests pass in `tests/test_slice_f_notifications.py`.
 
+- ✅ **Super Admin Stores CRUD + lifecycle (2026-02-11)** — Platform-wide dark-store management at `/admin/stores` (Fixing_Prompt §29/§30):
+    - **Backend router** `shared/admin/store_routes.py` — `GET /admin/stores` (filter by status/city/country/partner/q + paginated + status counts), `GET /admin/stores/{id}`, `POST /admin/stores` (auto-generates code via `next_store_code`), `PATCH /admin/stores/{id}` (profile edit), `POST /admin/stores/{id}/lifecycle` (server-side state-machine validation, 400 `illegal_transition` on bad hops), `DELETE /admin/stores/{id}` (only pending/rejected/closed AND partner has zero orders — else 400 `delete_forbidden`). All actions audited via `_audit()`.
+    - **State machine** (from `_TRANSITIONS`): pending→(under_review|additional_info_required|approved|rejected); approved→(setup_required|setup_in_progress|active|rejected); setup_in_progress→(active|additional_info_required|closed); active→(temporarily_suspended|maintenance|closed); suspended↔active↔maintenance; rejected/closed = terminal. `is_active` mirrors "operational" (active/maintenance/suspended = true; rejected/closed = false).
+    - **Metadata endpoints** `/_meta/transitions` (feeds the drawer's action buttons) + `/_meta/partners` (dropdown picklist).
+    - **Frontend** new page `AdminStores.jsx` — added to sidebar under Platform Governance → Stores (Warehouse icon). 5-KPI header (Active / Setup / Under review / On hold / Terminated), search + status + country filters, table with status pills, "Onboard a new dark store" modal (full profile form including initial_status selector), and a right-side detail Drawer with legal-transitions-only action grid + optional audit reason textarea + hard-delete for terminal states.
+    - **Verified**: 6/6 backend tests in `tests/test_admin_stores.py` (auth guard, list + filter, transitions meta, partner picklist, full lifecycle flow pending→approved→setup→active→maintenance→active→PATCH→closed→delete-forbidden). E2E smoke-tested via Playwright — index page, create modal and detail drawer all render correctly.
+
 - ✅ **Multi-Dark-Store Foundation — Phase 2 UI (2026-02-11)** — Portal now shows store context everywhere and gives owners+managers a self-service Team CRUD:
     - **Persistent Store Context Banner** (`PartnerPortalApp.jsx` → `StoreContextBanner`) — sticky top bar visible on every `/partner-portal/*` screen. Renders store code, name, city, lifecycle status pill (Active/Suspended/Maintenance/…) and "Signed in as {email} · {ROLE}". Reads scoped store from JWT-cached localStorage first, falls back to partner's default warehouse for owner sessions.
     - **`/auth/me` upgraded** — staff sessions now return their **JWT-scoped** warehouse (not the partner's first store); response includes new `employee_code` + `warehouse_id` on the staff dict and `status/time_zone/store_type/region/contact_*` on the warehouse dict.
@@ -414,7 +421,7 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - ✅ Slice B · Staff & RBAC (2026-02-10) + store-scoped login (2026-02-11)
 - ✅ Slice F · Notifications (SMS + email on new orders) — Twilio + Plain SMTP (2026-02-11)
 - ✅ Multi-Dark-Store Foundation — Phase 1 (backend/schema) + Phase 2 (UI) (2026-02-11)
-- ⏳ Super Admin Stores CRUD & lifecycle actions
+- ✅ Super Admin Stores CRUD & lifecycle actions (2026-02-11)
 - ⏳ Warehouse-scoped inventory (partner_products.warehouse_id)
 - ⏳ Slice H · Return / Refund handling
 - ⏳ Slice D · Analytics dashboard

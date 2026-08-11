@@ -5,7 +5,7 @@ import { BakedLogo } from "../../components/layout/BakedLogo";
 import {
   LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain,
   ScrollText, UserCog, LogOut, ShoppingBasket, Utensils, ShoppingBag, Truck,
-  Car, Home as HomeIcon, Settings2, Plug, Server, BarChart3,
+  Car, Home as HomeIcon, Settings2, Plug, Server, BarChart3, Warehouse,
 } from "lucide-react";
 import { MODULES } from "../../lib/modules";
 
@@ -15,6 +15,7 @@ const GOVERNANCE = [
   { to: "/admin", exact: true, icon: LayoutDashboard, label: "Dashboard" },
   { to: "/admin/countries", icon: Globe, label: "Countries" },
   { to: "/admin/cities", icon: MapPin, label: "Cities" },
+  { to: "/admin/stores", icon: Warehouse, label: "Stores" },
   { to: "/admin/admins", icon: UserCog, label: "Admin Users", superOnly: true },
   { to: "/admin/roles", icon: ShieldCheck, label: "Roles & Permissions" },
   { to: "/admin/ai-center", icon: Sparkles, label: "AI Center" },

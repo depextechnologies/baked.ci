@@ -20,6 +20,7 @@ import {
   ModuleCustomers, ModuleDrivers, ModulePricing, ModuleBookings, ModuleComingSoon,
 } from "@/pages/admin/ModulePages";
 import { ModulePartnerApplications } from "@/pages/admin/ModulePartnerApplications";
+import { AdminStores } from "@/pages/admin/AdminStores";
 
 export const AdminApp = () => (
   <Routes>
@@ -29,6 +30,7 @@ export const AdminApp = () => (
       {/* Platform Governance (PRD §7) */}
       <Route path="countries" element={<AdminCountries />} />
       <Route path="cities" element={<AdminCities />} />
+      <Route path="stores" element={<AdminStores />} />
       <Route path="admins" element={<AdminUsers />} />
       <Route path="roles" element={<AdminRoles />} />
       <Route path="ai-center" element={<AdminAICommand />} />
