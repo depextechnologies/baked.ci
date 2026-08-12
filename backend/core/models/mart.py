@@ -89,6 +89,12 @@ class MartProduct(Base, AuditMixin):
     rating: Mapped[Optional[float]] = mapped_column(Numeric(2, 1), nullable=True)
     review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Phase 2 additions
+    sku_code: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    barcode: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    variants: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active", server_default="active")
+    brand_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_brands.id"), nullable=True)
 
 
 class MartOffer(Base):

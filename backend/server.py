@@ -25,10 +25,12 @@ from shared.ai.routes import router as ai_router  # noqa: E402
 from shared.admin.routes import router as admin_router  # noqa: E402
 from shared.admin.module_routes import router as admin_module_router  # noqa: E402
 from shared.admin.store_routes import router as admin_stores_router  # noqa: E402
+from shared.admin.mart_catalog_routes import router as admin_mart_catalog_router  # noqa: E402
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
 from modules.mart_partner.routes import router as mart_partner_router, admin_router as mart_partner_admin_router, partner_router as partner_portal_router  # noqa: E402
 from modules.mart_partner.staff_routes import staff_router as partner_staff_router  # noqa: E402
+from modules.mart_partner.inventory_routes import router as partner_inventory_router  # noqa: E402
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -76,6 +78,7 @@ api_router.include_router(ai_router)
 api_router.include_router(admin_router)
 api_router.include_router(admin_module_router)
 api_router.include_router(admin_stores_router)
+api_router.include_router(admin_mart_catalog_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)
@@ -86,6 +89,7 @@ api_router.include_router(mart_partner_router)
 api_router.include_router(mart_partner_admin_router)
 api_router.include_router(partner_portal_router)
 api_router.include_router(partner_staff_router)
+api_router.include_router(partner_inventory_router)
 # TODO: food, shop, express, auto, immo
 
 app.include_router(api_router)

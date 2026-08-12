@@ -83,6 +83,12 @@ class PartnerProduct(Base, TimestampMixin):
     stock_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     low_stock_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    # Phase 2: approval workflow for partner-submitted products
+    approval_status: Mapped[str] = mapped_column(String(32), nullable=False, default="approved", server_default="approved")
+    review_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    submitted_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    reviewed_by_admin_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("admin_users.id"), nullable=True)
 
 
 # ============================================================================

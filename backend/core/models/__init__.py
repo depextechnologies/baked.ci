@@ -48,6 +48,10 @@ from core.models.partner_staff import (
     PARTNER_STAFF_ROLES, PartnerStaff, PartnerStaffAuditLog,
     PartnerStaffStoreAssignment,
 )
+from core.models.catalog_inventory import (
+    PARTNER_PRODUCT_APPROVAL_STATUSES, STOCK_MOVEMENT_KINDS,
+    MartBrand, PartnerInventory, PartnerProductLocation, PartnerStockMovement,
+)
 
 __all__ = [
     "Base",
@@ -115,4 +119,10 @@ __all__ = [
     "WAREHOUSE_STATUSES",
     "WAREHOUSE_STATUS_OPERATIONAL",
     "WAREHOUSE_STATUS_MANAGEABLE",
+    "MartBrand",
+    "PartnerInventory",
+    "PartnerProductLocation",
+    "PartnerStockMovement",
+    "PARTNER_PRODUCT_APPROVAL_STATUSES",
+    "STOCK_MOVEMENT_KINDS",
 ]

@@ -64,7 +64,7 @@ const AddProductModal = ({ open, onClose, onDone }) => {
         partner_price: Number(c.partner_price), stock_qty: Number(c.stock_qty) || 0,
         category_slug: c.category_slug || null,
       });
-      toast.success("Custom SKU created");
+      toast.success("Custom SKU submitted for review — you'll be notified once approved");
       setC({ name: "", brand: "", unit: "", partner_price: "", stock_qty: "0", category_slug: "" });
       onDone();
     } catch (e) { toast.error(errMsg(e)); }
@@ -269,6 +269,21 @@ const ProductRow = ({ p, onChange }) => {
                          color:      p.source === "master" ? "var(--ph-accent)"     : "var(--ph-accent-warm)" }}>
             {p.source}
           </span>
+          {p.approval_status && p.approval_status !== "approved" && (
+            <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+                  style={{
+                    background: p.approval_status === "pending" ? "rgba(252,196,76,.15)"
+                              : p.approval_status === "rejected" ? "rgba(255,76,82,.15)"
+                              : "rgba(29,155,240,.15)",
+                    color: p.approval_status === "pending" ? "#FCC44C"
+                         : p.approval_status === "rejected" ? "#FF4C52"
+                         : "#1D9BF0",
+                  }}
+                  title={p.review_notes || p.approval_status}
+                  data-testid={`product-approval-${p.id}`}>
+              {p.approval_status.replace(/_/g, " ")}
+            </span>
+          )}
           {!p.is_active && <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
                                  style={{ background: "rgba(220,80,80,.15)", color: "#e77" }}>Hidden</span>}
         </div>

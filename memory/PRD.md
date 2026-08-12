@@ -449,6 +449,18 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 - ✅ Multi-Dark-Store Foundation — Phase 1 (backend/schema) + Phase 2 (UI) (2026-02-11)
 - ✅ Super Admin Stores CRUD & lifecycle actions (2026-02-11)
 - ✅ Map-based Warehouse Geolocation (Places picker + backend validation) (2026-02-12)
-- ⏳ Warehouse-scoped inventory (partner_products.warehouse_id)
+- ✅ **MASTER COMPLETION PROGRAM — Phase 1 Audit** (`/app/memory/MODULE_AUDIT.md`, 2026-02-13)
+- ✅ **MASTER COMPLETION PROGRAM — Phase 2 Catalog + Inventory** (2026-02-13)
+    - Alembic **migration 0007** adds `mart_brands`, extends `mart_products` (sku_code, barcode, variants JSONB, status, brand_id), extends `partner_products` (approval_status, review_notes, submitted_at, reviewed_at, reviewed_by_admin_id), adds `partner_inventory` (available/reserved/damaged/expired/low_stock_threshold), `partner_stock_movements` (immutable ledger, never-negative CHECK constraints), and `partner_product_locations` (SKU ↔ bin).
+    - Backend: `shared/admin/mart_catalog_routes.py` — Categories/Subcategories/Brands/Products admin CRUD + Partner-Product approval queue (approve / reject / request-changes with mandatory notes on reject).
+    - Backend: `modules/mart_partner/inventory_routes.py` — Partner inventory list (with lazy row materialisation from `partner_products.stock_qty`), adjust endpoint (receive / adjustment_add|remove / damage / expire / return_in with never-negative 409), movements ledger, product ↔ bin location assignments, and stock-by-location warehouse-tree report.
+    - Backend: `mart_partner/routes.py::create_custom_product` now sets `approval_status="pending"`, `is_active=false`, `submitted_at=now()` — partner custom SKUs cannot bypass Super Admin approval.
+    - Frontend Admin: `AdminMartCatalog.jsx` with 4 tabs (Categories/Subcategories/Brands/Products), full CRUD forms, country pill, search. `AdminProductApprovals.jsx` — bucket tabs (Pending/Approved/Rejected/Changes-requested) with review dialog.
+    - Frontend Partner: `InventoryPage.jsx` with summary cards (Total/Available/Reserved/Low/Out-of-stock), Stock & Movements tabs, filters (all/low/out), Adjust modal (kind + qty + reason). Partner Products page shows approval_status badges for pending/rejected/changes_requested SKUs and updated toast to "submitted for review".
+    - Nav: Partner sidebar gained "Inventory" item (visible to owner/manager/supervisor/warehouse_manager/inventory_manager/packer roles).
+    - MVP tenancy respected: multi-store DB foundation preserved, no store switcher shown in partner UI.
+    - **Verified**: iteration_20 → 26/26 backend pytest PASSED + all UI flows verified; no bugs; only minor hardening suggestions (narrower exception handling, response_model declarations, brand-delete audit metadata).
 - ⏳ Slice H · Return / Refund handling
 - ⏳ Slice D · Analytics dashboard
+- ⏳ Fulfillment loop (picker/packer/driver screens) — Phase 3
+

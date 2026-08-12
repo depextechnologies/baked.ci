@@ -21,6 +21,8 @@ import {
 } from "@/pages/admin/ModulePages";
 import { ModulePartnerApplications } from "@/pages/admin/ModulePartnerApplications";
 import { AdminStores } from "@/pages/admin/AdminStores";
+import { AdminMartCatalog } from "@/pages/admin/AdminMartCatalog";
+import { AdminProductApprovals } from "@/pages/admin/AdminProductApprovals";
 
 export const AdminApp = () => (
   <Routes>
@@ -51,6 +53,8 @@ export const AdminApp = () => (
         <Route path="applications" element={<ModulePartnerApplications />} />
         <Route path="partners/applications" element={<ModulePartnerApplications />} />
         <Route path="products" element={<ModuleProducts />} />
+        <Route path="catalog" element={<AdminMartCatalog />} />
+        <Route path="approvals" element={<AdminProductApprovals />} />
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />
         <Route path="drivers" element={<ModuleDrivers />} />

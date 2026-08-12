@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Loader2, LogOut, LayoutDashboard, Building2, Warehouse as WarehouseIcon,
   Package, ShoppingBag, Wallet, ChevronRight, CheckCircle2, Circle, KeyRound,
-  MapPin, Mail, Phone, Store, Users,
+  MapPin, Mail, Phone, Store, Users, Boxes,
 } from "lucide-react";
 import { BakedLogo } from "@/components/layout/BakedLogo";
 import "@/apps/partner-hub/partner-hub.css";
@@ -280,24 +280,25 @@ const PartnerResetPasswordPage = () => {
 
 // Role → visible tabs. Owners see everything (implicit).
 const NAV_ROLE_ACCESS = {
-  owner:             ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
-  manager:           ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
-  supervisor:        ["", "profile", "warehouse", "products", "orders", "wallet", "team"],
-  warehouse_manager: ["", "profile", "warehouse", "products", "orders", "team"],
-  inventory_manager: ["", "warehouse", "products", "orders"],
-  packer:            ["", "warehouse", "products", "orders"],
+  owner:             ["", "profile", "warehouse", "products", "inventory", "orders", "wallet", "team"],
+  manager:           ["", "profile", "warehouse", "products", "inventory", "orders", "wallet", "team"],
+  supervisor:        ["", "profile", "warehouse", "products", "inventory", "orders", "wallet", "team"],
+  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "orders", "team"],
+  inventory_manager: ["", "warehouse", "products", "inventory", "orders"],
+  packer:            ["", "warehouse", "products", "inventory", "orders"],
   cashier:           ["", "orders", "wallet"],
   customer_support:  ["", "orders"],
 };
 
 const NAV = [
-  { seg: "",         icon: LayoutDashboard, label: "Dashboard" },
-  { seg: "profile",  icon: Building2,       label: "Business profile" },
-  { seg: "warehouse", icon: WarehouseIcon,  label: "Warehouse" },
-  { seg: "products", icon: Package,         label: "Products" },
-  { seg: "orders",   icon: ShoppingBag,     label: "Orders" },
-  { seg: "wallet",   icon: Wallet,          label: "Wallet" },
-  { seg: "team",     icon: Users,           label: "Team" },
+  { seg: "",          icon: LayoutDashboard, label: "Dashboard" },
+  { seg: "profile",   icon: Building2,       label: "Business profile" },
+  { seg: "warehouse", icon: WarehouseIcon,   label: "Warehouse" },
+  { seg: "products",  icon: Package,         label: "Products" },
+  { seg: "inventory", icon: Boxes,           label: "Inventory" },
+  { seg: "orders",    icon: ShoppingBag,     label: "Orders" },
+  { seg: "wallet",    icon: Wallet,          label: "Wallet" },
+  { seg: "team",      icon: Users,           label: "Team" },
 ];
 
 const PortalShell = ({ children }) => {
@@ -590,6 +591,7 @@ import { ProductsPage } from "./ProductsPage";
 import { OrdersPage } from "./OrdersPage";
 import { WalletPage } from "./WalletPage";
 import { TeamPage, AcceptInvitePage } from "./TeamPage";
+import { InventoryPage } from "./InventoryPage";
 
 
 /* -------------------------------------------------------------------------- */
@@ -619,6 +621,7 @@ export const PartnerPortalApp = () => {
         <Route path="profile" element={<Protected><PortalShell><ProfilePage /></PortalShell></Protected>} />
         <Route path="warehouse" element={<Protected><PortalShell><WarehousePage /></PortalShell></Protected>} />
         <Route path="products" element={<Protected><PortalShell><ProductsPage /></PortalShell></Protected>} />
+        <Route path="inventory" element={<Protected><PortalShell><InventoryPage /></PortalShell></Protected>} />
         <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
         <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
         <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />

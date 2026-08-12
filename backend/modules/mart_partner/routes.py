@@ -1184,6 +1184,10 @@ def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = N
         "stock_qty": row.stock_qty,
         "low_stock_threshold": row.low_stock_threshold,
         "is_active": row.is_active,
+        "approval_status": getattr(row, "approval_status", "approved"),
+        "review_notes": getattr(row, "review_notes", None),
+        "submitted_at": row.submitted_at.isoformat() if getattr(row, "submitted_at", None) else None,
+        "reviewed_at": row.reviewed_at.isoformat() if getattr(row, "reviewed_at", None) else None,
         "description": row.description,
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
@@ -1372,6 +1376,10 @@ async def create_custom_product(
         currency=payload.currency,
         stock_qty=payload.stock_qty,
         low_stock_threshold=payload.low_stock_threshold,
+        # Phase 2: partner-created custom SKUs MUST be reviewed before going live.
+        approval_status="pending",
+        is_active=False,
+        submitted_at=datetime.now(timezone.utc),
     )
     session.add(row)
     await session.commit()
