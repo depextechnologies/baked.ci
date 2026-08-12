@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { LocationMapPreview } from "@/components/admin/LocationMapPreview";
 
 const STATUS_META = {
   draft:                     { label: "Draft",              tone: "bg-slate-500/15 text-slate-300 border-slate-500/30" },
@@ -239,8 +240,24 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
 
           <section>
             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Warehouse</h3>
-            <InfoRow icon={MapPin}     label="Address"        value={`${app.warehouse_address_line}, ${app.warehouse_city}`} />
+            <InfoRow icon={MapPin}     label="Address"        value={app.warehouse_formatted_address || `${app.warehouse_address_line}, ${app.warehouse_city}`} />
             <InfoRow icon={Building2}  label="Property"       value={`${app.property_type || "—"} · ${app.property_size_sqm || "?"} m² · ${app.service_area_km || "?"} km radius`} />
+
+            {/* Read-only map preview — Fixing_Prompt_2026-02-11_v2 §17. Operators
+                must visually inspect the proposed pin before hitting Approve. */}
+            <div className="mt-3">
+              <LocationMapPreview
+                latitude={app.warehouse_latitude}
+                longitude={app.warehouse_longitude}
+                formatted_address={app.warehouse_formatted_address}
+                place_id={app.warehouse_place_id}
+                location_accuracy={app.warehouse_location_accuracy}
+                country_code={app.warehouse_country_code || app.country}
+                region={app.warehouse_region}
+                postal_code={app.warehouse_postal_code}
+                mapId={`admin-app-${app.id}`}
+              />
+            </div>
           </section>
 
           <section>
@@ -271,11 +288,24 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
             <Button variant="destructive" size="sm" onClick={() => setDialogMode("reject")} data-testid="action-reject">
               <XCircle size={14} /> Reject
             </Button>
-            {canApprove && (
-              <Button size="sm" disabled={busy === "approve"} onClick={() => runSimple("approve")} data-testid="action-approve">
-                {busy === "approve" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Approve
-              </Button>
-            )}
+            {canApprove && (() => {
+              // Extra guardrail — an operator should never approve a dark-store
+              // application without first confirming the pin. Legacy rows with
+              // no coords will surface the "no coords" empty-state above, so
+              // the operator sees WHY the button is disabled.
+              const needsCoords = app.business_type === "dark_store"
+                && (app.warehouse_latitude == null || app.warehouse_longitude == null);
+              return (
+                <Button size="sm"
+                        disabled={busy === "approve" || needsCoords}
+                        title={needsCoords ? "Coordinates missing — ask the applicant to re-submit with a pinned location" : undefined}
+                        onClick={() => runSimple("approve")}
+                        data-testid="action-approve">
+                  {busy === "approve" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                  {needsCoords ? "Coords needed" : "Approve"}
+                </Button>
+              );
+            })()}
           </div>
         )}
       </aside>
