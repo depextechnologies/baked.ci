@@ -139,9 +139,24 @@ const ApprovalResultDialog = ({ result, onClose }) => (
           <CheckCircle2 className="text-emerald-500" size={22} /> Partner approved
         </DialogTitle>
         <DialogDescription>
-          {result.partner.business_name} is live. Share these credentials with the owner — the temp password will
-          <b> not be shown again</b>.
+          {result.partner.business_name} is live.
+          {result.email_sent
+            ? " We've emailed the owner the credentials + first-login link — you can still copy anything below if needed."
+            : " SMTP was not configured, so the credentials were NOT emailed — please copy them below and share them with the owner. The temp password will "}
+          {!result.email_sent && <b>not be shown again</b>}{!result.email_sent && "."}
         </DialogDescription>
+        <div className="mt-2">
+          <span
+            data-testid="approval-email-status"
+            className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] uppercase tracking-widest ${
+              result.email_sent
+                ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+                : "bg-yellow-500/15 text-yellow-500 border border-yellow-500/30"
+            }`}
+          >
+            {result.email_sent ? "✓ Email sent" : "⚠ Email not sent (SMTP disabled)"}
+          </span>
+        </div>
       </DialogHeader>
       <div className="space-y-4 py-2">
         {[
@@ -357,8 +372,10 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
               <DialogTitle>Approve this MARTbakēd partner application?</DialogTitle>
               <DialogDescription>
                 This will create the partner account and dark store (in&nbsp;
-                <b>setup&nbsp;required</b> status), generate a unique Store ID, and issue a temporary password.
-                The action is atomic and audit-logged.
+                <b>setup&nbsp;required</b> status), generate a unique Store ID,
+                issue a temporary password, and <b>email the applicant</b> with
+                their first-login link (when SMTP is configured). The action is
+                atomic and audit-logged.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 text-sm py-2">

@@ -509,6 +509,70 @@ async def admin_approve(
     await session.refresh(partner)
     await session.refresh(warehouse)
 
+    # ---------------------------------------------------------------------
+    # Approval email — Fixing_Prompt §13.
+    # Best-effort: SMTP failures are logged but never roll back the approval
+    # (the admin still has the success dialog with a copy button as fallback).
+    # ---------------------------------------------------------------------
+    email_sent = False
+    try:
+        from core.mailer import send_email_async
+        portal_url = os.environ.get("PARTNER_PORTAL_URL", "https://baked.ci/partner-portal/login")
+        html = f"""
+          <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+            <h2 style="margin:0 0 12px">Welcome to MARTbakēd, {partner.business_name}!</h2>
+            <p style="margin:0 0 16px;color:#333">
+              Your partner application has been <b>approved</b>. Your dark store is now
+              in <b>setup&nbsp;required</b> status — sign in to complete the last few
+              steps (opening hours, product catalog, staff invites) and go live.
+            </p>
+            <div style="background:#faf3ec;border-left:4px solid #DC7F1E;padding:14px 18px;border-radius:6px;margin:16px 0">
+              <div style="font-size:12px;color:#7a5030;letter-spacing:.08em;text-transform:uppercase;font-weight:700">Store ID</div>
+              <div style="font-family:ui-monospace,monospace;font-size:18px;color:#0a0a0f;margin-top:4px">{generated_code}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+              <tr><td style="padding:6px 0;color:#666">Owner email</td>
+                  <td style="padding:6px 0"><b>{partner.owner_email}</b></td></tr>
+              <tr><td style="padding:6px 0;color:#666">Temporary password</td>
+                  <td style="padding:6px 0;font-family:ui-monospace,monospace"><b>{temp_password}</b></td></tr>
+              <tr><td style="padding:6px 0;color:#666">Store</td>
+                  <td style="padding:6px 0">{warehouse.name}</td></tr>
+              <tr><td style="padding:6px 0;color:#666">Location</td>
+                  <td style="padding:6px 0">{warehouse.address_line}, {warehouse.city}</td></tr>
+            </table>
+            <div style="margin-top:20px">
+              <a href="{portal_url}"
+                 style="display:inline-block;background:#DC7F1E;color:#0a0a0f;text-decoration:none;
+                        padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px">
+                Sign in to your MARTbakēd portal
+              </a>
+            </div>
+            <p style="margin-top:20px;font-size:12px;color:#888">
+              For security, please change your password at first login.
+              This email contains sensitive credentials — do not forward.
+            </p>
+          </div>
+        """
+        text = (
+            f"Welcome to MARTbakēd, {partner.business_name}!\n\n"
+            f"Your partner application has been APPROVED.\n\n"
+            f"  Store ID:            {generated_code}\n"
+            f"  Owner email:         {partner.owner_email}\n"
+            f"  Temporary password:  {temp_password}\n"
+            f"  Store:               {warehouse.name}\n"
+            f"  Location:            {warehouse.address_line}, {warehouse.city}\n\n"
+            f"Sign in: {portal_url}\n\n"
+            f"For security, please change your password at first login."
+        )
+        email_sent = await send_email_async(
+            to=partner.owner_email,
+            subject=f"Your MARTbakēd store is approved — Store ID {generated_code}",
+            html_body=html, text_body=text,
+        )
+    except Exception:  # noqa: BLE001
+        import logging as _logging
+        _logging.getLogger("baked").exception("approval.email.failed application=%s", row.id)
+
     # Audit trail — Fixing_Prompt §12. Best-effort AFTER the main commit
     # (a failing audit MUST NOT roll back the approval).
     try:
@@ -548,6 +612,9 @@ async def admin_approve(
         },
         # SHOWN ONCE — admin must hand this to the partner. Never persisted plaintext.
         "temp_password": temp_password,
+        # Was the approval email delivered? When false (SMTP misconfig / bounce)
+        # the admin still has the temp_password above to share manually.
+        "email_sent": email_sent,
     }
 
 
