@@ -421,7 +421,7 @@ export const AdminInventoryControlTower = () => {
     <div className="space-y-5" data-testid="admin-inventory-control-tower">
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Super Admin</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd · Groceries &amp; Daily Needs</div>
           <h1 className="text-2xl font-bold flex items-center gap-2 mt-1">
             <Boxes size={22} /> Inventory Control Tower
           </h1>

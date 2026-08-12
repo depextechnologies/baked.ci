@@ -18,7 +18,7 @@ const MODULE_NAV = [
   { seg: "products", label: "Products", icon: Package, martOnly: true, note: "Legacy read-only" },
   { seg: "catalog", label: "Catalog", icon: Boxes, martOnly: true, note: "Categories, brands, master products" },
   { seg: "approvals", label: "Approvals", icon: Sparkles, martOnly: true, note: "Partner product review queue" },
-  { seg: "inventory", label: "Inventory", icon: Boxes, comingSoon: true },
+  { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
   { seg: "orders", label: "Orders", icon: ClipboardList },
   { seg: "bookings", label: "Bookings", icon: Activity, expressOnly: true },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },

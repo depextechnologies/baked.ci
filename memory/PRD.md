@@ -470,6 +470,11 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - Backend: `shared/admin/replenishment_routes.py` — GET / (list + status buckets, country-scoped), POST /auto-generate (scans low+OOS, dedup safe via SAVEPOINTs), POST / (manual create), POST /quick-add (one-click enqueue from Low/OOS lists), PATCH /{id}, POST /{id}/approve|dispatch|mark-received|cancel. `mark-received` auto-writes a `receive` stock movement, increments PartnerInventory.available_qty, syncs PartnerProduct.stock_qty, and back-fills `movement_id` on the replenishment row for audit.
     - Frontend: `AdminReplenishmentTab.jsx` — new "Replenishment" tab inside Control Tower with 5 bucket tabs. Inline-editable Suggested qty (auto-save on blur), one-click Approve / Dispatch / Received / Cancel per row. Low-Stock and Out-of-Stock tabs now include a green "+ Restock" button on every row that calls `/quick-add`.
     - **Verified**: iteration_22 → 4/4 backend pytest PASSED (2 skipped because no low-stock demo data), all UI flows E2E validated (bucket tabs, auto-gen, edit, approve → mark-received creates receive movement + increments inventory, illegal transitions 409, duplicate quick-add 409). Zero bugs; the 2 code-review nits (buckets-country filter + auto_generate savepoint) were fixed post-report.
+- ✅ **Inventory relocated into MARTbakēd module** (2026-02-13, per Inventory_Prompt v3)
+    - Route change: legacy `/admin/inventory` now `<Navigate replace>` to `/admin/modules/mart/inventory`. Backend APIs unchanged (`/api/admin/inventory/*` remain the source of truth — they were always MART-only anyway).
+    - Nav change: removed the top-level "Inventory Control Tower" link from `AdminLayout` Platform Governance sidebar. Enabled the `inventory` sub-nav item inside the MARTbakēd module workspace (was `comingSoon`).
+    - Component reuse: same `AdminInventoryControlTower.jsx` — no duplicate created. Header eyebrow changed to "MARTbakēd · Groceries & Daily Needs" so context is clear.
+    - All acceptance criteria (AC-01 through AC-14) pass — verified via smoke test (sidebar cleaned, redirect works, module route renders KPIs + tabs, "SOON" removed).
 - ⏳ **Remaining Batch 3 work**:
     - Inter-store Transfers with DRAFT→REQUESTED→APPROVED→IN_TRANSIT→RECEIVED lifecycle
     - Inventory Exceptions module (aggregated pending issues by category)

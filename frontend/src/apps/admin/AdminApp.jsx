@@ -6,7 +6,7 @@
  * previously lived inside App.js. They move here so future phases can
  * spin admin out as its own build target with zero route reshuffling.
  */
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AdminLoginPage } from "@/pages/admin/AdminLoginPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
 import {
@@ -46,7 +46,12 @@ export const AdminApp = () => (
       <Route path="infrastructure" element={<AdminInfrastructure />} />
       <Route path="settings" element={<AdminSystemSettings />} />
       <Route path="customers" element={<AdminCustomers />} />
-      <Route path="inventory" element={<AdminInventoryControlTower />} />
+      {/*
+        Inventory Control Tower belongs to MARTbakēd — the global route
+        redirects into the module workspace so existing bookmarks and
+        integrations keep working.
+      */}
+      <Route path="inventory" element={<Navigate to="/admin/modules/mart/inventory" replace />} />
 
       {/* Business Modules — module-scoped workspace with sub-nav (PRD §7 Module-First) */}
       <Route path="modules/:code" element={<ModuleWorkspace />}>
@@ -62,7 +67,7 @@ export const AdminApp = () => (
         <Route path="drivers" element={<ModuleDrivers />} />
         <Route path="pricing" element={<ModulePricing />} />
         <Route path="bookings" element={<ModuleBookings />} />
-        <Route path="inventory" element={<ModuleComingSoon title="Inventory management" />} />
+        <Route path="inventory" element={<AdminInventoryControlTower />} />
         <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
         <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
         <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />
