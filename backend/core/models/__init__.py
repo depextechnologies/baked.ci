@@ -57,6 +57,9 @@ from core.models.inventory_ops import (
     PartnerReceipt, PartnerReceiptItem,
     PartnerStockCount, PartnerStockCountLine,
 )
+from core.models.replenishment import (
+    REPLENISHMENT_STATUSES, REPLENISHMENT_SOURCES, PartnerReplenishment,
+)
 
 __all__ = [
     "Base",
@@ -133,4 +136,5 @@ __all__ = [
     "PartnerReceipt", "PartnerReceiptItem",
     "PartnerStockCount", "PartnerStockCountLine",
     "RECEIPT_STATUSES", "RECEIPT_SOURCES", "COUNT_STATUSES", "COUNT_SCOPES",
+    "PartnerReplenishment", "REPLENISHMENT_STATUSES", "REPLENISHMENT_SOURCES",
 ]

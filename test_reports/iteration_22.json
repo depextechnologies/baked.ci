@@ -1,0 +1,39 @@
+{
+  "summary": "Batch 3a Replenishment Suggestions — full backend + UI regression. Backend pytest: 4 passed / 2 skipped (both skips are env-data driven, not code bugs). UI: Replenishment tab renders under /admin/inventory with 5 bucket tabs (Suggested/Approved/Dispatched/Received/Cancelled) + counts, Auto-generate button fires and toast displays correctly, Received bucket shows 2 rows (existing smoke `rep_601657ec72ed4136` + new TEST_manual Baguette Tradition rep). Full lifecycle approve → mark-received verified via API: status transitions correctly, receive stock movement is written (kind=receive, reason='Replenishment received (auto)', reference=replenishment:{id}), PartnerInventory.available_qty incremented by approved_qty, and movement_id is populated back on the replenishment row. Duplicate active suggestion returns 409 (unique partial index). Illegal transitions (received→approved, cancelled→received) return 409 as designed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /admin/replenishments/auto-generate",
+        "issue": "No low-stock or OOS inventory exists in current env (LOW STOCK=0, OUT OF STOCK=0 on the Control Tower KPIs). Auto-generate returns created=0, scanned=0 — so we could not exercise the `Suggested` bucket end-to-end in UI. Recommend seeding at least one low-stock SKU for durable regression coverage."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_replenishment_batch3a.py",
+    "/app/test_reports/pytest/replen_batch3a.xml"
+  ],
+  "action_items": [
+    "(Optional / low priority) Seed one Low-Stock SKU (available_qty <= low_stock_threshold, > 0) and one Out-of-Stock SKU in the demo dataset so that (a) the Suggested bucket has content, (b) UI quick-add `+ Restock` button on Low/OOS rows can be regression-tested end-to-end, and (c) auto-generate → approve → dispatch → receive can be exercised without an admin having to manually build state."
+  ],
+  "critical_code_review_comments": [
+    "auto_generate() catches Exception from session.flush() but calls await session.rollback() inside the loop — with async SQLAlchemy this rolls back the *entire* transaction (including previously successfully-flushed rows), so a single unique-constraint violation would nuke the whole batch. In practice we short-circuit via `live_keys` so this rarely fires, but it's a latent correctness bug. Suggest using `session.begin_nested()` (SAVEPOINT) per row.",
+    "In _transition() for `new_status == 'received'`, `pp.stock_qty = inv.available_qty` sets the partner_product row's stock_qty to the *single-warehouse* inventory total, which is fine when a SKU lives in one store, but WILL desync when a SKU has multiple PartnerInventory rows (multi-warehouse). Consider recomputing pp.stock_qty as SUM(available_qty) across all warehouses on receive.",
+    "GET /admin/replenishments does not filter buckets by `country` — buckets counts are global even when country filter is applied to items list. Minor UX inconsistency."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_replenishment_batch3a.py"
+  ],
+  "success_rate": {"backend": "100% of runnable tests (4/4 passed, 2 skipped due to env data)", "frontend": "100% for verifiable flows (queue view, tabs, auto-gen, received bucket)"},
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ — verified working via /api/admin/auth/login",
+  "seed_data_creation": "Created 1 manual replenishment on Baguette Tradition (Partner Alpha, MRT-ABJ-001), approved and marked received. PartnerInventory.available_qty for that SKU increased by 1 (48 → 49). Also created + cancelled a second manual rep on the same SKU in the illegal-transition test (row remains in status=cancelled).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression file: /app/backend/tests/test_replenishment_batch3a.py — safe to re-run at any time (idempotent, uses TEST_ prefix on reasons). Two tests (test_lifecycle_approve_and_receive, test_quick_add_dedup) auto-skip when there are no low-stock SKUs; if the main agent seeds low-stock data they will run automatically. UI selectors used: data-testid=admin-inventory-control-tower / ct-tab-replen / ct-replen-tab / replen-tab-{status} / replen-auto-generate / replen-row-{id} / replen-suggested-{id} / replen-approve-{id} / replen-cancel-{id} / replen-dispatch-{id} / replen-receive-{id} / alert-quick-add-{pp_id}-{wh_id}.",
+  "rca of the issue": "N/A — no defects found. Only environmental gap (no low/OOS seed data) limits the breadth of end-to-end coverage."
+}

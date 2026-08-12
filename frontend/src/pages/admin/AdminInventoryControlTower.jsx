@@ -10,8 +10,11 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Boxes, Store, Package, AlertTriangle, XCircle, Clock,
   Search, DollarSign, TrendingDown, ArrowLeft, ClipboardList,
+  Sparkles, PlusCircle,
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
+import { toast } from "sonner";
+import { AdminReplenishmentTab } from "./AdminReplenishmentTab";
 
 const num = (n) => (Number(n || 0)).toLocaleString();
 const money = (n) => `${(Number(n || 0)).toLocaleString()} CFA`;
@@ -295,9 +298,26 @@ const StoreDetailDialog = ({ whid, onClose }) => {
 
 /* ------------------ Low Stock / OOS / Movements tabs ------------------ */
 
-const AlertList = ({ url, empty, dataTestId }) => {
+const AlertList = ({ url, empty, dataTestId, onQuickAdded }) => {
   const [items, setItems] = useState([]);
-  useEffect(() => { adminApi.get(url).then(r => setItems(r.data.items || [])); }, [url]);
+  const [busyId, setBusyId] = useState(null);
+  const load = () => adminApi.get(url).then(r => setItems(r.data.items || []));
+  useEffect(() => { load(); }, [url]);
+  const quickAdd = async (r) => {
+    setBusyId(r.partner_product_id + r.warehouse_id);
+    try {
+      await adminApi.post("/admin/replenishments/quick-add", {
+        partner_product_id: r.partner_product_id,
+        warehouse_id: r.warehouse_id,
+        suggested_qty: r.recommended_replenishment || null,
+      });
+      toast.success(`Added ${r.product_name} to replenishment queue`);
+      onQuickAdded?.();
+    } catch (e) {
+      const d = e?.response?.data?.detail;
+      toast.error(typeof d === "string" ? d : "Failed to add — a live suggestion may already exist");
+    } finally { setBusyId(null); }
+  };
   return (
     <div className="baked-card bg-card border border-border overflow-x-auto" data-testid={dataTestId}>
       <table className="w-full text-sm">
@@ -307,23 +327,35 @@ const AlertList = ({ url, empty, dataTestId }) => {
           <th className="text-left p-3">Store</th>
           <th className="text-right p-3">Available</th>
           <th className="text-right p-3">Threshold</th>
-          <th className="text-right p-3">Recommended replen.</th>
+          <th className="text-right p-3">Recommended</th>
+          <th className="p-3"></th>
         </tr></thead>
         <tbody>
-          {items.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">{empty}</td></tr>
-            : items.map(r => (
-              <tr key={r.partner_product_id + r.warehouse_id} className="border-t border-border">
-                <td className="p-3 flex items-center gap-2">
-                  {r.image && <img src={r.image} alt="" className="w-8 h-8 rounded object-cover" />}
-                  <div><div className="font-medium">{r.product_name}</div><div className="text-[10px] text-muted-foreground">{r.brand}</div></div>
-                </td>
-                <td className="p-3 font-mono text-xs">{r.sku_code || "—"}</td>
-                <td className="p-3 text-xs"><div className="font-mono">{r.warehouse_code}</div><div className="text-[10px] text-muted-foreground">{r.partner_name}</div></td>
-                <td className="p-3 text-right font-mono">{r.available_qty}</td>
-                <td className="p-3 text-right font-mono text-xs text-muted-foreground">{r.low_stock_threshold}</td>
-                <td className="p-3 text-right font-mono text-[#77BC1F]">+{r.recommended_replenishment}</td>
-              </tr>
-            ))}
+          {items.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{empty}</td></tr>
+            : items.map(r => {
+              const key = r.partner_product_id + r.warehouse_id;
+              return (
+                <tr key={key} className="border-t border-border" data-testid={`alert-row-${r.partner_product_id}-${r.warehouse_id}`}>
+                  <td className="p-3 flex items-center gap-2">
+                    {r.image && <img src={r.image} alt="" className="w-8 h-8 rounded object-cover" />}
+                    <div><div className="font-medium">{r.product_name}</div><div className="text-[10px] text-muted-foreground">{r.brand}</div></div>
+                  </td>
+                  <td className="p-3 font-mono text-xs">{r.sku_code || "—"}</td>
+                  <td className="p-3 text-xs"><div className="font-mono">{r.warehouse_code}</div><div className="text-[10px] text-muted-foreground">{r.partner_name}</div></td>
+                  <td className="p-3 text-right font-mono">{r.available_qty}</td>
+                  <td className="p-3 text-right font-mono text-xs text-muted-foreground">{r.low_stock_threshold}</td>
+                  <td className="p-3 text-right font-mono text-[#77BC1F]">+{r.recommended_replenishment}</td>
+                  <td className="p-3 text-right">
+                    <button disabled={busyId === key} onClick={() => quickAdd(r)}
+                            className="text-xs px-2 py-1 rounded font-medium flex items-center gap-1 ml-auto"
+                            style={{ background: "#77BC1F", color: "#0a1200" }}
+                            data-testid={`alert-quick-add-${r.partner_product_id}-${r.warehouse_id}`}>
+                      <PlusCircle size={11} /> Restock
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
         </tbody>
       </table>
     </div>
@@ -366,11 +398,12 @@ const MovementsTab = () => {
 /* ------------------------ Root ---------------------------- */
 
 const TABS = [
-  { key: "overview", label: "Overview",    icon: Boxes },
-  { key: "stores",   label: "Stores",      icon: Store },
-  { key: "low",      label: "Low stock",   icon: AlertTriangle },
-  { key: "oos",      label: "Out of stock", icon: XCircle },
-  { key: "movements", label: "Movements",  icon: ClipboardList },
+  { key: "overview",   label: "Overview",     icon: Boxes },
+  { key: "stores",     label: "Stores",       icon: Store },
+  { key: "low",        label: "Low stock",    icon: AlertTriangle },
+  { key: "oos",        label: "Out of stock", icon: XCircle },
+  { key: "replen",     label: "Replenishment", icon: Sparkles },
+  { key: "movements",  label: "Movements",    icon: ClipboardList },
 ];
 
 export const AdminInventoryControlTower = () => {
@@ -429,8 +462,9 @@ export const AdminInventoryControlTower = () => {
 
       {tab === "overview"  && <OverviewTab country={country} />}
       {tab === "stores"    && <StoresTab country={country} />}
-      {tab === "low"       && <AlertList url={`/admin/inventory/low-stock${country ? `?country=${country}` : ""}`} empty="No low-stock SKUs anywhere on the network 🎉" dataTestId="ct-low-tab" />}
-      {tab === "oos"       && <AlertList url={`/admin/inventory/out-of-stock${country ? `?country=${country}` : ""}`} empty="No out-of-stock SKUs 🎉" dataTestId="ct-oos-tab" />}
+      {tab === "low"       && <AlertList url={`/admin/inventory/low-stock${country ? `?country=${country}` : ""}`} empty="No low-stock SKUs anywhere on the network 🎉" dataTestId="ct-low-tab" onQuickAdded={loadKpis} />}
+      {tab === "oos"       && <AlertList url={`/admin/inventory/out-of-stock${country ? `?country=${country}` : ""}`} empty="No out-of-stock SKUs 🎉" dataTestId="ct-oos-tab" onQuickAdded={loadKpis} />}
+      {tab === "replen"    && <AdminReplenishmentTab country={country} />}
       {tab === "movements" && <MovementsTab />}
     </div>
   );
