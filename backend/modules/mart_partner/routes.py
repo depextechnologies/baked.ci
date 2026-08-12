@@ -430,7 +430,20 @@ async def admin_approve(
     """
     row = await _load_or_404(session, app_id)
     if row.status == "approved":
-        raise HTTPException(status_code=409, detail="Application already approved")
+        # Idempotency guardrail — never create duplicate partner/store rows.
+        # Return 409 with structured detail so the frontend can render a
+        # meaningful message instead of the generic "Something went wrong".
+        raise HTTPException(status_code=409, detail={
+            "code": "already_approved",
+            "message": "This application has already been approved. "
+                       "Refresh the list to see the current state.",
+        })
+    if row.status in ("rejected", "cancelled"):
+        raise HTTPException(status_code=409, detail={
+            "code": "invalid_state_transition",
+            "message": f"Cannot approve an application currently in '{row.status}'.",
+            "current_status": row.status,
+        })
 
     now = datetime.now(timezone.utc)
     # 12-char temp password — copy-once for the admin to hand off to the partner.
@@ -496,6 +509,25 @@ async def admin_approve(
     await session.refresh(partner)
     await session.refresh(warehouse)
 
+    # Audit trail — Fixing_Prompt §12. Best-effort AFTER the main commit
+    # (a failing audit MUST NOT roll back the approval).
+    try:
+        from shared.admin.routes import _audit
+        await _audit(session, admin,
+                     action="mart.application.approve",
+                     target_id=row.id,
+                     metadata={
+                         "application_id": row.id,
+                         "partner_id": partner.id,
+                         "warehouse_id": warehouse.id,
+                         "store_code": generated_code,
+                         "previous_status": "under_review",
+                         "new_status": "approved",
+                     })
+    except Exception:  # noqa: BLE001
+        import logging as _logging
+        _logging.getLogger("baked").exception("audit.approve.failed application=%s", row.id)
+
     return {
         "application": _serialise(row),
         "partner": {
@@ -505,8 +537,14 @@ async def admin_approve(
         },
         "warehouse": {
             "id": warehouse.id,
+            "code": warehouse.code,          # unique Store ID (Fixing_Prompt §6)
             "name": warehouse.name,
+            "status": warehouse.status,      # 'setup_required' after approval
             "address_line": warehouse.address_line,
+            "city": warehouse.city,
+            "country": warehouse.country,
+            "latitude": float(warehouse.latitude) if warehouse.latitude is not None else None,
+            "longitude": float(warehouse.longitude) if warehouse.longitude is not None else None,
         },
         # SHOWN ONCE — admin must hand this to the partner. Never persisted plaintext.
         "temp_password": temp_password,

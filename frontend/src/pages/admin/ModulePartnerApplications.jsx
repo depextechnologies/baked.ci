@@ -87,7 +87,12 @@ const ActionDialog = ({ mode, application, onClose, onDone }) => {
       toast.success(mode === "reject" ? "Application rejected" : "Info request sent");
       onDone(data);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Something went wrong");
+      const detail = e?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map(d => d?.msg || d?.message).filter(Boolean).join(" · ")
+        : (typeof detail === "object" && detail?.message) ? detail.message
+        : (typeof detail === "string" ? detail : (e?.message || "Unable to complete the request. Please try again."));
+      toast.error(msg);
     } finally { setBusy(false); }
   };
 
@@ -140,15 +145,18 @@ const ApprovalResultDialog = ({ result, onClose }) => (
       </DialogHeader>
       <div className="space-y-4 py-2">
         {[
+          ["Store ID",     result.warehouse?.code || "—"],
+          ["Store name",   result.warehouse?.name || "—"],
+          ["Store status", result.warehouse?.status || "setup_required"],
           ["Partner ID",   result.partner.id],
-          ["Warehouse",    `${result.warehouse.name}`],
           ["Owner email",  result.partner.owner_email],
           ["Temp password", result.temp_password],
         ].map(([k, v]) => (
           <div key={k} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/40">
             <div className="flex-1 min-w-0">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{k}</div>
-              <div className="text-sm font-mono text-foreground mt-0.5 break-all">{v}</div>
+              <div className="text-sm font-mono text-foreground mt-0.5 break-all"
+                   data-testid={`approval-${k.toLowerCase().replace(/\s+/g, "-")}`}>{v}</div>
             </div>
             <button
               type="button"
@@ -173,17 +181,49 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
   const [busy, setBusy] = useState(null);
   const [dialogMode, setDialogMode] = useState(null);
   const [approvalResult, setApprovalResult] = useState(null);
+  const [confirmApprove, setConfirmApprove] = useState(false);
+
+  // Safely extract a *human-readable* message from any backend error shape.
+  // Backend returns either a plain string, a Pydantic 422 array of `{msg}`,
+  // or a structured `{code, message, ...}` object. Rendering an object into
+  // <toast> throws "Objects are not valid as React children" and the caller
+  // sees a useless generic message — hence this helper.
+  const humanError = (e) => {
+    const status = e?.response?.status;
+    const detail = e?.response?.data?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map(d => d?.msg || d?.message).filter(Boolean).join(" · ")
+             || "The server rejected the request.";
+    }
+    if (typeof detail === "object" && detail !== null) {
+      return detail.message || JSON.stringify(detail);
+    }
+    if (typeof detail === "string") return detail;
+    if (status === 401) return "Your session has expired — please sign in again.";
+    if (status === 403) return "Your account does not have permission to approve this application.";
+    if (status === 409) return "This application has already been actioned. Please refresh.";
+    if (status && status >= 500) return "Approval failed due to a server error. No changes were made — please retry.";
+    return e?.message || "Unable to complete the request. Please try again.";
+  };
 
   const runSimple = async (action) => {
     setBusy(action);
     try {
       const { data } = await api.post(`/admin/mart-partner/applications/${app.id}/${action}`);
-      if (action === "approve") setApprovalResult(data);
+      if (action === "approve") {
+        setApprovalResult(data);
+        toast.success(
+          data?.warehouse?.code
+            ? `Application approved. Store ID: ${data.warehouse.code}`
+            : "Application approved"
+        );
+      } else {
+        toast.success("Marked under review");
+      }
       onChange(action === "approve" ? data.application : data);
-      if (action !== "approve") toast.success("Marked under review");
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Something went wrong");
-    } finally { setBusy(null); }
+      toast.error(humanError(e));
+    } finally { setBusy(null); setConfirmApprove(false); }
   };
 
   const canAct = !["approved", "rejected"].includes(app.status);
@@ -299,7 +339,7 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
                 <Button size="sm"
                         disabled={busy === "approve" || needsCoords}
                         title={needsCoords ? "Coordinates missing — ask the applicant to re-submit with a pinned location" : undefined}
-                        onClick={() => runSimple("approve")}
+                        onClick={() => setConfirmApprove(true)}
                         data-testid="action-approve">
                   {busy === "approve" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                   {needsCoords ? "Coords needed" : "Approve"}
@@ -310,6 +350,49 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
         )}
       </aside>
 
+      {confirmApprove && (
+        <Dialog open onOpenChange={(v) => !v && setConfirmApprove(false)}>
+          <DialogContent className="max-w-md" data-testid="approve-confirm-dialog">
+            <DialogHeader>
+              <DialogTitle>Approve this MARTbakēd partner application?</DialogTitle>
+              <DialogDescription>
+                This will create the partner account and dark store (in&nbsp;
+                <b>setup&nbsp;required</b> status), generate a unique Store ID, and issue a temporary password.
+                The action is atomic and audit-logged.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 text-sm py-2">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Business</span>
+                <span className="font-medium truncate">{app.business_name}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Applicant</span>
+                <span className="truncate">{app.primary_contact_name} · {app.primary_contact_email}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Location</span>
+                <span className="truncate">{app.warehouse_city} · {app.warehouse_country_code || app.country}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Application ID</span>
+                <span className="font-mono">{app.reference}</span>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setConfirmApprove(false)}
+                      disabled={busy === "approve"} data-testid="approve-confirm-cancel">
+                Cancel
+              </Button>
+              <Button onClick={() => runSimple("approve")}
+                      disabled={busy === "approve"} data-testid="approve-confirm-submit">
+                {busy === "approve" ? <Loader2 size={14} className="animate-spin mr-2" /> : <CheckCircle2 size={14} className="mr-2" />}
+                Approve Application
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       {dialogMode && (
         <ActionDialog
           mode={dialogMode}
