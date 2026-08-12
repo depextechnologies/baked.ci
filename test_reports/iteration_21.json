@@ -1,0 +1,44 @@
+{
+  "summary": "Batches 1 + 2 (Inventory Control Tower + Partner Receiving/Put-away + Stock Counts) fully validated. Backend: 24/24 pytest cases passed covering Super Admin CT endpoints (KPIs, overview, SKU drilldown, stores, low/OOS, movements), Receiving flow (draft→verify→put-away→completed) with all 409 guardrails, and Stock Counts flow (create→record→apply) including never-negative & movement-in-ledger checks. Frontend: Super Admin /admin/inventory renders live KPIs (Total SKUs=4, Available=232, Reserved=0, Low=0, OOS=1, Inventory value=162,750 CFA, 2 stores), tabs & drilldown dialogs work, movements ledger shows real ledger entries (put_away, stock_count). Partner portal Receiving flow (RCPT-000004 draft→completed with 5 units) works end-to-end; Stock counts flow (CNT-000003 counted→reconciling→completed with -1 variance) works and produces a stock_count movement in the network ledger. Dashboard 'Warehouse operations' KPI row visible (Pending receiving/put-away/counts). No multi-store switcher present in partner portal navigation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/admin/inventory/movements", "issue": "product_name is null in the ledger for partner products sourced from master (source=master). The route joins PartnerProduct only; should COALESCE PartnerProduct.name with MartProduct.name (via master_product_id) so the Movements table shows a name for every row."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminInventoryControlTower — SkuDetailDialog / StoreDetailDialog", "issue": "Dialogs don't close on ESC key or backdrop click; only the ✕ button closes them.", "selector": "[data-testid=\"sku-detail-dialog\"], [data-testid=\"store-detail-dialog\"]", "priority": "LOW"},
+      {"component": "AdminInventoryControlTower — MovementsTab", "issue": "PRODUCT column is blank for stock_count / put_away rows whose partner_product is source=master (backend product_name null). Cosmetic knock-on of the backend issue above.", "selector": "[data-testid=\"ct-movements-tab\"]", "priority": "LOW"},
+      {"component": "ReceivingPage — new-receipt modal", "issue": "There is no input for expected_qty; the modal only exposes received_qty (so the requested expected=50/received=48 pattern cannot be entered from the UI — both default to 0/typed value). Backend supports expected_qty via API.", "selector": "[data-testid=\"receipt-create-modal\"]", "priority": "LOW"},
+      {"component": "StockCountsPage — Start full count", "issue": "Uses native window.confirm() instead of a themed shadcn Dialog. Works but feels off-brand and breaks e2e scripts that don't auto-accept dialogs.", "selector": "[data-testid=\"count-new-full\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_inventory_ops_batch12.py",
+    "/app/test_reports/pytest/inventory_batch12.xml"
+  ],
+  "action_items": [
+    "Backend: In /admin/inventory/movements, coalesce product_name with MartProduct.name via LEFT JOIN on PartnerProduct.master_product_id so master-sourced SKUs show a name in the Movements ledger.",
+    "Frontend: Close SKU/Store detail dialogs on ESC key press and backdrop click (add onKeyDown + backdrop onClick handlers).",
+    "Frontend (optional): Add an 'Expected qty' input to the New Receipt line-item form so partners can log variance vs. supplier expectation.",
+    "Frontend (optional): Replace window.confirm() in StockCountsPage.createFull with a themed confirmation dialog."
+  ],
+  "critical_code_review_comments": [
+    "inventory_control_tower.py /overview: uses func.string_agg(PartnerProduct.id, ',') — Postgres-specific, fine here since project runs on PG. Just note it will break on SQLite tests if any suite ever swaps engines.",
+    "inventory_ops_routes.py apply_count: correctly clamps available_qty to max(0, counted_qty); movement.delta_qty is (new - old) which can be negative or zero — verified in test_never_negative (counted=0, previous=49 → delta=-49, balance=0).",
+    "Receipt cancel guard properly refuses when any item.put_away_qty > 0 (verified). Verify guard rejects verified/completed/put_away/cancelled (verified via 409 test)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_inventory_ops_batch12.py"
+  ],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "100% of primary flows; 4 minor UX polish items"},
+  "test_credentials": "Super Admin depexopenai@gmail.com/baked@2026#!$@ and Partner Alpha owner partner-alpha-store@test.example/Alpha1234!Beta — both worked as documented in /app/memory/test_credentials.md.",
+  "seed_data_creation": "During tests created RCPT-000004 (completed, +5 to Test Custom SKU), plus one 'TEST cancel-guard' receipt in put_away status; CNT-000003 (completed, -1 variance on psku_883b7f37a8d94d4e), and additional counts from backend suite. All TEST-tagged. Inventory available_qty is now: Baguette Tradition=50 (untouched), Banane Cavendish=0 (from never-negative test — was 0 already), Lait Frais=49 (was 50, -1 by CNT-000003), Test Custom SKU=20 (started at 15 + 5 from RCPT-000004). Please note previously OOS row shown in Control Tower (available=0) is due to test count applying counted_qty=0.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Batches 1+2 are green. Do NOT re-run inventory_batch12 without expecting extra RCPT/CNT rows in the DB (test creates non-idempotent codes). Batch 3 (Replenishment, Transfers, Exceptions, Order-reservation locking, Picker/Packer/Dispatch) is deferred. Backend test file located at /app/backend/tests/test_inventory_ops_batch12.py — safe regression harness for future runs.",
+  "rca of the issue": "N/A — no blocking bugs. Minor UX polish items only."
+}

@@ -52,6 +52,11 @@ from core.models.catalog_inventory import (
     PARTNER_PRODUCT_APPROVAL_STATUSES, STOCK_MOVEMENT_KINDS,
     MartBrand, PartnerInventory, PartnerProductLocation, PartnerStockMovement,
 )
+from core.models.inventory_ops import (
+    RECEIPT_STATUSES, RECEIPT_SOURCES, COUNT_STATUSES, COUNT_SCOPES,
+    PartnerReceipt, PartnerReceiptItem,
+    PartnerStockCount, PartnerStockCountLine,
+)
 
 __all__ = [
     "Base",
@@ -125,4 +130,7 @@ __all__ = [
     "PartnerStockMovement",
     "PARTNER_PRODUCT_APPROVAL_STATUSES",
     "STOCK_MOVEMENT_KINDS",
+    "PartnerReceipt", "PartnerReceiptItem",
+    "PartnerStockCount", "PartnerStockCountLine",
+    "RECEIPT_STATUSES", "RECEIPT_SOURCES", "COUNT_STATUSES", "COUNT_SCOPES",
 ]

@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Loader2, LogOut, LayoutDashboard, Building2, Warehouse as WarehouseIcon,
   Package, ShoppingBag, Wallet, ChevronRight, CheckCircle2, Circle, KeyRound,
-  MapPin, Mail, Phone, Store, Users, Boxes,
+  MapPin, Mail, Phone, Store, Users, Boxes, PackagePlus, ClipboardCheck,
 } from "lucide-react";
 import { BakedLogo } from "@/components/layout/BakedLogo";
 import "@/apps/partner-hub/partner-hub.css";
@@ -280,11 +280,11 @@ const PartnerResetPasswordPage = () => {
 
 // Role → visible tabs. Owners see everything (implicit).
 const NAV_ROLE_ACCESS = {
-  owner:             ["", "profile", "warehouse", "products", "inventory", "orders", "wallet", "team"],
-  manager:           ["", "profile", "warehouse", "products", "inventory", "orders", "wallet", "team"],
-  supervisor:        ["", "profile", "warehouse", "products", "inventory", "orders", "wallet", "team"],
-  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "orders", "team"],
-  inventory_manager: ["", "warehouse", "products", "inventory", "orders"],
+  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "wallet", "team"],
+  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "wallet", "team"],
+  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "wallet", "team"],
+  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "team"],
+  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "orders"],
   packer:            ["", "warehouse", "products", "inventory", "orders"],
   cashier:           ["", "orders", "wallet"],
   customer_support:  ["", "orders"],
@@ -296,6 +296,8 @@ const NAV = [
   { seg: "warehouse", icon: WarehouseIcon,   label: "Warehouse" },
   { seg: "products",  icon: Package,         label: "Products" },
   { seg: "inventory", icon: Boxes,           label: "Inventory" },
+  { seg: "receiving", icon: PackagePlus,     label: "Receiving" },
+  { seg: "counts",    icon: ClipboardCheck,  label: "Stock counts" },
   { seg: "orders",    icon: ShoppingBag,     label: "Orders" },
   { seg: "wallet",    icon: Wallet,          label: "Wallet" },
   { seg: "team",      icon: Users,           label: "Team" },
@@ -508,7 +510,11 @@ const MetricCard = ({ label, value, icon: Icon }) => (
 const DashboardPage = () => {
   const { partner, warehouse } = usePartner();
   const [dash, setDash] = useState(null);
-  useEffect(() => { partnerApi.get("/partner/dashboard").then(r => setDash(r.data)); }, []);
+  const [invKpis, setInvKpis] = useState(null);
+  useEffect(() => {
+    partnerApi.get("/partner/dashboard").then(r => setDash(r.data));
+    partnerApi.get("/partner/inventory/dashboard-kpis").then(r => setInvKpis(r.data)).catch(() => {});
+  }, []);
 
   if (!dash) return <Loader2 className="animate-spin" size={20} />;
   const m = dash.metrics;
@@ -530,6 +536,17 @@ const DashboardPage = () => {
           <MetricCard label="Inventory items"  value={m.inventory_items} icon={WarehouseIcon} />
         </div>
       </section>
+
+      {invKpis && (invKpis.pending_receiving + invKpis.pending_put_away + invKpis.pending_counts) > 0 && (
+        <section className="mt-8">
+          <h2 className="ph-h3 mb-4" style={{ color: "var(--ph-fg)" }}>Warehouse operations</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <MetricCard label="Pending receiving" value={invKpis.pending_receiving} icon={PackagePlus} />
+            <MetricCard label="Pending put-away"  value={invKpis.pending_put_away}  icon={Boxes} />
+            <MetricCard label="Pending counts"    value={invKpis.pending_counts}    icon={ClipboardCheck} />
+          </div>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="ph-h3 mb-4" style={{ color: "var(--ph-fg)" }}>Get set up</h2>
@@ -592,6 +609,8 @@ import { OrdersPage } from "./OrdersPage";
 import { WalletPage } from "./WalletPage";
 import { TeamPage, AcceptInvitePage } from "./TeamPage";
 import { InventoryPage } from "./InventoryPage";
+import { ReceivingPage } from "./ReceivingPage";
+import { StockCountsPage } from "./StockCountsPage";
 
 
 /* -------------------------------------------------------------------------- */
@@ -622,6 +641,8 @@ export const PartnerPortalApp = () => {
         <Route path="warehouse" element={<Protected><PortalShell><WarehousePage /></PortalShell></Protected>} />
         <Route path="products" element={<Protected><PortalShell><ProductsPage /></PortalShell></Protected>} />
         <Route path="inventory" element={<Protected><PortalShell><InventoryPage /></PortalShell></Protected>} />
+        <Route path="receiving" element={<Protected><PortalShell><ReceivingPage /></PortalShell></Protected>} />
+        <Route path="counts" element={<Protected><PortalShell><StockCountsPage /></PortalShell></Protected>} />
         <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
         <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
         <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />

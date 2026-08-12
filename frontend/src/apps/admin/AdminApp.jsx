@@ -23,6 +23,7 @@ import { ModulePartnerApplications } from "@/pages/admin/ModulePartnerApplicatio
 import { AdminStores } from "@/pages/admin/AdminStores";
 import { AdminMartCatalog } from "@/pages/admin/AdminMartCatalog";
 import { AdminProductApprovals } from "@/pages/admin/AdminProductApprovals";
+import { AdminInventoryControlTower } from "@/pages/admin/AdminInventoryControlTower";
 
 export const AdminApp = () => (
   <Routes>
@@ -45,6 +46,7 @@ export const AdminApp = () => (
       <Route path="infrastructure" element={<AdminInfrastructure />} />
       <Route path="settings" element={<AdminSystemSettings />} />
       <Route path="customers" element={<AdminCustomers />} />
+      <Route path="inventory" element={<AdminInventoryControlTower />} />
 
       {/* Business Modules — module-scoped workspace with sub-nav (PRD §7 Module-First) */}
       <Route path="modules/:code" element={<ModuleWorkspace />}>

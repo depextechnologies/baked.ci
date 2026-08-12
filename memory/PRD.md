@@ -457,9 +457,20 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - Backend: `mart_partner/routes.py::create_custom_product` now sets `approval_status="pending"`, `is_active=false`, `submitted_at=now()` — partner custom SKUs cannot bypass Super Admin approval.
     - Frontend Admin: `AdminMartCatalog.jsx` with 4 tabs (Categories/Subcategories/Brands/Products), full CRUD forms, country pill, search. `AdminProductApprovals.jsx` — bucket tabs (Pending/Approved/Rejected/Changes-requested) with review dialog.
     - Frontend Partner: `InventoryPage.jsx` with summary cards (Total/Available/Reserved/Low/Out-of-stock), Stock & Movements tabs, filters (all/low/out), Adjust modal (kind + qty + reason). Partner Products page shows approval_status badges for pending/rejected/changes_requested SKUs and updated toast to "submitted for review".
-    - Nav: Partner sidebar gained "Inventory" item (visible to owner/manager/supervisor/warehouse_manager/inventory_manager/packer roles).
-    - MVP tenancy respected: multi-store DB foundation preserved, no store switcher shown in partner UI.
-    - **Verified**: iteration_20 → 26/26 backend pytest PASSED + all UI flows verified; no bugs; only minor hardening suggestions (narrower exception handling, response_model declarations, brand-delete audit metadata).
+    - **Verified**: iteration_20 → 26/26 backend pytest PASSED + all UI flows verified.
+- ✅ **Inventory Control Tower — Batches 1 + 2** (2026-02-13)
+    - Alembic **migration 0008** extends `partner_stock_movements.kind` allow-list with `put_away/stock_count/correction/pick/pack/dispatch`; adds `partner_receipts / partner_receipt_items` (draft→received→verified→put_away→completed lifecycle with per-line put-away-not-greater-than-received CHECK) and `partner_stock_counts / partner_stock_count_lines` (draft→counting→reconciling→completed with variance capture).
+    - Backend Super Admin: `shared/admin/inventory_control_tower.py` — `/admin/inventory/kpis`, `/overview`, `/skus/{ppid}`, `/stores`, `/stores/{whid}`, `/low-stock`, `/out-of-stock`, `/movements` (network-wide aggregate + drilldowns; master-product name resolution for source=master rows).
+    - Backend Partner: `modules/mart_partner/inventory_ops_routes.py` — `/partner/inventory/receipts` (list/create/get/verify/put-away/cancel), `/partner/inventory/counts` (list/create-full/record/apply/cancel), `/partner/inventory/dashboard-kpis` (pending receiving/put-away/counts). Put-away writes ledger movements, increments PartnerInventory.available_qty, updates PartnerProduct.stock_qty. Stock-count apply clamps at zero (never-negative) and writes `stock_count` movements. All transitions guarded by 409 for invalid state.
+    - Frontend Super Admin: `AdminInventoryControlTower.jsx` — new top-level nav "Inventory Control Tower". Tabs: Overview / Stores / Low stock / Out of stock / Movements. Live KPI header (Total SKUs, Active, Available, Reserved, Low, OOS, Inventory value CFA). SKU Detail dialog shows Network totals + per-store distribution. Store Detail dialog shows read-only full inventory of one warehouse. Dialogs close on ESC + backdrop click.
+    - Frontend Partner: `ReceivingPage.jsx` (list + create modal with expected/received quantities + verify + put-away drawer with optional bin id), `StockCountsPage.jsx` (start full count + line-editor drawer with variance calculation + Apply corrections). New nav items "Receiving" and "Stock counts" visible to owner/manager/supervisor/warehouse_manager/inventory_manager. Dashboard now includes a "Warehouse operations" KPI row showing pending receiving/put-away/counts when non-zero.
+    - **Verified**: iteration_21 → 24/24 backend pytest PASSED + all UI flows E2E validated. Never-negative respected; concurrent transitions properly 409'd.
+- ⏳ **Deferred to Batch 3** (Inventory Control Tower phase 2):
+    - Replenishment recommendations + approve/modify → transfer
+    - Inter-store Transfers with DRAFT→REQUESTED→APPROVED→IN_TRANSIT→RECEIVED lifecycle
+    - Inventory Exceptions module (aggregated pending issues by category)
+    - Order-reservation locking hardening (`SELECT … FOR UPDATE`)
+    - Picker / Packer / Dispatch worker screens (Phase 3 core fulfillment loop)
 - ⏳ Slice H · Return / Refund handling
 - ⏳ Slice D · Analytics dashboard
 - ⏳ Fulfillment loop (picker/packer/driver screens) — Phase 3
