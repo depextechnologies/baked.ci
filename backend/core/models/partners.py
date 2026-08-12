@@ -117,6 +117,13 @@ class PartnerApplication(Base, TimestampMixin):
     warehouse_city: Mapped[str]           = mapped_column(String(120), nullable=False)
     warehouse_latitude: Mapped[Optional[float]]  = mapped_column(Numeric(9, 6), nullable=True)
     warehouse_longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    # ---------- Map-based geolocation (v0.6) ----------
+    warehouse_country_code: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    warehouse_region: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    warehouse_postal_code: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    warehouse_place_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    warehouse_formatted_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    warehouse_location_accuracy: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     property_type: Mapped[Optional[str]]  = mapped_column(String(40),  nullable=True)  # owned / leased
     property_size_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     service_area_km: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
@@ -223,6 +230,11 @@ class Warehouse(Base, TimestampMixin):
     property_size_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     warehouse_capacity_sqm: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     service_area_km: Mapped[Optional[float]] = mapped_column(Numeric(6, 2), nullable=True)
+    # Map-based geolocation (v0.6)
+    formatted_address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    place_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    postal_code: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    location_accuracy: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     # Lifecycle status — per Fixing_Prompt §9. Only 'active' fulfils orders.
     status: Mapped[str] = mapped_column(String(40), nullable=False, server_default="active")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")

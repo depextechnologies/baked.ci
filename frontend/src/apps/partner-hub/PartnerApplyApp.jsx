@@ -14,6 +14,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { BakedLogo } from "@/components/layout/BakedLogo";
+import { WarehouseLocationPicker } from "./WarehouseLocationPicker";
 import "./partner-hub.css";
 
 const STEPS = [
@@ -41,6 +42,15 @@ const emptyForm = {
   owner_id_number: "",
   warehouse_address_line: "",
   warehouse_city: "",
+  warehouse_latitude: null,
+  warehouse_longitude: null,
+  warehouse_country_code: "",
+  warehouse_region: "",
+  warehouse_postal_code: "",
+  warehouse_place_id: "",
+  warehouse_formatted_address: "",
+  warehouse_location_accuracy: "",
+  warehouse_confirmed: false,
   property_type: "leased",
   property_size_sqm: "",
   service_area_km: "",
@@ -159,31 +169,112 @@ const OwnerStep = ({ f, set }) => (
   </div>
 );
 
-const WarehouseStep = ({ f, set }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-    <Field label="Warehouse / store address"><TextInput name="warehouse_address_line" value={f.warehouse_address_line}
-      onChange={e => set("warehouse_address_line", e.target.value)} placeholder="12 Rue des Jardins" />
-    </Field>
-    <Field label="City">
-      <TextInput name="warehouse_city" value={f.warehouse_city}
-        onChange={e => set("warehouse_city", e.target.value)} placeholder="Abidjan" />
-    </Field>
-    <Field label="Property type">
-      <SelectInput name="property_type" value={f.property_type} onChange={e => set("property_type", e.target.value)}>
-        <option value="owned">Owned</option>
-        <option value="leased">Leased</option>
-      </SelectInput>
-    </Field>
-    <Field label="Property size (m²)">
-      <TextInput type="number" min="0" name="property_size_sqm" value={f.property_size_sqm}
-        onChange={e => set("property_size_sqm", e.target.value)} placeholder="e.g. 220" />
-    </Field>
-    <Field label="Service area radius (km)" hint="How far you're willing to deliver">
-      <TextInput type="number" min="0" max="500" step="0.5" name="service_area_km" value={f.service_area_km}
-        onChange={e => set("service_area_km", e.target.value)} placeholder="e.g. 8" />
-    </Field>
-  </div>
-);
+const WarehouseStep = ({ f, set }) => {
+  const location = {
+    latitude: f.warehouse_latitude,
+    longitude: f.warehouse_longitude,
+    formatted_address: f.warehouse_formatted_address,
+    city: f.warehouse_city,
+    region: f.warehouse_region,
+    country_code: f.warehouse_country_code,
+    postal_code: f.warehouse_postal_code,
+    place_id: f.warehouse_place_id,
+    location_accuracy: f.warehouse_location_accuracy,
+  };
+  const handleLocation = (p) => {
+    // Empty object = "clear the pin"
+    if (!p || !p.latitude) {
+      set("warehouse_latitude", null);
+      set("warehouse_longitude", null);
+      set("warehouse_formatted_address", "");
+      set("warehouse_place_id", "");
+      set("warehouse_postal_code", "");
+      set("warehouse_location_accuracy", "");
+      set("warehouse_country_code", "");
+      set("warehouse_region", "");
+      set("warehouse_confirmed", false);
+      return;
+    }
+    set("warehouse_latitude",  p.latitude);
+    set("warehouse_longitude", p.longitude);
+    set("warehouse_formatted_address", p.formatted_address || f.warehouse_formatted_address || "");
+    set("warehouse_place_id",  p.place_id || "");
+    set("warehouse_postal_code", p.postal_code || "");
+    set("warehouse_location_accuracy", p.location_accuracy || "");
+    set("warehouse_country_code", (p.country_code || "").toUpperCase());
+    set("warehouse_region", p.region || "");
+    // Auto-fill address_line + city from the pick unless applicant has edited.
+    if (p.formatted_address && !f.warehouse_address_line) {
+      set("warehouse_address_line", p.formatted_address.split(",")[0]);
+    }
+    if (p.city && !f.warehouse_city) set("warehouse_city", p.city);
+    set("warehouse_confirmed", false);
+  };
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="text-xs uppercase tracking-widest mb-2" style={{ color: "var(--ph-fg-subtle)" }}>
+          Step 3 · Warehouse / store location
+        </div>
+        <p className="ph-body" style={{ color: "var(--ph-fg-muted)" }}>
+          Search for your street or landmark, use your current GPS location, or tap the map to
+          drop a pin. The <b>latitude &amp; longitude</b> we capture here become the store&apos;s
+          authoritative delivery origin.
+        </p>
+      </div>
+
+      <WarehouseLocationPicker
+        value={location}
+        onChange={handleLocation}
+        country={f.country || "CI"}
+      />
+
+      {/* Confirm gate — actually just a mirror of the picker's internal state,
+          bound to a hidden checkbox so the wizard's canGoNext check can look
+          at it via `f.warehouse_confirmed`. */}
+      <div>
+        <label className="inline-flex items-center gap-2 text-xs cursor-pointer"
+               style={{ color: "var(--ph-fg-muted)" }}>
+          <input type="checkbox" checked={!!f.warehouse_confirmed}
+                 disabled={!f.warehouse_latitude}
+                 onChange={(e) => set("warehouse_confirmed", e.target.checked)}
+                 data-testid="apply-warehouse-confirmed" />
+          I confirm this is the exact location of my warehouse / store.
+        </label>
+      </div>
+
+      {/* Editable address fields — pre-filled by the map picker, but the
+          applicant can override for building number, floor, etc. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <Field label="Warehouse / store address"
+               hint="Street + building name. Pre-filled from the map pin.">
+          <TextInput name="warehouse_address_line" value={f.warehouse_address_line}
+                     onChange={e => set("warehouse_address_line", e.target.value)}
+                     placeholder="12 Rue des Jardins" />
+        </Field>
+        <Field label="City" hint="Auto-detected from the map pin.">
+          <TextInput name="warehouse_city" value={f.warehouse_city}
+                     onChange={e => set("warehouse_city", e.target.value)}
+                     placeholder="Abidjan" />
+        </Field>
+        <Field label="Property type">
+          <SelectInput name="property_type" value={f.property_type} onChange={e => set("property_type", e.target.value)}>
+            <option value="owned">Owned</option>
+            <option value="leased">Leased</option>
+          </SelectInput>
+        </Field>
+        <Field label="Property size (m²)">
+          <TextInput type="number" min="0" name="property_size_sqm" value={f.property_size_sqm}
+                     onChange={e => set("property_size_sqm", e.target.value)} placeholder="e.g. 220" />
+        </Field>
+        <Field label="Service area radius (km)" hint="How far you're willing to deliver — the pin stays put.">
+          <TextInput type="number" min="0" max="500" step="0.5" name="service_area_km" value={f.service_area_km}
+                     onChange={e => set("service_area_km", e.target.value)} placeholder="e.g. 8" />
+        </Field>
+      </div>
+    </div>
+  );
+};
 
 const BankStep = ({ f, set }) => (
   <div>
@@ -237,7 +328,12 @@ const ReviewStep = ({ f }) => (
     <ReviewRow label="Country"    value={f.country} />
     <ReviewRow label="Owner"      value={f.owner_name} />
     <ReviewRow label="Contact"    value={`${f.primary_contact_email} · ${f.primary_contact_phone}`} />
-    <ReviewRow label="Warehouse"  value={`${f.warehouse_address_line}, ${f.warehouse_city}`} />
+    <ReviewRow label="Warehouse"  value={f.warehouse_formatted_address || `${f.warehouse_address_line}, ${f.warehouse_city}`} />
+    <ReviewRow label="Coordinates"
+               value={f.warehouse_latitude && f.warehouse_longitude
+                 ? `${Number(f.warehouse_latitude).toFixed(5)}, ${Number(f.warehouse_longitude).toFixed(5)}` +
+                   (f.warehouse_country_code ? ` · ${f.warehouse_country_code}` : "")
+                 : "Not set"} />
     <ReviewRow label="Property"   value={`${f.property_type} · ${f.property_size_sqm || "?"} m² · ${f.service_area_km || "?"} km radius`} />
     <ReviewRow label="Payouts"    value={f.bank_name ? `${f.bank_name} · ****${(f.bank_account_number || "").slice(-4)}` : (f.mobile_money_number || "—")} />
     <p className="pt-6 text-sm" style={{ color: "var(--ph-fg-muted)" }}>
@@ -269,13 +365,25 @@ export const PartnerApplyApp = () => {
   const currentStep = STEPS[step];
   const canGoNext = useMemo(() => {
     const missing = requiredByStep[currentStep.key].filter(k => !f[k]?.trim?.());
-    return missing.length === 0;
+    if (missing.length) return false;
+    // Warehouse step also requires a confirmed map location before advancing
+    // (Fixing_Prompt_2026-02-11_v2 §9 "confirm this is the exact location").
+    if (currentStep.key === "warehouse") {
+      if (!f.warehouse_latitude || !f.warehouse_longitude) return false;
+      if (!f.warehouse_confirmed) return false;
+    }
+    return true;
   }, [step, f, currentStep.key]);
 
   const submit = async () => {
     if (!f.bank_account_number && !f.mobile_money_number) {
       toast.error("Please add bank details OR a mobile-money number so we can pay you out");
       setStep(3);
+      return;
+    }
+    if (!f.warehouse_latitude || !f.warehouse_longitude) {
+      toast.error("Please pick your store location on the map first");
+      setStep(2);
       return;
     }
     setSubmitting(true);
@@ -285,7 +393,11 @@ export const PartnerApplyApp = () => {
         years_in_business: f.years_in_business ? Number(f.years_in_business) : null,
         property_size_sqm: f.property_size_sqm ? Number(f.property_size_sqm) : null,
         service_area_km: f.service_area_km ? Number(f.service_area_km) : null,
+        warehouse_latitude:  f.warehouse_latitude  != null ? Number(f.warehouse_latitude)  : null,
+        warehouse_longitude: f.warehouse_longitude != null ? Number(f.warehouse_longitude) : null,
       };
+      // `warehouse_confirmed` is UI-only — never sent to the backend.
+      delete payload.warehouse_confirmed;
       // Drop empty optional strings — backend prefers nulls.
       Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
       const { data } = await api.post("/mart-partner/applications", payload);
@@ -293,7 +405,10 @@ export const PartnerApplyApp = () => {
       toast.success(`Application submitted — reference ${data.reference}`);
     } catch (e) {
       const detail = e?.response?.data?.detail;
-      const msg = Array.isArray(detail) ? detail.map(d => d.msg).join(" · ") : (detail || "Something went wrong");
+      const msg =
+        Array.isArray(detail) ? detail.map(d => d.msg).join(" · ")
+        : (typeof detail === "object" && detail?.message) ? detail.message
+        : (detail || "Something went wrong");
       toast.error(msg);
     } finally {
       setSubmitting(false);

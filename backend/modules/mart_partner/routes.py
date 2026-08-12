@@ -5,6 +5,7 @@ The applicant does NOT gain any partner-portal access here — that only happens
 after Stage 2 (Super Admin Approval, coming next slice).
 """
 from __future__ import annotations
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -60,6 +61,13 @@ class ApplicationSubmit(BaseModel):
     warehouse_city: str = Field(..., min_length=2)
     warehouse_latitude: Optional[float] = None
     warehouse_longitude: Optional[float] = None
+    # Map-based geolocation (v0.6) — captured by the Places picker
+    warehouse_country_code: Optional[str] = Field(default=None, min_length=2, max_length=2)
+    warehouse_region: Optional[str] = None
+    warehouse_postal_code: Optional[str] = None
+    warehouse_place_id: Optional[str] = None
+    warehouse_formatted_address: Optional[str] = None
+    warehouse_location_accuracy: Optional[str] = None
     property_type: Optional[str] = Field(None, pattern="^(owned|leased)$")
     property_size_sqm: Optional[float] = Field(None, ge=0)
     service_area_km: Optional[float] = Field(None, ge=0, le=500)
@@ -100,6 +108,12 @@ def _serialise(row: PartnerApplication) -> dict:
         "warehouse_city": row.warehouse_city,
         "warehouse_latitude": float(row.warehouse_latitude) if row.warehouse_latitude is not None else None,
         "warehouse_longitude": float(row.warehouse_longitude) if row.warehouse_longitude is not None else None,
+        "warehouse_country_code": getattr(row, "warehouse_country_code", None),
+        "warehouse_region": getattr(row, "warehouse_region", None),
+        "warehouse_postal_code": getattr(row, "warehouse_postal_code", None),
+        "warehouse_place_id": getattr(row, "warehouse_place_id", None),
+        "warehouse_formatted_address": getattr(row, "warehouse_formatted_address", None),
+        "warehouse_location_accuracy": getattr(row, "warehouse_location_accuracy", None),
         "property_type": row.property_type,
         "property_size_sqm": float(row.property_size_sqm) if row.property_size_sqm is not None else None,
         "service_area_km": float(row.service_area_km) if row.service_area_km is not None else None,
@@ -142,6 +156,61 @@ async def _next_reference(session: AsyncSession, module: str, country: str) -> s
 
 # ---------- Public endpoints ----------
 
+# ---------------------------------------------------------------------------
+# Map-based geolocation — validation helpers (Fixing_Prompt_2026-02-11_v2 §13)
+# ---------------------------------------------------------------------------
+
+# Configuration-driven country whitelist so future rollouts stay a 1-line change.
+# Read from `SUPPORTED_COUNTRIES` env when present, comma-separated ISO-2 codes.
+def _supported_countries() -> set[str]:
+    raw = os.environ.get("SUPPORTED_COUNTRIES", "CI")
+    return {c.strip().upper() for c in raw.split(",") if c.strip()}
+
+
+def _validate_warehouse_location(payload: "ApplicationSubmit") -> None:
+    """Enforce map-based location integrity. Called from POST /applications.
+
+    * NEW applications MUST include latitude + longitude (Fixing_Prompt §9).
+    * Coords must lie in valid geographic ranges.
+    * Country (from `payload.country` or `warehouse_country_code`) must be in
+      the platform's whitelist.
+    * Backwards-compat mode: if BOTH coords are None the payload is rejected
+      only for `dark_store` business type — other business types keep the
+      existing text-only flow until they're migrated.
+    """
+    lat, lng = payload.warehouse_latitude, payload.warehouse_longitude
+    is_dark_store = (payload.business_type == "dark_store")
+
+    if is_dark_store and (lat is None or lng is None):
+        raise HTTPException(status_code=400, detail={
+            "code": "coordinates_required",
+            "message": "Please pick your store location on the map. "
+                       "Latitude and longitude are required for dark stores.",
+        })
+    if lat is not None and not (-90.0 <= float(lat) <= 90.0):
+        raise HTTPException(status_code=400, detail={
+            "code": "invalid_coordinates",
+            "message": "Latitude must be between -90 and 90.",
+        })
+    if lng is not None and not (-180.0 <= float(lng) <= 180.0):
+        raise HTTPException(status_code=400, detail={
+            "code": "invalid_coordinates",
+            "message": "Longitude must be between -180 and 180.",
+        })
+
+    # Country whitelist. Prefer the country ISO from the reverse-geocoded
+    # place (warehouse_country_code) since it's derived from the pin, not the
+    # applicant-typed field.
+    supported = _supported_countries()
+    detected  = (payload.warehouse_country_code or payload.country or "").upper()
+    if detected and detected not in supported:
+        raise HTTPException(status_code=400, detail={
+            "code": "unsupported_country",
+            "message": "This location is currently outside the MARTbakēd service area.",
+            "supported": sorted(supported),
+        })
+
+
 @router.post("/applications", status_code=201)
 async def submit_application(
     payload: ApplicationSubmit, session: AsyncSession = Depends(get_session),
@@ -153,6 +222,7 @@ async def submit_application(
     dedupe on email because a real business might apply under multiple legal
     entities. Admin can merge later.
     """
+    _validate_warehouse_location(payload)
     now = datetime.now(timezone.utc)
     reference = await _next_reference(session, payload.module, payload.country)
 
@@ -178,6 +248,12 @@ async def submit_application(
         warehouse_city=payload.warehouse_city,
         warehouse_latitude=payload.warehouse_latitude,
         warehouse_longitude=payload.warehouse_longitude,
+        warehouse_country_code=(payload.warehouse_country_code or payload.country).upper(),
+        warehouse_region=payload.warehouse_region,
+        warehouse_postal_code=payload.warehouse_postal_code,
+        warehouse_place_id=payload.warehouse_place_id,
+        warehouse_formatted_address=payload.warehouse_formatted_address,
+        warehouse_location_accuracy=payload.warehouse_location_accuracy,
         property_type=payload.property_type,
         property_size_sqm=payload.property_size_sqm,
         service_area_km=payload.service_area_km,
@@ -376,17 +452,37 @@ async def admin_approve(
     session.add(partner)
     await session.flush()  # need partner.id for the warehouse FK
 
+    # Auto-generate the human-readable store code (Fixing_Prompt §27).
+    from modules.mart_partner.codes import next_store_code
+    generated_code = await next_store_code(
+        session, module=partner.module or "mart",
+        city=row.warehouse_city,
+    )
+
     warehouse = Warehouse(
         partner_id=partner.id,
+        code=generated_code,
         name=f"{row.business_name} — Main",
         address_line=row.warehouse_address_line,
         city=row.warehouse_city,
+        region=getattr(row, "warehouse_region", None),
         country=row.country,
         latitude=row.warehouse_latitude,
         longitude=row.warehouse_longitude,
         property_type=row.property_type,
         property_size_sqm=row.property_size_sqm,
         service_area_km=row.service_area_km,
+        # Map-based location fields inherited from the reviewed application
+        formatted_address=getattr(row, "warehouse_formatted_address", None),
+        place_id=getattr(row, "warehouse_place_id", None),
+        postal_code=getattr(row, "warehouse_postal_code", None),
+        location_accuracy=getattr(row, "warehouse_location_accuracy", None),
+        # Freshly-approved stores land in `setup_required` — admin/owner must
+        # complete zones + products before flipping to `active`.
+        status="setup_required",
+        is_active=True,
+        contact_email=partner.owner_email,
+        contact_phone=partner.owner_phone,
     )
     session.add(warehouse)
 

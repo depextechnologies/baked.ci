@@ -237,6 +237,15 @@ const StoreDrawer = ({ store, transitions, onClose, onChanged }) => {
                   value={[store.contact_email, store.contact_phone].filter(Boolean).join(" · ") || "—"} />
           <Detail label="Coordinates"
                   value={store.latitude && store.longitude ? `${store.latitude}, ${store.longitude}` : "—"} />
+          {store.latitude && store.longitude && (
+            <a href={`https://www.google.com/maps?q=${store.latitude},${store.longitude}`}
+               target="_blank" rel="noopener noreferrer"
+               className="inline-flex items-center gap-1 text-xs underline underline-offset-2"
+               style={{ color: "var(--primary)" }}
+               data-testid="admin-store-view-on-map">
+              <MapPin size={12} /> View on Google Maps ↗
+            </a>
+          )}
           <Detail label="Service area" value={store.service_area_km ? `${store.service_area_km} km` : "—"} />
           <Detail label="Capacity" value={store.warehouse_capacity_sqm ? `${store.warehouse_capacity_sqm} sqm` : "—"} />
           <Detail label="Time zone" value={store.time_zone || "—"} />
