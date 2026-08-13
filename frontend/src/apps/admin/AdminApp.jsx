@@ -25,6 +25,7 @@ import { AdminMartCatalog } from "@/pages/admin/AdminMartCatalog";
 import { AdminProductApprovals } from "@/pages/admin/AdminProductApprovals";
 import { AdminInventoryControlTower } from "@/pages/admin/AdminInventoryControlTower";
 import { AdminCategoryRequests } from "@/pages/admin/AdminCategoryRequests";
+import { AdminSupplierApplications } from "@/pages/admin/AdminSupplierApplications";
 
 export const AdminApp = () => (
   <Routes>
@@ -64,6 +65,8 @@ export const AdminApp = () => (
         <Route path="catalog" element={<AdminMartCatalog />} />
         <Route path="approvals" element={<AdminProductApprovals />} />
         <Route path="category-requests" element={<AdminCategoryRequests />} />
+        <Route path="suppliers" element={<AdminSupplierApplications />} />
+        <Route path="suppliers/applications" element={<AdminSupplierApplications />} />
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />
         <Route path="drivers" element={<ModuleDrivers />} />

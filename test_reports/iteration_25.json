@@ -1,0 +1,31 @@
+{
+  "summary": "Frontend testing of MARTbakēd Supplier Onboarding Phase 2A Cycle 2. Verified landing, application-status lookup (invalid/approved/action_required/direct-link), supplier login (correct/wrong/not-active), activation validation, 9-step wizard start + OTP flow through Step 2, Super Admin AdminSupplierApplications page (6 buckets, drawer, all sections, Approve/Reject/Request-Info actions, Suspend visible on Approved, notes-required toast). All critical flows work.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SellerActivate", "issue": "When password is <8 chars (e.g. 'short'/'short'), UI shows stale 'Passwords do not match' from previous submission instead of the intended 'Password must be at least 8 characters' error. Root cause: HTML5 required + minLength attributes on inputs may block re-submit; also error state is not cleared between attempts. Not blocking (client already enforces the constraint), but the message is misleading.", "selector": "[data-testid=seller-activate-error]", "priority": "LOW"},
+      {"component": "SellerLogin", "issue": "Login with a non-activated supplier (echo submitted) returns 'Invalid credentials' rather than a distinct 'not_active' message. Backend contract may return 401 uniformly, but the requirement expected a differentiated 'not_active' error to guide the user to activation. Consider surfacing detail.code='not_active' with a link to /martbaked/sellers/application-status.", "selector": "[data-testid=seller-login-error]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_25.json"],
+  "action_items": [
+    "(Optional) SellerActivate: clear error state before validation and put the length check before the mismatch check so the correct message is shown. Also consider disabling HTML5 minLength on inputs so JS handles messaging.",
+    "(Optional) SellerLogin: surface backend's not_active/pending status via detail.code and show a friendlier message with a CTA to check application status or activate."
+  ],
+  "critical_code_review_comments": [
+    "SellerApp.jsx SellerActivate: validation order is (mismatch first, then length) but state error is not cleared between clicks — stale error can display. Minor UX bug.",
+    "SellerApp.jsx SellerActivate: input has HTML5 required + minLength=8, so submitting a short password may be blocked by the browser before JS validates, effectively making the JS 'at least 8 characters' branch unreachable. Consider removing minLength or handling both consistently.",
+    "SellerLogin currently swallows structured detail (detail.code) and only surfaces detail.message; consider mapping detail.code to friendlier UX (not_active → link to activation status).",
+    "SellerApplyWizard StepPhone: window.history.replaceState updates URL but useEffect only triggers refresh once on mount — resuming after phone verification works but if user refreshes at step 1 OTP phase they might land back at draft form (minor)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "~95%"},
+  "test_credentials": "SA: depexopenai@gmail.com / baked@2026#!$@; Supplier: demo-delta-supplier@test.example / Supplier1234!",
+  "seed_data_creation": "Created 1 draft supplier via wizard start (TEST Playwright Supplier) + advanced through OTP to Step 2. Also mutated seeded data: MART-SUP-2026-00002 (Echo) → rejected via SA UI; MART-SUP-2026-00003 (Foxtrot) → approved via SA UI. If retesting, main agent may need to re-run seed to restore original states.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Wizard Steps 3–9 were not driven end-to-end due to time (map picker requires Google Maps and manual pin). If needed, next agent can drive Steps 2→9 using the appId returned from the wizard-step1-create flow. Bucket counts after this run: Approved=2, Rejected=1, Action Required=0, Submitted=0 (state was mutated).",
+  "rca_of_the_issue": "N/A — no critical failures. Two minor UX polish items in Activate/Login flows noted above."
+}
