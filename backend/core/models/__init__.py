@@ -63,6 +63,13 @@ from core.models.replenishment import (
 from core.models.transfers import (
     TRANSFER_STATUSES, PartnerTransfer, PartnerTransferItem,
 )
+from core.models.suppliers import (
+    SUPPLIER_STATUSES, SUPPLIER_APPLICATION_STATUSES, SUPPLIER_BUSINESS_TYPES,
+    SUPPLIER_CONTACT_RELATIONS, SUPPLIER_DOCUMENT_TYPES,
+    Supplier, SupplierApplication, SupplierContact, SupplierDocument,
+    SupplierSupplyLocation, SupplierCategoryInterest, SupplierBankInfo,
+    SupplierReviewAudit,
+)
 
 __all__ = [
     "Base",
@@ -141,4 +148,10 @@ __all__ = [
     "RECEIPT_STATUSES", "RECEIPT_SOURCES", "COUNT_STATUSES", "COUNT_SCOPES",
     "PartnerReplenishment", "REPLENISHMENT_STATUSES", "REPLENISHMENT_SOURCES",
     "PartnerTransfer", "PartnerTransferItem", "TRANSFER_STATUSES",
+    "Supplier", "SupplierApplication", "SupplierContact", "SupplierDocument",
+    "SupplierSupplyLocation", "SupplierCategoryInterest", "SupplierBankInfo",
+    "SupplierReviewAudit",
+    "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
+    "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
+    "SUPPLIER_DOCUMENT_TYPES",
 ]

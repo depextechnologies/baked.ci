@@ -886,6 +886,9 @@ async def run_seed():
         await _seed_ai_prompts(session)
         await _seed_module_vendors_and_drivers(session)
         await _seed_demo_partners(session)
+        # Phase 2A: demo suppliers so the SA review UI has data to render
+        from shared.suppliers.seed import seed_demo_suppliers
+        await seed_demo_suppliers(session)
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars

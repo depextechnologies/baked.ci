@@ -497,4 +497,22 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - Phase 7 — Analytics dashboard (Slice D) & Return / Refund (Slice H)
     - Phase 8 — Real Stripe integration for Wallet & Checkout
 - ⏳ Inventory Exceptions module (aggregated pending issues by category)
+- ✅ **Phase 2A — Supplier Onboarding Foundation (Backend)** (2026-02-13)
+    - **Guiding doc**: `Inventory_Prompt` §Supplier Onboarding Foundation — suppliers are a SEPARATE business entity from dark-store partners (independent DB, RBAC, auth, routes).
+    - **Alembic migration 0012** creates 8 tables: `suppliers`, `supplier_applications`, `supplier_contacts`, `supplier_documents`, `supplier_supply_locations`, `supplier_category_interests`, `supplier_bank_info`, `supplier_review_audit`. All FK-integrated with `countries`, `mart_categories`, `admin_users`, `warehouses`.
+    - **Backend routes** (`/app/backend/shared/suppliers/routes.py`):
+      * Public wizard (`/api/martbaked/sellers/apply/*`): `start` → creates draft supplier + `SupplierApplication` with code `MART-SUP-{YYYY}-{seq:05d}`; `otp/request` + `otp/verify` (reuses shared OTP infra + `OtpChallenge`); `PATCH /step` for steps 2–8 (business info, owner, business location on Google Maps lat/lng, category interests, supply locations, banking, documents); `submit` snapshots the full application and flips lifecycle to `submitted`.
+      * Public status: `GET /application-status/{code}` (no auth, safe fields only — status, business name, action-required notes / rejection reason).
+      * Supplier auth: `POST /login` (email + password, 403 unless status=approved & portal_active); `POST /activate` (owner-set password using application_code from approval email).
+      * Super Admin (`/api/admin/modules/mart/suppliers/*`): applications list with bucket counts (`draft / submitted / under_review / action_required / approved / rejected`); full detail with audit trail; `approve` (assigns `SUP-{CC}-{seq:04d}` supplier code + activation URL); `reject` (notes required — 400); `request-info` (notes required); `suspend` / `unsuspend`. Every action writes a `SupplierReviewAudit` row.
+    - **Reuses**: shared OTP provider (dev echoes `dev_code`), shared bcrypt password hashing, shared JWT (`role="supplier"`), existing `MartCategory` (no duplicate category master), existing Google Places / Maps integration for the frontend map picker (frontend not yet built).
+    - **Demo seed** (`shared/suppliers/seed.py`) creates 3 clearly-marked DEMO suppliers spanning statuses: Delta (approved + portal active, login-ready with `Supplier1234!`), Echo (submitted, awaiting review), Foxtrot (action_required with notes).
+    - **Regression**: `tests/test_supplier_onboarding_phase2a.py` — 7/7 backend pytest PASS. Full E2E: apply/start → OTP → 6 step PATCHes → submit → SA request-info → resubmit → SA approve → activate → supplier login → duplicate-email 409 → suspend → login 403 → unsuspend. Plus DEMO seed sanity + admin guards (reject without notes 400, buckets keys).
+    - **STOP CONDITION** honoured per `Inventory_Prompt` §24 — halting for user review before starting Phase 2A frontend wizard + Phase 2B (Supplier CRUD / Catalogue / Documents).
+- ⏳ **Phase 2A Cycle 2 (Frontend)** — pending user go-ahead:
+    - `/martbaked/sellers` landing page (Apply / Login CTAs)
+    - `/martbaked/sellers/apply` — 9-step wizard reusing existing Google Places picker
+    - `/martbaked/sellers/login` + `/martbaked/sellers/application-status` + `/martbaked/sellers/activate`
+    - Super Admin `AdminSupplierApplications.jsx` review UI with buckets + detail drawer
+- ⏳ **Phase 2B** — Supplier Portal (post-login): Business profile, Products, Catalogue (SKU ↔ supplier cost), Documents management, Supply Locations, Notifications, Support, Settings.
 

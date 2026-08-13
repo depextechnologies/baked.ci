@@ -1,0 +1,866 @@
+"""MARTbakēd Supplier Onboarding — Phase 2A.
+
+Public routes for `/martbaked/sellers/*`:
+  * POST   /api/martbaked/sellers/apply/start          — begin application (draft supplier + application row)
+  * POST   /api/martbaked/sellers/apply/otp/request    — send OTP to phone
+  * POST   /api/martbaked/sellers/apply/otp/verify     — verify OTP, mark supplier.phone_verified
+  * PATCH  /api/martbaked/sellers/apply/{app_id}/step  — save a step (business/owner/location/…)
+  * POST   /api/martbaked/sellers/apply/{app_id}/submit — final submit → status=submitted
+  * GET    /api/martbaked/sellers/apply/{app_id}       — full application snapshot (draft lookup)
+  * GET    /api/martbaked/sellers/application-status/{application_code}
+                                                       — public status lookup (no auth)
+
+Supplier login (after approval):
+  * POST /api/martbaked/sellers/login                  — email + password → JWT
+  * POST /api/martbaked/sellers/activate               — set password via activation token (approval flow)
+
+Super Admin review routes (under /api/admin/modules/mart/suppliers/*):
+  * GET    /api/admin/modules/mart/suppliers/applications                   — list with bucket counts
+  * GET    /api/admin/modules/mart/suppliers/applications/{app_id}          — full detail
+  * POST   /api/admin/modules/mart/suppliers/applications/{app_id}/approve  — flip to approved + activate portal
+  * POST   /api/admin/modules/mart/suppliers/applications/{app_id}/reject   — flip to rejected (notes required)
+  * POST   /api/admin/modules/mart/suppliers/applications/{app_id}/request-info — flip to action_required (notes required)
+  * POST   /api/admin/modules/mart/suppliers/{sid}/suspend                  — suspend an active supplier
+  * POST   /api/admin/modules/mart/suppliers/{sid}/unsuspend                — reactivate
+"""
+from __future__ import annotations
+from datetime import datetime, timedelta, timezone
+from typing import Optional, List
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.db import get_session
+from core.models import (
+    AdminUser, MartCategory, OtpChallenge,
+    Supplier, SupplierApplication, SupplierBankInfo,
+    SupplierCategoryInterest, SupplierContact, SupplierDocument,
+    SupplierReviewAudit, SupplierSupplyLocation,
+    SUPPLIER_BUSINESS_TYPES, SUPPLIER_CONTACT_RELATIONS,
+    SUPPLIER_DOCUMENT_TYPES,
+)
+from core.providers.otp_provider import generate_code, get_otp_provider
+from core.security import create_access_token, hash_password, verify_password
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+OTP_TTL_SECONDS = 300
+BAKED_ENV = None  # dev-code echo is decided per-provider
+
+
+def _e164(country_code: str, phone: str) -> str:
+    cc = country_code.strip()
+    if not cc.startswith("+"):
+        cc = "+" + cc
+    digits = "".join(ch for ch in phone if ch.isdigit()).lstrip("0")
+    return f"{cc}{digits}"
+
+
+async def _next_application_code(session: AsyncSession) -> str:
+    """MART-SUP-{YYYY}-{seq:05d} — atomic per year via COUNT+retry-safe unique index."""
+    year = datetime.now(timezone.utc).year
+    prefix = f"MART-SUP-{year}-"
+    n = (await session.scalar(
+        select(func.count(SupplierApplication.id))
+        .where(SupplierApplication.application_code.like(f"{prefix}%"))
+    )) or 0
+    n += 1
+    return f"{prefix}{n:05d}"
+
+
+def _supplier_dict(s: Supplier) -> dict:
+    return {
+        "id": s.id, "code": s.code, "business_name": s.business_name,
+        "trading_name": s.trading_name, "business_type": s.business_type,
+        "business_type_other": s.business_type_other,
+        "registration_number": s.registration_number, "tax_id": s.tax_id,
+        "business_email": s.business_email, "business_phone": s.business_phone,
+        "website": s.website, "years_in_operation": s.years_in_operation,
+        "country": s.country, "default_currency": s.default_currency,
+        "module": s.module, "status": s.status,
+        "supplier_portal_active": s.supplier_portal_active,
+        "phone_verified": s.phone_verified, "email_verified": s.email_verified,
+        "approved_at": s.approved_at.isoformat() if s.approved_at else None,
+        "suspended_at": s.suspended_at.isoformat() if s.suspended_at else None,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+def _application_dict(a: SupplierApplication) -> dict:
+    return {
+        "id": a.id, "application_code": a.application_code,
+        "supplier_id": a.supplier_id, "status": a.status,
+        "current_step": a.current_step, "phone_e164": a.phone_e164,
+        "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+        "reviewed_at": a.reviewed_at.isoformat() if a.reviewed_at else None,
+        "action_required_notes": a.action_required_notes,
+        "rejection_reason": a.rejection_reason,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    }
+
+
+async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict:
+    """Return the full supplier snapshot for review / status views."""
+    contacts = (await session.execute(
+        select(SupplierContact).where(SupplierContact.supplier_id == supplier.id)
+    )).scalars().all()
+    docs = (await session.execute(
+        select(SupplierDocument).where(SupplierDocument.supplier_id == supplier.id)
+    )).scalars().all()
+    locs = (await session.execute(
+        select(SupplierSupplyLocation).where(SupplierSupplyLocation.supplier_id == supplier.id)
+    )).scalars().all()
+    cats = (await session.execute(
+        select(SupplierCategoryInterest).where(SupplierCategoryInterest.supplier_id == supplier.id)
+    )).scalars().all()
+    bank = (await session.execute(
+        select(SupplierBankInfo).where(SupplierBankInfo.supplier_id == supplier.id)
+    )).scalar_one_or_none()
+    return {
+        "supplier": _supplier_dict(supplier),
+        "contacts": [{
+            "id": c.id, "full_name": c.full_name, "position": c.position,
+            "phone": c.phone, "email": c.email, "nationality": c.nationality,
+            "id_type": c.id_type, "id_number": c.id_number,
+            "id_document_url": c.id_document_url, "relationship": c.relationship,
+            "is_primary": c.is_primary,
+        } for c in contacts],
+        "documents": [{
+            "id": d.id, "document_type": d.document_type, "title": d.title,
+            "file_url": d.file_url,
+            "issued_on": d.issued_on.isoformat() if d.issued_on else None,
+            "expires_on": d.expires_on.isoformat() if d.expires_on else None,
+            "verification_status": d.verification_status,
+        } for d in docs],
+        "supply_locations": [{
+            "id": l.id, "kind": l.kind, "label": l.label, "city": l.city,
+            "country": l.country, "zone": l.zone, "warehouse_id": l.warehouse_id,
+            "address": l.address,
+            "latitude": float(l.latitude) if l.latitude is not None else None,
+            "longitude": float(l.longitude) if l.longitude is not None else None,
+            "postal_code": l.postal_code, "service_radius_km": l.service_radius_km,
+            "is_business_location": l.is_business_location,
+            "approval_status": l.approval_status,
+        } for l in locs],
+        "categories": [{
+            "id": c.id, "category_id": c.category_id,
+            "requested_name": c.requested_name, "status": c.status,
+        } for c in cats],
+        "bank_info": {
+            "bank_name": bank.bank_name, "account_holder": bank.account_holder,
+            "account_number": bank.account_number, "iban": bank.iban,
+            "swift_bic": bank.swift_bic,
+            "mobile_money_provider": bank.mobile_money_provider,
+            "mobile_money_number": bank.mobile_money_number,
+            "preferred_method": bank.preferred_method,
+            "billing_address": bank.billing_address, "billing_city": bank.billing_city,
+            "billing_country": bank.billing_country,
+        } if bank else None,
+    }
+
+
+# ===========================================================================
+# PUBLIC APPLICATION ROUTES
+# ===========================================================================
+
+public_router = APIRouter(prefix="/martbaked/sellers", tags=["supplier-onboarding"])
+
+
+class ApplyStartIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    business_email: EmailStr
+    business_name: str = Field(..., min_length=2, max_length=300)
+    business_type: str = Field(..., description="manufacturer|distributor|wholesaler|…")
+    country: str = Field(..., min_length=2, max_length=2)
+
+
+@public_router.post("/apply/start", status_code=201)
+async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get_session)):
+    """Create a draft supplier + application row and return the application id.
+    Idempotent-ish: if a draft/action_required application already exists for
+    the same email + country, reuse it so refreshes don't spawn dupes."""
+    if payload.business_type not in SUPPLIER_BUSINESS_TYPES:
+        raise HTTPException(400, f"business_type must be one of {SUPPLIER_BUSINESS_TYPES}")
+    country = payload.country.upper()
+
+    existing = (await session.execute(
+        select(Supplier).where(
+            Supplier.business_email == payload.business_email,
+            Supplier.country == country,
+        )
+    )).scalar_one_or_none()
+    if existing:
+        if existing.status in ("approved", "suspended"):
+            raise HTTPException(409, {
+                "code": "already_active",
+                "message": "A supplier with this email already exists. Please log in.",
+            })
+        app = (await session.execute(
+            select(SupplierApplication).where(SupplierApplication.supplier_id == existing.id)
+            .order_by(SupplierApplication.created_at.desc())
+        )).scalars().first()
+        if app and app.status in ("draft", "action_required"):
+            return {"application": _application_dict(app), "supplier": _supplier_dict(existing)}
+        if app and app.status in ("submitted", "under_review"):
+            raise HTTPException(409, {
+                "code": "already_submitted",
+                "message": "Application already submitted. Use /application-status to check.",
+                "application_code": app.application_code,
+            })
+
+    supplier = Supplier(
+        business_name=payload.business_name,
+        business_type=payload.business_type,
+        business_email=payload.business_email,
+        country=country,
+        status="draft",
+    )
+    session.add(supplier)
+    await session.flush()
+
+    code = await _next_application_code(session)
+    app = SupplierApplication(
+        application_code=code, supplier_id=supplier.id,
+        status="draft", current_step=1,
+    )
+    session.add(app)
+    await session.commit()
+    await session.refresh(supplier)
+    await session.refresh(app)
+    return {"application": _application_dict(app), "supplier": _supplier_dict(supplier)}
+
+
+class OtpRequestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    application_id: str
+    country_code: str
+    phone: str
+
+
+@public_router.post("/apply/otp/request")
+async def apply_otp_request(payload: OtpRequestIn, session: AsyncSession = Depends(get_session)):
+    app = await session.get(SupplierApplication, payload.application_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    e164 = _e164(payload.country_code, payload.phone)
+    code = generate_code(6)
+    now = datetime.now(timezone.utc)
+    ch = OtpChallenge(phone=e164, code=code, attempts=0,
+                      expires_at=now + timedelta(seconds=OTP_TTL_SECONDS))
+    session.add(ch)
+    app.phone_e164 = e164
+    app.phone_challenge_id = ch.id
+    await session.commit()
+    provider = get_otp_provider()
+    delivery = await provider.send_code(e164, code, locale="fr-CI")
+    resp = {"challenge_id": ch.id, "expires_in": OTP_TTL_SECONDS,
+            "masked_phone": e164[:-4] + "****"}
+    if delivery.get("dev_code"):
+        resp["dev_code"] = delivery["dev_code"]
+    return resp
+
+
+class OtpVerifyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    application_id: str
+    challenge_id: str
+    code: str
+
+
+@public_router.post("/apply/otp/verify")
+async def apply_otp_verify(payload: OtpVerifyIn, session: AsyncSession = Depends(get_session)):
+    app = await session.get(SupplierApplication, payload.application_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    ch = await session.get(OtpChallenge, payload.challenge_id)
+    if not ch or ch.consumed:
+        raise HTTPException(400, "Invalid or used challenge")
+    exp = ch.expires_at
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    if exp < datetime.now(timezone.utc):
+        raise HTTPException(400, "Code expired")
+    if ch.attempts >= 5:
+        raise HTTPException(429, "Too many attempts")
+    ch.attempts += 1
+    if payload.code != ch.code:
+        await session.commit()
+        raise HTTPException(400, "Incorrect code")
+    ch.consumed = True
+    supplier = await session.get(Supplier, app.supplier_id)
+    supplier.phone_verified = True
+    supplier.business_phone = app.phone_e164
+    app.current_step = max(app.current_step, 2)
+    await session.commit()
+    return {"phone_verified": True, "application_id": app.id, "current_step": app.current_step}
+
+
+class StepIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    step: int = Field(..., ge=1, le=9)
+    # Business info (step 2)
+    business_name: Optional[str] = None
+    trading_name: Optional[str] = None
+    business_type: Optional[str] = None
+    business_type_other: Optional[str] = None
+    registration_number: Optional[str] = None
+    tax_id: Optional[str] = None
+    business_email: Optional[EmailStr] = None
+    business_phone: Optional[str] = None
+    website: Optional[str] = None
+    years_in_operation: Optional[int] = None
+    default_currency: Optional[str] = None
+    # Owner / contact (step 3)
+    contact: Optional[dict] = None
+    # Business location (step 4)
+    business_location: Optional[dict] = None
+    # Categories (step 5) — list of {category_id} OR {requested_name, reason}
+    categories: Optional[List[dict]] = None
+    # Supply locations (step 6) — list of {kind, label, city, country, warehouse_id?, lat?, lng?, radius?}
+    supply_locations: Optional[List[dict]] = None
+    # Banking (step 7)
+    bank_info: Optional[dict] = None
+    # Documents (step 8) — list of {document_type, title, file_url, issued_on?, expires_on?}
+    documents: Optional[List[dict]] = None
+
+
+@public_router.patch("/apply/{app_id}/step")
+async def apply_save_step(app_id: str, payload: StepIn, session: AsyncSession = Depends(get_session)):
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("draft", "action_required"):
+        raise HTTPException(409, f"Cannot edit a {app.status} application")
+    supplier = await session.get(Supplier, app.supplier_id)
+
+    # ---- Step 2: Business Information ----
+    if payload.step == 2:
+        for f in ("business_name", "trading_name", "business_type", "business_type_other",
+                  "registration_number", "tax_id", "business_email", "business_phone",
+                  "website", "years_in_operation", "default_currency"):
+            v = getattr(payload, f, None)
+            if v is not None:
+                if f == "business_type" and v not in SUPPLIER_BUSINESS_TYPES:
+                    raise HTTPException(400, f"Invalid business_type")
+                setattr(supplier, f, v)
+
+    # ---- Step 3: Owner / authorised rep ----
+    if payload.step == 3 and payload.contact:
+        c = payload.contact
+        if c.get("relationship") and c["relationship"] not in SUPPLIER_CONTACT_RELATIONS:
+            raise HTTPException(400, "Invalid contact relationship")
+        # Upsert the primary contact
+        primary = (await session.execute(
+            select(SupplierContact).where(
+                SupplierContact.supplier_id == supplier.id,
+                SupplierContact.is_primary.is_(True),
+            )
+        )).scalar_one_or_none()
+        if primary:
+            for k in ("full_name", "position", "phone", "email", "nationality",
+                      "id_type", "id_number", "id_document_url", "relationship"):
+                if c.get(k) is not None:
+                    setattr(primary, k, c[k])
+        else:
+            session.add(SupplierContact(
+                supplier_id=supplier.id, is_primary=True,
+                full_name=c.get("full_name") or "Unnamed",
+                position=c.get("position"), phone=c.get("phone"),
+                email=c.get("email"), nationality=c.get("nationality"),
+                id_type=c.get("id_type"), id_number=c.get("id_number"),
+                id_document_url=c.get("id_document_url"),
+                relationship=c.get("relationship") or "owner",
+            ))
+
+    # ---- Step 4: Business location (Google Maps pin) ----
+    if payload.step == 4 and payload.business_location:
+        loc = payload.business_location
+        existing = (await session.execute(
+            select(SupplierSupplyLocation).where(
+                SupplierSupplyLocation.supplier_id == supplier.id,
+                SupplierSupplyLocation.is_business_location.is_(True),
+            )
+        )).scalar_one_or_none()
+        vals = dict(
+            kind="business_location", label=loc.get("label") or supplier.business_name,
+            city=loc.get("city"), country=(loc.get("country") or supplier.country).upper(),
+            zone=loc.get("zone"), address=loc.get("address"),
+            latitude=loc.get("latitude"), longitude=loc.get("longitude"),
+            postal_code=loc.get("postal_code"),
+            service_radius_km=loc.get("service_radius_km"),
+            is_business_location=True, approval_status="pending",
+        )
+        if existing:
+            for k, v in vals.items():
+                setattr(existing, k, v)
+        else:
+            session.add(SupplierSupplyLocation(supplier_id=supplier.id, **vals))
+
+    # ---- Step 5: Categories ----
+    if payload.step == 5 and payload.categories is not None:
+        # Wipe & re-insert (simple + idempotent)
+        (await session.execute(
+            select(SupplierCategoryInterest).where(
+                SupplierCategoryInterest.supplier_id == supplier.id
+            )
+        )).scalars().all()  # noqa (fetch triggers no side effect)
+        from sqlalchemy import delete as _delete
+        await session.execute(
+            _delete(SupplierCategoryInterest).where(
+                SupplierCategoryInterest.supplier_id == supplier.id
+            )
+        )
+        for item in payload.categories:
+            cat_id = item.get("category_id")
+            if cat_id:
+                exists = await session.get(MartCategory, cat_id)
+                if not exists:
+                    raise HTTPException(400, f"Category not found: {cat_id}")
+                session.add(SupplierCategoryInterest(
+                    supplier_id=supplier.id, category_id=cat_id, status="approved",
+                ))
+            elif item.get("requested_name"):
+                session.add(SupplierCategoryInterest(
+                    supplier_id=supplier.id,
+                    requested_name=item["requested_name"],
+                    reason=item.get("reason"),
+                    status="pending",
+                ))
+
+    # ---- Step 6: Supply locations (non-business-location rows) ----
+    if payload.step == 6 and payload.supply_locations is not None:
+        from sqlalchemy import delete as _delete
+        await session.execute(
+            _delete(SupplierSupplyLocation).where(
+                SupplierSupplyLocation.supplier_id == supplier.id,
+                SupplierSupplyLocation.is_business_location.is_(False),
+            )
+        )
+        for loc in payload.supply_locations:
+            kind = loc.get("kind") or "supply_city"
+            session.add(SupplierSupplyLocation(
+                supplier_id=supplier.id, kind=kind,
+                label=loc.get("label") or (loc.get("city") or kind),
+                city=loc.get("city"),
+                country=(loc.get("country") or supplier.country).upper(),
+                zone=loc.get("zone"), warehouse_id=loc.get("warehouse_id"),
+                address=loc.get("address"),
+                latitude=loc.get("latitude"), longitude=loc.get("longitude"),
+                service_radius_km=loc.get("service_radius_km"),
+                is_business_location=False,
+                approval_status="pending",
+            ))
+
+    # ---- Step 7: Banking ----
+    if payload.step == 7 and payload.bank_info:
+        b = payload.bank_info
+        row = (await session.execute(
+            select(SupplierBankInfo).where(SupplierBankInfo.supplier_id == supplier.id)
+        )).scalar_one_or_none()
+        if row:
+            for k in ("bank_name", "account_holder", "account_number", "iban",
+                      "swift_bic", "mobile_money_provider", "mobile_money_number",
+                      "preferred_method", "billing_address", "billing_city",
+                      "billing_country"):
+                if b.get(k) is not None:
+                    setattr(row, k, b[k])
+        else:
+            session.add(SupplierBankInfo(supplier_id=supplier.id, **{
+                k: b.get(k) for k in (
+                    "bank_name", "account_holder", "account_number", "iban",
+                    "swift_bic", "mobile_money_provider", "mobile_money_number",
+                    "preferred_method", "billing_address", "billing_city",
+                    "billing_country",
+                )
+            }))
+
+    # ---- Step 8: Documents ----
+    if payload.step == 8 and payload.documents is not None:
+        for d in payload.documents:
+            dtype = d.get("document_type") or "other"
+            if dtype not in SUPPLIER_DOCUMENT_TYPES:
+                raise HTTPException(400, f"Invalid document_type: {dtype}")
+            if not d.get("file_url"):
+                raise HTTPException(400, "file_url is required for each document")
+            session.add(SupplierDocument(
+                supplier_id=supplier.id, document_type=dtype,
+                title=d.get("title"), file_url=d["file_url"],
+                issued_on=d.get("issued_on"), expires_on=d.get("expires_on"),
+            ))
+
+    app.current_step = max(app.current_step, payload.step + 1 if payload.step < 9 else 9)
+    await session.commit()
+    await session.refresh(app)
+    return {"application": _application_dict(app), "current_step": app.current_step}
+
+
+@public_router.post("/apply/{app_id}/submit")
+async def apply_submit(app_id: str, session: AsyncSession = Depends(get_session)):
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("draft", "action_required"):
+        raise HTTPException(409, f"Cannot submit a {app.status} application")
+    supplier = await session.get(Supplier, app.supplier_id)
+    if not supplier.phone_verified:
+        raise HTTPException(400, "Phone must be verified before submission")
+
+    # Snapshot the full application for auditability
+    snapshot = await _load_full_snapshot(session, supplier)
+    app.summary_snapshot = snapshot
+    app.status = "submitted"
+    app.submitted_at = datetime.now(timezone.utc)
+    supplier.status = "submitted"
+
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, application_id=app.id,
+        action="submit", from_status="draft", to_status="submitted",
+    ))
+    await session.commit()
+    await session.refresh(app)
+    return {"application": _application_dict(app), "supplier": _supplier_dict(supplier)}
+
+
+@public_router.get("/apply/{app_id}")
+async def apply_get(app_id: str, session: AsyncSession = Depends(get_session)):
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    supplier = await session.get(Supplier, app.supplier_id)
+    snapshot = await _load_full_snapshot(session, supplier)
+    return {"application": _application_dict(app), **snapshot}
+
+
+@public_router.get("/application-status/{application_code}")
+async def application_status(application_code: str, session: AsyncSession = Depends(get_session)):
+    """Public status endpoint (no auth) — safe minimal fields only."""
+    app = (await session.execute(
+        select(SupplierApplication).where(SupplierApplication.application_code == application_code)
+    )).scalar_one_or_none()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    supplier = await session.get(Supplier, app.supplier_id)
+    return {
+        "application_code": app.application_code,
+        "status": app.status,
+        "business_name": supplier.business_name,
+        "submitted_at": app.submitted_at.isoformat() if app.submitted_at else None,
+        "reviewed_at": app.reviewed_at.isoformat() if app.reviewed_at else None,
+        "action_required_notes": app.action_required_notes if app.status == "action_required" else None,
+        "rejection_reason": app.rejection_reason if app.status == "rejected" else None,
+    }
+
+
+# ===========================================================================
+# SUPPLIER AUTH (post-approval login)
+# ===========================================================================
+
+
+class SupplierLoginIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    password: str
+
+
+@public_router.post("/login")
+async def supplier_login(payload: SupplierLoginIn, session: AsyncSession = Depends(get_session)):
+    supplier = (await session.execute(
+        select(Supplier).where(Supplier.business_email == payload.email)
+    )).scalar_one_or_none()
+    if not supplier or not supplier.password_hash or not verify_password(payload.password, supplier.password_hash):
+        raise HTTPException(401, "Invalid credentials")
+    if supplier.status != "approved" or not supplier.supplier_portal_active:
+        raise HTTPException(403, {
+            "code": "not_active",
+            "message": "Supplier account is not active. Please complete onboarding.",
+        })
+    token = create_access_token(supplier.id, role="supplier", extra={"module": "mart"})
+    return {"access_token": token, "token_type": "bearer", "supplier": _supplier_dict(supplier)}
+
+
+class SupplierActivateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    application_code: str
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+@public_router.post("/activate")
+async def supplier_activate(payload: SupplierActivateIn, session: AsyncSession = Depends(get_session)):
+    """Owner-set password after Super Admin approval.
+    Uses application_code (from approval email) as the identifier so we don't
+    have to mint a separate activation token — one-time consumption is enforced
+    by the `supplier_portal_active` flag flipping to true."""
+    app = (await session.execute(
+        select(SupplierApplication).where(SupplierApplication.application_code == payload.application_code)
+    )).scalar_one_or_none()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    supplier = await session.get(Supplier, app.supplier_id)
+    if supplier.status != "approved":
+        raise HTTPException(409, "Supplier is not approved yet")
+    if supplier.supplier_portal_active and supplier.password_hash:
+        raise HTTPException(409, {
+            "code": "already_activated",
+            "message": "Account already activated. Please log in.",
+        })
+    supplier.password_hash = hash_password(payload.password)
+    supplier.supplier_portal_active = True
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, application_id=app.id,
+        action="portal_activated", from_status="approved", to_status="approved",
+    ))
+    await session.commit()
+    token = create_access_token(supplier.id, role="supplier", extra={"module": "mart"})
+    return {"access_token": token, "token_type": "bearer", "supplier": _supplier_dict(supplier)}
+
+
+# ===========================================================================
+# SUPER ADMIN REVIEW ROUTES
+# ===========================================================================
+
+admin_router = APIRouter(
+    prefix="/admin/modules/mart/suppliers", tags=["admin-suppliers"]
+)
+
+
+def _admin_dep():
+    """Late-bind get_current_admin to avoid a circular import at module load."""
+    from shared.admin.routes import get_current_admin
+    return get_current_admin
+
+
+@admin_router.get("/applications")
+async def admin_list_applications(
+    status: Optional[str] = Query(None),
+    country: Optional[str] = Query(None),
+    q: Optional[str] = Query(None, description="Search on business_name / email / application_code"),
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    stmt = select(SupplierApplication, Supplier).join(
+        Supplier, Supplier.id == SupplierApplication.supplier_id
+    ).order_by(SupplierApplication.created_at.desc())
+    if status:
+        stmt = stmt.where(SupplierApplication.status == status)
+    if country:
+        stmt = stmt.where(Supplier.country == country.upper())
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            (Supplier.business_name.ilike(like))
+            | (Supplier.business_email.ilike(like))
+            | (SupplierApplication.application_code.ilike(like))
+        )
+    rows = (await session.execute(stmt)).all()
+
+    # Bucket counts (country-scoped when filter is set)
+    bstmt = select(SupplierApplication.status, func.count(SupplierApplication.id)).join(
+        Supplier, Supplier.id == SupplierApplication.supplier_id
+    ).group_by(SupplierApplication.status)
+    if country:
+        bstmt = bstmt.where(Supplier.country == country.upper())
+    brows = (await session.execute(bstmt)).all()
+    buckets = {s: 0 for s in ("draft", "submitted", "under_review", "action_required", "approved", "rejected")}
+    for s, c in brows:
+        buckets[s] = c
+
+    items = []
+    for app, sup in rows:
+        items.append({**_application_dict(app), "supplier": _supplier_dict(sup)})
+    return {"items": items, "buckets": buckets}
+
+
+@admin_router.get("/applications/{app_id}")
+async def admin_get_application(
+    app_id: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    supplier = await session.get(Supplier, app.supplier_id)
+    snapshot = await _load_full_snapshot(session, supplier)
+    audits = (await session.execute(
+        select(SupplierReviewAudit).where(SupplierReviewAudit.supplier_id == supplier.id)
+        .order_by(SupplierReviewAudit.created_at.desc())
+    )).scalars().all()
+    return {
+        "application": _application_dict(app),
+        **snapshot,
+        "audit_trail": [{
+            "id": a.id, "action": a.action, "from_status": a.from_status,
+            "to_status": a.to_status, "notes": a.notes,
+            "actor_admin_id": a.actor_admin_id,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        } for a in audits],
+    }
+
+
+class ReviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    notes: Optional[str] = Field(None, max_length=2000)
+
+
+@admin_router.post("/applications/{app_id}/approve")
+async def admin_approve_application(
+    app_id: str,
+    payload: ReviewIn = ReviewIn(),
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("submitted", "under_review", "action_required"):
+        raise HTTPException(409, f"Cannot approve a {app.status} application")
+    supplier = await session.get(Supplier, app.supplier_id)
+    prev = supplier.status
+    now = datetime.now(timezone.utc)
+
+    # Assign a supplier code the first time we approve (SUP-{CC}-{seq:04d}).
+    if not supplier.code:
+        cnt = (await session.scalar(
+            select(func.count(Supplier.id)).where(
+                Supplier.country == supplier.country,
+                Supplier.code.isnot(None),
+            )
+        )) or 0
+        supplier.code = f"SUP-{supplier.country}-{cnt + 1:04d}"
+
+    supplier.status = "approved"
+    supplier.approved_at = now
+    supplier.approved_by_admin_id = admin.id
+    supplier.supplier_portal_active = False  # awaits activation
+
+    app.status = "approved"
+    app.reviewed_at = now
+    app.reviewer_admin_id = admin.id
+
+    # Auto-approve business_location, but leave supply_locations pending
+    # (SA must curate which dark stores can be supplied — per doc §10).
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, application_id=app.id, actor_admin_id=admin.id,
+        action="approve", from_status=prev, to_status="approved",
+        notes=payload.notes,
+    ))
+    await session.commit()
+    return {
+        "application": _application_dict(app),
+        "supplier": _supplier_dict(supplier),
+        "activation_url": f"/martbaked/sellers/activate?code={app.application_code}",
+    }
+
+
+@admin_router.post("/applications/{app_id}/reject")
+async def admin_reject_application(
+    app_id: str,
+    payload: ReviewIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    if not payload.notes:
+        raise HTTPException(400, "Rejection notes are required")
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("submitted", "under_review", "action_required"):
+        raise HTTPException(409, f"Cannot reject a {app.status} application")
+    supplier = await session.get(Supplier, app.supplier_id)
+    prev = supplier.status
+    now = datetime.now(timezone.utc)
+
+    supplier.status = "rejected"
+    app.status = "rejected"
+    app.reviewed_at = now
+    app.reviewer_admin_id = admin.id
+    app.rejection_reason = payload.notes
+
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, application_id=app.id, actor_admin_id=admin.id,
+        action="reject", from_status=prev, to_status="rejected", notes=payload.notes,
+    ))
+    await session.commit()
+    return {"application": _application_dict(app), "supplier": _supplier_dict(supplier)}
+
+
+@admin_router.post("/applications/{app_id}/request-info")
+async def admin_request_info(
+    app_id: str,
+    payload: ReviewIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    if not payload.notes:
+        raise HTTPException(400, "Notes are required — tell the supplier what to fix")
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("submitted", "under_review"):
+        raise HTTPException(409, f"Cannot request info on a {app.status} application")
+    supplier = await session.get(Supplier, app.supplier_id)
+    prev = supplier.status
+    now = datetime.now(timezone.utc)
+
+    supplier.status = "action_required"
+    app.status = "action_required"
+    app.reviewer_admin_id = admin.id
+    app.action_required_notes = payload.notes
+    app.reviewed_at = now
+
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, application_id=app.id, actor_admin_id=admin.id,
+        action="request_information", from_status=prev, to_status="action_required",
+        notes=payload.notes,
+    ))
+    await session.commit()
+    return {"application": _application_dict(app), "supplier": _supplier_dict(supplier)}
+
+
+@admin_router.post("/{sid}/suspend")
+async def admin_suspend_supplier(
+    sid: str,
+    payload: ReviewIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+    if supplier.status not in ("approved",):
+        raise HTTPException(409, f"Cannot suspend a {supplier.status} supplier")
+    supplier.status = "suspended"
+    supplier.suspended_at = datetime.now(timezone.utc)
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, actor_admin_id=admin.id,
+        action="suspend", from_status="approved", to_status="suspended",
+        notes=payload.notes,
+    ))
+    await session.commit()
+    return _supplier_dict(supplier)
+
+
+@admin_router.post("/{sid}/unsuspend")
+async def admin_unsuspend_supplier(
+    sid: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+    if supplier.status != "suspended":
+        raise HTTPException(409, f"Cannot unsuspend a {supplier.status} supplier")
+    supplier.status = "approved"
+    supplier.suspended_at = None
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, actor_admin_id=admin.id,
+        action="unsuspend", from_status="suspended", to_status="approved",
+    ))
+    await session.commit()
+    return _supplier_dict(supplier)

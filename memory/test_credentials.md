@@ -35,6 +35,24 @@ maintenance, closed.
 New staff can be invited from `/partner-portal/team` (owner + manager only)
 — an `employee_code` is auto-generated (EMP-{CITY3}-{seq:03d}) at invite time.
 
+## MARTbakēd Supplier Portal — Phase 2A (Onboarding Foundation)
+
+### Approved Demo Supplier (DEMO Delta Beverages CI) — can log in
+- URL: `/martbaked/sellers/login`
+- Email: `demo-delta-supplier@test.example`
+- Password: `Supplier1234!`
+- Supplier code: `SUP-CI-0001` · Application code: `MART-SUP-2026-00001`
+
+### Submitted Demo Supplier (DEMO Echo Fresh Produce) — SA review queue
+- Application code: `MART-SUP-2026-00002`
+- Business email: `demo-echo-supplier@test.example`
+- Not activated (login denied until SA approves)
+
+### Action-Required Demo Supplier (DEMO Foxtrot Snacks Co.)
+- Application code: `MART-SUP-2026-00003`
+- Business email: `demo-foxtrot-supplier@test.example`
+- Awaits document re-upload (see `action_required_notes` on public status endpoint)
+
 ## Customer OTP (Côte d'Ivoire — dev mode)
 Any Ivorian mobile number works — OTP is returned in the API response
 (`dev_code`) since SMS is mocked in dev.
