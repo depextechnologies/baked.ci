@@ -60,6 +60,9 @@ from core.models.inventory_ops import (
 from core.models.replenishment import (
     REPLENISHMENT_STATUSES, REPLENISHMENT_SOURCES, PartnerReplenishment,
 )
+from core.models.transfers import (
+    TRANSFER_STATUSES, PartnerTransfer, PartnerTransferItem,
+)
 
 __all__ = [
     "Base",
@@ -137,4 +140,5 @@ __all__ = [
     "PartnerStockCount", "PartnerStockCountLine",
     "RECEIPT_STATUSES", "RECEIPT_SOURCES", "COUNT_STATUSES", "COUNT_SCOPES",
     "PartnerReplenishment", "REPLENISHMENT_STATUSES", "REPLENISHMENT_SOURCES",
+    "PartnerTransfer", "PartnerTransferItem", "TRANSFER_STATUSES",
 ]

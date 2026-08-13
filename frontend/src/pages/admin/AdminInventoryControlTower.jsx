@@ -10,11 +10,12 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   Boxes, Store, Package, AlertTriangle, XCircle, Clock,
   Search, DollarSign, TrendingDown, ArrowLeft, ClipboardList,
-  Sparkles, PlusCircle,
+  Sparkles, PlusCircle, Truck,
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 import { toast } from "sonner";
 import { AdminReplenishmentTab } from "./AdminReplenishmentTab";
+import { AdminTransfersTab } from "./AdminTransfersTab";
 
 const num = (n) => (Number(n || 0)).toLocaleString();
 const money = (n) => `${(Number(n || 0)).toLocaleString()} CFA`;
@@ -403,6 +404,7 @@ const TABS = [
   { key: "low",        label: "Low stock",    icon: AlertTriangle },
   { key: "oos",        label: "Out of stock", icon: XCircle },
   { key: "replen",     label: "Replenishment", icon: Sparkles },
+  { key: "transfers",  label: "Transfers",    icon: Truck },
   { key: "movements",  label: "Movements",    icon: ClipboardList },
 ];
 
@@ -465,6 +467,7 @@ export const AdminInventoryControlTower = () => {
       {tab === "low"       && <AlertList url={`/admin/inventory/low-stock${country ? `?country=${country}` : ""}`} empty="No low-stock SKUs anywhere on the network 🎉" dataTestId="ct-low-tab" onQuickAdded={loadKpis} />}
       {tab === "oos"       && <AlertList url={`/admin/inventory/out-of-stock${country ? `?country=${country}` : ""}`} empty="No out-of-stock SKUs 🎉" dataTestId="ct-oos-tab" onQuickAdded={loadKpis} />}
       {tab === "replen"    && <AdminReplenishmentTab country={country} />}
+      {tab === "transfers" && <AdminTransfersTab country={country} />}
       {tab === "movements" && <MovementsTab />}
     </div>
   );

@@ -28,6 +28,7 @@ from shared.admin.store_routes import router as admin_stores_router  # noqa: E40
 from shared.admin.mart_catalog_routes import router as admin_mart_catalog_router  # noqa: E402
 from shared.admin.inventory_control_tower import router as admin_inventory_ct_router  # noqa: E402
 from shared.admin.replenishment_routes import router as admin_replenishment_router  # noqa: E402
+from shared.admin.transfers_routes import router as admin_transfers_router  # noqa: E402
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
 from modules.mart_partner.routes import router as mart_partner_router, admin_router as mart_partner_admin_router, partner_router as partner_portal_router  # noqa: E402
@@ -84,6 +85,7 @@ api_router.include_router(admin_stores_router)
 api_router.include_router(admin_mart_catalog_router)
 api_router.include_router(admin_inventory_ct_router)
 api_router.include_router(admin_replenishment_router)
+api_router.include_router(admin_transfers_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)

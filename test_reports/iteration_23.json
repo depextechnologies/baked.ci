@@ -1,0 +1,37 @@
+{
+  "summary": "Store Transfers — full backend regression PASSED (14/14 pytest). Verified full lifecycle create→approve→dispatch→receive with source decrement / destination increment, movement records (transfer_out at source, transfer_in at destination), destination name resolution via MartProduct outer-join (no 'Untitled'), all 5 negative paths (same src/dst 400, foreign-partner product 400, over-dispatch 409 + rollback to approved, double-approve 409, receive-before-dispatch 409), and cancel-mid-flight returning units to source with a 'transfer_in' compensating movement. Frontend UI (partial, but sufficient) — /admin/modules/mart/inventory Transfers tab loads, renders 5 bucket tabs (Requested / Approved / In transit / Received / Cancelled) with counts, TR-000001 verified in Received bucket, 'New transfer' modal opens with source + destination selectors and product picker. All required data-testids present. Auto-linking + name coalescing verified by API assertion (destination row.name != 'Untitled' after receive of a new master SKU into wh_beta_demo_seed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "CreateTransferModal", "issues": ["React hydration warning in console: 'In HTML, <span> cannot be a child of <option>'. Source: overlay/dev-instrumentation injecting <span x-excluded=true style=display:contents> inside <option> in AdminTransfersTab.jsx lines around 94. Not caused by product code — appears to be an emergent dev-tool overlay. Cosmetic in dev only, but noisy in console."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_store_transfers.py",
+    "/app/test_reports/pytest/store_transfers.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "dispatch_transfer / receive_transfer set pp.stock_qty = inv.available_qty for a SINGLE warehouse. When a SKU spans multiple PartnerInventory rows (multi-warehouse), pp.stock_qty desynchronises. Same latent issue flagged in replenishment code review. Consider recomputing pp.stock_qty = SUM(available_qty across all warehouses) on every mutation.",
+    "cancel_transfer writes the return movement with kind='transfer_in' at the SOURCE warehouse. Semantically fine and analytics-safe today, but future reports that group by kind may double-count destination receipts vs. source returns. Suggest a distinct kind='transfer_return' (add to allow-list) for clearer audit.",
+    "_next_code uses COUNT(*) + 1 to generate TR codes — race-prone under concurrency; two concurrent creates can collide on the same TR-000NNN (unique constraint would then trip). Prefer a Postgres sequence or MAX(code)+1 in a locked query.",
+    "transfers_routes.py is ~680 lines; still within the 700-line guideline but approaching the split threshold. Consider extracting serialisers + hydrate into a helpers module.",
+    "list_transfers buckets count ignores from_warehouse_id / to_warehouse_id / q filters (only status + country are respected). Minor UI inconsistency mirroring the same replenishment code review comment."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_store_transfers.py",
+    "/app/test_reports/iteration_23.json"
+  ],
+  "success_rate": {"backend": "100% (14/14 pytest)", "frontend": "Verified render + modal open + bucket counts + existing TR-000001 in Received; full drawer approve→dispatch→receive click-through was interrupted by a flaky tab-click on the second run — backend API path fully verifies the same lifecycle."},
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ — verified via /api/admin/auth/login",
+  "seed_data_creation": "Created and drove several TEST_ transfers (TR-000002 through TR-000004) end-to-end: 2 ended in 'received' (including the smoke TR-000001), 2 ended in 'cancelled' (over-dispatch clean-up + mid-flight cancel scenario). Small stock movements at MRT-ABJ-001 / MRT-ABJ-002 as a result — Alpha available now 361→411 net (return-mid-flight added units back), Beta gained 1 unit (Lait Frais). All test-created transfers are cleanly labelled with reason='TEST_*'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression file: /app/backend/tests/test_store_transfers.py — idempotent, uses TEST_ reasons and cleans up mid-flight cancellations, safe to re-run. UI selectors verified: data-testid=ct-tab-transfers, ct-transfers-tab, transfer-tab-{requested|approved|in_transit|received|cancelled}, transfer-new, transfer-create-modal, transfer-from-select, transfer-to-select, transfer-reason, transfer-qty-{partner_product_id}, transfer-submit, transfer-row-{code}, transfer-open-{code}, transfer-drawer, transfer-approve, transfer-dispatch, transfer-receive, transfer-cancel. Note: warehouses lookup inside the create modal is async — wait for select options to populate before invoking select_option; the second option appearing (beyond the placeholder) is the readiness signal.",
+  "rca of the issue": "N/A — no functional defects found. The only observed nit is a React dev-hydration console warning (span-inside-option) originating from injected dev-instrumentation, not from application code."
+}

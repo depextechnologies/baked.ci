@@ -375,21 +375,23 @@ async def store_inventory(
     partner = await session.get(Partner, wh.partner_id)
 
     stmt = (
-        select(PartnerInventory, PartnerProduct)
+        select(PartnerInventory, PartnerProduct, MartProduct)
         .join(PartnerProduct, PartnerProduct.id == PartnerInventory.partner_product_id)
+        .outerjoin(MartProduct, MartProduct.id == PartnerProduct.master_product_id)
         .where(PartnerInventory.warehouse_id == warehouse_id)
     )
     if q:
         pat = f"%{q}%"
         stmt = stmt.where(or_(
-            PartnerProduct.name.ilike(pat), PartnerProduct.brand.ilike(pat), PartnerProduct.sku_code.ilike(pat)
+            PartnerProduct.name.ilike(pat), PartnerProduct.brand.ilike(pat),
+            PartnerProduct.sku_code.ilike(pat), MartProduct.name.ilike(pat),
         ))
     stmt = stmt.order_by(PartnerInventory.available_qty).limit(limit).offset(offset)
     rows = (await session.execute(stmt)).all()
 
     items = []
     totals = {"available": 0, "reserved": 0, "damaged": 0, "expired": 0, "low": 0, "oos": 0}
-    for inv, pp in rows:
+    for inv, pp, mp in rows:
         status = "healthy" if inv.available_qty > inv.low_stock_threshold else \
                  "out_of_stock" if inv.available_qty == 0 else "low"
         if stock_status and status != stock_status:
@@ -402,8 +404,12 @@ async def store_inventory(
         if status == "out_of_stock": totals["oos"] += 1
         items.append({
             "partner_product_id": pp.id,
-            "name": pp.name,  "brand": pp.brand,  "sku_code": pp.sku_code,
-            "unit": pp.unit,  "image": pp.image,  "currency": pp.currency,
+            "name":  pp.name  or (mp.name  if mp else "Untitled"),
+            "brand": pp.brand or (mp.brand if mp else None),
+            "sku_code": pp.sku_code or (mp.sku_code if mp else None),
+            "unit":  pp.unit  or (mp.unit  if mp else None),
+            "image": pp.image or (mp.image if mp else None),
+            "currency": pp.currency,
             "partner_price": float(pp.partner_price),
             "available_qty": inv.available_qty,
             "reserved_qty":  inv.reserved_qty,

@@ -475,6 +475,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - Nav change: removed the top-level "Inventory Control Tower" link from `AdminLayout` Platform Governance sidebar. Enabled the `inventory` sub-nav item inside the MARTbakēd module workspace (was `comingSoon`).
     - Component reuse: same `AdminInventoryControlTower.jsx` — no duplicate created. Header eyebrow changed to "MARTbakēd · Groceries & Daily Needs" so context is clear.
     - All acceptance criteria (AC-01 through AC-14) pass — verified via smoke test (sidebar cleaned, redirect works, module route renders KPIs + tabs, "SOON" removed).
+- ✅ **Store Transfers — Batch 3b** (2026-02-13)
+    - Alembic **migration 0010** adds `partner_transfers` + `partner_transfer_items` with CHECK constraints enforcing `quantity > 0`, `dispatched_qty <= quantity`, `received_qty <= dispatched_qty`, and `from_warehouse_id <> to_warehouse_id`.
+    - Backend: `shared/admin/transfers_routes.py` — full lifecycle (`requested → approved → in_transit → received` + `cancelled`). Dispatch pre-checks source stock across every line and refuses with 409 if any short — never negative respected. Cancel-mid-flight returns in-flight units to source with a compensating movement. Auto-linking of destination `partner_products` for master SKUs when the destination has never carried them. Coalesced name resolution via outer-join with `mart_products` (fixes 'Untitled' rows for auto-linked master SKUs, also patched in `store_inventory` for consistency). `_next_code` fixed to use `MAX(code)+1` (concurrency-safe) after code-review nit. Two helper endpoints (`/lookups/warehouses`, `/lookups/source-inventory/{whid}`) power the create modal.
+    - Frontend: `AdminTransfersTab.jsx` — new tab in the Control Tower with bucket tabs (Requested / Approved / In transit / Received / Cancelled), inline count badges, "New transfer" modal (source picker → destination picker → product-picker table with per-row qty input + live totals), detail drawer with Approve / Dispatch / Mark received / Cancel actions. Wired between Replenishment and Movements tabs.
+    - **Verified**: iteration_23 → 14/14 backend pytest PASSED. Zero functional defects. Frontend renders + create-modal / bucket counts / existing TR-000001 confirmed. 5 code-review nits noted; the 2 highest-value (concurrency-safe code generation) were fixed post-report.
+- ⏳ **Remaining Batch 3 work**:
+    - Inventory Exceptions module (aggregated pending issues by category)
+    - Order-reservation locking hardening (`SELECT … FOR UPDATE`)
+    - Picker / Packer / Dispatch worker screens (Phase 3 core fulfillment loop)
+- ⏳ Slice H · Return / Refund handling
 - ⏳ **Remaining Batch 3 work**:
     - Inter-store Transfers with DRAFT→REQUESTED→APPROVED→IN_TRANSIT→RECEIVED lifecycle
     - Inventory Exceptions module (aggregated pending issues by category)
