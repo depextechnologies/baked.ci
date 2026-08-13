@@ -1,0 +1,61 @@
+{
+  "summary": "Phase 1 catalogue + Category Requests: 9/10 backend tests PASS. Extended MartProduct create/persist verified (mrp, cost_price, tax_pct, tax_hsn_code=190531, batch_tracking, temperature_class=chilled, EAN, pack_size, net_qty, manufacturer, short_description, storage). tax_pct=150 rejected (422). Existing product APIs still work (list + PATCH price). Category Request workflow verified end-to-end: partner POST/GET, admin bucket listing, approve (creates mart_categories row with icon=Snowflake), 409 on re-approve, reject rejects without notes → 400 and with notes → 200 & moved to rejected bucket. Inventory KPIs + partner inventory sanity endpoints return 200. **CRITICAL P0 BUG discovered:** the reservation lock path in modules/mart_partner/allocation.py passes `before_qty=...` to PartnerStockMovement(), but the ORM model in core/models/catalog_inventory.py DOES NOT declare that column (migration 0011 adds it to the DB, but the model was not updated). Every reservation therefore raises TypeError, which orders.py only catches as ValueError → checkout will 500 for ANY successful stock allocation, and the invariant test proves both racers fail (0 winners). The whole P0 reservation locking safety fix is currently a no-op AND actively breaks checkout.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "modules/mart_partner/allocation.py :: allocate() → PartnerStockMovement(before_qty=...)",
+        "issue": "PartnerStockMovement ORM model (core/models/catalog_inventory.py L85–109) has no `before_qty` mapped column, but allocation.py passes `before_qty=before` on every reserve. Raises TypeError('before_qty' is an invalid keyword argument for PartnerStockMovement) which bubbles past orders.py's `except ValueError` handler → HTTP 500 on ANY customer checkout that reaches allocation with lock_stock=True. Two concurrent races both fail (0 winners, 2 TypeErrors) — the P0 lock fix is dead code and worse, it breaks checkout.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/admin/mart/products",
+        "issue": "tax_pct=150 returns 422 (Pydantic) rather than 400 as stated in the review request — semantically equivalent but request wording said 400. If a specific 400 is required, wrap with a custom validator that raises HTTPException(400)."
+      },
+      {
+        "endpoint": "shared/admin/category_requests.py :: admin_approve_request()",
+        "issue": "Approve races: if two admins approve the SAME request concurrently, both may pass the `status != pending` guard, both create categories, and only the last write of `status='approved'` wins. Consider SELECT FOR UPDATE on the request row before the flip."
+      },
+      {
+        "endpoint": "shared/admin/category_requests.py :: admin_approve_request() slug uniqueness loop",
+        "issue": "Slug de-dup uses count-in-loop; under concurrent approves two different requests with same slug base could still race and collide on unique constraint. Minor — will surface as 500 rather than a clean 409."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_catalog_phase1_and_category_requests.py",
+    "/app/test_reports/pytest/catalog_phase1.xml"
+  ],
+  "action_items": [
+    "P0 FIX: Add `before_qty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)` to PartnerStockMovement in /app/backend/core/models/catalog_inventory.py (column already exists in DB per migration 0011). Without this, checkout returns 500 on every reservation and the race-safety guarantee is not delivered.",
+    "After the model fix, re-run pytest tests/test_catalog_phase1_and_category_requests.py::test_reservation_race_last_unit_invariant — it currently proves the bug (0 winners, 2 TypeErrors); it should then show 1 winner + 1 insufficient_stock + invariant holds + reserve movement recorded with before_qty=1.",
+    "Consider changing allocation.py's ValueError raise to a distinct exception (or ensure orders.py catches TypeError as 500-safe path) so silent regressions like this don't get hidden by the broad except clause.",
+    "Optional: return 400 (not 422) for tax_pct=150 if the spec is strict about status codes."
+  ],
+  "critical_code_review_comments": [
+    "P0 — ORM/migration drift on partner_stock_movements.before_qty: DB has the column, model doesn't map it, callers pass it → every reserve movement raises TypeError. Silent breakage until concurrency test exposed it.",
+    "orders.py catches only ValueError from allocate(); any other exception (like the current TypeError) becomes an uncaught 500. Consider a narrower try/except that logs the raw error and returns a stable 409 for known stock exceptions, 500 with alerting for others.",
+    "category_requests.py approve path is not race-safe (see minor issue). Low probability but consider SELECT FOR UPDATE on the request row.",
+    "PartnerStockMovement has both `delta_qty` and `balance_after` but no `before_qty` in the model — with the migration adding it, the model should track it consistently so future readers/analytics can rely on it.",
+    "Slug generation in approve does a while-loop of SELECTs — an integrity-constraint retry (INSERT + on unique violation → bump slug) would be more concurrency-safe than count-then-insert."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_catalog_phase1_and_category_requests.py"
+  ],
+  "success_rate": {
+    "backend": "90% (9/10 pytest — the 10th is the concurrency test that PROVES the P0 bug)",
+    "frontend": "Not fully driven — SA login worked; subsequent page.goto loses sessionStorage token in this environment. Backend endpoints back the UI are verified."
+  },
+  "test_credentials": "SA depexopenai@gmail.com / baked@2026#!$@ (verified via /api/admin/auth/login); Partner partner-alpha-store@test.example / Alpha1234!Beta (verified via /api/partner/auth/login).",
+  "seed_data_creation": "Created several TEST_ products (TEST_Phase1_Product_*), and 3 TEST_ category requests (TEST_ReqCat_*, TEST_ApprCat_* approved, TEST_RejCat_* rejected). Approved requests also add one new mart_categories row (icon=Snowflake, country=CI). All rows are cleanly prefixed with TEST_ for future cleanup.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression file: /app/backend/tests/test_catalog_phase1_and_category_requests.py — idempotent, uses TEST_ prefixes. Concurrency test (test_reservation_race_last_unit_invariant) is the critical acceptance test for the P0 lock fix: MUST show ok_count=1, stock_err_count=1, invariant available_qty+reserved_qty ≤ sellable_qty (=1), and a `reserve` PartnerStockMovement with before_qty=1 & delta_qty=-1. Test seeds a 1-unit synthetic PartnerInventory and calls allocate() from two parallel sessions with lock_stock=True. Rerun with `pytest -xvs tests/test_catalog_phase1_and_category_requests.py::test_reservation_race_last_unit_invariant` after adding before_qty column to the ORM model.",
+  "rca of the issue": "RCA — Migration 0011 correctly adds a `before_qty` integer column to `partner_stock_movements`. However, /app/backend/core/models/catalog_inventory.py PartnerStockMovement class was NOT updated to declare this new attribute (SQLAlchemy Mapped/mapped_column). /app/backend/modules/mart_partner/allocation.py L295–307 passes `before_qty=before` when constructing PartnerStockMovement inside the reservation lock branch. Because SQLAlchemy DeclarativeBase's __init__ validates kwargs against mapped columns, it raises TypeError('before_qty' is an invalid keyword argument for PartnerStockMovement). orders.py L292 only catches ValueError, so the TypeError propagates to the FastAPI handler → HTTP 500. Reproduction: pytest tests/test_catalog_phase1_and_category_requests.py::test_reservation_race_last_unit_invariant (shows 2 TypeErrors, 0 winners). Fix: add `before_qty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)` to PartnerStockMovement between `balance_after` and `reason`. Mitigation once fixed: re-run the concurrency test and also add a broader exception handler in orders.py that at least logs + returns a stable error code."
+}

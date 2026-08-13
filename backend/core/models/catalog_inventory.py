@@ -101,6 +101,7 @@ class PartnerStockMovement(Base):
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     delta_qty: Mapped[int] = mapped_column(Integer, nullable=False)
     balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    before_qty: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     reference: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     actor_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)

@@ -318,6 +318,10 @@ const emptyProduct = () => ({
   name: "", country: "CI", module: "mart", brand: "", brand_id: "", category_slug: "", subcategory_slug: "",
   unit: "", price: 0, currency: "XOF", currency_symbol: "CFA", image: "", images: [], description: "",
   sku_code: "", barcode: "", status: "active", in_stock: true,
+  // Phase 1 fields
+  manufacturer: "", short_description: "", product_type: "", tags: [], ean_upc: "", tax_hsn_code: "",
+  batch_tracking: false, expiry_tracking: false, pack_size: "", net_qty: null, gross_qty: null,
+  mrp: null, cost_price: null, tax_pct: null, storage_requirement: "", temperature_class: "",
 });
 
 const ProductsTab = () => {
@@ -406,6 +410,38 @@ const ProductsTab = () => {
             </select>
             <input placeholder="Image URL" value={editing.image || ""} onChange={e => setEditing({ ...editing, image: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm col-span-3" />
             <textarea placeholder="Description" value={editing.description || ""} onChange={e => setEditing({ ...editing, description: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm col-span-3" rows={2} />
+            {/* ── Phase 1 · Commercial + Compliance + Packaging ── */}
+            <div className="col-span-3 pt-2 border-t border-border">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Commercial &amp; compliance</div>
+              <div className="grid grid-cols-3 gap-3">
+                <input placeholder="Manufacturer" value={editing.manufacturer || ""} onChange={e => setEditing({ ...editing, manufacturer: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm" />
+                <input placeholder="Short description" value={editing.short_description || ""} onChange={e => setEditing({ ...editing, short_description: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm col-span-2" maxLength={280} />
+                <input type="number" step="0.01" min="0" placeholder="MRP" value={editing.mrp ?? ""} onChange={e => setEditing({ ...editing, mrp: e.target.value === "" ? null : Number(e.target.value) })} className="baked-input px-3 py-2 bg-secondary text-sm" data-testid="prod-input-mrp" />
+                <input type="number" step="0.01" min="0" placeholder="Cost price" value={editing.cost_price ?? ""} onChange={e => setEditing({ ...editing, cost_price: e.target.value === "" ? null : Number(e.target.value) })} className="baked-input px-3 py-2 bg-secondary text-sm" data-testid="prod-input-cost" />
+                <input type="number" step="0.01" min="0" max="100" placeholder="Tax %" value={editing.tax_pct ?? ""} onChange={e => setEditing({ ...editing, tax_pct: e.target.value === "" ? null : Number(e.target.value) })} className="baked-input px-3 py-2 bg-secondary text-sm" data-testid="prod-input-tax" />
+                <input placeholder="HSN / tax code" value={editing.tax_hsn_code || ""} onChange={e => setEditing({ ...editing, tax_hsn_code: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm" data-testid="prod-input-hsn" />
+                <input placeholder="EAN / UPC" value={editing.ean_upc || ""} onChange={e => setEditing({ ...editing, ean_upc: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm" />
+                <input placeholder="Product type" value={editing.product_type || ""} onChange={e => setEditing({ ...editing, product_type: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm" />
+              </div>
+            </div>
+            <div className="col-span-3 pt-2 border-t border-border">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Packaging &amp; storage</div>
+              <div className="grid grid-cols-3 gap-3">
+                <input placeholder="Pack size (e.g. 12x500ml)" value={editing.pack_size || ""} onChange={e => setEditing({ ...editing, pack_size: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm" />
+                <input type="number" step="0.001" min="0" placeholder="Net qty" value={editing.net_qty ?? ""} onChange={e => setEditing({ ...editing, net_qty: e.target.value === "" ? null : Number(e.target.value) })} className="baked-input px-3 py-2 bg-secondary text-sm" />
+                <input type="number" step="0.001" min="0" placeholder="Gross qty" value={editing.gross_qty ?? ""} onChange={e => setEditing({ ...editing, gross_qty: e.target.value === "" ? null : Number(e.target.value) })} className="baked-input px-3 py-2 bg-secondary text-sm" />
+                <input placeholder="Storage requirement" value={editing.storage_requirement || ""} onChange={e => setEditing({ ...editing, storage_requirement: e.target.value })} className="baked-input px-3 py-2 bg-secondary text-sm col-span-2" />
+                <select value={editing.temperature_class || ""} onChange={e => setEditing({ ...editing, temperature_class: e.target.value || null })} className="baked-input px-3 py-2 bg-secondary text-sm">
+                  <option value="">Temperature class…</option>
+                  <option value="ambient">Ambient</option>
+                  <option value="chilled">Chilled</option>
+                  <option value="frozen">Frozen</option>
+                  <option value="hot">Hot</option>
+                </select>
+                <label className="flex items-center gap-2 text-xs bg-secondary px-3 py-2 rounded"><input type="checkbox" checked={!!editing.batch_tracking} onChange={e => setEditing({ ...editing, batch_tracking: e.target.checked })} data-testid="prod-input-batch" /> Batch tracking</label>
+                <label className="flex items-center gap-2 text-xs bg-secondary px-3 py-2 rounded"><input type="checkbox" checked={!!editing.expiry_tracking} onChange={e => setEditing({ ...editing, expiry_tracking: e.target.checked })} data-testid="prod-input-expiry" /> Expiry tracking</label>
+              </div>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button onClick={save} className="baked-btn bg-primary text-primary-foreground" data-testid="prod-save">Save product</Button>

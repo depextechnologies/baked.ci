@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from decimal import Decimal
 
 from core.models.base import AuditMixin, Base, OrderStatus, PaymentStatus, TicketCategory, TicketPriority, TicketStatus, new_id
 
@@ -95,6 +96,23 @@ class MartProduct(Base, AuditMixin):
     variants: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="active", server_default="active")
     brand_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_brands.id"), nullable=True)
+    # Phase 1 (Inventory_Prompt v3) — commercial + identity + packaging + storage
+    manufacturer: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    short_description: Mapped[Optional[str]] = mapped_column(String(280), nullable=True)
+    product_type: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    tags: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    ean_upc: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    tax_hsn_code: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    batch_tracking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    expiry_tracking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    pack_size: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    net_qty: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 3), nullable=True)
+    gross_qty: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 3), nullable=True)
+    mrp: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    cost_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    tax_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True)
+    storage_requirement: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    temperature_class: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
 
 class MartOffer(Base):

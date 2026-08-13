@@ -89,8 +89,9 @@ const AddProductModal = ({ open, onClose, onDone }) => {
 
         <div className="flex gap-2 p-4" style={{ borderBottom: "1px solid var(--ph-border)" }}>
           {[
-            { k: "master", label: "From master catalog", icon: Link2 },
-            { k: "custom", label: "Custom SKU",           icon: Plus },
+            { k: "master",  label: "From master catalog", icon: Link2 },
+            { k: "custom",  label: "Custom SKU",           icon: Plus },
+            { k: "cat_req", label: "Request category",     icon: Plus },
           ].map(t => {
             const Icon = t.icon;
             const on = mode === t.k;
@@ -213,7 +214,74 @@ const AddProductModal = ({ open, onClose, onDone }) => {
             </div>
           </div>
         )}
+
+        {mode === "cat_req" && (
+          <CategoryRequestForm onClose={onClose} />
+        )}
       </div>
+    </div>
+  );
+};
+
+/* --------------------- Category request form --------------------- */
+
+const CategoryRequestForm = ({ onClose }) => {
+  const [name, setName] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mine, setMine] = useState([]);
+
+  useEffect(() => {
+    partnerApi.get("/partner/catalog/category-requests").then(r => setMine(r.data.items || [])).catch(() => {});
+  }, []);
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error("Name is required");
+    setBusy(true);
+    try {
+      await partnerApi.post("/partner/catalog/category-requests", { name, reason: reason || null });
+      toast.success("Category request sent — awaiting Super Admin approval");
+      const r = await partnerApi.get("/partner/catalog/category-requests");
+      setMine(r.data.items || []); setName(""); setReason("");
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="p-5 max-h-[70vh] overflow-y-auto" data-testid="cat-request-form">
+      <p className="text-xs mb-4" style={{ color: "var(--ph-fg-subtle)" }}>
+        Propose a new category. Super Admin will review and approve before it appears in the marketplace.
+      </p>
+      <div className="grid gap-3">
+        <label className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>Category name *
+          <input value={name} onChange={e => setName(e.target.value)} className={FIELD + " mt-1"} style={fieldStyle} data-testid="cat-request-name" />
+        </label>
+        <label className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>Why do you need this category?
+          <textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} className="px-3 py-2 rounded-lg w-full text-sm mt-1" style={fieldStyle} data-testid="cat-request-reason" />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 h-10 rounded-lg text-sm" style={{ color: "var(--ph-fg-muted)" }}>Close</button>
+          <button disabled={busy} onClick={submit} className="px-4 h-10 rounded-lg text-sm font-medium" style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }} data-testid="cat-request-submit">Submit for review</button>
+        </div>
+      </div>
+      {mine.length > 0 && (
+        <div className="mt-6">
+          <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--ph-fg-subtle)" }}>Your submissions</div>
+          {mine.map(r => (
+            <div key={r.id} className="flex items-center justify-between py-2 text-xs" style={{ borderBottom: "1px solid var(--ph-border)" }}>
+              <div>
+                <div style={{ color: "var(--ph-fg)" }}>{r.name}</div>
+                <div style={{ color: "var(--ph-fg-subtle)" }}>{new Date(r.created_at).toLocaleString()}</div>
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] uppercase"
+                    style={{ background: r.status === "pending" ? "rgba(252,196,76,.15)" : r.status === "approved" ? "rgba(119,188,31,.15)" : "rgba(255,76,82,.15)",
+                             color:      r.status === "pending" ? "#FCC44C" : r.status === "approved" ? "#77BC1F" : "#FF4C52" }}>
+                {r.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

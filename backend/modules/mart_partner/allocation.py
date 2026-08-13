@@ -269,6 +269,43 @@ async def allocate(
         # of the same SKU and two cart lines both want 1).
         pp.stock_qty = pp.stock_qty - qty
 
+        # ── Reservation locking (Inventory_Prompt §24, P0 safety fix) ──
+        # We already hold FOR UPDATE on partner_products above. Now lock the
+        # matching PartnerInventory row, re-read fresh, and atomically shift
+        # `available_qty` → `reserved_qty` so the invariant
+        #     available_qty + reserved_qty ≤ sellable_qty
+        # holds even under two-shopper races on the last unit.
+        if lock_stock and pick.warehouse:
+            from core.models import PartnerInventory, PartnerStockMovement
+            inv = (await session.execute(
+                select(PartnerInventory).where(
+                    PartnerInventory.partner_product_id == pp.id,
+                    PartnerInventory.warehouse_id == pick.warehouse.id,
+                ).with_for_update()
+            )).scalar_one_or_none()
+            if inv is not None:
+                if inv.available_qty < qty:
+                    # Post-lock re-read shows insufficient stock — reject cleanly.
+                    raise ValueError(
+                        f"insufficient_stock:{pp.id}:need={qty}:have={inv.available_qty}"
+                    )
+                before = inv.available_qty
+                inv.available_qty -= qty
+                inv.reserved_qty  += qty
+                session.add(PartnerStockMovement(
+                    partner_id=pp.partner_id,
+                    partner_product_id=pp.id,
+                    warehouse_id=pick.warehouse.id,
+                    kind="reserve",
+                    delta_qty=-qty,
+                    before_qty=before,
+                    balance_after=inv.available_qty,
+                    reason="Customer order reservation",
+                    reference=None,
+                    actor_id="system",
+                    actor_role="system",
+                ))
+
     plan = AllocationPlan(
         fulfillable=len(unfulfillable) == 0,
         slices=list(plan_slices.values()),

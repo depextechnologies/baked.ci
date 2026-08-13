@@ -349,6 +349,23 @@ class ProductIn(BaseModel):
     barcode: Optional[str] = None
     variants: list = Field(default_factory=list)
     status: str = Field("active", pattern="^(active|draft|archived)$")
+    # Phase 1 additions
+    manufacturer: Optional[str] = None
+    short_description: Optional[str] = Field(None, max_length=280)
+    product_type: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    ean_upc: Optional[str] = None
+    tax_hsn_code: Optional[str] = None
+    batch_tracking: bool = False
+    expiry_tracking: bool = False
+    pack_size: Optional[str] = None
+    net_qty: Optional[float] = Field(None, ge=0)
+    gross_qty: Optional[float] = Field(None, ge=0)
+    mrp: Optional[float] = Field(None, ge=0)
+    cost_price: Optional[float] = Field(None, ge=0)
+    tax_pct: Optional[float] = Field(None, ge=0, le=100)
+    storage_requirement: Optional[str] = None
+    temperature_class: Optional[str] = Field(None, pattern="^(ambient|chilled|frozen|hot)$")
 
 
 class ProductUpdate(BaseModel):
@@ -372,6 +389,22 @@ class ProductUpdate(BaseModel):
     barcode: Optional[str] = None
     variants: Optional[list] = None
     status: Optional[str] = Field(None, pattern="^(active|draft|archived)$")
+    manufacturer: Optional[str] = None
+    short_description: Optional[str] = Field(None, max_length=280)
+    product_type: Optional[str] = None
+    tags: Optional[list[str]] = None
+    ean_upc: Optional[str] = None
+    tax_hsn_code: Optional[str] = None
+    batch_tracking: Optional[bool] = None
+    expiry_tracking: Optional[bool] = None
+    pack_size: Optional[str] = None
+    net_qty: Optional[float] = Field(None, ge=0)
+    gross_qty: Optional[float] = Field(None, ge=0)
+    mrp: Optional[float] = Field(None, ge=0)
+    cost_price: Optional[float] = Field(None, ge=0)
+    tax_pct: Optional[float] = Field(None, ge=0, le=100)
+    storage_requirement: Optional[str] = None
+    temperature_class: Optional[str] = Field(None, pattern="^(ambient|chilled|frozen|hot)$")
 
 
 @router.get("/products")

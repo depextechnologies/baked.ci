@@ -480,17 +480,21 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - Backend: `shared/admin/transfers_routes.py` — full lifecycle (`requested → approved → in_transit → received` + `cancelled`). Dispatch pre-checks source stock across every line and refuses with 409 if any short — never negative respected. Cancel-mid-flight returns in-flight units to source with a compensating movement. Auto-linking of destination `partner_products` for master SKUs when the destination has never carried them. Coalesced name resolution via outer-join with `mart_products` (fixes 'Untitled' rows for auto-linked master SKUs, also patched in `store_inventory` for consistency). `_next_code` fixed to use `MAX(code)+1` (concurrency-safe) after code-review nit. Two helper endpoints (`/lookups/warehouses`, `/lookups/source-inventory/{whid}`) power the create modal.
     - Frontend: `AdminTransfersTab.jsx` — new tab in the Control Tower with bucket tabs (Requested / Approved / In transit / Received / Cancelled), inline count badges, "New transfer" modal (source picker → destination picker → product-picker table with per-row qty input + live totals), detail drawer with Approve / Dispatch / Mark received / Cancel actions. Wired between Replenishment and Movements tabs.
     - **Verified**: iteration_23 → 14/14 backend pytest PASSED. Zero functional defects. Frontend renders + create-modal / bucket counts / existing TR-000001 confirmed. 5 code-review nits noted; the 2 highest-value (concurrency-safe code generation) were fixed post-report.
-- ⏳ **Remaining Batch 3 work**:
-    - Inventory Exceptions module (aggregated pending issues by category)
-    - Order-reservation locking hardening (`SELECT … FOR UPDATE`)
-    - Picker / Packer / Dispatch worker screens (Phase 3 core fulfillment loop)
-- ⏳ Slice H · Return / Refund handling
-- ⏳ **Remaining Batch 3 work**:
-    - Inter-store Transfers with DRAFT→REQUESTED→APPROVED→IN_TRANSIT→RECEIVED lifecycle
-    - Inventory Exceptions module (aggregated pending issues by category)
-    - Order-reservation locking hardening (`SELECT … FOR UPDATE`)
-    - Picker / Packer / Dispatch worker screens (Phase 3 core fulfillment loop)
-- ⏳ Slice H · Return / Refund handling
-- ⏳ Slice D · Analytics dashboard
-- ⏳ Fulfillment loop (picker/packer/driver screens) — Phase 3
+- ✅ **MASTER COMPLETION PROGRAM — Phase 1 (Master Catalogue + P0 Reservation Locking)** (2026-02-13)
+    - **Phase 0 Audit**: `/app/memory/MART_SUPPLY_CHAIN_AUDIT.md` — full gap analysis.
+    - **Alembic migration 0011** (`0011_catalogue_phase1_full.py`) extends `mart_products` with `mrp`, `cost_price`, `tax_pct`, `tax_hsn_code`, `manufacturer`, `batch_tracking`, `expiry_tracking`, `temperature_class`, `ean_upc`, `pack_size`, `net_qty`, `short_description`, `storage`; extends `partner_inventory` with low-stock threshold columns; adds `mart_category_requests` (partner-submit → SA-approve/reject with review notes); adds `partner_stock_movements.before_qty`.
+    - **Category Request Workflow**: partner UI (Products page → "Request new category" modal + list of submitted requests with status badges) + SA approval UI (`AdminCategoryRequests.jsx` with pending/approved/rejected buckets, approve creates `mart_categories` row, reject requires notes) + backend routes (`shared/admin/category_requests.py`).
+    - **P0 Reservation Locking**: `modules/mart_partner/allocation.py` uses `SELECT … FOR UPDATE OF partner_products` on the candidate query and a second `SELECT … FOR UPDATE` on the matching `PartnerInventory` row inside the reservation branch, atomically shifting `available_qty → reserved_qty` and writing a `reserve` `PartnerStockMovement` with `before_qty`, `delta_qty=-qty`, `balance_after`. Invariant `available + reserved ≤ sellable` holds under two-shopper races on the last unit.
+    - **ORM Sync**: added `before_qty: Mapped[Optional[int]]` to `PartnerStockMovement` (core/models/catalog_inventory.py) so allocation reservation writes stop raising TypeError.
+    - **Checkout resilience**: `modules/mart/orders.py` now catches non-`ValueError` allocation failures, logs them, and returns a stable 409 `allocation_failed` instead of leaking a 500.
+    - **Verified**: `tests/test_catalog_phase1_and_category_requests.py` — 10/10 backend pytest PASS, including the concurrency invariant test (`test_reservation_race_last_unit_invariant`): exactly 1 winner, 1 `insufficient_stock` loser, `reserve` movement with `before_qty=1` recorded, invariant `available_qty + reserved_qty ≤ 1` upheld.
+- ⏳ **Phase 2+ (blocked pending user approval per strict phase boundary)**:
+    - Phase 2 — Supplier Module (CRUD suppliers + supplier catalogues)
+    - Phase 3 — Purchase Orders
+    - Phase 4 — GRN document generation (ReportLab PDF + openpyxl Excel)
+    - Phase 5 — Supplier billing / three-way match
+    - Phase 6 — Picker / Packer / Dispatch worker UI (Phase 3 core fulfillment loop)
+    - Phase 7 — Analytics dashboard (Slice D) & Return / Refund (Slice H)
+    - Phase 8 — Real Stripe integration for Wallet & Checkout
+- ⏳ Inventory Exceptions module (aggregated pending issues by category)
 

@@ -278,16 +278,41 @@ async def create_order(
     # delivery address. If ANY line can't be filled we fail the whole checkout
     # — the customer sees ONE order, so a partial allocation makes no sense.
     from modules.mart_partner.allocation import allocate
-    plan = await allocate(
-        session,
-        cart_lines=[{"master_product_id": ln["product_id"], "quantity": ln["quantity"]} for ln in lines],
-        country=(customer.country or "CI"),
-        module="mart",
-        delivery_lat=address_snapshot.get("latitude"),
-        delivery_lng=address_snapshot.get("longitude"),
-        delivery_city=address_snapshot.get("city"),
-        lock_stock=True,
-    )
+    try:
+        plan = await allocate(
+            session,
+            cart_lines=[{"master_product_id": ln["product_id"], "quantity": ln["quantity"]} for ln in lines],
+            country=(customer.country or "CI"),
+            module="mart",
+            delivery_lat=address_snapshot.get("latitude"),
+            delivery_lng=address_snapshot.get("longitude"),
+            delivery_city=address_snapshot.get("city"),
+            lock_stock=True,
+        )
+    except ValueError as ve:
+        msg = str(ve)
+        if msg.startswith("insufficient_stock:"):
+            raise HTTPException(status_code=409, detail={
+                "code": "insufficient_stock",
+                "message": ("Out of stock — the last units were just claimed. "
+                            "Please refresh and try again."),
+            }) from ve
+        raise
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        # Broadened safety net: any unforeseen allocation failure (DB deadlock,
+        # ORM drift, lock timeout) should return a stable 409/500 rather than a
+        # raw stack trace, and MUST be logged so silent breakage is impossible.
+        import logging
+        logging.getLogger("baked").exception(
+            "checkout.allocation_failed", extra={"error": repr(exc)}
+        )
+        raise HTTPException(status_code=409, detail={
+            "code": "allocation_failed",
+            "message": ("We couldn't reserve stock right now. Please refresh "
+                        "your cart and try again in a moment."),
+        }) from exc
     if not plan.fulfillable:
         # Enrich unfulfillable rows with human-friendly names for the UI.
         gaps = []
