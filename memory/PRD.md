@@ -551,6 +551,20 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Testing** — iteration 27 **100% frontend PASS (8/8 spec bullets)**: tab shell + URL sync, bucket counts, drawer, approve full flow (missing-category toast, category selection, master-product creation, catalogue auto-link verified by re-logging as Delta), reject flow (empty-notes toast + successful rejection), Approved-request banner + review notes + created_master_product_id, Applications tab regression. Only a non-blocking aesthetic note about tab sub-note font size (10px @ 0.7 opacity) — cosmetic, no action taken.
     - **Combined regression** — Phase 1 + Phase 2A + Phase 2B → **29/29 backend pytest still green**.
 
-## Phase 2 fully DONE ✅
-All Supplier work — onboarding foundation (2A backend + frontend), portal & catalogue (2B backend + supplier frontend + SA review) — is complete and validated end-to-end. Ready to plan Phase 3 (Purchase Orders) when you give the go-ahead.
+- ✅ **Phase 3 Cycle 1 — Purchase Orders Backend** (2026-02-13)
+    - **Alembic migration 0014** creates `purchase_orders` (header with 7-status lifecycle: draft → submitted → acknowledged → shipped → partially_received → received → cancelled), `purchase_order_lines` (qty_ordered / qty_received / unit_cost / tax_pct / line totals with CHECK invariants including `qty_received <= qty_ordered`), `purchase_order_receipts` + `purchase_order_receipt_lines` (per-event line-level receipt qty with movement_id link), and `purchase_order_audit`.
+    - **Backend routes** (`shared/purchase_orders/routes.py`):
+      * Partner buyer (`/api/partner/purchase-orders/*`): list with 7-bucket counts + supplier/warehouse enrichment (store-scoped for staff via `store_id` JWT claim, unscoped for owners), get detail with lines+receipts+audit_trail, create-draft (owner/manager), add/update/delete-line (with auto totals recompute), submit (owner/manager, blocks empty POs), cancel (draft or submitted only, notes required), receive (owner/manager/supervisor/packer).
+      * Supplier (`/api/supplier/me/purchase-orders/*`): list (drafts hidden), get, acknowledge (submitted→acknowledged), ship (acknowledged→shipped).
+      * Super Admin (`/api/admin/modules/mart/purchase-orders/*`): cross-network list with country/status/search filters, detail with audit_trail, override-cancel (any status except cancelled/received, notes required).
+    - **Atomic inventory-safe receipt**: acquires `SELECT ... FOR UPDATE` on the target `PurchaseOrderLine` rows and on `PartnerInventory` before mutating. Auto-creates a missing `PartnerProduct` row (source=master, is_active=False so ops must price it before storefront exposure). Increments `available_qty` + `stock_qty`. Writes a `receive` `PartnerStockMovement` with `before_qty`, `delta_qty`, `balance_after`, `reference=receipt_id`, `reason=PO receipt {po_code}`. Header auto-rolls between `partially_received` and `received` based on remaining ordered - received across all lines.
+    - **PO code format**: `PO-{CC}-{YYYY}-{seq:05d}` (per-country, per-year).
+    - **Testing**: `tests/test_purchase_orders_phase3.py` — **11/11 pytest PASS** across four classes:
+      * TestPartnerLifecycle: create + auto-totals, empty-submit 400, cancel-before-ack works.
+      * TestSupplierLifecycle: cannot skip ack (ship-before-ack 409), ack idempotency 409, partner-cancel-after-ack 409, supplier-never-sees-draft (list omits + GET 404).
+      * TestReceipts: partial→full receive transitions correctly, over-receipt guarded (400 with `over_receipt` code), can't receive before ack, audit trail includes create + submit + acknowledge + ship events.
+      * TestAdmin: cross-network list with buckets, override-cancel writes `override_cancel` audit action.
+    - **Combined regression**: **40/40 backend pytest still green** (Phase 1 + 2A + 2B + 3).
+- ⏳ **Phase 3 Cycle 2 (Store Manager PO Frontend)** — pending user go-ahead: partner portal "Purchase Orders" list + create wizard (pick supplier → add lines from catalogue → set qty → totals) + detail page with receive drawer.
+- ⏳ **Phase 3 Cycle 3 (Supplier PO View + SA Dashboard)** — Supplier portal Orders page (acknowledge + mark-shipped) + Admin cross-network PO dashboard with override actions.
 
