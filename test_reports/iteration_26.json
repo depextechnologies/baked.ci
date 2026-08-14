@@ -1,0 +1,37 @@
+{
+  "summary": "Frontend e2e testing of MARTbakēd Supplier Portal (Phase 2B Cycle 2). Tested with approved supplier DEMO Delta (SUP-CI-0001) via public URL. Verified auth guard/redirect, login → portal landing, sidebar shell (6 nav items + supplier chip + Sign out), Dashboard stat cards + Getting Started, Business Profile view/edit (non-critical save = Profile saved toast; critical save = warning modal + 'Saved — Super Admin will re-verify critical changes.' toast), Catalogue table (9 seeded rows, search, active-only toggle, inline edit/cancel, Add Product modal + type-ahead), Documents drag-and-drop upload + pending metadata form + save + delete, Supply Locations add/list/delete with 'Pending SA approval' chip, Product Requests new form (11 category options loaded from /mart/categories?country=CI), logout clears token + redirects, subsequent /portal visit re-triggers auth guard. Delta seed was mutated (tax_id) then restored via SA POST /admin/modules/mart/suppliers/applications/supapp_demo_delta_seed/approve → status back to approved.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/supplier/me & POST /api/supplier/auth/login", "issue": "Suppliers with status=action_required are treated as inactive: /supplier/me returns 401 and login is refused with 'Supplier account is not active'. This makes the /portal action-required banner (data-testid=portal-action-required-banner) effectively unreachable — the spec says 'portal access remains available while we re-verify', but in practice a supplier that triggers a critical-field change is instantly locked out of the portal (and cannot log back in until an SA re-approves). Either (a) update /supplier/me and login to permit action_required, or (b) revise the spec/UI copy.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SellerPortalApp / useSupplierAuth", "issue": "Any error from /supplier/me (including transient 5xx) hard-redirects to login (`if (!hasToken || error) return <Navigate…`). Combined with the backend 401-for-action_required behavior above, a critical-field save immediately kicks the user out. Consider distinguishing 401 (redirect) from other errors (retry / stay + error banner).", "selector": "SellerPortalApp.jsx:172", "priority": "MED"},
+      {"component": "Sidebar supplier chip", "issue": "Chip shows 'Delta-9eb5' rather than the expected 'DEMO Delta Beverages CI'. Root cause: `supplier.trading_name` was mutated in previous test iterations. Not a code defect — but suggests the seed script does not force-restore trading_name on approval and the SA reapprove endpoint does not reset non-critical fields.", "selector": "[data-testid=portal-supplier-name]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_26.json"],
+  "action_items": [
+    "Backend: allow status=action_required suppliers to access /supplier/me and login so the frontend re-verification banner (portal-action-required-banner) can actually be shown.",
+    "Frontend: in useSupplierAuth, only treat 401 as un-auth; on other errors show an in-portal error state rather than redirecting to login.",
+    "Seed hygiene: consider adding a nightly (or on approve) restore of DEMO Delta trading_name to 'DEMO Delta Beverages CI' so sidebar chip matches spec after tests mutate it."
+  ],
+  "critical_code_review_comments": [
+    "SellerPortalApp.jsx:172 — any error from /supplier/me redirects to login; too aggressive. Prefer 401-only redirect (already handled by interceptor) and inline error state otherwise.",
+    "PortalProfile.jsx — after a successful critical save, the code calls refresh() which will hit /supplier/me. If the backend now considers the supplier inactive, this triggers the 401 interceptor → logout. Consider having the PATCH response return the new supplier so refresh() is unnecessary, or gracefully handle a 401 post-critical-save.",
+    "PortalLocations.jsx — select values use 'supply_city' etc. but the UI label says 'City'. Consistent, but somewhat confusing for testers. Non-blocking.",
+    "PortalDocuments.jsx Dropzone — swallows individual file errors but toasts them; ok. Loop is sequential (for…of + await) — for large batches this could feel slow; consider Promise.allSettled with a small concurrency."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "~90% (all UI flows pass; action-required banner spec blocked by backend behavior)"},
+  "test_credentials": "Supplier: demo-delta-supplier@test.example / Supplier1234! ; SA: depexopenai@gmail.com / baked@2026#!$@",
+  "seed_data_creation": "Toggled DEMO Delta tax_id (CI-PYT-9a2d) → then restored back and re-approved app supapp_demo_delta_seed via SA API. Trading_name has previously been altered ('Delta-9eb5') and was NOT restored to 'DEMO Delta Beverages CI'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All portal pages, data-testids, and integrations work per spec except the action-required banner which cannot be surfaced because the backend blocks action_required suppliers from /supplier/me and login. Confirmed by test: after PATCH /supplier/me/profile with critical field change, next call to /supplier/me returns 401 → user is redirected to login → login itself refuses with 'not active'. Restoring approval requires SA POST /admin/modules/mart/suppliers/applications/{app_id}/approve. Delta trading_name currently 'Delta-9eb5'.",
+  "rca_of_the_issue": "Backend policy treats `action_required` the same as `not active` in the supplier auth guard (/supplier/me returns 401 and /auth/login refuses), but the Phase 2B frontend was built assuming action_required suppliers keep portal access + see a banner. Either backend policy should be relaxed for action_required (allow login + /me), or the spec/UI should be revised. Reproduction: login as Delta → /portal/profile → change tax_id → save → confirm modal → toast appears → navigate to /portal → guard redirects to /login → attempt login → error 'Supplier account is not active. Please complete onboarding.' Mitigation used in this test: SA re-approve the application to flip status back to approved."
+}

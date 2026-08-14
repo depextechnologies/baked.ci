@@ -9,6 +9,7 @@ import { PartnerLandingApp } from "@/apps/partner-landing/PartnerLandingApp";
 import { PartnerHubApp } from "@/apps/partner-hub/PartnerHubApp";
 import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
+import { SellerPortalApp } from "@/apps/martbaked-sellers/SellerPortalApp";
 
 /**
  * App.js — thin dispatcher (Phase 1a v2.0 monorepo refactor).
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/partner-portal/*" element={<PartnerPortalApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
+          <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp />} />
           <Route path="/martbaked/sellers/*" element={<SellerApp />} />
           <Route path="/*" element={<CustomerApp />} />
         </Routes>

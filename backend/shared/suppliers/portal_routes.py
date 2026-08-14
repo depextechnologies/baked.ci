@@ -71,7 +71,7 @@ async def get_current_supplier(request: Request, session: AsyncSession = Depends
     supplier = await session.get(Supplier, payload.get("sub") or payload.get("uid") or payload.get("user_id"))
     if not supplier:
         raise HTTPException(401, "Supplier not found")
-    if supplier.status not in ("approved",) or not supplier.supplier_portal_active:
+    if supplier.status not in ("approved", "action_required") or not supplier.supplier_portal_active:
         raise HTTPException(403, {"code": "not_active", "message": "Supplier portal is not active."})
     return supplier
 

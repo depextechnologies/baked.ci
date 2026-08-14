@@ -528,12 +528,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Approval re-entrancy fix**: `admin.approve_application` now only resets `supplier_portal_active=false` on FIRST approval (no password_hash yet). Re-approvals after critical-field re-verification preserve existing portal activation so the supplier can log in immediately once SA re-approves.
     - **Demo seed**: 5 catalogue rows for DEMO Delta (Master ↔ Delta at 65% MRP, MOQ ladder).
     - **Regression**: `tests/test_supplier_portal_phase2b.py` — 12/12 backend pytest PASS (portal core + catalogue add/patch/delete + master type-ahead + upload/download/soft-delete-doc + rejects-disallowed-MIME + product-request full flow + reject-requires-notes + supply-locations CRUD + critical-field re-verification + login-blocked-when-action-required). Combined suite (Phase 1 + Phase 2A + Phase 2B) → 29/29 green.
-- ⏳ **Phase 2B Cycle 2 (Supplier Portal Frontend)** — pending user go-ahead:
-    - Portal shell + auth guard at `/martbaked/sellers/portal/*`
-    - Business Profile page (view + limited edit)
-    - Catalogue page (master-picker + cost/MOQ/lead-time inline editing)
-    - Product Request page
-    - Documents page (real file upload widget)
-    - Supply Locations page
-- ⏳ **Phase 2B Cycle 3 (SA Product-Request Review UI)** — new tab under Admin > Mart > Suppliers
+- ✅ **Phase 2B Cycle 2 — Supplier Portal Frontend** (2026-02-13)
+    - New app `/app/frontend/src/apps/martbaked-sellers/SellerPortalApp.jsx` mounted at `/martbaked/sellers/portal/*` (top-level route so it renders WITHOUT the public-sellers header/footer). Contains an auth guard (redirects to `/martbaked/sellers/login?redirect=...` when no token), sidebar shell with 6 nav items + supplier chip + Sign out, and a Dashboard home showing 3 stat cards (Catalogue SKUs / Product Requests / Documents) + a Getting-started checklist. When the supplier's status is `action_required`, an orange banner explains re-verification is in progress.
+    - **Portal pages** under `/portal/*`:
+      * **Profile** — pre-fills from `/supplier/me`, edits any field, and pops a *critical-change warning modal* before saving legal-identity fields (business_name / tax_id / registration_number). Save toasts "Saved — Super Admin will re-verify critical changes." when a critical field flipped the status.
+      * **Catalogue** — searchable table with inline edit for supplier_sku / cost / MOQ / lead-time, activate-deactivate toggle, remove-row confirm, and an "Add product" modal with debounced type-ahead against `/supplier/me/catalogue/master-products` scoped to the supplier's country.
+      * **Documents** — drag-and-drop uploader that hits `/api/supplier/uploads` (multipart → object storage), followed by a per-file metadata form (type / title / issued_on / expires_on). Table shows verification-status chips + expiry badges (orange <30 days, red expired). Open button fetches the file as an authenticated blob (needed because `<img>`/anchor can't pass Bearer headers).
+      * **Supply Locations** — add city / zone / country + radius; list shows "Pending SA approval" chip; delete confirm.
+      * **Product Requests** — new-request form with categories dropdown loaded from `/mart/categories?country=CI`, optional product image via `/uploads` `kind=image`. Request cards render status chip + review notes + created_master_product_id when SA approves.
+    - **Portal API access**: axios `portalApi` instance auto-attaches `Bearer $supplier_token` from localStorage and redirects to login on 401. Auth guard **only** treats 401 as an auth failure — 403/5xx keep the shell usable so the action-required banner is visible.
+    - **Backend UX fix**: `get_current_supplier` now accepts `approved` *and* `action_required` (portal-active) suppliers, so a critical-field re-verification lets the supplier keep browsing (and read the banner) rather than being logged out. Fresh logins for `action_required` are still blocked — matching doc §12 intent.
+    - **Testing** — iteration 26 ~90% frontend PASS (auth guard, login→portal, sidebar, dashboard cards, profile view/edit with critical modal + toast, catalogue full CRUD + master picker type-ahead, documents drag-drop upload + pending metadata + save + delete, supply-locations add/list/delete with pending chip, product-requests form + list, logout clears token). Both agent-flagged issues addressed in-cycle (MED: auth guard redirect only on 401 + backend allows action_required to browse; LOW seed-restore artefact acknowledged as test hygiene, not a code bug). Backend regression clean: 12/12 pytest still green.
+- ⏳ **Phase 2B Cycle 3 (SA Product-Request Review UI)** — new "Product Requests" tab under Admin › Mart › Suppliers with approve (auto-create master + link) / reject-with-notes actions.
 
