@@ -5,7 +5,7 @@ import {
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
   LayoutDashboard, Store, Package, ClipboardList, Users, Bike, DollarSign,
   Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
-  Activity, Building2,
+  Activity, Building2, Package as PackageIcon,
 } from "lucide-react";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
@@ -21,6 +21,7 @@ const MODULE_NAV = [
   { seg: "category-requests", label: "Category Requests", icon: Sparkles, martOnly: true, note: "Partner-proposed categories" },
   { seg: "suppliers", label: "Suppliers", icon: Building2, martOnly: true, note: "Supplier onboarding & governance" },
   { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
+  { seg: "purchase-orders", label: "Purchase Orders", icon: PackageIcon, martOnly: true, note: "Cross-network PO oversight" },
   { seg: "orders", label: "Orders", icon: ClipboardList },
   { seg: "bookings", label: "Bookings", icon: Activity, expressOnly: true },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },

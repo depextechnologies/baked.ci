@@ -16,7 +16,7 @@ import axios from "axios";
 import { Routes, Route, NavLink, Navigate, useNavigate, Outlet, Link } from "react-router-dom";
 import {
   LayoutDashboard, Building2, PackageSearch, FileText, MapPinned, PlusSquare,
-  LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle,
+  LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle, ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BakedLogo } from "@/components/layout/BakedLogo";
@@ -25,6 +25,7 @@ import { PortalCatalogue } from "./portal/PortalCatalogue";
 import { PortalDocuments } from "./portal/PortalDocuments";
 import { PortalLocations } from "./portal/PortalLocations";
 import { PortalProductRequests } from "./portal/PortalProductRequests";
+import { PortalOrders } from "./portal/PortalOrders";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -98,6 +99,7 @@ const NAV = [
   { to: "",                  label: "Dashboard",        icon: LayoutDashboard, end: true },
   { to: "profile",           label: "Business Profile", icon: Building2 },
   { to: "catalogue",         label: "Catalogue",        icon: PackageSearch },
+  { to: "orders",            label: "Orders",           icon: ShoppingBag },
   { to: "product-requests",  label: "Product Requests", icon: PlusSquare },
   { to: "documents",         label: "Documents",        icon: FileText },
   { to: "locations",         label: "Supply Locations", icon: MapPinned },
@@ -189,6 +191,7 @@ export const SellerPortalApp = () => {
         <Route index element={<PortalHome supplier={supplier} />} />
         <Route path="profile" element={<PortalProfile />} />
         <Route path="catalogue" element={<PortalCatalogue />} />
+        <Route path="orders" element={<PortalOrders />} />
         <Route path="documents" element={<PortalDocuments />} />
         <Route path="locations" element={<PortalLocations />} />
         <Route path="product-requests" element={<PortalProductRequests />} />

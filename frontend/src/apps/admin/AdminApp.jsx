@@ -27,6 +27,7 @@ import { AdminInventoryControlTower } from "@/pages/admin/AdminInventoryControlT
 import { AdminCategoryRequests } from "@/pages/admin/AdminCategoryRequests";
 import { AdminSupplierApplications } from "@/pages/admin/AdminSupplierApplications";
 import { AdminSuppliersShell } from "@/pages/admin/AdminSuppliersShell";
+import { AdminPurchaseOrders } from "@/pages/admin/AdminPurchaseOrders";
 
 export const AdminApp = () => (
   <Routes>
@@ -68,6 +69,7 @@ export const AdminApp = () => (
         <Route path="category-requests" element={<AdminCategoryRequests />} />
         <Route path="suppliers" element={<AdminSuppliersShell />} />
         <Route path="suppliers/applications" element={<AdminSupplierApplications />} />
+        <Route path="purchase-orders" element={<AdminPurchaseOrders />} />
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />
         <Route path="drivers" element={<ModuleDrivers />} />
