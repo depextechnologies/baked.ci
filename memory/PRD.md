@@ -515,5 +515,25 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Super Admin review UI** — `/app/frontend/src/pages/admin/AdminSupplierApplications.jsx` mounted at `/admin/modules/mart/suppliers` (also aliased at `/suppliers/applications`) with 6 bucket tabs + counts (`submitted / under_review / action_required / approved / rejected / draft`), searchable list, right-side detail drawer showing Business / Owner / Locations & coverage / Category interests / Documents / Banking / full Audit trail (every audit row rendered with timestamp + from→to + notes). Action panel: Approve, Request Info (notes required), Reject (notes required), Suspend (notes required), Unsuspend. Notes-required client-side toast prevents empty-notes submissions.
     - Sub-nav integration in `ModuleWorkspace.jsx` — new "Suppliers" tab with `Building2` icon appears in the MART module workspace.
     - **Testing** — `test_reports/iteration_25.json` ~95% frontend success; landing, status lookup (invalid/approved/action_required/direct-link), login (correct/wrong/not-active), activation validation, wizard start + OTP, SA drawer with all sections + approve/reject/request-info/suspend actions all verified. 2 LOW-priority UX polish items (activate error state ordering + login `not_active` code surfacing) were **fixed in-cycle** after the testing report.
-- ⏳ **Phase 2B** — Supplier Portal (post-login): Business profile, Products, Catalogue (SKU ↔ supplier cost), Documents management, Supply Locations, Notifications, Support, Settings.
+- ✅ **Phase 2B Cycle 1 — Supplier Portal Backend & Object Storage** (2026-02-13)
+    - **Alembic migration 0013** creates `supplier_products` (unique (supplier_id, master_product_id), cost_price + currency + moq + lead_time_days + is_active) and `supplier_product_requests` (proposed_name/category/cost/etc + status lifecycle pending→approved/rejected/withdrawn) — plus `supplier_documents` soft-delete + object-storage columns (`storage_path`, `original_filename`, `size_bytes`, `content_type`, `is_deleted`).
+    - **Emergent Object Storage integration** (`core/providers/object_storage.py`) — `init_storage()` runs at FastAPI startup (best-effort, never blocks boot), `put_object` / `get_object` with automatic key recycling on 404. `EMERGENT_LLM_KEY` seeded in `backend/.env`. Files stored under `baked-platform/suppliers/{supplier_id}/{documents|images}/{uuid}.{ext}`.
+    - **Supplier Portal routes** (`shared/suppliers/portal_routes.py`, JWT `role=supplier`):
+      * `GET /api/supplier/me` · `PATCH /api/supplier/me/profile` — critical fields (business_name / tax_id / registration_number) auto-flip supplier + latest application to `action_required` + audit-log the change (per doc §12).
+      * `GET/POST/DELETE /api/supplier/me/documents` — soft-delete; ties to storage_path from upload.
+      * `GET/POST/DELETE /api/supplier/me/supply-locations` — non-business locations only; SA still gates dark-store links.
+      * `GET/POST/PATCH/DELETE /api/supplier/me/catalogue` + `GET /me/catalogue/master-products` type-ahead — one row per (supplier, master_product) at network cost.
+      * `GET/POST /api/supplier/me/product-requests` — supplier proposes SKUs; SA approve creates the master product (auto-links back at proposed cost when `link_at_supplier_cost=true`), reject requires notes (Pydantic 422 on empty).
+      * `POST /api/supplier/uploads` — multipart upload (≤20 MB, MIME-allow-list) → object storage → returns `{storage_path, file_url, size_bytes, content_type, original_filename}`. `GET /api/supplier/files/{path}` — auth-gated proxy (supplier owns own paths; admins can fetch any).
+    - **Approval re-entrancy fix**: `admin.approve_application` now only resets `supplier_portal_active=false` on FIRST approval (no password_hash yet). Re-approvals after critical-field re-verification preserve existing portal activation so the supplier can log in immediately once SA re-approves.
+    - **Demo seed**: 5 catalogue rows for DEMO Delta (Master ↔ Delta at 65% MRP, MOQ ladder).
+    - **Regression**: `tests/test_supplier_portal_phase2b.py` — 12/12 backend pytest PASS (portal core + catalogue add/patch/delete + master type-ahead + upload/download/soft-delete-doc + rejects-disallowed-MIME + product-request full flow + reject-requires-notes + supply-locations CRUD + critical-field re-verification + login-blocked-when-action-required). Combined suite (Phase 1 + Phase 2A + Phase 2B) → 29/29 green.
+- ⏳ **Phase 2B Cycle 2 (Supplier Portal Frontend)** — pending user go-ahead:
+    - Portal shell + auth guard at `/martbaked/sellers/portal/*`
+    - Business Profile page (view + limited edit)
+    - Catalogue page (master-picker + cost/MOQ/lead-time inline editing)
+    - Product Request page
+    - Documents page (real file upload widget)
+    - Supply Locations page
+- ⏳ **Phase 2B Cycle 3 (SA Product-Request Review UI)** — new tab under Admin > Mart > Suppliers
 

@@ -128,20 +128,76 @@ class SupplierContact(Base, TimestampMixin):
 
 class SupplierDocument(Base):
     __tablename__ = "supplier_documents"
-    __table_args__ = (Index("ix_supplier_docs_supplier", "supplier_id"),)
+    __table_args__ = (
+        Index("ix_supplier_docs_supplier", "supplier_id"),
+        Index("ix_supplier_docs_active", "supplier_id", "is_deleted"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("supdoc"))
     supplier_id: Mapped[str] = mapped_column(String, ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
     document_type: Mapped[str] = mapped_column(String(60), nullable=False)
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     file_url: Mapped[str] = mapped_column(String(600), nullable=False)
+    storage_path: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    original_filename: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    content_type: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     issued_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     expires_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     verification_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")
     verification_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     uploaded_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     reviewer_admin_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("admin_users.id"), nullable=True)
+
+
+class SupplierProduct(Base, TimestampMixin):
+    __tablename__ = "supplier_products"
+    __table_args__ = (
+        Index("uq_supplier_products_pair", "supplier_id", "master_product_id", unique=True),
+        Index("ix_supplier_products_master", "master_product_id", "is_active"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("supprod"))
+    supplier_id: Mapped[str] = mapped_column(String, ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    master_product_id: Mapped[str] = mapped_column(String, ForeignKey("mart_products.id", ondelete="CASCADE"), nullable=False)
+    supplier_sku: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    cost_price: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="XOF", server_default="XOF")
+    moq: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    lead_time_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class SupplierProductRequest(Base, TimestampMixin):
+    __tablename__ = "supplier_product_requests"
+    __table_args__ = (
+        Index("ix_supplier_prod_req_status", "status", "created_at"),
+        Index("ix_supplier_prod_req_supplier", "supplier_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("supreq"))
+    supplier_id: Mapped[str] = mapped_column(String, ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    proposed_name: Mapped[str] = mapped_column(String(400), nullable=False)
+    proposed_category_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_categories.id"), nullable=True)
+    proposed_ean_upc: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    proposed_manufacturer: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    proposed_pack_size: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    proposed_net_qty: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    proposed_short_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    proposed_cost_price: Mapped[Optional[float]] = mapped_column(Numeric(14, 4), nullable=True)
+    proposed_currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="XOF", server_default="XOF")
+    proposed_moq: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    proposed_lead_time_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")
+    review_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    reviewer_admin_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("admin_users.id"), nullable=True)
+    created_master_product_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_products.id"), nullable=True)
 
 
 class SupplierSupplyLocation(Base):

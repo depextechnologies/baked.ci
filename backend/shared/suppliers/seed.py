@@ -81,7 +81,7 @@ DEMO_SUPPLIERS = [
 
 async def seed_demo_suppliers(session: AsyncSession) -> None:
     from sqlalchemy import select
-    from core.models import MartCategory
+    from core.models import MartCategory, MartProduct, SupplierProduct
 
     for d in DEMO_SUPPLIERS:
         # Idempotency: skip if the demo supplier already exists.
@@ -195,3 +195,25 @@ async def seed_demo_suppliers(session: AsyncSession) -> None:
                 supplier_id=supplier.id, application_id=app.id,
                 action="submit", from_status="draft", to_status="submitted",
             ))
+
+    # Phase 2B: seed 5 catalogue lines for the approved DEMO Delta supplier so
+    # the catalogue view has something to render on first boot.
+    delta = await session.get(Supplier, "sup_demo_delta_seed")
+    if delta:
+        existing_links = (await session.execute(
+            select(SupplierProduct).where(SupplierProduct.supplier_id == delta.id)
+        )).scalars().all()
+        if not existing_links:
+            master_rows = (await session.execute(
+                select(MartProduct).where(MartProduct.country == delta.country).limit(5)
+            )).scalars().all()
+            for i, mp in enumerate(master_rows):
+                cost = float(mp.mrp) * 0.65 if getattr(mp, "mrp", None) else 500.0
+                session.add(SupplierProduct(
+                    supplier_id=delta.id, master_product_id=mp.id,
+                    supplier_sku=f"DELTA-{(mp.sku_code or mp.id[:8])}",
+                    cost_price=round(cost, 2),
+                    currency=delta.default_currency,
+                    moq=10 * (i + 1), lead_time_days=2 + i,
+                    is_active=True,
+                ))

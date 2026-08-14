@@ -736,7 +736,12 @@ async def admin_approve_application(
     supplier.status = "approved"
     supplier.approved_at = now
     supplier.approved_by_admin_id = admin.id
-    supplier.supplier_portal_active = False  # awaits activation
+    # Only require re-activation the FIRST time (i.e. no password_hash yet).
+    # For re-approvals after a critical-field re-verification, the supplier's
+    # portal password already exists — do NOT force them to re-set it.
+    if not supplier.password_hash:
+        supplier.supplier_portal_active = False  # awaits initial activation
+    # else: keep supplier_portal_active as-is (typically True)
 
     app.status = "approved"
     app.reviewed_at = now

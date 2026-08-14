@@ -68,7 +68,7 @@ from core.models.suppliers import (
     SUPPLIER_CONTACT_RELATIONS, SUPPLIER_DOCUMENT_TYPES,
     Supplier, SupplierApplication, SupplierContact, SupplierDocument,
     SupplierSupplyLocation, SupplierCategoryInterest, SupplierBankInfo,
-    SupplierReviewAudit,
+    SupplierReviewAudit, SupplierProduct, SupplierProductRequest,
 )
 
 __all__ = [
@@ -150,7 +150,7 @@ __all__ = [
     "PartnerTransfer", "PartnerTransferItem", "TRANSFER_STATUSES",
     "Supplier", "SupplierApplication", "SupplierContact", "SupplierDocument",
     "SupplierSupplyLocation", "SupplierCategoryInterest", "SupplierBankInfo",
-    "SupplierReviewAudit",
+    "SupplierReviewAudit", "SupplierProduct", "SupplierProductRequest",
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",

@@ -37,6 +37,10 @@ from shared.suppliers.routes import (  # noqa: E402
     public_router as supplier_public_router,
     admin_router as admin_supplier_router,
 )
+from shared.suppliers.portal_routes import (  # noqa: E402
+    router as supplier_portal_router,
+    admin_prod_req_router as admin_supplier_prodreq_router,
+)
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
 from modules.mart_partner.routes import router as mart_partner_router, admin_router as mart_partner_admin_router, partner_router as partner_portal_router  # noqa: E402
@@ -98,6 +102,8 @@ api_router.include_router(admin_category_req_router)
 api_router.include_router(partner_category_req_router)
 api_router.include_router(supplier_public_router)
 api_router.include_router(admin_supplier_router)
+api_router.include_router(supplier_portal_router)
+api_router.include_router(admin_supplier_prodreq_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)
@@ -236,6 +242,15 @@ async def _on_startup():
         await run_seed()
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.seed_failed err=%s", e)
+
+    # ---- 3) Object storage init (best-effort — logs but never blocks boot). ----
+    try:
+        from core.providers.object_storage import init_storage
+        await asyncio.to_thread(init_storage)
+        logger.info("baked.startup object storage initialised")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("baked.startup object_storage_init_failed err=%s — supplier uploads will fail until fixed", e)
+
     logger.info("baked.startup done")
 
 
