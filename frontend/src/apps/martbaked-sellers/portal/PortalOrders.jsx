@@ -7,10 +7,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ShoppingBag, Send, CheckCircle2, Truck, PackageOpen, Check, XCircle,
-  Clock, ChevronLeft, X,
+  Clock, ChevronLeft, X, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { portalApi, errMsg } from "../SellerPortalApp";
+import { GrnDownloadModal } from "../../../components/purchase-orders/GrnDownloadModal";
 
 const BUCKETS = [
   { code: "submitted",          label: "New orders", color: "#3B82F6", icon: Send },
@@ -110,6 +111,7 @@ const SupplierPODetail = ({ id, onBack }) => {
   const [busy, setBusy] = useState(false);
   const [action, setAction] = useState(null); // "ack" | "ship"
   const [notes, setNotes] = useState("");
+  const [showGrn, setShowGrn] = useState(false);
 
   const load = useCallback(async () => {
     try { const { data } = await portalApi.get(`/supplier/me/purchase-orders/${id}`); setPo(data); }
@@ -198,6 +200,11 @@ const SupplierPODetail = ({ id, onBack }) => {
       <div className="flex flex-wrap gap-2">
         {canAck && <button onClick={() => setAction("ack")} className="pl-btn pl-btn-primary" data-testid="sp-po-btn-ack"><CheckCircle2 size={14} /> Acknowledge</button>}
         {canShip && <button onClick={() => setAction("ship")} className="pl-btn pl-btn-primary" data-testid="sp-po-btn-ship"><Truck size={14} /> Mark shipped</button>}
+        {["partially_received", "received"].includes(po.status) && (
+          <button onClick={() => setShowGrn(true)} className="pl-btn pl-btn-ghost" data-testid="sp-po-btn-grn">
+            <FileText size={14} /> Download GRN
+          </button>
+        )}
       </div>
 
       {action && (
@@ -223,6 +230,16 @@ const SupplierPODetail = ({ id, onBack }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {showGrn && (
+        <GrnDownloadModal
+          poCode={po.po_code}
+          basePath={`/supplier/me/purchase-orders/${po.id}`}
+          apiClient={portalApi}
+          onClose={() => setShowGrn(false)}
+          variant="supplier"
+        />
       )}
     </div>
   );

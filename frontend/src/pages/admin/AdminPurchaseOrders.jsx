@@ -12,10 +12,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Package, Search, ChevronLeft, ClipboardCheck, Send, CheckCircle2, Truck,
-  PackageOpen, Check, XCircle, Ban, ShieldCheck, Clock, Building2, Store,
+  PackageOpen, Check, XCircle, Ban, ShieldCheck, Clock, Building2, Store, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi } from "../../contexts/AdminContext";
+import { GrnDownloadModal } from "../../components/purchase-orders/GrnDownloadModal";
 
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;
@@ -179,6 +180,7 @@ const AdminPODetail = ({ id, onBack }) => {
   const [busy, setBusy] = useState(false);
   const [showOverride, setShowOverride] = useState(false);
   const [reason, setReason] = useState("");
+  const [showGrn, setShowGrn] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -274,6 +276,18 @@ const AdminPODetail = ({ id, onBack }) => {
           <button onClick={() => setShowOverride(true)} className="baked-btn baked-btn-ghost" style={{ color: "#FF4C52" }} data-testid="admin-po-override-btn">
             <Ban size={14} /> Override-cancel PO
           </button>
+          {["partially_received", "received"].includes(po.status) && (
+            <button onClick={() => setShowGrn(true)} className="baked-btn baked-btn-ghost" data-testid="admin-po-grn-btn">
+              <FileText size={14} /> Download GRN
+            </button>
+          )}
+        </div>
+      )}
+      {!canOverride && ["partially_received", "received"].includes(po.status) && (
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setShowGrn(true)} className="baked-btn baked-btn-ghost" data-testid="admin-po-grn-btn">
+            <FileText size={14} /> Download GRN
+          </button>
         </div>
       )}
 
@@ -315,6 +329,16 @@ const AdminPODetail = ({ id, onBack }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {showGrn && (
+        <GrnDownloadModal
+          poCode={po.po_code}
+          basePath={`/admin/modules/mart/purchase-orders/${po.id}`}
+          apiClient={adminApi}
+          onClose={() => setShowGrn(false)}
+          variant="admin"
+        />
       )}
     </div>
   );

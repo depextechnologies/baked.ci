@@ -12,10 +12,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Package, Plus, X, Search, ChevronLeft, ArrowRight, ClipboardCheck,
   Truck, CheckCircle2, XCircle, Clock, Send, Ban, PackageOpen, ShieldCheck,
-  Building2, Trash2, Check, Search as SearchIcon, Loader2,
+  Building2, Trash2, Check, Search as SearchIcon, Loader2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { partnerApi } from "./PartnerPortalApp";
+import { GrnDownloadModal } from "../../components/purchase-orders/GrnDownloadModal";
 
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;
@@ -401,6 +402,7 @@ const PODetail = ({ id, onBack }) => {
   const [reason, setReason] = useState("");
   const [receiveQtys, setReceiveQtys] = useState({});
   const [receiveNotes, setReceiveNotes] = useState("");
+  const [showGrn, setShowGrn] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -504,6 +506,11 @@ const PODetail = ({ id, onBack }) => {
       <div className="flex flex-wrap gap-2">
         {canCancel && <button onClick={() => setAction("cancel")} className="baked-btn baked-btn-ghost" style={{ color: "#FF4C52" }} data-testid="po-btn-cancel"><Ban size={14} /> Cancel PO</button>}
         {canReceive && <button onClick={() => setAction("receive")} className="baked-btn baked-btn-primary" data-testid="po-btn-receive"><PackageOpen size={14} /> Receive goods</button>}
+        {(po.receipts?.length > 0 || ["received", "partially_received"].includes(po.status)) && (
+          <button onClick={() => setShowGrn(true)} className="baked-btn baked-btn-ghost" data-testid="po-btn-grn">
+            <FileText size={14} /> Download GRN
+          </button>
+        )}
       </div>
 
       {po.receipts?.length > 0 && (
@@ -582,6 +589,16 @@ const PODetail = ({ id, onBack }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {showGrn && (
+        <GrnDownloadModal
+          poCode={po.po_code}
+          basePath={`/partner/purchase-orders/${po.id}`}
+          apiClient={partnerApi}
+          onClose={() => setShowGrn(false)}
+          variant="partner"
+        />
       )}
     </div>
   );

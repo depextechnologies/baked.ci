@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +45,10 @@ from modules.mart_partner.staff_routes import (
     PartnerActor, get_partner_actor, require_role,
 )
 from shared.suppliers.portal_routes import get_current_supplier
+from shared.purchase_orders.grn import (
+    assemble_payload as _assemble_grn_payload,
+    build_grn_pdf, build_grn_xlsx, build_grn_reference,
+)
 
 log = logging.getLogger("baked.purchase_orders")
 
@@ -149,6 +154,120 @@ async def _audit(session: AsyncSession, po: PurchaseOrder, *,
         actor_label=actor_label, action=action,
         from_status=from_status, to_status=to_status, notes=notes,
     ))
+
+
+# ===========================================================================
+# GRN Helpers (Phase 4)
+# ===========================================================================
+
+async def _load_grn_bundle(
+    session: AsyncSession, po: PurchaseOrder, *, target_receipt_id: Optional[str] = None,
+) -> dict:
+    """Fetches everything the GRN generators need and returns the payload dict.
+
+    Access control is enforced by the *caller* — this only assembles data.
+    """
+    lines = (await session.execute(
+        select(PurchaseOrderLine).where(PurchaseOrderLine.purchase_order_id == po.id)
+    )).scalars().all()
+    receipts = (await session.execute(
+        select(PurchaseOrderReceipt).where(PurchaseOrderReceipt.purchase_order_id == po.id)
+        .order_by(PurchaseOrderReceipt.received_at.asc())
+    )).scalars().all()
+    receipt_lines = (await session.execute(
+        select(PurchaseOrderReceiptLine).where(
+            PurchaseOrderReceiptLine.receipt_id.in_([r.id for r in receipts]) if receipts else False  # type: ignore
+        )
+    )).scalars().all() if receipts else []
+    by_receipt: dict[str, list[PurchaseOrderReceiptLine]] = {}
+    for rl in receipt_lines:
+        by_receipt.setdefault(rl.receipt_id, []).append(rl)
+
+    target = None
+    if target_receipt_id:
+        target = next((r for r in receipts if r.id == target_receipt_id), None)
+        if not target:
+            raise HTTPException(404, "Receipt not found for this PO")
+
+    partner = await session.get(Partner, po.partner_id)
+    supplier = await session.get(Supplier, po.supplier_id)
+    warehouse = await session.get(Warehouse, po.warehouse_id)
+
+    def _party_addr(w: Optional[Warehouse]) -> str:
+        if not w:
+            return ""
+        parts = [w.address_line, w.city, w.region, w.country]
+        return ", ".join([p for p in parts if p])
+
+    buyer = {
+        "name": partner.business_name if partner else "—",
+        "code": warehouse.code if warehouse else None,
+        "address": _party_addr(warehouse),
+        "country": partner.country if partner else None,
+        "tax_id": None,
+        "email": getattr(partner, "owner_email", None) if partner else None,
+        "phone": getattr(partner, "owner_phone", None) if partner else None,
+    }
+    supplier_dict = {
+        "name": supplier.trading_name or supplier.business_name if supplier else "—",
+        "code": supplier.code if supplier else None,
+        "country": supplier.country if supplier else None,
+        "tax_id": supplier.tax_id if supplier else None,
+        "registration_number": supplier.registration_number if supplier else None,
+        "email": supplier.business_email if supplier else None,
+        "phone": supplier.business_phone if supplier else None,
+    }
+
+    return _assemble_grn_payload(
+        po=po, lines=lines, receipts=receipts,
+        receipt_lines_by_receipt=by_receipt,
+        buyer=buyer, supplier=supplier_dict,
+        target_receipt=target,
+    )
+
+
+def _grn_list_response(po: PurchaseOrder, receipts_ordered: list) -> dict:
+    """Compact metadata for the frontend GRN modal."""
+    return {
+        "po_code": po.po_code,
+        "consolidated": {
+            "reference": build_grn_reference(po.po_code, "consolidated"),
+            "available": True,
+        },
+        "receipts": [
+            {
+                "id": r.id, "sequence": idx + 1,
+                "reference": build_grn_reference(po.po_code, "receipt", idx + 1),
+                "received_at": r.received_at.isoformat(),
+                "notes": r.notes,
+            }
+            for idx, r in enumerate(receipts_ordered)
+        ],
+    }
+
+
+async def _list_receipts(session: AsyncSession, po: PurchaseOrder) -> list:
+    return (await session.execute(
+        select(PurchaseOrderReceipt).where(PurchaseOrderReceipt.purchase_order_id == po.id)
+        .order_by(PurchaseOrderReceipt.received_at.asc())
+    )).scalars().all()
+
+
+def _grn_response(payload: dict, fmt: str) -> Response:
+    """Serialize payload to `fmt` ('pdf'|'xlsx') and wrap in FastAPI Response."""
+    fname = f"{payload['grn_reference']}.{fmt}"
+    if fmt == "pdf":
+        body = build_grn_pdf(payload)
+        media = "application/pdf"
+    elif fmt == "xlsx":
+        body = build_grn_xlsx(payload)
+        media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        raise HTTPException(400, "Unsupported GRN format")
+    return Response(
+        content=body, media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 # ===========================================================================
@@ -326,6 +445,67 @@ async def partner_get_po(
             "created_at": a.created_at.isoformat() if a.created_at else None,
         } for a in audits],
     }
+
+
+async def _partner_po_or_404(session: AsyncSession, po_id: str, actor: PartnerActor) -> PurchaseOrder:
+    po = await _load_po_or_404(session, po_id)
+    if po.partner_id != actor.partner_id:
+        raise HTTPException(404, "PO not found")
+    if actor.actor_kind == "staff" and actor.store_id and po.warehouse_id != actor.store_id:
+        raise HTTPException(404, "PO not found")
+    return po
+
+
+@partner_router.get("/{po_id}/grn")
+async def partner_grn_list(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    po = await _partner_po_or_404(session, po_id, actor)
+    receipts = await _list_receipts(session, po)
+    return _grn_list_response(po, receipts)
+
+
+@partner_router.get("/{po_id}/grn.pdf")
+async def partner_grn_pdf(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    po = await _partner_po_or_404(session, po_id, actor)
+    payload = await _load_grn_bundle(session, po)
+    return _grn_response(payload, "pdf")
+
+
+@partner_router.get("/{po_id}/grn.xlsx")
+async def partner_grn_xlsx(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    po = await _partner_po_or_404(session, po_id, actor)
+    payload = await _load_grn_bundle(session, po)
+    return _grn_response(payload, "xlsx")
+
+
+@partner_router.get("/{po_id}/receipts/{receipt_id}/grn.pdf")
+async def partner_receipt_grn_pdf(
+    po_id: str, receipt_id: str,
+    session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    po = await _partner_po_or_404(session, po_id, actor)
+    payload = await _load_grn_bundle(session, po, target_receipt_id=receipt_id)
+    return _grn_response(payload, "pdf")
+
+
+@partner_router.get("/{po_id}/receipts/{receipt_id}/grn.xlsx")
+async def partner_receipt_grn_xlsx(
+    po_id: str, receipt_id: str,
+    session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    po = await _partner_po_or_404(session, po_id, actor)
+    payload = await _load_grn_bundle(session, po, target_receipt_id=receipt_id)
+    return _grn_response(payload, "xlsx")
 
 
 @partner_router.post("", status_code=201)
@@ -723,6 +903,65 @@ async def supplier_ship_po(
     return _po_dict(po)
 
 
+async def _supplier_po_or_404(session: AsyncSession, po_id: str, supplier: Supplier) -> PurchaseOrder:
+    po = await _load_po_or_404(session, po_id)
+    if po.supplier_id != supplier.id or po.status == "draft":
+        raise HTTPException(404, "PO not found")
+    return po
+
+
+@supplier_router.get("/{po_id}/grn")
+async def supplier_grn_list(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    supplier: Supplier = Depends(get_current_supplier),
+):
+    po = await _supplier_po_or_404(session, po_id, supplier)
+    receipts = await _list_receipts(session, po)
+    return _grn_list_response(po, receipts)
+
+
+@supplier_router.get("/{po_id}/grn.pdf")
+async def supplier_grn_pdf(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    supplier: Supplier = Depends(get_current_supplier),
+):
+    po = await _supplier_po_or_404(session, po_id, supplier)
+    payload = await _load_grn_bundle(session, po)
+    return _grn_response(payload, "pdf")
+
+
+@supplier_router.get("/{po_id}/grn.xlsx")
+async def supplier_grn_xlsx(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    supplier: Supplier = Depends(get_current_supplier),
+):
+    po = await _supplier_po_or_404(session, po_id, supplier)
+    payload = await _load_grn_bundle(session, po)
+    return _grn_response(payload, "xlsx")
+
+
+@supplier_router.get("/{po_id}/receipts/{receipt_id}/grn.pdf")
+async def supplier_receipt_grn_pdf(
+    po_id: str, receipt_id: str,
+    session: AsyncSession = Depends(get_session),
+    supplier: Supplier = Depends(get_current_supplier),
+):
+    po = await _supplier_po_or_404(session, po_id, supplier)
+    payload = await _load_grn_bundle(session, po, target_receipt_id=receipt_id)
+    return _grn_response(payload, "pdf")
+
+
+@supplier_router.get("/{po_id}/receipts/{receipt_id}/grn.xlsx")
+async def supplier_receipt_grn_xlsx(
+    po_id: str, receipt_id: str,
+    session: AsyncSession = Depends(get_session),
+    supplier: Supplier = Depends(get_current_supplier),
+):
+    po = await _supplier_po_or_404(session, po_id, supplier)
+    payload = await _load_grn_bundle(session, po, target_receipt_id=receipt_id)
+    return _grn_response(payload, "xlsx")
+
+
 # ===========================================================================
 # ADMIN ROUTER
 # ===========================================================================
@@ -820,3 +1059,56 @@ async def admin_override_cancel(
                  notes=payload.reason)
     await session.commit()
     return _po_dict(po)
+
+
+
+@admin_router.get("/{po_id}/grn")
+async def admin_grn_list(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    po = await _load_po_or_404(session, po_id)
+    receipts = await _list_receipts(session, po)
+    return _grn_list_response(po, receipts)
+
+
+@admin_router.get("/{po_id}/grn.pdf")
+async def admin_grn_pdf(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    po = await _load_po_or_404(session, po_id)
+    payload = await _load_grn_bundle(session, po)
+    return _grn_response(payload, "pdf")
+
+
+@admin_router.get("/{po_id}/grn.xlsx")
+async def admin_grn_xlsx(
+    po_id: str, session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    po = await _load_po_or_404(session, po_id)
+    payload = await _load_grn_bundle(session, po)
+    return _grn_response(payload, "xlsx")
+
+
+@admin_router.get("/{po_id}/receipts/{receipt_id}/grn.pdf")
+async def admin_receipt_grn_pdf(
+    po_id: str, receipt_id: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    po = await _load_po_or_404(session, po_id)
+    payload = await _load_grn_bundle(session, po, target_receipt_id=receipt_id)
+    return _grn_response(payload, "pdf")
+
+
+@admin_router.get("/{po_id}/receipts/{receipt_id}/grn.xlsx")
+async def admin_receipt_grn_xlsx(
+    po_id: str, receipt_id: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    po = await _load_po_or_404(session, po_id)
+    payload = await _load_grn_bundle(session, po, target_receipt_id=receipt_id)
+    return _grn_response(payload, "xlsx")

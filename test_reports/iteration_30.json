@@ -1,0 +1,23 @@
+{
+  "summary": "Phase 4 GRN (PDF/Excel) generation — full backend + frontend verification. Backend: 15/15 pytest cases pass in /app/backend/tests/test_purchase_orders_phase4_grn.py covering all three surfaces (partner / supplier / admin) — GRN list endpoint shape, consolidated PDF+XLSX headers (%PDF- / PK magic bytes, application/pdf, spreadsheetml.sheet, attachment disposition), per-receipt variants, RBAC negatives (401 without bearer, 404 cross-tenant partner beta accessing alpha's PO, 404 cross-supplier, 404 for draft PO on supplier surface), PDF text extraction contains 'Goods Received Note' + 'PO-CI-2026-00032' + 'Consolidated GRN' + 'Grand total' + 'SUP-CI-0001' + 'Not a tax invoice' + buyer/supplier labels, per-receipt PDF contains 'Receipt GRN' + sequence number, XLSX has 'GRN' sheet containing 'Goods Received Note'/'PO-CI-2026-00032'/'Grand total'. Frontend: partner (partner-alpha-store), supplier (demo-delta), and admin all render their GRN modal with 1 consolidated row + 2 receipt rows (PO-CI-2026-00032 has 2 receipts). All testids present (po-btn-grn / sp-po-btn-grn / admin-po-grn-btn; *-grn-modal; *-grn-row-consolidated; *-grn-row-receipt-<id>; *-grn-consolidated-pdf/xlsx; *-grn-receipt-<id>-pdf/xlsx). Actually clicking each 'PDF' consolidated button on all 3 portals triggered a real 200 OK network GET to the corresponding /grn.pdf endpoint. Hide-guard verified: partner PO in received bucket shows po-btn-grn (visible); supplier PO in acknowledged bucket → sp-po-btn-grn count=0 (correctly hidden); admin PO in draft bucket → admin-po-grn-btn count=0 (correctly hidden).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_purchase_orders_phase4_grn.py",
+    "/app/test_reports/pytest/phase4_grn.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "shared/purchase_orders/routes.py::_load_grn_bundle line 179 uses a slightly awkward pattern: `PurchaseOrderReceiptLine.receipt_id.in_([r.id for r in receipts]) if receipts else False` — the `if receipts else False` branch is unreachable because it is already guarded by the surrounding `if receipts else []` on line 181. Cosmetic; still safe.",
+    "Frontend GrnDownloadModal uses axios responseType='blob' and hidden anchor click — works fine but toast.success('Downloaded <filename>') dismisses in ~4s so automated UI cannot always catch it; the acceptance criterion explicitly allows network-response assertion which is what we used. Consider adding a persistent success indicator (e.g. a small ✔ next to the row) for e2e-visibility.",
+    "Supplier guard is enforced at both layers (frontend hides sp-po-btn-grn when status not in received/partially_received AND backend _supplier_po_or_404 rejects draft PO). Good defense-in-depth."
+  ],
+  "updated_files": ["/app/backend/tests/test_purchase_orders_phase4_grn.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (all 3 portals + guards + real network click)"},
+  "test_credentials": "Used exactly the credentials from the request; all still valid.",
+  "seed_data_creation": "One throwaway draft PO may have been created against partner-alpha-store → sup_demo_delta_seed only if no draft existed (TestSupplierGrn::test_draft_po_404 fallback). Should be cleaned up by main agent if needed; otherwise harmless.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 4 GRN is complete and green. PO-CI-2026-00032 (po_442fc2a8d8b5478f) has 2 receipts and is in 'received' status — reliable fixture for future GRN tests. Reusable pytest module at /app/backend/tests/test_purchase_orders_phase4_grn.py.",
+  "rca of the issue": "N/A — no failures."
+}
