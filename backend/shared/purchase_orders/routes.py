@@ -49,6 +49,7 @@ from shared.purchase_orders.grn import (
     assemble_payload as _assemble_grn_payload,
     build_grn_pdf, build_grn_xlsx, build_grn_reference,
 )
+from shared.purchase_orders.notifications import dispatch_po_notification
 
 log = logging.getLogger("baked.purchase_orders")
 
@@ -632,6 +633,7 @@ async def partner_submit_po(
                  actor_id=actor.actor_id, actor_label=_actor_label(actor),
                  action="submit", from_status="draft", to_status="submitted")
     await session.commit()
+    dispatch_po_notification("submitted", po.id)
     return _po_dict(po)
 
 
@@ -879,6 +881,7 @@ async def supplier_acknowledge_po(
                  from_status="submitted", to_status="acknowledged",
                  notes=payload.notes)
     await session.commit()
+    dispatch_po_notification("acknowledged", po.id)
     return _po_dict(po)
 
 
@@ -900,6 +903,7 @@ async def supplier_ship_po(
                  from_status="acknowledged", to_status="shipped",
                  notes=payload.notes)
     await session.commit()
+    dispatch_po_notification("shipped", po.id)
     return _po_dict(po)
 
 

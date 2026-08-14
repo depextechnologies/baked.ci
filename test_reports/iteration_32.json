@@ -1,0 +1,33 @@
+{
+  "summary": "Phase 4c PO email notifications — full backend regression pass. Created new pytest suite (test_purchase_orders_phase4c_notifications.py) covering all 7 review items: submit/ack/ship dispatch with correct recipients + subject shape, warehouse_manager staff inclusion on ship, fire-and-forget latency (<3s), no-dispatch-on-409 guard, and no-recipients guard. Phase 3 regression (11/11) still green.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "shared/purchase_orders/notifications.py::_run", "issue": "Unused variable: `line_count` is bound to the list of PurchaseOrderLine rows (via .scalars().all()) then len() is taken. Works, but the variable name is misleading — should be `lines` and pass len(lines). Not a bug, just readability."},
+      {"endpoint": "notifications._run recipient guard", "issue": "The guard `if supplier.business_email` / `if partner.owner_email` treats empty string as no-recipient (which is correct), but the DB has a NOT NULL constraint on partners.owner_email, so the review's suggested test method (`SET owner_email = NULL`) is impossible. Test used empty string instead — equivalent behavior since Python treats '' as falsy."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_purchase_orders_phase4c_notifications.py",
+    "/app/test_reports/pytest/phase4c_notifications.xml",
+    "/app/test_reports/pytest/phase3_regression_iter32.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "notifications.py: `line_count = (await session.execute(...)).scalars().all()` — variable name reads as an int but is a list; rename to `lines` and use `len(lines)` for clarity.",
+    "notifications._run does supplier + partner + warehouse lookups even for 'submitted' events where only supplier is needed. Not perf-critical (fire-and-forget) but a `select_related`-style single query would be cleaner.",
+    "PartnerStaff.warehouse_id is nullable, but the ship notification query filters strictly by warehouse_id == po.warehouse_id — that's correct for warehouse-scoped managers. However, staff without a warehouse_id (e.g. cross-store customer_support) will never receive ship notifications; if that's intended it should be documented in the module docstring.",
+    "Fire-and-forget uses `asyncio.create_task` without keeping a strong reference outside the running-task registry — in practice fine here because FastAPI's event loop retains the task, but a set-based tracker (like mart_partner/notifications.py?) would prevent gc surprises under load."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_purchase_orders_phase4c_notifications.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6 new + 11/11 regression)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Partner: partner-alpha-store@test.example / Alpha1234!Beta; Supplier: demo-delta-supplier@test.example / Supplier1234!",
+  "seed_data_creation": "Temp warehouse_manager staff row (id=stf_test_*) inserted+deleted per test. Partner owner_email temporarily set to '' then restored to partner-alpha-store@test.example. Verified restoration via psql after suite run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "New Phase 4c test file lives at /app/backend/tests/test_purchase_orders_phase4c_notifications.py — treat as regression going forward. It reads /var/log/supervisor/backend.err.log (via `tail`) to verify mailer.no_op INFO lines, and uses `psql` via subprocess for direct DB assertions (no psycopg2 dependency). Test verifies subject shape, recipient exactness (not partner email on submit), warehouse_manager staff inclusion, latency <3s, no-dispatch on 409, and empty-owner-email no_recipients guard. Note DB NOT NULL constraint on partners.owner_email — cannot NULL it out, empty string is equivalent (Python falsy check).",
+  "rca of the issue": "N/A — no issues found. All 3 transitions produce correct mailer.no_op INFO lines with correct recipients and subject shape; the fire-and-forget dispatch does not block the endpoint (measured latency <3s on all three transitions); 409 responses correctly do NOT emit any mailer line; and the empty-recipient guard correctly emits `po_notify.no_recipients po=<id> kind=acknowledged` without crashing."
+}
