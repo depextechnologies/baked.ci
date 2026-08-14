@@ -280,11 +280,11 @@ const PartnerResetPasswordPage = () => {
 
 // Role → visible tabs. Owners see everything (implicit).
 const NAV_ROLE_ACCESS = {
-  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "wallet", "team"],
-  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "wallet", "team"],
-  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "wallet", "team"],
-  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "orders", "team"],
-  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "orders"],
+  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "wallet", "team"],
+  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "wallet", "team"],
+  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "wallet", "team"],
+  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "team"],
+  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders"],
   packer:            ["", "warehouse", "products", "inventory", "orders"],
   cashier:           ["", "orders", "wallet"],
   customer_support:  ["", "orders"],
@@ -298,6 +298,7 @@ const NAV = [
   { seg: "inventory", icon: Boxes,           label: "Inventory" },
   { seg: "receiving", icon: PackagePlus,     label: "Receiving" },
   { seg: "counts",    icon: ClipboardCheck,  label: "Stock counts" },
+  { seg: "purchase-orders", icon: Package,   label: "Purchase orders" },
   { seg: "orders",    icon: ShoppingBag,     label: "Orders" },
   { seg: "wallet",    icon: Wallet,          label: "Wallet" },
   { seg: "team",      icon: Users,           label: "Team" },
@@ -610,6 +611,7 @@ import { WalletPage } from "./WalletPage";
 import { TeamPage, AcceptInvitePage } from "./TeamPage";
 import { InventoryPage } from "./InventoryPage";
 import { ReceivingPage } from "./ReceivingPage";
+import { PurchaseOrdersPage } from "./PurchaseOrdersPage";
 import { StockCountsPage } from "./StockCountsPage";
 
 
@@ -643,6 +645,7 @@ export const PartnerPortalApp = () => {
         <Route path="inventory" element={<Protected><PortalShell><InventoryPage /></PortalShell></Protected>} />
         <Route path="receiving" element={<Protected><PortalShell><ReceivingPage /></PortalShell></Protected>} />
         <Route path="counts" element={<Protected><PortalShell><StockCountsPage /></PortalShell></Protected>} />
+        <Route path="purchase-orders" element={<Protected><PortalShell><PurchaseOrdersPage /></PortalShell></Protected>} />
         <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
         <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
         <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />

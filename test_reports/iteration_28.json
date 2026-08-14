@@ -1,0 +1,30 @@
+{
+  "summary": "Phase 3 Cycle 2 — Frontend-only e2e test of Partner Portal Purchase Orders at /partner-portal/purchase-orders. Logged in as Partner Alpha owner, exercised the full lifecycle: list+7 buckets, create-PO wizard (step 1 supplier/warehouse validation + step 2 catalogue type-ahead, add line, qty PATCH, subtotal recompute, submit), detail page (status chip, stat cards, lines table, audit trail), Cancel modal (empty-reason toast + confirmed cancellation with red banner), and Receive drawer (empty-qty toast, partial receive → partially_received, full receive → received + receipts list). Used the DEMO Delta supplier login via curl to acknowledge+ship the submitted PO between the create and receive UI steps, per the review request. All 11 spec bullets passed. No blocking issues.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "PO detail — lines table (post-receipt render)", "issues": ["After full receipt, screenshot shows the Product cell rendering only the supplier_sku line (e.g. 'DELTA-prd_0241') and the product_name text collapsed vertically — the DOM does contain both strings back-to-back ('Œufs FermiersDELTA-prd_0241') but visually the name row appears empty on some line heights. Consider explicit line-height / block separation between product_name and supplier_sku spans in <td> at PurchaseOrdersPage.jsx line 489."]},
+      {"screen": "Create PO modal — Supplier <select>", "issues": ["React console warning: '<span> cannot be a child of <option>' — noise from the injected instrumentation spans (x-* attributes) inside <option> tags. Not user-visible; only affects dev warnings. Safe to ignore."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_28.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PurchaseOrdersPage.jsx line 279 uses `ln.master_product_id.slice(0,12)` as a fallback when supplier_sku is null — will throw if master_product_id is ever null/undefined. Prefer `ln.master_product_id?.slice(0,12) ?? '—'`.",
+    "LinePicker useEffect (line 336) silently swallows all errors from /partner/purchase-orders/supplier-catalogue by setting results=[]. A supplier who has 0 catalogue products AND a 500/403 both look identical to the user (no results, no message). Consider distinguishing 'no items' from 'load failed' with a subtle inline hint.",
+    "CreatePOModal step 2 has NO progress/back button — once step 2 opens, the only escape is 'Save draft & close' or 'Submit'. Users cannot go back to step 1 to change the supplier (which is actually correct because a draft PO is already created and locking the supplier makes sense, but the UX should say so — 'Supplier is locked once draft is created' hint).",
+    "PODetail line 449 `new Date(po.created_at).toLocaleDateString()` will throw if created_at is null (defensive rendering for edge cases where a PO is fetched mid-transition).",
+    "Receive drawer disables the input when remaining===0 but still allows the confirm button; sending {po_line_id, qty_received:0} for those lines would be filtered client-side (see line 430 `.filter([_,q]) => q>0`), which is fine, but an entirely-fulfilled PO would still show the 'Receive goods' button if its status stays acknowledged/shipped/partial — currently canReceive is status-based so that's ok, just worth noting.",
+    "Search box triggers load() only on Enter — the search value 'q' is NOT included in the useEffect dep array of the list load (line 63 depends on [status, load] and load itself depends on [status,q]). Because load's identity changes when q changes, this actually works but is subtle. Add an explicit 'clear' (×) button next to the search box for better UX."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (11/11 spec bullets)"},
+  "test_credentials": "Partner Owner: partner-alpha-store@test.example / Alpha1234!Beta ; Supplier (ack+ship curl): demo-delta-supplier@test.example / Supplier1234!",
+  "seed_data_creation": "Created 2 POs during test: (1) PO-CI-2026-00032 — full lifecycle: draft→submitted→acknowledged (via supplier curl)→shipped (via supplier curl)→partially_received (received 1/3)→received (received 2/2 remaining). Supplier: DEMO Delta Beverages CI, Product: Œufs Fermiers, 3 units × 500 XOF = 1500 XOF. (2) PO-CI-2026-00027 — draft→cancelled with reason 'E2E test cancellation'. Both are safe to leave (demo dataset).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "PO frontend Phase 3 Cycle 2 fully green. All data-testids verified: po-page, po-bucket-{draft|submitted|acknowledged|shipped|partially_received|received|cancelled}, po-search-input, po-new-btn, po-create-modal, po-create-step1/step2, po-supplier-select, po-warehouse-select, po-eta, po-notes, po-create-draft, po-save-draft, po-line-search, po-line-results, po-line-result-*, po-line-row-*, po-line-qty-*, po-line-del-*, po-lines-empty, po-submit, po-row-{code}, po-open-{code}, po-detail, po-detail-back, po-detail-status-*, po-detail-line-*, po-btn-cancel, po-btn-receive, po-cancel-modal, po-cancel-reason, po-cancel-confirm, po-cancel-abort, po-cancelled-banner, po-receive-drawer, po-receive-line-*, po-receive-qty-*, po-receive-notes, po-receive-confirm, po-receive-abort, po-receipts-list, po-audit-trail. Supplier ack+ship called at /api/supplier/me/purchase-orders/{id}/{acknowledge|ship} after obtaining token from /api/martbaked/sellers/login. Backend Cycle 1 remains at 11/11 pytest (per prior report).",
+  "rca_of_the_issue": "n/a — no functional bugs surfaced."
+}

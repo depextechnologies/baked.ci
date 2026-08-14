@@ -197,6 +197,62 @@ def _scoped_po_query(actor: PartnerActor):
     return stmt
 
 
+@partner_router.get("/suppliers")
+async def partner_list_suppliers(
+    session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    """Partner-side lookup: approved suppliers in the partner's country."""
+    partner = actor.partner
+    rows = (await session.execute(
+        select(Supplier).where(
+            Supplier.status == "approved",
+            Supplier.country == partner.country,
+        ).order_by(Supplier.business_name)
+    )).scalars().all()
+    return {"items": [{
+        "id": s.id, "code": s.code, "business_name": s.business_name,
+        "trading_name": s.trading_name, "country": s.country,
+        "default_currency": s.default_currency,
+    } for s in rows]}
+
+
+@partner_router.get("/supplier-catalogue")
+async def partner_supplier_catalogue(
+    supplier_id: str = Query(...),
+    q: Optional[str] = Query(None),
+    session: AsyncSession = Depends(get_session),
+    actor: PartnerActor = Depends(get_partner_actor),
+):
+    """Partner-side type-ahead over a supplier's approved catalogue."""
+    supplier = await session.get(Supplier, supplier_id)
+    if not supplier or supplier.status != "approved":
+        raise HTTPException(404, "Supplier not found")
+    if supplier.country != actor.partner.country:
+        raise HTTPException(403, "Supplier not in your country")
+    stmt = select(SupplierProduct, MartProduct).join(
+        MartProduct, MartProduct.id == SupplierProduct.master_product_id
+    ).where(SupplierProduct.supplier_id == supplier_id,
+            SupplierProduct.is_active.is_(True)).limit(30)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            (MartProduct.name.ilike(like))
+            | (SupplierProduct.supplier_sku.ilike(like))
+            | (MartProduct.sku_code.ilike(like))
+        )
+    rows = (await session.execute(stmt)).all()
+    return {"items": [{
+        "id": sp.id, "supplier_sku": sp.supplier_sku,
+        "cost_price": _q(sp.cost_price), "currency": sp.currency,
+        "moq": sp.moq, "lead_time_days": sp.lead_time_days,
+        "master": {
+            "id": mp.id, "name": mp.name, "sku": mp.sku_code,
+            "brand": mp.brand, "image_url": mp.image,
+        },
+    } for sp, mp in rows]}
+
+
 @partner_router.get("")
 async def partner_list_pos(
     status: Optional[str] = Query(None),
