@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import {
   Loader2, LogOut, LayoutDashboard, Building2, Warehouse as WarehouseIcon,
   Package, ShoppingBag, Wallet, ChevronRight, CheckCircle2, Circle, KeyRound,
-  MapPin, Mail, Phone, Store, Users, Boxes, PackagePlus, ClipboardCheck,
+  MapPin, Mail, Phone, Store, Users, Boxes, PackagePlus, ClipboardCheck, Sparkles,
 } from "lucide-react";
 import { BakedLogo } from "@/components/layout/BakedLogo";
 import "@/apps/partner-hub/partner-hub.css";
@@ -280,11 +280,11 @@ const PartnerResetPasswordPage = () => {
 
 // Role → visible tabs. Owners see everything (implicit).
 const NAV_ROLE_ACCESS = {
-  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "wallet", "team"],
-  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "wallet", "team"],
-  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "wallet", "team"],
-  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders", "team"],
-  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "purchase-orders", "orders"],
+  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "wallet", "team"],
+  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "wallet", "team"],
+  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "wallet", "team"],
+  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "team"],
+  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders"],
   packer:            ["", "warehouse", "products", "inventory", "orders"],
   cashier:           ["", "orders", "wallet"],
   customer_support:  ["", "orders"],
@@ -298,6 +298,7 @@ const NAV = [
   { seg: "inventory", icon: Boxes,           label: "Inventory" },
   { seg: "receiving", icon: PackagePlus,     label: "Receiving" },
   { seg: "counts",    icon: ClipboardCheck,  label: "Stock counts" },
+  { seg: "restock",   icon: Sparkles,        label: "Restock suggestions" },
   { seg: "purchase-orders", icon: Package,   label: "Purchase orders" },
   { seg: "orders",    icon: ShoppingBag,     label: "Orders" },
   { seg: "wallet",    icon: Wallet,          label: "Wallet" },
@@ -612,6 +613,7 @@ import { TeamPage, AcceptInvitePage } from "./TeamPage";
 import { InventoryPage } from "./InventoryPage";
 import { ReceivingPage } from "./ReceivingPage";
 import { PurchaseOrdersPage } from "./PurchaseOrdersPage";
+import { RestockSuggestionsPage } from "./RestockSuggestionsPage";
 import { StockCountsPage } from "./StockCountsPage";
 
 
@@ -646,6 +648,7 @@ export const PartnerPortalApp = () => {
         <Route path="receiving" element={<Protected><PortalShell><ReceivingPage /></PortalShell></Protected>} />
         <Route path="counts" element={<Protected><PortalShell><StockCountsPage /></PortalShell></Protected>} />
         <Route path="purchase-orders" element={<Protected><PortalShell><PurchaseOrdersPage /></PortalShell></Protected>} />
+        <Route path="restock" element={<Protected><PortalShell><RestockSuggestionsPage /></PortalShell></Protected>} />
         <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
         <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
         <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />

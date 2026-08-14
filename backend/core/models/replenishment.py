@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.models.base import Base, TimestampMixin, new_id
 
 
-REPLENISHMENT_STATUSES = ("suggested", "approved", "dispatched", "received", "cancelled")
+REPLENISHMENT_STATUSES = ("suggested", "approved", "dispatched", "received", "cancelled", "converted_to_po")
 REPLENISHMENT_SOURCES  = ("auto", "manual")
 
 
@@ -57,3 +57,8 @@ class PartnerReplenishment(Base, TimestampMixin):
     approved_at:   Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     dispatched_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     received_at:   Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+    # Phase 4b — draft PO link (set when a partner one-clicks "Convert to Draft PO")
+    converted_po_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True,
+    )
