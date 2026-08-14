@@ -29,7 +29,7 @@ const errMsg = (e) => {
   return d?.message || e?.message || "Error";
 };
 
-export const AdminSupplierApplications = () => {
+export const AdminSupplierApplications = ({ embedded = false }) => {
   const [status, setStatus] = useState("submitted");
   const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
@@ -79,11 +79,13 @@ export const AdminSupplierApplications = () => {
 
   return (
     <div className="space-y-5" data-testid="admin-supplier-applications">
-      <div>
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
-        <h2 className="text-xl font-bold flex items-center gap-2"><Building2 size={18} /> Supplier Applications</h2>
-        <p className="text-xs text-muted-foreground">Review, approve or request changes for MARTbakēd supplier applications. Suppliers are governed here — separate from Dark Store Partners.</p>
-      </div>
+      {!embedded && (
+        <div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
+          <h2 className="text-xl font-bold flex items-center gap-2"><Building2 size={18} /> Supplier Applications</h2>
+          <p className="text-xs text-muted-foreground">Review, approve or request changes for MARTbakēd supplier applications. Suppliers are governed here — separate from Dark Store Partners.</p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 items-center">
         {BUCKETS.map((b) => {
