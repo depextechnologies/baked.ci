@@ -16,7 +16,7 @@ import axios from "axios";
 import { Routes, Route, NavLink, Navigate, useNavigate, Outlet, Link } from "react-router-dom";
 import {
   LayoutDashboard, Building2, PackageSearch, FileText, MapPinned, PlusSquare,
-  LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle, ShoppingBag,
+  LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle, ShoppingBag, Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BakedLogo } from "@/components/layout/BakedLogo";
@@ -26,6 +26,7 @@ import { PortalDocuments } from "./portal/PortalDocuments";
 import { PortalLocations } from "./portal/PortalLocations";
 import { PortalProductRequests } from "./portal/PortalProductRequests";
 import { PortalOrders } from "./portal/PortalOrders";
+import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -100,6 +101,7 @@ const NAV = [
   { to: "profile",           label: "Business Profile", icon: Building2 },
   { to: "catalogue",         label: "Catalogue",        icon: PackageSearch },
   { to: "orders",            label: "Orders",           icon: ShoppingBag },
+  { to: "invoices",          label: "Invoices",         icon: Receipt },
   { to: "product-requests",  label: "Product Requests", icon: PlusSquare },
   { to: "documents",         label: "Documents",        icon: FileText },
   { to: "locations",         label: "Supply Locations", icon: MapPinned },
@@ -192,6 +194,7 @@ export const SellerPortalApp = () => {
         <Route path="profile" element={<PortalProfile />} />
         <Route path="catalogue" element={<PortalCatalogue />} />
         <Route path="orders" element={<PortalOrders />} />
+        <Route path="invoices" element={<SupplierInvoicesPage apiClient={portalApi} role="supplier" basePath="/supplier/me/invoices" />} />
         <Route path="documents" element={<PortalDocuments />} />
         <Route path="locations" element={<PortalLocations />} />
         <Route path="product-requests" element={<PortalProductRequests />} />

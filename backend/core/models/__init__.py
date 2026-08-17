@@ -75,6 +75,10 @@ from core.models.purchase_orders import (
     PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt,
     PurchaseOrderReceiptLine, PurchaseOrderAudit,
 )
+from core.models.supplier_invoices import (
+    INVOICE_STATUSES, LINE_MATCH_STATUSES,
+    SupplierInvoice, SupplierInvoiceLine, SupplierInvoiceAudit,
+)
 
 __all__ = [
     "Base",
@@ -159,6 +163,8 @@ __all__ = [
     "PO_STATUSES", "PO_ACTOR_KINDS",
     "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderReceipt",
     "PurchaseOrderReceiptLine", "PurchaseOrderAudit",
+    "INVOICE_STATUSES", "LINE_MATCH_STATUSES",
+    "SupplierInvoice", "SupplierInvoiceLine", "SupplierInvoiceAudit",
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",

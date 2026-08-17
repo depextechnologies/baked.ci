@@ -18,6 +18,7 @@ import {
   Loader2, LogOut, LayoutDashboard, Building2, Warehouse as WarehouseIcon,
   Package, ShoppingBag, Wallet, ChevronRight, CheckCircle2, Circle, KeyRound,
   MapPin, Mail, Phone, Store, Users, Boxes, PackagePlus, ClipboardCheck, Sparkles,
+  Receipt,
 } from "lucide-react";
 import { BakedLogo } from "@/components/layout/BakedLogo";
 import "@/apps/partner-hub/partner-hub.css";
@@ -280,11 +281,11 @@ const PartnerResetPasswordPage = () => {
 
 // Role → visible tabs. Owners see everything (implicit).
 const NAV_ROLE_ACCESS = {
-  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "wallet", "team"],
-  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "wallet", "team"],
-  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "wallet", "team"],
-  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders", "team"],
-  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "orders"],
+  owner:             ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "invoices", "orders", "wallet", "team"],
+  manager:           ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "invoices", "orders", "wallet", "team"],
+  supervisor:        ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "invoices", "orders", "wallet", "team"],
+  warehouse_manager: ["", "profile", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "invoices", "orders", "team"],
+  inventory_manager: ["", "warehouse", "products", "inventory", "receiving", "counts", "restock", "purchase-orders", "invoices", "orders"],
   packer:            ["", "warehouse", "products", "inventory", "orders"],
   cashier:           ["", "orders", "wallet"],
   customer_support:  ["", "orders"],
@@ -300,6 +301,7 @@ const NAV = [
   { seg: "counts",    icon: ClipboardCheck,  label: "Stock counts" },
   { seg: "restock",   icon: Sparkles,        label: "Restock suggestions" },
   { seg: "purchase-orders", icon: Package,   label: "Purchase orders" },
+  { seg: "invoices",  icon: Receipt,         label: "Supplier invoices" },
   { seg: "orders",    icon: ShoppingBag,     label: "Orders" },
   { seg: "wallet",    icon: Wallet,          label: "Wallet" },
   { seg: "team",      icon: Users,           label: "Team" },
@@ -614,6 +616,7 @@ import { InventoryPage } from "./InventoryPage";
 import { ReceivingPage } from "./ReceivingPage";
 import { PurchaseOrdersPage } from "./PurchaseOrdersPage";
 import { RestockSuggestionsPage } from "./RestockSuggestionsPage";
+import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
 import { StockCountsPage } from "./StockCountsPage";
 
 
@@ -649,6 +652,7 @@ export const PartnerPortalApp = () => {
         <Route path="counts" element={<Protected><PortalShell><StockCountsPage /></PortalShell></Protected>} />
         <Route path="purchase-orders" element={<Protected><PortalShell><PurchaseOrdersPage /></PortalShell></Protected>} />
         <Route path="restock" element={<Protected><PortalShell><RestockSuggestionsPage /></PortalShell></Protected>} />
+        <Route path="invoices" element={<Protected><PortalShell><SupplierInvoicesPage apiClient={partnerApi} role="partner" basePath="/partner/invoices" /></PortalShell></Protected>} />
         <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
         <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
         <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />

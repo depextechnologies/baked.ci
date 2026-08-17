@@ -1,0 +1,35 @@
+{
+  "summary": "Phase 5 Supplier Invoices (3-way match) — full end-to-end backend + frontend validation. Built new pytest suite (17/17 PASS) covering auto-draft on PO receive, idempotency (single-invoice-per-PO), listing scopes for supplier/partner/admin with status filter, supplier PATCH producing cost_variance/qty_variance, PDF upload to real Emergent Object Storage, submit missing-fields 400 with fields[], matched vs variance transition on submit, partner approve happy path, variance-approve-requires-notes 400, dispute reason validation (422 too short, 200 on ok), admin override for all 3 actions (reset_to_draft correctly nulls timestamps + match_status), RBAC cross-partner 404, and document proxy streams PDF from all three roles. Frontend UI verified for all three portals: supplier-/partner-/admin-invoices-page roots render, buckets tabs work, rows render, open/detail flow works, draft-only supplier form (sup-inv-number/date/file/submit-btn + per-line qty/cost inputs) shows on drafts, partner-inv-approve-btn + partner-inv-dispute-btn show on matched invoices, admin module-tab-invoices + admin-inv-override-btn + admin-inv-override-select all functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_supplier_invoices_phase5.py",
+    "/app/test_reports/pytest/phase5_invoices.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "service.py::_line_data_from_po — the SQL builder uses a conditional `.in_([...]) if receipts else False` which relies on SQLAlchemy accepting `False` as a WHERE clause; works but is subtle. A cleaner pattern is to early-return `[]` when receipts is empty and skip the receipt-line query entirely.",
+    "routes.py::admin_override — reset_to_draft correctly nulls submitted_at/matched_at/approved_at/disputed_at/match_status, but it does NOT reset `supplier_invoice_number` or `invoice_document_storage_path`, which means the next `submit` call will pass the missing_fields guard without the supplier re-uploading. That may be desired (supplier work is preserved) but is worth documenting in the endpoint docstring.",
+    "routes.py::supplier_upload_invoice_pdf — accepts image/* content types too even though the field is documented as 'PDF'. Consider tightening the docstring to say 'PDF or image' or restricting to application/pdf.",
+    "routes.py::partner_dispute — reason min_length=6 raises pydantic 422 (not 400 with `code`), inconsistent with the approve endpoint which uses HTTPException 400 + code. Consider unifying error shapes for a smoother frontend integration.",
+    "service.py::rerun_three_way_match — recomputes header subtotal from `ln.line_total` but recomputes tax from qty*cost*tax_pct instead of `line_total * tax_pct` — both give the same number when line_total = qty*cost, but coupling them removes a subtle drift risk.",
+    "routes.py — several endpoints declare `admin: AdminUser = Depends(_admin_dep())` where `admin` is unused apart from the dep call; lint/mypy may warn. Fine functionally."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_supplier_invoices_phase5.py (new)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% (all testids and flows verified across supplier/partner/admin)"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ · Partner: partner-alpha-store@test.example / Alpha1234!Beta · Supplier: demo-delta-supplier@test.example / Supplier1234!",
+  "seed_data_creation": "Two fresh PO cycles created via API (Alpha ↔ Delta) that auto-generated draft invoices — one submitted+approved as matched, the other edited into variance, disputed, then admin-reset-to-draft, then admin-approved. One additional pre-existing invoice (sinv_9148fc4cf27c4748) was reset_to_draft temporarily to verify the supplier draft-detail form UI and immediately override_approved back to approved after screenshot. Two seed invoices (sinv_0296b83d54af4982 / sinv_74f8c19a2d4a4f37) were NOT modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 5 regression file lives at /app/backend/tests/test_supplier_invoices_phase5.py — pytest xdist safe (single class, ordered by name). It creates NEW POs each run (never touches the 2 seed invoices), so it's rerun-friendly. Supplier catalogue has 5 products; test uses first 2 (2 lines per PO). The `variance_invoice` fixture is class-scoped and produces one variance invoice; a class-scoped fixture on an instance method issues a pytest 10 deprecation warning — non-breaking but consider `@classmethod` if this is ported. Frontend testids used: `{role}-invoices-page`, `{role}-inv-bucket-{status}`, `{role}-inv-row-{code}`, `{role}-inv-open-{code}`, `{role}-inv-back`, `sup-inv-number|date|file|submit-btn`, `sup-inv-line-qty-{id}` / `sup-inv-line-cost-{id}`, `partner-inv-approve-btn|dispute-btn`, `admin-inv-override-btn|override-select`, `module-tab-invoices`. Partner login URL is `/partner-portal/login` (not `/partner/login`).",
+  "rca of the issue": "N/A — no bugs found. Every review checklist item passed: auto-draft creates SINV-CI-2026-##### with correct grand_total = qty*cost*(1+tax_pct/100) and audit action='auto_draft'; UNIQUE(po_id) confirmed idempotent (single row per PO); scoping enforced on all 3 list endpoints; PATCH correctly produces cost_variance at 5% (>2% tolerance) and qty_variance at qty!=qty_received; PDF upload persists to Emergent Object Storage and populates invoice_document_storage_path/uploaded_at; submit correctly rejects missing supplier_invoice_number/invoice_date/invoice_document with 400 code=missing_fields fields[…]; matched vs variance transitions correct; partner approve enforces notes on variance path (400 code=variance_approval_notes_required); partner dispute enforces reason min_length=6 (422); admin override supports approve/dispute/reset_to_draft and reset_to_draft nulls submitted_at/matched_at/approved_at/disputed_at/match_status; cross-partner GET returns 404; document proxy streams PDF for supplier/partner/admin with content-type application/pdf and ≥4 bytes. UI wiring is correct across all 3 portals — root data-testids present and buckets/rows/open/detail interactions work; draft-only supplier form renders exclusively on status=draft as intended."
+}

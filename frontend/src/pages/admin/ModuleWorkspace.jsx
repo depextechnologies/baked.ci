@@ -22,6 +22,7 @@ const MODULE_NAV = [
   { seg: "suppliers", label: "Suppliers", icon: Building2, martOnly: true, note: "Supplier onboarding & governance" },
   { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
   { seg: "purchase-orders", label: "Purchase Orders", icon: PackageIcon, martOnly: true, note: "Cross-network PO oversight" },
+  { seg: "invoices", label: "Invoices", icon: PackageIcon, martOnly: true, note: "Supplier invoicing & 3-way match" },
   { seg: "orders", label: "Orders", icon: ClipboardList },
   { seg: "bookings", label: "Bookings", icon: Activity, expressOnly: true },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },

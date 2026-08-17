@@ -798,6 +798,16 @@ async def partner_receive_po(
                  notes=payload.notes)
     await session.commit()
     await session.refresh(po)
+    # Phase 5 — spawn a draft supplier invoice once the PO is fully received.
+    # Never fails the receive path; caller sees an invoice materialize in the
+    # partner portal within the same request cycle.
+    if po.status == "received":
+        try:
+            from shared.supplier_invoices.service import ensure_draft_invoice_for
+            await ensure_draft_invoice_for(session, po.id)
+            await session.commit()
+        except Exception:  # noqa: BLE001
+            logging.getLogger("baked.po").exception("auto_invoice.failed po=%s", po.id)
     return _po_dict(po)
 
 

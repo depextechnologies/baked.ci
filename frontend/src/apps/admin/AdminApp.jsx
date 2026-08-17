@@ -28,6 +28,8 @@ import { AdminCategoryRequests } from "@/pages/admin/AdminCategoryRequests";
 import { AdminSupplierApplications } from "@/pages/admin/AdminSupplierApplications";
 import { AdminSuppliersShell } from "@/pages/admin/AdminSuppliersShell";
 import { AdminPurchaseOrders } from "@/pages/admin/AdminPurchaseOrders";
+import { SupplierInvoicesPage as AdminSupplierInvoices } from "@/components/invoices/SupplierInvoicesPage";
+import { adminApi } from "@/contexts/AdminContext";
 
 export const AdminApp = () => (
   <Routes>
@@ -70,6 +72,7 @@ export const AdminApp = () => (
         <Route path="suppliers" element={<AdminSuppliersShell />} />
         <Route path="suppliers/applications" element={<AdminSupplierApplications />} />
         <Route path="purchase-orders" element={<AdminPurchaseOrders />} />
+        <Route path="invoices" element={<AdminSupplierInvoices apiClient={adminApi} role="admin" basePath="/admin/modules/mart/invoices" />} />
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />
         <Route path="drivers" element={<ModuleDrivers />} />

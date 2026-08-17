@@ -46,6 +46,11 @@ from shared.purchase_orders.routes import (  # noqa: E402
     supplier_router as po_supplier_router,
     admin_router as po_admin_router,
 )
+from shared.supplier_invoices.routes import (  # noqa: E402
+    partner_router as inv_partner_router,
+    supplier_router as inv_supplier_router,
+    admin_router as inv_admin_router,
+)
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
 from modules.mart_partner.routes import router as mart_partner_router, admin_router as mart_partner_admin_router, partner_router as partner_portal_router  # noqa: E402
@@ -113,6 +118,9 @@ api_router.include_router(admin_supplier_prodreq_router)
 api_router.include_router(po_partner_router)
 api_router.include_router(po_supplier_router)
 api_router.include_router(po_admin_router)
+api_router.include_router(inv_partner_router)
+api_router.include_router(inv_supplier_router)
+api_router.include_router(inv_admin_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)
