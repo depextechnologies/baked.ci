@@ -32,6 +32,7 @@ from shared.admin.transfers_routes import router as admin_transfers_router  # no
 from shared.admin.category_requests import (  # noqa: E402
     admin_router as admin_category_req_router,
     partner_router as partner_category_req_router,
+    supplier_router as supplier_category_req_router,
 )
 from shared.suppliers.routes import (  # noqa: E402
     public_router as supplier_public_router,
@@ -116,6 +117,7 @@ api_router.include_router(admin_replenishment_router)
 api_router.include_router(admin_transfers_router)
 api_router.include_router(admin_category_req_router)
 api_router.include_router(partner_category_req_router)
+api_router.include_router(supplier_category_req_router)
 api_router.include_router(supplier_public_router)
 api_router.include_router(admin_supplier_router)
 api_router.include_router(supplier_portal_router)

@@ -579,7 +579,48 @@ async def create_product_request(
     return _req_dict(r)
 
 
-# ------------------------------- Uploads -----------------------------------
+@router.patch("/me/product-requests/{req_id}")
+async def resubmit_product_request(
+    req_id: str,
+    payload: ProductRequestIn,
+    supplier: Supplier = Depends(get_current_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    """P2 — Approval Feedback Loop.
+
+    Suppliers can revise a **rejected** request and resubmit it. Status flips
+    back to `pending`, review_notes / reviewer / reviewed_at are cleared so
+    Super Admin sees a fresh submission.
+    """
+    r = await session.get(SupplierProductRequest, req_id)
+    if not r or r.supplier_id != supplier.id:
+        raise HTTPException(404, "Request not found")
+    if r.status != "rejected":
+        raise HTTPException(409, f"Only rejected requests can be resubmitted (current: {r.status})")
+    if payload.proposed_category_id:
+        cat = await session.get(MartCategory, payload.proposed_category_id)
+        if not cat or cat.country != supplier.country:
+            raise HTTPException(400, "Category not found in your country")
+    r.proposed_name = payload.proposed_name
+    r.proposed_category_id = payload.proposed_category_id
+    r.proposed_ean_upc = payload.proposed_ean_upc
+    r.proposed_manufacturer = payload.proposed_manufacturer
+    r.proposed_pack_size = payload.proposed_pack_size
+    r.proposed_net_qty = payload.proposed_net_qty
+    r.proposed_short_description = payload.proposed_short_description
+    r.proposed_cost_price = payload.proposed_cost_price
+    r.proposed_currency = payload.proposed_currency or supplier.default_currency
+    r.proposed_moq = payload.proposed_moq
+    r.proposed_lead_time_days = payload.proposed_lead_time_days
+    r.image_url = payload.image_url
+    r.notes = payload.notes
+    r.status = "pending"
+    r.review_notes = None
+    r.reviewer_admin_id = None
+    r.reviewed_at = None
+    await session.commit()
+    await session.refresh(r)
+    return _req_dict(r)
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 ALLOWED_MIME_PREFIXES = ("image/", "application/pdf",
@@ -791,6 +832,18 @@ async def admin_approve_request(
     r.reviewer_admin_id = admin.id
     r.created_master_product_id = mp.id
 
+    # P2 — approval feedback loop → ping supplier's notification bell
+    from shared.notifications.routes import notify as inapp_notify
+    await inapp_notify(
+        session,
+        recipient_kind="supplier", recipient_id=supplier.id,
+        kind="product_request_approved",
+        title=f"'{r.proposed_name}' approved",
+        body=f"Now linked to your catalogue as {mp.sku_code}. Set your cost, MOQ and lead time when ready.",
+        link=f"/martbaked/{supplier.seller_slug or 'sellers'}/portal/catalogue",
+        entity_kind="supplier_product_request", entity_id=r.id,
+        actor_label=admin.email,
+    )
     await session.commit()
     await session.refresh(r)
     return {"request": _req_dict(r), "master_product_id": mp.id}
@@ -812,5 +865,18 @@ async def admin_reject_request(
     r.review_notes = payload.notes
     r.reviewed_at = datetime.now(timezone.utc)
     r.reviewer_admin_id = admin.id
+    # P2 — supplier rejection feedback loop with the reviewer's exact reason
+    supplier = await session.get(Supplier, r.supplier_id)
+    from shared.notifications.routes import notify as inapp_notify
+    await inapp_notify(
+        session,
+        recipient_kind="supplier", recipient_id=r.supplier_id,
+        kind="product_request_rejected",
+        title=f"'{r.proposed_name}' needs changes",
+        body=payload.notes,
+        link=f"/martbaked/{(supplier.seller_slug if supplier else 'sellers')}/portal/product-requests",
+        entity_kind="supplier_product_request", entity_id=r.id,
+        actor_label=admin.email,
+    )
     await session.commit()
     return _req_dict(r)

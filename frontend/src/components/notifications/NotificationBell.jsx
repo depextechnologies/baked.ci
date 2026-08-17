@@ -17,14 +17,18 @@ const errMsg = (e) => e?.response?.data?.detail?.message || e?.response?.data?.d
 const POLL_MS = 20000;
 
 const KIND_COLORS = {
-  po_submitted:        "#3B82F6",
-  po_acknowledged:     "#8B5CF6",
-  po_shipped:          "#FCC44C",
-  po_received:         "#22C55E",
-  invoice_draft_ready: "#77BC1F",
-  invoice_submitted:   "#3B82F6",
-  invoice_approved:    "#22C55E",
-  invoice_disputed:    "#FF4C52",
+  po_submitted:              "#3B82F6",
+  po_acknowledged:           "#8B5CF6",
+  po_shipped:                "#FCC44C",
+  po_received:               "#22C55E",
+  invoice_draft_ready:       "#77BC1F",
+  invoice_submitted:         "#3B82F6",
+  invoice_approved:          "#22C55E",
+  invoice_disputed:          "#FF4C52",
+  product_request_approved:  "#22C55E",
+  product_request_rejected:  "#FF4C52",
+  category_request_approved: "#22C55E",
+  category_request_rejected: "#FF4C52",
 };
 
 export const NotificationBell = ({ apiClient, basePath, onNavigate, align = "right" }) => {

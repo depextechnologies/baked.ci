@@ -1,0 +1,25 @@
+{
+  "summary": "P2 acceptance testing — (1) Product-request Approval Feedback Loop and (2) Supplier Category-Request submission. Backend: 8/8 pytest passed covering supplier POST/GET /api/supplier/me/category-requests (requester_kind='supplier', partner_id=null, scoped to supplier), admin listing with kind=supplier + supplier_name populated, admin approve creates MartCategory and fires in-app 'category_request_approved' notification (verified via GET /api/supplier/me/notifications), PATCH /api/supplier/me/product-requests/{id} accepted only on rejected (200) and 409 on pending, PATCH clears review_notes/reviewed_at and flips status back to pending. Frontend E2E (Delta supplier @ /martbaked/delta/portal/product-requests): both CTAs [data-testid=cat-req-open-btn] and [data-testid=prod-req-new-btn] render; the existing rejected 'TEST_Reject_febcd2' card renders with the red-outlined [data-testid=prod-req-feedback-*] panel and a [data-testid=prod-req-revise-*] button; clicking Revise opens [data-testid=prod-req-form] pre-filled with the request data (name populated), submit fires PATCH, toast 'Request resubmitted' shows, and card flips to PENDING; Request-category modal [data-testid=cat-req-form] opens, filling 'TEST_UI_Cat_973013' + reason 'Automation test' + submit shows 'Category request submitted' toast and a new PENDING row appears in the 'Your category requests' block alongside a previously-approved category. Screenshot confirms all 3 UX assertions in one view.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_p2_feedback_and_cat_requests.py",
+    "/app/test_reports/pytest/p2_feedback.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "shared/admin/category_requests.py L262/L297 — notify() is inside the same session but wrapped only by the outer commit; if inapp_notify raises, the approve/reject will roll back. Per notifications module doc-comment ('notifications never fail the parent transaction'), the notify helper should swallow exceptions internally — verify that guarantee holds; otherwise wrap the notify() call site in try/except.",
+    "shared/suppliers/portal_routes.py L582 resubmit_product_request — good: 409 on non-rejected, clears reviewer metadata. Consider also clearing created_master_product_id defensively (not applicable to rejected today, but if flow evolves it prevents stale linkage).",
+    "PortalProductRequests.jsx L73-79 — good fix from prev iter: 'New request' button now disabled until categories load (categories.length===0). Race condition from iteration_36 is resolved.",
+    "PortalProductRequests.jsx L211 RequestForm — when isRevising, the form does not disable the submit button if the user hasn't changed anything; a no-op PATCH will still fire. Minor UX only.",
+    "shared/admin/category_requests.py — supplier_router uses `partner_id` column as nullable via migration 0019 but there is no unique/xor CHECK ensuring exactly one of partner_id/supplier_id is populated. Consider a DB CHECK: (partner_id IS NULL) <> (supplier_id IS NULL)."
+  ],
+  "updated_files": ["/app/backend/tests/test_p2_feedback_and_cat_requests.py (new)"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (all P2 acceptance items verified end-to-end incl. resubmit, category-request submit, toast, list refresh)"},
+  "test_credentials": "Delta supplier: demo-delta-supplier@test.example / Supplier1234! · Super Admin: depexopenai@gmail.com / baked@2026#!$@",
+  "seed_data_creation": "Test suite creates TEST_CatReq_* (approved by admin — creates a new MartCategory in country=CI), TEST_ProdReq_P2_* (rejected then resubmitted via PATCH). UI run left TEST_UI_Cat_973013 (pending) and TEST_Revised (pending after resubmit). All entries are TEST_-prefixed and attributed to sup_demo_delta_seed; safe to leave.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P2 feature is complete and passing on both API and UI layers. Key endpoints: POST/GET /api/supplier/me/category-requests, PATCH /api/supplier/me/product-requests/{id} (409 on non-rejected). Admin approve endpoint fires 'category_request_approved' notification which appears at GET /api/supplier/me/notifications (note: the review_request mentions GET /api/notifications?recipient_kind=supplier but the actual route is /api/supplier/me/notifications — confirmed working). Note pytest must run with -o addopts='' to bypass the pytest-xdist config in /app/backend/pytest.ini.",
+  "rca of the issue": "N/A — no bugs found."
+}

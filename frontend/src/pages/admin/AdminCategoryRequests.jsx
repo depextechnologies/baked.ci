@@ -47,7 +47,7 @@ export const AdminCategoryRequests = () => {
       <div>
         <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
         <h2 className="text-xl font-bold flex items-center gap-2"><LayersIcon size={18} /> Category Requests</h2>
-        <p className="text-xs text-muted-foreground">Every new category a dark store proposes lands here for approval before it goes live in the marketplace.</p>
+        <p className="text-xs text-muted-foreground">Every new category a partner or supplier proposes lands here for approval before it goes live in the marketplace.</p>
       </div>
       <div className="flex gap-2">
         {["pending", "approved", "rejected"].map(s => {
@@ -67,18 +67,29 @@ export const AdminCategoryRequests = () => {
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground"><tr>
             <th className="text-left p-3">Proposed name</th>
-            <th className="text-left p-3">Partner</th>
+            <th className="text-left p-3">Requester</th>
+            <th className="text-left p-3">Type</th>
             <th className="text-left p-3">Country</th>
             <th className="text-left p-3">Reason</th>
             <th className="text-left p-3">Submitted</th>
             <th className="p-3"></th>
           </tr></thead>
           <tbody>
-            {items.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No {STATUS[status].label.toLowerCase()} requests.</td></tr>
+            {items.length === 0 ? <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No {STATUS[status].label.toLowerCase()} requests.</td></tr>
               : items.map(r => (
                 <tr key={r.id} className="border-t border-border" data-testid={`cat-req-row-${r.id}`}>
                   <td className="p-3 font-medium">{r.name}<div className="text-[10px] text-muted-foreground font-mono">{r.slug_hint}</div></td>
-                  <td className="p-3 text-xs">{r.partner_name}</td>
+                  <td className="p-3 text-xs">{r.requester_name || r.partner_name || r.supplier_name || "—"}</td>
+                  <td className="p-3 text-xs">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                      style={{
+                        background: (r.requester_kind === "supplier") ? "rgba(29,155,240,0.15)" : "rgba(119,188,31,0.15)",
+                        color: (r.requester_kind === "supplier") ? "#1D9BF0" : "#77BC1F",
+                      }}
+                      data-testid={`cat-req-kind-${r.id}`}>
+                      {r.requester_kind || "partner"}
+                    </span>
+                  </td>
                   <td className="p-3 text-xs">{r.country}</td>
                   <td className="p-3 text-xs text-muted-foreground max-w-md truncate">{r.reason || "—"}</td>
                   <td className="p-3 text-xs text-muted-foreground">{r.created_at ? new Date(r.created_at).toLocaleString() : "—"}</td>
@@ -100,7 +111,16 @@ export const AdminCategoryRequests = () => {
               <div>
                 <div className="text-xs uppercase text-muted-foreground">Review category request</div>
                 <div className="text-lg font-bold">{active.name}</div>
-                <div className="text-xs text-muted-foreground">Requested by {active.partner_name}</div>
+                <div className="text-xs text-muted-foreground">
+                  Requested by <span className="font-medium">{active.requester_name || active.partner_name || active.supplier_name}</span>
+                  <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase font-semibold tracking-wider"
+                    style={{
+                      background: (active.requester_kind === "supplier") ? "rgba(29,155,240,0.15)" : "rgba(119,188,31,0.15)",
+                      color: (active.requester_kind === "supplier") ? "#1D9BF0" : "#77BC1F",
+                    }}>
+                    {active.requester_kind || "partner"}
+                  </span>
+                </div>
               </div>
               <button onClick={() => setActive(null)}><X size={16} /></button>
             </div>
