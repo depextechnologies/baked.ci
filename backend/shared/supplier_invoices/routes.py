@@ -35,6 +35,7 @@ from shared.suppliers.portal_routes import get_current_supplier
 from shared.supplier_invoices.service import (
     audit as inv_audit, invoice_dict, rerun_three_way_match,
 )
+from shared.notifications.routes import notify as inapp_notify
 
 log = logging.getLogger("baked.supplier_invoices")
 
@@ -284,6 +285,13 @@ async def supplier_submit(
                     actor_label=supplier.business_name, action="submit",
                     from_status=prev, to_status=inv.status,
                     notes=f"Match: {inv.match_status}")
+    await inapp_notify(session, recipient_kind="partner", recipient_id=inv.partner_id,
+                       kind="invoice_submitted",
+                       title=f"Invoice {inv.code} ready to approve",
+                       body=f"Supplier submitted · match: {inv.match_status}",
+                       link="/partner-portal/invoices",
+                       entity_kind="supplier_invoice", entity_id=inv.id,
+                       actor_label=supplier.business_name)
     await session.commit()
     return await _load_bundle(session, inv)
 
@@ -339,6 +347,13 @@ async def partner_approve(
                     actor_id=actor.actor_id, actor_label=getattr(actor, "actor_label", "partner"),
                     action="approve", from_status=prev, to_status="approved",
                     notes=inv.approval_notes)
+    await inapp_notify(session, recipient_kind="supplier", recipient_id=inv.supplier_id,
+                       kind="invoice_approved",
+                       title=f"Invoice {inv.code} approved",
+                       body=inv.approval_notes or "Approved by the buyer",
+                       link="/martbaked/sellers/portal/invoices",
+                       entity_kind="supplier_invoice", entity_id=inv.id,
+                       actor_label=getattr(actor, "actor_label", "Partner"))
     await session.commit()
     return await _load_bundle(session, inv)
 
@@ -362,6 +377,13 @@ async def partner_dispute(
                     actor_id=actor.actor_id, actor_label=getattr(actor, "actor_label", "partner"),
                     action="dispute", from_status=prev, to_status="disputed",
                     notes=inv.dispute_reason)
+    await inapp_notify(session, recipient_kind="supplier", recipient_id=inv.supplier_id,
+                       kind="invoice_disputed",
+                       title=f"Invoice {inv.code} disputed",
+                       body=inv.dispute_reason,
+                       link="/martbaked/sellers/portal/invoices",
+                       entity_kind="supplier_invoice", entity_id=inv.id,
+                       actor_label=getattr(actor, "actor_label", "Partner"))
     await session.commit()
     return await _load_bundle(session, inv)
 

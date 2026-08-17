@@ -79,6 +79,7 @@ from core.models.supplier_invoices import (
     INVOICE_STATUSES, LINE_MATCH_STATUSES,
     SupplierInvoice, SupplierInvoiceLine, SupplierInvoiceAudit,
 )
+from core.models.notifications import RECIPIENT_KINDS, Notification
 
 __all__ = [
     "Base",
@@ -165,6 +166,7 @@ __all__ = [
     "PurchaseOrderReceiptLine", "PurchaseOrderAudit",
     "INVOICE_STATUSES", "LINE_MATCH_STATUSES",
     "SupplierInvoice", "SupplierInvoiceLine", "SupplierInvoiceAudit",
+    "RECIPIENT_KINDS", "Notification",
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",

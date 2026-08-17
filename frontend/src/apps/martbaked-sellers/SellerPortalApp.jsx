@@ -27,6 +27,7 @@ import { PortalLocations } from "./portal/PortalLocations";
 import { PortalProductRequests } from "./portal/PortalProductRequests";
 import { PortalOrders } from "./portal/PortalOrders";
 import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
+import { NotificationBell } from "../../components/notifications/NotificationBell";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -126,6 +127,11 @@ const PortalShell = ({ supplier, refresh }) => {
           <div className="flex items-center gap-3 mb-2">
             <BakedLogo size="sm" />
             <div className="text-xs uppercase tracking-widest" style={{ color: "var(--pl-accent)" }}>Sellers</div>
+            <div className="ml-auto">
+              <NotificationBell apiClient={portalApi} basePath="/supplier/me/notifications"
+                                align="left"
+                                onNavigate={(link) => (window.location.href = link)} />
+            </div>
           </div>
           <div className="pl-card p-4 mb-4" style={{ background: "var(--pl-bg)" }}>
             <div className="text-xs uppercase tracking-widest" style={{ color: "var(--pl-fg-subtle)" }}>Signed in as</div>

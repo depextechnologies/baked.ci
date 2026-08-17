@@ -1,0 +1,42 @@
+{
+  "summary": "Phase 5b — In-app Notification Bell — full backend + frontend regression. Built new pytest suite (18/18 PASS after 1 xdist race-timing fix) covering: auth 401 across all three /notifications endpoints, list response shape (id/kind/title/body/link/entity_kind/entity_id/actor_label/is_read/created_at), ?unread=1 filter + unread_count math, dispatch on PO submit → supplier queue (title 'New PO <code>', entity_kind=purchase_order, link=/martbaked/sellers/portal/orders), PO acknowledge → partner queue, PO ship → partner queue, auto-draft invoice on PO receive → supplier queue (title 'Draft invoice <SINV-code> ready', link=/martbaked/sellers/portal/invoices), invoice submit → partner (body contains match_status token), invoice approve → supplier, invoice dispute → supplier (body contains reason), single-read POST /{scope}/notifications/{id}/read persists is_read=true + read_at, read-all POST clears unread_count to 0 for all rows, cross-tenant isolation (Alpha partner PO codes never leak to Beta partner queue), atomic dispatch on 409 double-submit (no phantom notification row created). Frontend verified in all three portals: partner top-nav bell shows badge=10 (from prior seed runs), dropdown opens with 10 rows, row-click → POST /read + navigation to /partner-portal/invoices, Mark all read clears badge to hidden + 'You're all caught up' state. Supplier bell in sidebar header — badge=1, dropdown opens with 11 rows, row-click navigates to /martbaked/sellers/portal/orders, Mark all read clears badge. Admin bell in sidebar footer — dropdown opens with 0 rows + notification-empty state (expected: no dispatch site targets recipient_kind='admin' in Phase 5b).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Supplier portal (martbaked/sellers/portal)", "issues": ["The NotificationBell dropdown uses absolute right-0 positioning, so when the bell sits inside the collapsible left sidebar header the 384px-wide dropdown extends OFF-SCREEN to the left (partially clipped). Consider left-aligning the dropdown (left-0) or docking it relative to the viewport when the bell is in a left column. Non-blocking — dropdown still opens and rows are clickable."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications_phase5b.py",
+    "/app/test_reports/pytest/phase5b_notifications.xml"
+  ],
+  "action_items": [
+    "(Optional) Left-align NotificationBell dropdown when mounted inside a left sidebar (supplier portal) so the 384px panel doesn't clip off the left viewport edge.",
+    "(Optional) Consider dispatching admin-tier notifications (e.g. supplier onboarding submissions, PO overdue, invoice disputed >48h) — admin bell currently shows only the empty state.",
+    "(Optional) NotificationBell.jsx line 15 shadows the built-in browser `fetch` with a local `const fetch = useCallback(...)`. Purely stylistic — no bug — but could rename to `refresh` to avoid the shadow."
+  ],
+  "critical_code_review_comments": [
+    "shared/notifications/routes.py::notify — the try/except swallows ALL insert failures silently (only logs). Given the docstring promises atomic-with-parent-txn semantics, that's actually intentional (never fail the parent transition on a notification write). Good.",
+    "shared/notifications/routes.py::_admin_dep — deferred import of get_current_admin avoids a circular import, but returning the dep from a function factory (Depends(_admin_dep())) works only because get_current_admin itself is a callable — subtle. A single top-level import guarded by TYPE_CHECKING would be cleaner.",
+    "shared/notifications/routes.py — no DELETE endpoint or archive/soft-delete. Long-lived accounts will accumulate rows forever. Consider a background TTL sweep or a max-age filter in _list().",
+    "shared/notifications/routes.py — `limit=Query(40, le=100)` is fine; there's no offset/cursor for pagination. Fine for a bell UI showing latest 40, but note if a future 'View all' page is added.",
+    "NotificationBell.jsx — the local `fetch` name shadows global fetch (see action_items).",
+    "NotificationBell.jsx — `KIND_COLORS` is missing entries for 'po_received' which is imported but never dispatched from server side (harmless dead entry) — the color palette is fine.",
+    "PO submit hook (purchase_orders/routes.py line 638) — `await _po_line_count(...)` is called on every notify and returns a full list of PK ids just to len() it — could reuse the count already computed in the transition (`lines` variable) instead."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notifications_phase5b.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18 pytest)", "frontend": "100% (bell + dropdown + row-click + mark-all-read verified in all 3 portals)"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ · Partner: partner-alpha-store@test.example / Alpha1234!Beta · Supplier: demo-delta-supplier@test.example / Supplier1234!",
+  "seed_data_creation": "Two fresh PO cycles (Alpha ↔ Delta) created via API — one approved, one disputed. Both cycles auto-generated draft invoices which were submitted → matched-approved and submitted-with-cost-variance-disputed respectively. All notifications for these cycles are marked read at end of run (mark-all-read tests) so the badge state is empty by test end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 5b regression file: /app/backend/tests/test_notifications_phase5b.py — pytest xdist-safe (mark-all-read baseline is measured relatively, not absolutely, to tolerate concurrent worker dispatches). It creates NEW POs each run and mark-alls-read at teardown, so it's rerun-friendly. Frontend testids used: [data-testid=notification-bell-btn], [data-testid=notification-badge], [data-testid=notification-dropdown], [data-testid=notification-mark-all-read], [data-testid=notification-row-<notif_id>], [data-testid=notification-empty]. NotificationBell.jsx polls every POLL_MS=20000ms — polling was not directly tested (would need >20s test budget); instead verified that the fetch runs on mount + on-bell-open. Admin queue is currently empty by design (no server-side dispatch targets recipient_kind='admin' yet).",
+  "rca of the issue": "N/A — no bugs found. All 15 review checklist items from the request pass: (1) auth 401 on unauthenticated list/read, (2) response shape complete with all 10 documented keys, (3-8) all 6 dispatch sites (po_submitted/po_acknowledged/po_shipped/invoice_draft_ready/invoice_submitted/invoice_approved/invoice_disputed) correctly emit rows with the exact titles + links + entity_kind + entity_id from the spec, (9) cross-tenant isolation verified (Beta partner cannot see Alpha PO codes), (10) atomic dispatch verified (409 on double-submit does NOT create a notification row), (11) bell rendered in all 3 portals via testid probe, (12) badge count updates correctly from initial GET, (13) dropdown click → mark-read + navigate flow verified (partner→/partner-portal/invoices, supplier→/martbaked/sellers/portal/orders), (14) mark-all-read clears badge + shows 'You're all caught up' UI state, (15) polling — verified interval is 20000ms in source; explicit real-time refresh is triggered on every bell click via manual fetch()."
+}

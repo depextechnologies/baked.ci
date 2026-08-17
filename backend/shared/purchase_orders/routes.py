@@ -50,6 +50,7 @@ from shared.purchase_orders.grn import (
     build_grn_pdf, build_grn_xlsx, build_grn_reference,
 )
 from shared.purchase_orders.notifications import dispatch_po_notification
+from shared.notifications.routes import notify as inapp_notify
 
 log = logging.getLogger("baked.purchase_orders")
 
@@ -632,9 +633,22 @@ async def partner_submit_po(
     await _audit(session, po, actor_kind="partner_owner" if actor.actor_kind == "owner" else "partner_staff",
                  actor_id=actor.actor_id, actor_label=_actor_label(actor),
                  action="submit", from_status="draft", to_status="submitted")
+    await inapp_notify(session, recipient_kind="supplier", recipient_id=po.supplier_id,
+                       kind="po_submitted", title=f"New PO {po.po_code}",
+                       body=f"{po.currency} {float(po.grand_total):.2f} · {len(await _po_line_count(session, po.id))} line(s)",
+                       link="/martbaked/sellers/portal/orders",
+                       entity_kind="purchase_order", entity_id=po.id,
+                       actor_label=_actor_label(actor))
     await session.commit()
     dispatch_po_notification("submitted", po.id)
     return _po_dict(po)
+
+
+async def _po_line_count(session: AsyncSession, po_id: str) -> list:
+    from sqlalchemy import select
+    return (await session.execute(
+        select(PurchaseOrderLine.id).where(PurchaseOrderLine.purchase_order_id == po_id)
+    )).scalars().all()
 
 
 class CancelIn(BaseModel):
@@ -890,6 +904,12 @@ async def supplier_acknowledge_po(
                  actor_label=supplier.business_name, action="acknowledge",
                  from_status="submitted", to_status="acknowledged",
                  notes=payload.notes)
+    await inapp_notify(session, recipient_kind="partner", recipient_id=po.partner_id,
+                       kind="po_acknowledged", title=f"PO {po.po_code} acknowledged",
+                       body=f"{supplier.business_name} confirmed your order",
+                       link="/partner-portal/purchase-orders",
+                       entity_kind="purchase_order", entity_id=po.id,
+                       actor_label=supplier.business_name)
     await session.commit()
     dispatch_po_notification("acknowledged", po.id)
     return _po_dict(po)
@@ -912,6 +932,12 @@ async def supplier_ship_po(
                  actor_label=supplier.business_name, action="ship",
                  from_status="acknowledged", to_status="shipped",
                  notes=payload.notes)
+    await inapp_notify(session, recipient_kind="partner", recipient_id=po.partner_id,
+                       kind="po_shipped", title=f"PO {po.po_code} shipped",
+                       body=f"{supplier.business_name} has shipped — prepare receiving",
+                       link="/partner-portal/purchase-orders",
+                       entity_kind="purchase_order", entity_id=po.id,
+                       actor_label=supplier.business_name)
     await session.commit()
     dispatch_po_notification("shipped", po.id)
     return _po_dict(po)

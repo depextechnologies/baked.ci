@@ -481,6 +481,8 @@ const StoreContextBanner = () => {
       </div>
       <div className="hidden md:flex items-center gap-2 text-[11px]"
            style={{ color: "var(--ph-fg-subtle)" }}>
+        <NotificationBell apiClient={partnerApi} basePath="/partner/notifications"
+                          onNavigate={(link) => (window.location.href = link)} />
         <span>Signed in as</span>
         <span style={{ color: "var(--ph-fg-muted)" }}>{staff?.email || partner?.owner_email}</span>
         {role && role !== "owner" && (
@@ -617,6 +619,7 @@ import { ReceivingPage } from "./ReceivingPage";
 import { PurchaseOrdersPage } from "./PurchaseOrdersPage";
 import { RestockSuggestionsPage } from "./RestockSuggestionsPage";
 import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
+import { NotificationBell } from "../../components/notifications/NotificationBell";
 import { StockCountsPage } from "./StockCountsPage";
 
 

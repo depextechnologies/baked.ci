@@ -8,6 +8,8 @@ import {
   Car, Home as HomeIcon, Settings2, Plug, Server, BarChart3, Warehouse,
 } from "lucide-react";
 import { MODULES } from "../../lib/modules";
+import { NotificationBell } from "../../components/notifications/NotificationBell";
+import { adminApi } from "../../contexts/AdminContext";
 
 // PRD §7 Platform Governance — global operational governance only.
 // Customers/Vendors/Drivers are module-scoped and live inside each Business Module workspace.
@@ -80,8 +82,14 @@ export const AdminLayout = () => {
         </nav>
 
         <div className="mt-auto pt-3 border-t border-border">
-          <div className="text-xs text-muted-foreground truncate">{admin.email}</div>
-          <div className="text-[10px] uppercase tracking-widest text-primary">{admin.role}</div>
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground truncate">{admin.email}</div>
+              <div className="text-[10px] uppercase tracking-widest text-primary">{admin.role}</div>
+            </div>
+            <NotificationBell apiClient={adminApi} basePath="/admin/notifications"
+                              onNavigate={(link) => nav(link)} />
+          </div>
           <button data-testid="admin-logout" onClick={() => { logout(); nav("/admin/login"); }} className="text-xs mt-2 flex items-center gap-2 text-muted-foreground hover:text-foreground"><LogOut size={12} /> Sign out</button>
         </div>
       </aside>

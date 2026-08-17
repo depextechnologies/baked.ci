@@ -144,6 +144,18 @@ async def ensure_draft_invoice_for(session: AsyncSession, po_id: str) -> Optiona
         actor_kind="system", actor_label="MARTbaked auto-draft",
         notes=f"Auto-generated from received PO {po.po_code}",
     ))
+    # Alert supplier that a draft is waiting for their submission
+    from shared.notifications.routes import notify as inapp_notify
+    await inapp_notify(
+        session,
+        recipient_kind="supplier", recipient_id=po.supplier_id,
+        kind="invoice_draft_ready",
+        title=f"Draft invoice {inv.code} ready",
+        body=f"PO {po.po_code} fully received — upload your invoice PDF and submit for approval.",
+        link="/martbaked/sellers/portal/invoices",
+        entity_kind="supplier_invoice", entity_id=inv.id,
+        actor_label="MARTbaked",
+    )
     return inv
 
 
