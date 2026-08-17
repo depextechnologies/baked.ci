@@ -5,8 +5,9 @@
  * Right: "Add product" flow — type-ahead master product search then set cost.
  */
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { PackageSearch, Search, Plus, Trash2, Check, X, PowerOff, Power } from "lucide-react";
+import { PackageSearch, Search, Plus, Trash2, Check, X, PowerOff, Power, Sparkles, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { portalApi, errMsg } from "../SellerPortalApp";
 
 const inputStyle = { background: "var(--pl-bg-elevated)", color: "var(--pl-fg)", border: "1px solid var(--pl-border-strong)" };
@@ -80,11 +81,25 @@ export const PortalCatalogue = () => {
         <div>
           <div className="pl-eyebrow mb-2">Product catalogue</div>
           <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Your SKUs</h1>
-          <p className="pl-body mt-2">Link the master products you supply and set your cost, MOQ and lead time.</p>
+          <p className="pl-body mt-2">Link a master product to your catalogue, or propose a brand-new one for Super Admin approval.</p>
         </div>
-        <button onClick={() => setAddOpen(true)} className="pl-btn pl-btn-primary" data-testid="catalogue-add-btn">
-          <Plus size={14} /> Add product
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setAddOpen(true)} className="pl-btn pl-btn-primary" data-testid="catalogue-add-btn">
+            <Link2 size={14} /> Add existing master product
+          </button>
+          <Link to="../product-requests" className="pl-btn pl-btn-ghost" style={{ border: "1px solid var(--pl-accent)", color: "var(--pl-accent)" }} data-testid="catalogue-new-product-btn">
+            <Sparkles size={14} /> Create new product
+          </Link>
+        </div>
+      </div>
+
+      <div className="pl-card p-4 flex items-start gap-3" style={{ background: "var(--pl-accent-soft)", border: "1px solid var(--pl-accent)" }} data-testid="catalogue-two-path-help">
+        <Sparkles size={16} style={{ color: "var(--pl-accent)", flexShrink: 0, marginTop: 2 }} />
+        <div className="text-xs" style={{ color: "var(--pl-fg-muted)" }}>
+          <strong style={{ color: "var(--pl-accent)" }}>Two ways to add products:</strong>{" "}
+          <em>Add existing</em> — link to a product that&apos;s already in our master catalogue (fastest, no approval needed).{" "}
+          <em>Create new</em> — propose a fresh SKU with all its details and images; Super Admin reviews and, on approval, auto-links it to your catalogue at your proposed cost.
+        </div>
       </div>
 
       <div className="pl-card p-4 flex flex-wrap gap-3 items-center">
@@ -116,7 +131,7 @@ export const PortalCatalogue = () => {
           <tbody>
             {items.length === 0 && !busy && (
               <tr><td colSpan={7} className="text-center py-10" style={{ color: "var(--pl-fg-muted)" }} data-testid="catalogue-empty">
-                No catalogue rows yet. Click <em>Add product</em> to link your first SKU.
+                No catalogue rows yet. Click <em>Add existing master product</em> to link an SKU, or <em>Create new product</em> to propose a fresh one.
               </td></tr>
             )}
             {items.map((row) => {

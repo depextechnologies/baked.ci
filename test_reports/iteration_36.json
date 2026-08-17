@@ -1,0 +1,40 @@
+{
+  "summary": "P1 acceptance testing — two-path Catalogue + create-new-product flow + Super Admin Product Requests review UI. Backend 6/6 pytest passed (categories: 401 unauth, returns items with slug incl. beverages/bakery/dairy-eggs for CI Delta; master-products search 'lait' case-insensitive works and returns matches; product-request create → admin list → admin approve (creates master product + auto-links supplier at cost) → supplier sees status='approved' with created_master_product_id; admin reject with notes returns status='rejected'). Frontend verified end-to-end: (1) Delta supplier login → dashboard OK; (2) Catalogue page renders both CTAs [data-testid=catalogue-add-btn] ('Add existing master product') + [data-testid=catalogue-new-product-btn] ('Create new product') + [data-testid=catalogue-two-path-help] info banner; (3) Add-existing modal opens, typing 'lait' returns 7 master-product rows; (4) 'Create new product' click navigates to /martbaked/delta/portal/product-requests with existing pending 'Bhujia · Prabhat Namkeen' card present; (5) 'New request' opens form, category dropdown populated with 9 real categories (Boissons, Boulangerie, Bébé, Fruits & Légumes, Ménage, Produits Laitiers & Œufs, Snacks, Soins Personnels, Viande & Fruits de Mer) sourced from /api/supplier/me/categories; (6) Fill+submit → POST /api/supplier/me/product-requests returns 201, new card appears with status 'pending' and toast 'Product request submitted'; (7) Super Admin login → /admin/modules/mart/suppliers/product-requests renders AdminSupplierProductRequests with 2 pending, 1 approved, 1 rejected buckets; Review drawer → Approve form → category select → Approve & create → POST returns 200 with master_product_id, toast 'Approved — master product ... created', row moves to Approved bucket.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "New product-request form category dropdown",
+        "issue": "Race condition: if the user clicks 'New request' before the initial /supplier/me/categories fetch resolves, the form opens with an empty dropdown (only the 'Select category…' placeholder). The categories load lives in the parent PortalProductRequests component's `load()` (Promise.all([reqs, cats])). If categories still hasn't set state when the form mounts, the child NewRequestForm receives categories=[]. Reloading the form (close+reopen) shows the full list. Not a blocker for the acceptance flow (user can wait ~500ms) but should be hardened: either disable the 'New request' button until categories load, or have NewRequestForm re-fetch on mount, or show a loading spinner on the dropdown. Reproduced once during automated test with immediate click; on second run with a 2s wait, 9 categories loaded correctly.",
+        "affected_selectors": ["[data-testid=prod-req-category]", "[data-testid=prod-req-new-btn]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1_catalogue_and_product_requests.py",
+    "/app/test_reports/pytest/p1_catalogue.xml"
+  ],
+  "action_items": [
+    "MINOR: Harden the /portal/product-requests page against the categories fetch race — either disable [data-testid=prod-req-new-btn] until `categories` state is populated, show a spinner in the dropdown, or move the categories fetch into NewRequestForm on mount. Current UX works if user pauses briefly after page load; automated/fast clicks may see an empty dropdown.",
+    "OPTIONAL: In AdminSupplierProductRequests approve form, `approve-category` prefill is empty when the supplier request has no proposed_category_id — this is expected (form defaults to r.proposed_category_id||''), but consider surfacing a hint like 'Category not provided by supplier — pick one to approve'."
+  ],
+  "critical_code_review_comments": [
+    "PortalProductRequests.jsx L22-36 — `Promise.all([reqs, cats])` awaited but the render doesn't gate the 'New request' button on `categories.length > 0`. Race in production: on slow networks the modal can open with an empty select. Non-blocking but worth a 1-line guard: `disabled={!categories.length}` or a `loading` state.",
+    "PortalProductRequests.jsx L107-134 — Form only requires `proposed_name`; the P1 spec says required fields include category_id, EAN, manufacturer, pack_size, cost_price, currency. Consider making category/cost `required` in HTML validation to match the spec. Currently backend accepts a request with only name+optional category, and admin approve later demands a category — better UX to enforce at submission.",
+    "portal_routes.py L734-796 admin_approve_request — good validation: rejects if proposed cat is missing AND payload.category_id missing (400). But if request.status != 'pending' returns 409 — verified. `net_qty=None` hard-coded because Numeric column vs string proposal is a pending schema mismatch (documented in code comment). Nice.",
+    "portal_routes.py L412-431 list_master_products — search only over MartProduct.name/sku_code, not brand or ean_upc. Acceptable per spec ('name OR sku'), but consider extending to `brand` and `ean_upc` for supplier UX.",
+    "AdminSupplierProductRequests.jsx L58 — categories fetched from `/mart/categories?country=CI` — HARDCODED country. This will break for non-CI suppliers when SHOP/EXPRESS or other-country suppliers are onboarded. Should derive country from the active request's supplier.country when opening the drawer, or fetch categories per supplier country on drawer open."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1_catalogue_and_product_requests.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "8/8 acceptance items pass on happy path; 1 race-condition (categories dropdown) noted as minor UX polish"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ · Delta supplier: demo-delta-supplier@test.example / Supplier1234! (slug=delta)",
+  "seed_data_creation": "Automated tests created 3 test product-requests for sup_demo_delta_seed (2 approved by pytest+UI including auto-created master products in mart_products for Delta CI catalogue, 1 rejected). Prefixes: TEST_ProdReq_*, TEST_UI_PW*, TEST_Reject_*. Safe to leave in seed (they carry TEST_ prefix and are attributed to the demo supplier).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P1 is functionally COMPLETE. Only nit is the race between category fetch and 'New request' modal open — a 1-line guard on the button (`disabled={!categories.length}`) would close it. Admin hard-coded country='CI' in AdminSupplierProductRequests.jsx L58 is a latent multi-country bug — flag if Echo or non-CI suppliers become active. All 8 acceptance criteria from review_request pass on both API and UI layers. Backend regression suite `/app/backend/tests/test_p1_catalogue_and_product_requests.py` is idempotent (uses uuid-suffixed TEST_ names) and safe to rerun.",
+  "rca of the issue": "Categories dropdown-empty race: PortalProductRequests.load() fires Promise.all([GET /product-requests, GET /categories]) on mount. React state updates are async; if the user clicks [data-testid=prod-req-new-btn] before the setCategories() microtask flushes (window: ~50-300ms on preview), NewRequestForm renders with the empty parent state via props. React does NOT re-render the form when the parent's `categories` prop later updates unless the form re-mounts. Fix: either (a) `<button disabled={!categories.length}>`; (b) hoist fetch into NewRequestForm; (c) key the form on categories.length so it re-mounts when categories arrive."
+}

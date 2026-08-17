@@ -431,6 +431,20 @@ async def list_master_products(
     }
 
 
+@router.get("/me/categories")
+async def list_supplier_categories(
+    supplier: Supplier = Depends(get_current_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    """Categories available in the supplier's country — feeds the create-new
+    product form's dropdown. Returns country-scoped categories only."""
+    rows = (await session.execute(
+        select(MartCategory).where(MartCategory.country == supplier.country)
+        .order_by(MartCategory.name.asc())
+    )).scalars().all()
+    return {"items": [{"id": c.id, "name": c.name, "slug": c.slug} for c in rows]}
+
+
 @router.post("/me/catalogue", status_code=201)
 async def add_catalogue(
     payload: CatalogueIn,

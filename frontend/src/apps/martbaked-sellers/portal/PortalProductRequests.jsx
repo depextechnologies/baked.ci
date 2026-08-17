@@ -26,7 +26,7 @@ export const PortalProductRequests = () => {
     try {
       const [reqs, cats] = await Promise.all([
         portalApi.get("/supplier/me/product-requests"),
-        portalApi.get("/mart/categories?country=CI"),
+        portalApi.get("/supplier/me/categories"),
       ]);
       setItems(reqs.data.items);
       const cs = Array.isArray(cats.data) ? cats.data : (cats.data.items || []);
@@ -43,8 +43,10 @@ export const PortalProductRequests = () => {
           <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Propose new products</h1>
           <p className="pl-body mt-2">If your SKU isn&apos;t already in our master catalogue, submit it here. Super Admin reviews and, on approval, auto-links it to your catalogue at your proposed cost.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="pl-btn pl-btn-primary" data-testid="prod-req-new-btn">
-          <Plus size={14} /> New request
+        <button onClick={() => setShowForm(true)} disabled={categories.length === 0}
+          className="pl-btn pl-btn-primary" data-testid="prod-req-new-btn"
+          title={categories.length === 0 ? "Loading categories…" : "Propose a new product"}>
+          <Plus size={14} /> {categories.length === 0 ? "Loading…" : "New request"}
         </button>
       </div>
 
