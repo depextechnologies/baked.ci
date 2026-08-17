@@ -141,6 +141,30 @@ class PartnerOrder(Base, TimestampMixin):
     cancellation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
+class PartnerOrderPick(Base, TimestampMixin):
+    """Per-line pick progress for the Picker Screen.
+
+    One row per (partner_order_id, order_item_id). Upserted by every scan or
+    manual quantity change. Used to drive the tablet Picker UI and to enforce
+    "all items picked" before an order can transition packing → ready.
+    """
+
+    __tablename__ = "partner_order_picks"
+    __table_args__ = (
+        UniqueConstraint("partner_order_id", "order_item_id", name="uq_partner_order_picks_item"),
+        Index("ix_partner_order_picks_partner_order", "partner_order_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("pck"))
+    partner_order_id: Mapped[str] = mapped_column(String, ForeignKey("partner_orders.id", ondelete="CASCADE"), nullable=False)
+    order_item_id: Mapped[str] = mapped_column(String, ForeignKey("order_items.id", ondelete="CASCADE"), nullable=False)
+    picked_qty: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    picker_staff_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    picker_owner_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    first_picked_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_picked_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+
 # ============================================================================
 #                              Wallet (Slice 7)
 # ============================================================================

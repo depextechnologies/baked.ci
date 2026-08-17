@@ -633,3 +633,19 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Frontend — admin** (`AdminCategoryRequests.jsx`): table now shows `Requester` + `Type (partner|supplier)` columns with colored badges. Review drawer surfaces the requester kind so Super Admin always knows who's asking.
     - **Testing**: `testing_agent` iteration 37 — **8/8 backend pytest + full Playwright E2E PASS, zero bugs**. Verified: supplier POST/GET category-requests scoped correctly, admin lists them with `kind` filter, approve creates a real `MartCategory` and fires the in-app bell, PATCH resubmit works only on `rejected` and 409s otherwise, and clears review fields. Frontend: revise-and-resubmit flips card to PENDING with a "Request resubmitted" toast; category modal submit shows toast and new PENDING row appears in the strip.
 
+
+- ✅ **Phase 6a — Tablet Picker Screen (2026-02-19)** — dedicated Picker/Packer/Dispatch UI shipped.
+    - **Migration `0020_partner_order_picks`** — new `partner_order_picks` table with `(partner_order_id, order_item_id)` UNIQUE, `picked_qty`, `picker_staff_id`, `first/last_picked_at`.
+    - **Backend router `/app/backend/modules/mart_partner/picker_routes.py`** (RBAC owner/manager/supervisor/packer):
+        - `GET /api/partner/picker/queue` — accepted + packing orders with pre-computed progress + buckets.
+        - `GET /api/partner/picker/orders/{po_id}` — full detail with per-line `picked_qty` / `required_qty` / `is_complete` (idempotently creates pick rows on first read).
+        - `POST /api/partner/picker/orders/{po_id}/scan {code, qty=1}` — matches by `order_item.id | product_id | sku_code | ean_upc`, caps at required qty, auto-flips `accepted → packing` on first scan. Returns 409 `already_complete` when over-picked.
+        - `POST /api/partner/picker/orders/{po_id}/set-item {order_item_id, picked_qty}` — manual override with cap/floor.
+        - `POST /api/partner/picker/orders/{po_id}/complete` — validates all items fully picked (409 with `incomplete_picks[]` list otherwise), then transitions status → `ready` with `ready_at`.
+    - **Demo seeder patched** (`routes.py`) — `POST /api/admin/mart-partner/partners/{id}/demo-orders` now links `order_items.partner_id` + `partner_order_id` + sets `po.subtotal` / `item_count` so the picker screen has real data on the demo partner (previously items were orphaned).
+    - **Frontend `PickerPage.jsx`** — two-column tablet layout:
+        - Left: queue with 6-color progress bars, status chips (Accepted / Packing / Ready), tap-to-open.
+        - Right: hero card with `now picking / order_number / customer address / delivery slot / progress %`, always-auto-focused amber-ringed **scan input** (works with USB barcode guns via keyboard emulation, and with virtual keyboards), a transient green/red **Scan feedback** flash badge, per-line +/- controls, sticky **Mark ready for handoff** CTA disabled until 100%.
+    - **Sidebar** — new "Picker" nav item (data-testid `portal-nav-picker`) visible to owner/manager/supervisor/packer.
+    - **Testing**: `testing_agent` iteration 38 — **10/10 backend pytest + full Playwright E2E PASS, zero bugs**. Verified: RBAC (packer allowed, cashier 403), scan match by product_id/sku/ean, 404 for invalid codes, auto-flip accepted→packing, 409 already_complete / incomplete_picks, complete → ready. Frontend: sidebar item, queue navigation, progress live-updates, +/- controls, red/green flash, CTA gating.
+

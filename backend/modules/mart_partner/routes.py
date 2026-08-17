@@ -1882,8 +1882,21 @@ async def seed_demo_orders(
                 line_total=spec["line_total"], currency=currency,
             ))
 
-        po = PartnerOrder(partner_id=partner_id, order_id=order.id, status="new")
+        po = PartnerOrder(partner_id=partner_id, order_id=order.id, status="new",
+                          subtotal=float(subtotal), item_count=sum(s["qty"] for s in item_specs))
         session.add(po)
+        await session.flush()
+
+        # Link each order_item to the partner_order so the picker screen can
+        # surface the correct line items + progress tracking.
+        (await session.execute(
+            select(OrderItem).where(OrderItem.order_id == order.id)
+        )).scalars().all()
+        for oi in (await session.execute(
+            select(OrderItem).where(OrderItem.order_id == order.id)
+        )).scalars().all():
+            oi.partner_id = partner_id
+            oi.partner_order_id = po.id
         created.append(order.number)
 
     await session.commit()

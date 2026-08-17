@@ -42,7 +42,7 @@ from core.models.partners import (
 )
 from core.models.partner_commerce import (
     PARTNER_ORDER_STATUSES, PARTNER_WALLET_TX_KINDS,
-    PartnerOrder, PartnerProduct, PartnerWallet, PartnerWalletTxn,
+    PartnerOrder, PartnerOrderPick, PartnerProduct, PartnerWallet, PartnerWalletTxn,
 )
 from core.models.partner_staff import (
     PARTNER_STAFF_ROLES, PartnerStaff, PartnerStaffAuditLog,
@@ -136,6 +136,7 @@ __all__ = [
     "WarehouseBin",
     "PartnerProduct",
     "PartnerOrder",
+    "PartnerOrderPick",
     "PartnerWallet",
     "PartnerWalletTxn",
     "PartnerStaff",

@@ -64,6 +64,7 @@ from modules.mart_partner.staff_routes import staff_router as partner_staff_rout
 from modules.mart_partner.inventory_routes import router as partner_inventory_router  # noqa: E402
 from modules.mart_partner.inventory_ops_routes import router as partner_inventory_ops_router  # noqa: E402
 from modules.mart_partner.replenishment_routes import router as partner_replenishment_router  # noqa: E402
+from modules.mart_partner.picker_routes import picker_router as partner_picker_router  # noqa: E402
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -144,6 +145,7 @@ api_router.include_router(partner_staff_router)
 api_router.include_router(partner_inventory_router)
 api_router.include_router(partner_inventory_ops_router)
 api_router.include_router(partner_replenishment_router)
+api_router.include_router(partner_picker_router)
 # TODO: food, shop, express, auto, immo
 
 app.include_router(api_router)
