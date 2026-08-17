@@ -160,12 +160,12 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
       {/* Detail drawer */}
       {active && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/70" onClick={(e) => e.target === e.currentTarget && setActive(null)}>
-          <div className="w-full max-w-3xl bg-card border-l border-border h-full overflow-y-auto" data-testid="supplier-detail-drawer">
+          <div className="w-full max-w-3xl bg-card border-l border-border h-full flex flex-col" data-testid="supplier-detail-drawer">
             {!detail ? (
               <div className="p-8 text-sm text-muted-foreground">Loading…</div>
             ) : (
               <>
-                <div className="flex items-center gap-3 p-6 border-b border-border sticky top-0 bg-card z-10">
+                <div className="flex items-center gap-3 p-6 border-b border-border bg-card z-10">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "#77BC1F22", color: "#77BC1F" }}>
                     <Building2 size={22} />
                   </div>
@@ -177,7 +177,7 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
                   <button onClick={() => setActive(null)} data-testid="supplier-detail-close"><X size={18} /></button>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   {/* Status banner */}
                   <div className="p-4 rounded-xl flex items-center gap-3"
                     style={{ background: `${(BUCKETS.find((b) => b.code === detail.supplier.status) || {}).color || "#3B82F6"}22`, color: (BUCKETS.find((b) => b.code === detail.supplier.status) || {}).color || "#3B82F6" }}>
@@ -293,14 +293,16 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
                   </DetailCard>
 
                   {/* Action panel */}
-                  <div className="pt-4 border-t border-border">
+                </div>
+
+                <div className="p-4 border-t border-border bg-card z-10 shadow-lg" data-testid="supplier-action-footer">
                     {!action ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 justify-end">
                         {["submitted", "under_review", "action_required"].includes(detail.application.status) && (
                           <>
-                            <button onClick={() => setAction("approve")} className="pl-btn pl-btn-primary" data-testid="supplier-btn-approve"><CheckCircle2 size={14} /> Approve</button>
-                            <button onClick={() => setAction("request-info")} className="pl-btn pl-btn-secondary" data-testid="supplier-btn-request-info"><AlertTriangle size={14} /> Request info</button>
-                            <button onClick={() => setAction("reject")} className="pl-btn pl-btn-ghost" style={{ color: "#FF4C52" }} data-testid="supplier-btn-reject"><X size={14} /> Reject</button>
+                            <button onClick={() => setAction("reject")} className="pl-btn" style={{ background: "#FF4C52", color: "#fff", border: "1px solid #FF4C52" }} data-testid="supplier-btn-reject"><X size={14} /> Reject</button>
+                            <button onClick={() => setAction("request-info")} className="pl-btn pl-btn-ghost" style={{ background: "rgba(148,163,184,.12)", color: "var(--pl-fg)", border: "1px solid rgba(148,163,184,.35)" }} data-testid="supplier-btn-request-info"><AlertTriangle size={14} /> Request info</button>
+                            <button onClick={() => setAction("approve")} className="pl-btn" style={{ background: "#F5F5F0", color: "#0A1200", border: "2px solid #0A1200", fontWeight: 700 }} data-testid="supplier-btn-approve"><CheckCircle2 size={14} /> Approve</button>
                           </>
                         )}
                         {detail.supplier.status === "approved" && (
@@ -313,7 +315,7 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
                     ) : (
                       <div className="space-y-3" data-testid={`supplier-action-panel-${action}`}>
                         <div className="text-xs font-semibold uppercase" style={{ color: "var(--muted-foreground)" }}>
-                          {action === "approve" ? "Approve — this activates the supplier and unlocks the portal activation link"
+                          {action === "approve" ? "Approve — this activates the supplier, generates the seller_slug, and unlocks the portal activation link"
                             : action === "reject" ? "Reject (notes required)"
                             : action === "request-info" ? "Request additional information (notes required)"
                             : "Suspend supplier (notes required)"}
@@ -323,11 +325,17 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
                           data-testid="supplier-action-notes" />
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => { setAction(null); setNotes(""); }} className="pl-btn pl-btn-ghost" data-testid="supplier-action-cancel">Cancel</button>
-                          <button onClick={() => act(action)} className="pl-btn pl-btn-primary" data-testid="supplier-action-confirm">Confirm {action}</button>
+                          <button onClick={() => act(action)}
+                            className="pl-btn"
+                            style={action === "reject"
+                              ? { background: "#FF4C52", color: "#fff", border: "1px solid #FF4C52" }
+                              : action === "approve"
+                              ? { background: "#F5F5F0", color: "#0A1200", border: "2px solid #0A1200", fontWeight: 700 }
+                              : { background: "rgba(148,163,184,.15)", color: "var(--pl-fg)", border: "1px solid rgba(148,163,184,.35)" }}
+                            data-testid="supplier-action-confirm">Confirm {action}</button>
                         </div>
                       </div>
                     )}
-                  </div>
                 </div>
               </>
             )}

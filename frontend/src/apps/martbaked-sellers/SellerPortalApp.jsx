@@ -13,7 +13,7 @@
  */
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { Routes, Route, NavLink, Navigate, useNavigate, Outlet, Link } from "react-router-dom";
+import { Routes, Route, NavLink, Navigate, useNavigate, useParams, Outlet, Link } from "react-router-dom";
 import {
   LayoutDashboard, Building2, PackageSearch, FileText, MapPinned, PlusSquare,
   LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle, ShoppingBag, Receipt,
@@ -98,17 +98,18 @@ const useSupplierAuth = () => {
 /* -------------------------------------------------------------------------- */
 
 const NAV = [
-  { to: "",                  label: "Dashboard",        icon: LayoutDashboard, end: true },
+  { to: "dashboard",         label: "Dashboard",        icon: LayoutDashboard },
   { to: "profile",           label: "Business Profile", icon: Building2 },
   { to: "catalogue",         label: "Catalogue",        icon: PackageSearch },
   { to: "orders",            label: "Orders",           icon: ShoppingBag },
   { to: "invoices",          label: "Invoices",         icon: Receipt },
   { to: "product-requests",  label: "Product Requests", icon: PlusSquare },
   { to: "documents",         label: "Documents",        icon: FileText },
-  { to: "locations",         label: "Supply Locations", icon: MapPinned },
+  { to: "supply-locations",  label: "Supply Locations", icon: MapPinned },
 ];
 
 const PortalShell = ({ supplier, refresh }) => {
+  const { sellerSlug } = useParams();
   const navigate = useNavigate();
   const logout = () => {
     localStorage.removeItem("supplier_token");
@@ -142,7 +143,9 @@ const PortalShell = ({ supplier, refresh }) => {
           </div>
           <nav className="space-y-1">
             {NAV.map((n) => (
-              <NavLink key={n.label} to={n.to} end={n.end} data-testid={`portal-nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
+              <NavLink key={n.label}
+                to={`/martbaked/${supplier?.seller_slug || sellerSlug || "sellers"}/portal/${n.to}`}
+                data-testid={`portal-nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
                 className={({ isActive }) => `flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-medium transition-all`}
                 style={({ isActive }) => ({
                   background: isActive ? "var(--pl-accent-soft)" : "transparent",
@@ -186,8 +189,27 @@ const LoadingScreen = () => (
   </div>
 );
 
-export const SellerPortalApp = () => {
+export const SellerPortalApp = ({ legacy = false }) => {
   const { supplier, loading, error, refresh } = useSupplierAuth();
+  const { sellerSlug } = useParams();
+  const navigate = useNavigate();
+
+  // Legacy `/martbaked/sellers/portal/*` → redirect to the resolved slug URL.
+  // Handled here (client-side) once auth resolves so the user is never
+  // stranded on a stale bookmark. Kubernetes ingress doesn't let us do this
+  // at the edge without a rewrite rule, so client redirect is the safe path.
+  useEffect(() => {
+    if (loading || !supplier?.seller_slug) return;
+    const rest = window.location.pathname.replace(/^\/martbaked\/[^/]+\/portal\/?/, "");
+    if (legacy) {
+      const dest = `/martbaked/${supplier.seller_slug}/portal/${rest || "dashboard"}`;
+      navigate(dest + window.location.search, { replace: true });
+    } else if (sellerSlug && sellerSlug !== supplier.seller_slug) {
+      // Wrong slug in URL for this session → hard-redirect to the correct one
+      navigate(`/martbaked/${supplier.seller_slug}/portal/${rest || "dashboard"}`, { replace: true });
+    }
+  }, [loading, supplier, sellerSlug, legacy, navigate]);
+
   if (loading) return <LoadingScreen />;
   const hasToken = !!localStorage.getItem("supplier_token");
   if (!hasToken || error) return <Navigate to="/martbaked/sellers/login?redirect=/martbaked/sellers/portal" replace />;
@@ -196,14 +218,17 @@ export const SellerPortalApp = () => {
   return (
     <Routes>
       <Route element={<PortalShell supplier={supplier} refresh={refresh} />}>
-        <Route index element={<PortalHome supplier={supplier} />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<PortalHome supplier={supplier} />} />
         <Route path="profile" element={<PortalProfile />} />
         <Route path="catalogue" element={<PortalCatalogue />} />
         <Route path="orders" element={<PortalOrders />} />
         <Route path="invoices" element={<SupplierInvoicesPage apiClient={portalApi} role="supplier" basePath="/supplier/me/invoices" />} />
         <Route path="documents" element={<PortalDocuments />} />
-        <Route path="locations" element={<PortalLocations />} />
+        <Route path="supply-locations" element={<PortalLocations />} />
+        <Route path="locations" element={<Navigate to="../supply-locations" replace />} />
         <Route path="product-requests" element={<PortalProductRequests />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
     </Routes>
   );
@@ -214,35 +239,57 @@ export const SellerPortalApp = () => {
 /* -------------------------------------------------------------------------- */
 
 const PortalHome = ({ supplier }) => {
-  const [stats, setStats] = useState({ catalogue: 0, active: 0, docs: 0, requests: 0, pending: 0 });
+  const [stats, setStats] = useState({
+    catalogue: 0, cat_active: 0, cat_pending: 0, cat_changes: 0,
+    docs: 0, requests: 0, req_pending: 0,
+    orders_open: 0, orders_new: 0,
+    invoices_outstanding: 0, invoices_disputed: 0,
+    notifs_unread: 0,
+  });
 
   useEffect(() => {
     (async () => {
       try {
-        const [cat, docs, reqs] = await Promise.all([
-          portalApi.get("/supplier/me/catalogue"),
-          portalApi.get("/supplier/me/documents"),
-          portalApi.get("/supplier/me/product-requests"),
+        const [cat, docs, reqs, orders, invoices, notifs] = await Promise.all([
+          portalApi.get("/supplier/me/catalogue").catch(() => ({ data: { items: [] } })),
+          portalApi.get("/supplier/me/documents").catch(() => ({ data: { items: [] } })),
+          portalApi.get("/supplier/me/product-requests").catch(() => ({ data: { items: [] } })),
+          portalApi.get("/supplier/me/purchase-orders").catch(() => ({ data: { items: [], buckets: {} } })),
+          portalApi.get("/supplier/me/invoices").catch(() => ({ data: { items: [], buckets: {} } })),
+          portalApi.get("/supplier/me/notifications", { params: { unread: 1 } }).catch(() => ({ data: { unread_count: 0 } })),
         ]);
-        const cats = cat.data.items;
+        const cats = cat.data.items || [];
+        const catStatus = (row) => row.review_status || row.status || (row.is_active ? "approved" : "pending");
         setStats({
           catalogue: cats.length,
-          active: cats.filter((c) => c.is_active).length,
-          docs: docs.data.items.length,
-          requests: reqs.data.items.length,
-          pending: reqs.data.items.filter((r) => r.status === "pending").length,
+          cat_active: cats.filter((c) => c.is_active).length,
+          cat_pending: cats.filter((c) => catStatus(c) === "pending" || catStatus(c) === "under_review").length,
+          cat_changes: cats.filter((c) => catStatus(c) === "changes_requested").length,
+          docs: (docs.data.items || []).length,
+          requests: (reqs.data.items || []).length,
+          req_pending: (reqs.data.items || []).filter((r) => r.status === "pending").length,
+          orders_open: ["submitted", "acknowledged", "shipped", "partially_received"]
+            .reduce((n, k) => n + (orders.data.buckets?.[k] || 0), 0),
+          orders_new: orders.data.buckets?.submitted || 0,
+          invoices_outstanding: ["matched", "variance", "submitted"]
+            .reduce((n, k) => n + (invoices.data.buckets?.[k] || 0), 0),
+          invoices_disputed: invoices.data.buckets?.disputed || 0,
+          notifs_unread: notifs.data.unread_count || 0,
         });
       } catch (e) { /* silent */ }
     })();
   }, []);
 
-  const cards = [
-    { title: "Catalogue SKUs", value: stats.catalogue, sub: `${stats.active} active`, link: "catalogue", color: "var(--pl-accent)" },
-    { title: "Product Requests", value: stats.pending, sub: `${stats.requests} total (pending)`, link: "product-requests", color: "#FCC44C" },
-    { title: "Documents", value: stats.docs, sub: "verified & pending", link: "documents", color: "#3B82F6" },
-  ];
-
   const criticalNotice = supplier.status === "action_required";
+
+  const cards = [
+    { title: "Total products", value: stats.catalogue, sub: `${stats.cat_active} active · ${stats.cat_pending} pending · ${stats.cat_changes} changes`, link: "../catalogue", color: "var(--pl-accent)" },
+    { title: "Open POs", value: stats.orders_open, sub: `${stats.orders_new} awaiting your ack`, link: "../orders", color: "#3B82F6" },
+    { title: "Invoices to settle", value: stats.invoices_outstanding, sub: `${stats.invoices_disputed} disputed`, link: "../invoices", color: "#F97316" },
+    { title: "Product requests", value: stats.req_pending, sub: `${stats.requests} total`, link: "../product-requests", color: "#FCC44C" },
+    { title: "Documents", value: stats.docs, sub: "verified & pending", link: "../documents", color: "#77BC1F" },
+    { title: "Unread notifications", value: stats.notifs_unread, sub: "click bell to review", link: "../dashboard", color: "#FF4C52" },
+  ];
 
   return (
     <div className="space-y-8" data-testid="portal-home">
@@ -251,7 +298,8 @@ const PortalHome = ({ supplier }) => {
         <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>{supplier.trading_name || supplier.business_name}</h1>
         <div className="text-sm mt-2 flex items-center gap-3 flex-wrap" style={{ color: "var(--pl-fg-muted)" }}>
           <span className="px-2 py-0.5 rounded font-mono text-xs" style={{ background: "var(--pl-accent-soft)", color: "var(--pl-accent)" }}>{supplier.code || "—"}</span>
-          <span>Status: <strong style={{ color: criticalNotice ? "#F97316" : "#77BC1F" }}>{supplier.status}</strong></span>
+          <span className="px-2 py-0.5 rounded font-mono text-xs" style={{ background: "rgba(148,163,184,.15)", color: "var(--pl-fg-muted)" }} data-testid="portal-supplier-slug">/{supplier.seller_slug || "—"}</span>
+          <span>Status: <strong style={{ color: criticalNotice ? "#F97316" : "#77BC1F" }} data-testid="portal-supplier-status">{supplier.status}</strong></span>
           <span>Country: <strong style={{ color: "var(--pl-fg)" }}>{supplier.country}</strong></span>
           <span>Currency: <strong style={{ color: "var(--pl-fg)" }}>{supplier.default_currency}</strong></span>
         </div>
@@ -271,7 +319,7 @@ const PortalHome = ({ supplier }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {cards.map((c) => (
-          <Link to={c.link} key={c.title} className="pl-card p-6" data-testid={`portal-stat-${c.link}`}>
+          <Link to={c.link} key={c.title} className="pl-card p-6" data-testid={`portal-stat-${c.title.toLowerCase().replace(/\s+/g, "-")}`}>
             <div className="text-xs uppercase tracking-widest" style={{ color: "var(--pl-fg-muted)" }}>{c.title}</div>
             <div className="text-4xl font-bold mt-2" style={{ color: c.color }}>{c.value}</div>
             <div className="text-xs mt-1" style={{ color: "var(--pl-fg-subtle)" }}>{c.sub}</div>
@@ -280,15 +328,39 @@ const PortalHome = ({ supplier }) => {
         ))}
       </div>
 
+      <div className="pl-card p-6" data-testid="portal-quick-actions">
+        <div className="pl-eyebrow mb-3">Quick actions</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Link to="../catalogue" className="pl-btn pl-btn-primary justify-center" data-testid="portal-qa-add-product">
+            <PackageSearch size={14} /> Add / edit product
+          </Link>
+          <Link to="../orders" className="pl-btn pl-btn-ghost justify-center" data-testid="portal-qa-review-orders">
+            <ShoppingBag size={14} /> Review open POs
+          </Link>
+          <Link to="../invoices" className="pl-btn pl-btn-ghost justify-center" data-testid="portal-qa-submit-invoice">
+            <Receipt size={14} /> Submit invoices
+          </Link>
+          <Link to="../product-requests" className="pl-btn pl-btn-ghost justify-center" data-testid="portal-qa-request-product">
+            <PlusSquare size={14} /> Request new product
+          </Link>
+          <Link to="../documents" className="pl-btn pl-btn-ghost justify-center" data-testid="portal-qa-upload-doc">
+            <FileText size={14} /> Upload document
+          </Link>
+          <Link to="../supply-locations" className="pl-btn pl-btn-ghost justify-center" data-testid="portal-qa-manage-locations">
+            <MapPinned size={14} /> Manage supply zones
+          </Link>
+        </div>
+      </div>
+
       <div className="pl-card p-6">
         <div className="pl-eyebrow mb-3">Getting started</div>
         <ol className="space-y-3">
           {[
-            ["Complete your Business Profile", "profile"],
-            ["Link your SKUs to the master catalogue", "catalogue"],
-            ["Upload the latest certificates & catalogues", "documents"],
-            ["Confirm the cities / zones you can supply", "locations"],
-            ["Propose new products not in the master catalogue", "product-requests"],
+            ["Complete your Business Profile", "../profile"],
+            ["Link your SKUs to the master catalogue", "../catalogue"],
+            ["Upload the latest certificates & catalogues", "../documents"],
+            ["Confirm the cities / zones you can supply", "../supply-locations"],
+            ["Propose new products not in the master catalogue", "../product-requests"],
           ].map(([label, link], i) => (
             <li key={label} className="flex items-center gap-3">
               <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: "var(--pl-accent-soft)", color: "var(--pl-accent)" }}>{i + 1}</span>

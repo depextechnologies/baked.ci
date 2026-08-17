@@ -82,7 +82,7 @@ async def get_current_supplier(request: Request, session: AsyncSession = Depends
 
 def _sup_dict(s: Supplier) -> dict:
     return {
-        "id": s.id, "code": s.code, "business_name": s.business_name,
+        "id": s.id, "code": s.code, "seller_slug": s.seller_slug, "business_name": s.business_name,
         "trading_name": s.trading_name, "business_type": s.business_type,
         "business_type_other": s.business_type_other,
         "registration_number": s.registration_number, "tax_id": s.tax_id,

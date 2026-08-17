@@ -75,7 +75,7 @@ async def _next_application_code(session: AsyncSession) -> str:
 
 def _supplier_dict(s: Supplier) -> dict:
     return {
-        "id": s.id, "code": s.code, "business_name": s.business_name,
+        "id": s.id, "code": s.code, "seller_slug": s.seller_slug, "business_name": s.business_name,
         "trading_name": s.trading_name, "business_type": s.business_type,
         "business_type_other": s.business_type_other,
         "registration_number": s.registration_number, "tax_id": s.tax_id,
@@ -732,6 +732,21 @@ async def admin_approve_application(
             )
         )) or 0
         supplier.code = f"SUP-{supplier.country}-{cnt + 1:04d}"
+
+    # Assign a URL-safe seller_slug the first time we approve. Idempotent —
+    # never overwrite an existing slug (the URL is now part of the public
+    # contract with the supplier).
+    if not supplier.seller_slug:
+        import re
+        raw = (supplier.trading_name or supplier.business_name or "seller")
+        base = re.sub(r"[^a-z0-9]+", "", raw.split(" ")[0].lower()) or "seller"
+        candidate, n = base, 1
+        while (await session.scalar(
+            select(func.count(Supplier.id)).where(Supplier.seller_slug == candidate)
+        )):
+            n += 1
+            candidate = f"{base}-{n}"
+        supplier.seller_slug = candidate
 
     supplier.status = "approved"
     supplier.approved_at = now

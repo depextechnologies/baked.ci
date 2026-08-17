@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="8" time="2.332" timestamp="2026-08-17T12:27:29.089320+00:00" hostname="agent-env-2acde1de-dbd2-4e99-9a56-702ded689377"><testcase classname="tests.test_seller_slug_p0.TestLoginResponseIncludesSlug" name="test_delta_login_includes_seller_slug" time="0.366" /><testcase classname="tests.test_seller_slug_p0.TestLoginResponseIncludesSlug" name="test_delta_login_returns_bearer_token" time="0.000" /><testcase classname="tests.test_seller_slug_p0.TestApproveIdempotent" name="test_reapprove_delta_does_not_mutate_or_500" time="0.959" /><testcase classname="tests.test_seller_slug_p0.TestSlugGenerationOnApprove" name="test_approve_echo_generates_slug" time="0.303"><failure message="AttributeError: 'str' object has no attribute 'get'">self = &lt;tests.test_seller_slug_p0.TestSlugGenerationOnApprove object at 0xfd833369bd90&gt;
+sa_headers = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1fMThlNzNiNjJkODczNDg2MyIsInJvbGUiOiJzdXB...pbCI6ImRlcGV4b3BlbmFpQGdtYWlsLmNvbSJ9.DZfmeyFa8z-VWLjd1S8k9DpDSflr8jcdaw07LisT5eQ', 'Content-Type': 'application/json'}
+
+    def test_approve_echo_generates_slug(self, sa_headers):
+        # Locate ECHO application
+        r = requests.get(
+            f"{API}/admin/modules/mart/suppliers/applications",
+            headers=sa_headers, params={"status": "submitted"}, timeout=15,
+        )
+        assert r.status_code == 200, r.text
+        apps = r.json().get("items") or r.json().get("applications") or r.json()
+&gt;       echo = next((a for a in apps if a.get("application_code") == ECHO_APP_CODE), None)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/test_seller_slug_p0.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = &lt;dict_keyiterator object at 0xfd83336af790&gt;
+
+&gt;   echo = next((a for a in apps if a.get("application_code") == ECHO_APP_CODE), None)
+                                    ^^^^^
+E   AttributeError: 'str' object has no attribute 'get'
+
+backend/tests/test_seller_slug_p0.py:125: AttributeError</failure></testcase><testcase classname="tests.test_seller_slug_p0.TestSlugUniqueConstraint" name="test_seller_slug_column_is_unique" time="0.094" /><testcase classname="tests.test_seller_slug_p0.TestSlugUniqueConstraint" name="test_duplicate_slug_write_raises" time="0.027" /><testcase classname="tests.test_seller_slug_p0.TestSupplierRBAC" name="test_delta_token_cannot_see_other_supplier" time="0.318" /><testcase classname="tests.test_seller_slug_p0.TestSupplierRBAC" name="test_delta_token_rejected_on_admin_route" time="0.117" /></testsuite></testsuites>

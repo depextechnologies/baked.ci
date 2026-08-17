@@ -65,6 +65,7 @@ class Supplier(Base, TimestampMixin):
     code: Mapped[Optional[str]] = mapped_column(String(40), unique=True, nullable=True)
     business_name: Mapped[str] = mapped_column(String(300), nullable=False)
     trading_name: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    seller_slug: Mapped[Optional[str]] = mapped_column(String(80), unique=True, nullable=True)
     business_type: Mapped[str] = mapped_column(String(60), nullable=False)
     business_type_other: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     registration_number: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)

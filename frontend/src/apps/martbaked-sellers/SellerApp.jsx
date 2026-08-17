@@ -305,7 +305,8 @@ const SellerLogin = () => {
       toast.success(`Welcome back, ${data.supplier.trading_name || data.supplier.business_name}`);
       // Redirect to portal (or ?redirect= override for deep-linking)
       const params = new URLSearchParams(window.location.search);
-      const to = params.get("redirect") || "/martbaked/sellers/portal";
+      const slug = data.supplier?.seller_slug || "sellers";
+      const to = params.get("redirect") || `/martbaked/${slug}/portal/dashboard`;
       navigate(to);
     } catch (e) {
       const d = e?.response?.data?.detail;
@@ -391,7 +392,10 @@ const SellerActivate = () => {
       localStorage.setItem("supplier", JSON.stringify(data.supplier));
       setSuccess(true);
       toast.success("Account activated — you're in!");
-      setTimeout(() => navigate("/martbaked/sellers/portal"), 1200);
+      setTimeout(() => {
+        const slug = data.supplier?.seller_slug || "sellers";
+        navigate(`/martbaked/${slug}/portal/dashboard`);
+      }, 1200);
     } catch (e) {
       const d = e?.response?.data?.detail;
       setErr(typeof d === "string" ? d : (d?.message || "Activation failed."));

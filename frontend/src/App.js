@@ -44,7 +44,8 @@ const App = () => (
           <Route path="/partner-portal/*" element={<PartnerPortalApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
-          <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp />} />
+          <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
+          <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />
           <Route path="/martbaked/sellers/*" element={<SellerApp />} />
           <Route path="/*" element={<CustomerApp />} />
         </Routes>
