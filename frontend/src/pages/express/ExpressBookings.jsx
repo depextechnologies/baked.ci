@@ -45,7 +45,7 @@ export const ExpressBookings = () => {
     return (
       <div className="min-h-screen bg-background">
         <ExpressHeader title="My Bookings" onBack={() => navigate("/express")} />
-        <GuestSignInPrompt title="Sign in to see your bookings" message="Track your EXPRESSbakēd deliveries and moves in one place." testid="exp-bookings-signin" accent={YELLOW} />
+        <GuestSignInPrompt title="Sign in to see your bookings" message="Track your SENDbakēd deliveries and moves in one place." testid="exp-bookings-signin" accent={YELLOW} />
       </div>
     );
   }

@@ -71,7 +71,8 @@ const ThemeToggle = ({ theme, onToggle }) => (
 
 const COUNTRIES = [
   { code: "CI", label: "Côte d'Ivoire", flag: "🇨🇮" },
-  { code: "LR", label: "Liberia",       flag: "🇱🇷" },
+  // Historical: Liberia records remain in the database but the baked.ci
+  // deployment is currently Côte d'Ivoire-only (P0 correction pass).
 ];
 
 const CountrySelector = () => {
@@ -225,7 +226,7 @@ const HeroSection = () => (
         <div>
           <Reveal>
             <div className="pl-eyebrow mb-6" style={{ color: "var(--pl-accent)" }}>
-              Now onboarding — Côte d&apos;Ivoire & Liberia
+              Now onboarding — Côte d&apos;Ivoire
             </div>
           </Reveal>
           <Reveal delay={80}>
@@ -385,7 +386,7 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #3B82F655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #3B82F633, transparent 60%)",
   },
   {
-    code: "EXPRESS", label: "EXPRESSbakēd", color: "#FCC44C", icon: Truck,
+    code: "EXPRESS", label: "SENDbakēd", color: "#FCC44C", icon: Truck,
     tagline: "Logistics network",
     desc: "Move parcels, freight and home shifts through the BAKĒD dispatch network. Live tracking and pricing engine baked in.",
     href: "https://express.partner.baked.ci",
@@ -654,10 +655,10 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "EXPRESSbakēd gave us the routing and live tracking we would never have built ourselves. Our fleet utilisation jumped 40% in the first month.",
+      "SENDbakēd gave us the routing and live tracking we would never have built ourselves. Our fleet utilisation jumped 40% in the first month.",
     name: "Mariam Diallo",
     role: "Ops Lead, DialloTransport",
-    location: "Plateau, Abidjan · EXPRESSbakēd",
+    location: "Plateau, Abidjan · SENDbakēd",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=faces",
   },
 ];

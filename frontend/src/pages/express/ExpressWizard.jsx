@@ -205,7 +205,7 @@ export const ExpressStepVehicle = () => {
 
           <div className="mt-4 baked-card border p-3 flex items-start gap-3" style={{ borderColor: "#FCC44C44", backgroundColor: "#FCC44C0A" }}>
             <ShieldCheck size={16} style={{ color: "#FCC44C" }} className="shrink-0 mt-0.5" />
-            <div><div className="text-xs font-bold">All deliveries are insured</div><div className="text-[10px] text-muted-foreground">Your goods are safe with EXPRESSbakēd.</div></div>
+            <div><div className="text-xs font-bold">All deliveries are insured</div><div className="text-[10px] text-muted-foreground">Your goods are safe with SENDbakēd.</div></div>
           </div>
         </div>
       </ExpressWizardShell>

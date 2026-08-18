@@ -30,7 +30,7 @@ const SLUG_LABELS = {
   "investors":            ["Investor Relations",       "Financials, milestones and how to invest in BAKĒD."],
   "franchise":            ["Franchise Opportunities",  "Bring the BAKĒD network to your city or country."],
   "delivery-partner":     ["Delivery Partner",         "Own a fleet? Become a BAKĒD delivery partner."],
-  "driver-registration":  ["Driver Registration",      "Earn with EXPRESSbakēd — sign up as a driver."],
+  "driver-registration":  ["Driver Registration",      "Earn with SENDbakēd — sign up as a driver."],
   "merchant-registration":["Merchant Registration",    "One form to onboard your business to every BAKĒD module."],
   "partner":              ["Partner With bakēd",       "A dedicated Partner Portal is on the way — for now, discover partnership opportunities on 'Sell on bakēd'."],
   "baked-delivery":       ["bakēd delivery",           "Same-day, same-city delivery powered by the BAKĒD dispatch network. Product page coming soon."],

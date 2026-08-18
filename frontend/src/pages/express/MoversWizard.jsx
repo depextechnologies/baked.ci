@@ -59,7 +59,7 @@ export const MoversLanding = () => {
         </div>
 
         <div className="pt-2">
-          <div className="text-sm font-bold mb-2">Why choose EXPRESSbakēd?</div>
+          <div className="text-sm font-bold mb-2">Why choose SENDbakēd?</div>
           <div className="grid grid-cols-3 gap-2">
             <MiniFeature icon={CheckCircle2} label="Verified Partners" />
             <MiniFeature icon={Star} label="Best Prices" />

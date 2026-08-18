@@ -29,7 +29,7 @@ const SECTIONS = [
         BAKĒD is a multi-business digital commerce platform connecting
         customers with local grocery stores (MARTbakēd), restaurants
         (FOODbakēd), online retailers (SHOPbakēd), logistics services
-        (EXPRESSbakēd), vehicle marketplaces (AUTObakēd) and real-estate
+        (SENDbakēd), vehicle marketplaces (AUTObakēd) and real-estate
         listings (IMMObakēd). BAKĒD facilitates transactions between you and
         independent merchants, drivers, and partners.
       </p>
@@ -77,7 +77,7 @@ const SECTIONS = [
       <p>
         Deliveries are performed by BAKĒD drivers or third-party couriers.
         Estimated arrival times are based on traffic and distance and are not
-        guaranteed. Live tracking (EXPRESSbakēd) is provided as a convenience.
+        guaranteed. Live tracking (SENDbakēd) is provided as a convenience.
         You must be available at the delivery address to receive your order,
         or provide clear instructions.
       </p>

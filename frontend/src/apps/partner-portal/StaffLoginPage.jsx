@@ -1,15 +1,23 @@
 /**
- * Partner Portal — dedicated Staff Login screen (per Fixing_Prompt 2026-02-10).
- * Three fields: Store ID (e.g. MRT-ABJ-001), Employee Email, Password.
- * The Store ID is CONTEXT, not a security credential — validation is
- * enforced server-side. Owners still use `/partner-portal/login` (a
- * different page) and get the same JWT infrastructure.
+ * Partner Portal — dedicated Staff Login screen.
+ *
+ * P0 URL restructure (Fixing_Prompt.docx §6+§7):
+ *   Route: /partner/:moduleSlug/staff-login
+ *   • The module slug in the URL is UX-only. Actual authorization stays
+ *     server-side (JWT/permissions).
+ *   • After a successful login, we compute the user's *real* module from
+ *     the JWT-issued session and route them to that module's portal so
+ *     switching URLs manually cannot bypass permissions.
+ *
+ * Legacy `/partner/staff-login` now resolves to the module selector page.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Store, User, Lock, ArrowLeft, ShieldCheck } from "lucide-react";
 import { partnerApi } from "./PartnerPortalApp";
+import { moduleForSlug, slugForBackendModule } from "./moduleRegistry";
+import { BakedLogo } from "@/components/layout/BakedLogo";
 
 const fieldStyle = { background: "var(--ph-card)", color: "var(--ph-fg)", border: "1px solid var(--ph-border-strong)" };
 const FIELD = "px-3 h-11 rounded-lg w-full text-sm";
@@ -18,18 +26,24 @@ const errMsg = (e) => {
   const d = e?.response?.data?.detail;
   if (typeof d === "object" && d?.message) return d.message;
   if (typeof d === "string") return d;
-  // Pydantic 422: `detail` is an array of {msg, loc, ...}. Surface a
-  // friendly generic instead of leaking field-level validation errors.
   if (Array.isArray(d)) return "Invalid credentials";
   return e?.message || "Invalid credentials";
 };
 
 export const StaffLoginPage = () => {
+  const { moduleSlug } = useParams();
+  const meta = moduleForSlug(moduleSlug) || moduleForSlug("martbaked");
   const [storeId,    setStoreId]    = useState("");
   const [identifier, setIdentifier] = useState("");
   const [pw,         setPw]         = useState("");
   const [busy,       setBusy]       = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const prev = document.title;
+    document.title = `${meta.label} · Staff Login`;
+    return () => { document.title = prev; };
+  }, [meta.label]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -39,18 +53,19 @@ export const StaffLoginPage = () => {
     try {
       const { data } = await partnerApi.post("/partner/auth/staff-login", {
         store_id: storeId.trim().toUpperCase(),
-        // Send both fields — backend accepts `identifier` (new) or `email` (legacy).
         identifier: identifier.includes("@") ? identifier.trim().toLowerCase() : identifier.trim().toUpperCase(),
         password: pw,
       });
       localStorage.setItem("baked_partner_token", data.access_token);
-      // Cache the store context so the portal header can render it immediately
-      // on the next screen without a second round-trip.
       if (data.store) {
         localStorage.setItem("baked_partner_store", JSON.stringify(data.store));
       }
       toast.success(`Welcome ${data.staff.name}`);
-      window.location.href = "/partner-portal";
+      // Authorization is server-side. Always take the staff member to
+      // *their* module (from the JWT payload / /me endpoint), not to the
+      // module they typed in the URL. This closes the URL-swap loophole.
+      const realSlug = slugForBackendModule(data.partner?.module || data.staff?.module || "mart");
+      window.location.href = `/partner-portal/${realSlug}`;
     } catch (err) {
       toast.error(errMsg(err));
     } finally { setBusy(false); }
@@ -65,6 +80,17 @@ export const StaffLoginPage = () => {
               style={{ color: "var(--ph-fg-subtle)" }} data-testid="staff-login-back">
           <ArrowLeft size={12} /> Back to Partner Hub
         </Link>
+
+        <div className="flex flex-col items-center mb-6">
+          <BakedLogo size="sm" />
+          <span
+            className="text-[10px] uppercase tracking-widest mt-3 px-2.5 py-1 rounded-full"
+            style={{ color: meta.color, border: "1px solid var(--ph-border-strong)", background: "var(--ph-glass)" }}
+            data-testid={`staff-login-brand-${moduleSlug || "martbaked"}`}
+          >
+            {meta.label} · Staff
+          </span>
+        </div>
 
         <div className="rounded-3xl p-8"
              style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
@@ -142,7 +168,7 @@ export const StaffLoginPage = () => {
           <div className="mt-6 pt-6 text-xs text-center"
                style={{ color: "var(--ph-fg-subtle)", borderTop: "1px solid var(--ph-border)" }}>
             Are you the store owner?{" "}
-            <Link to="/partner-portal/login"
+            <Link to={`/partner-portal/${moduleSlug || "martbaked"}/login`}
                   style={{ color: "var(--ph-accent-warm)", textDecoration: "underline" }}
                   data-testid="staff-login-to-owner">
               Owner login →

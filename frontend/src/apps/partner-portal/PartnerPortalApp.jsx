@@ -12,7 +12,7 @@
  */
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { BrowserRouter as _br, Routes, Route, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter as _br, Routes, Route, Link, Navigate, useNavigate, useLocation, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Loader2, LogOut, LayoutDashboard, Building2, Warehouse as WarehouseIcon,
@@ -22,6 +22,9 @@ import {
 } from "lucide-react";
 import { BakedLogo } from "@/components/layout/BakedLogo";
 import "@/apps/partner-hub/partner-hub.css";
+import { moduleForSlug, slugForBackendModule, PARTNER_MODULES } from "./moduleRegistry";
+import ModuleSelectorPage from "./ModuleSelectorPage";
+import ModuleComingSoonPage from "./ModuleComingSoonPage";
 
 /* -------------------------------------------------------------------------- */
 /*                              Auth context                                  */
@@ -100,6 +103,30 @@ const PartnerProvider = ({ children }) => {
 };
 
 /* -------------------------------------------------------------------------- */
+/*                              Module helpers                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * useModuleBase — resolves the current URL's module slug (e.g. "martbaked")
+ * and returns useful derived paths. Falls back to MART as the currently
+ * active module when no slug is present in the URL.
+ */
+export const useModuleBase = () => {
+  const params = useParams();
+  const slug = params.moduleSlug && PARTNER_MODULES[params.moduleSlug]
+    ? params.moduleSlug
+    : "martbaked";
+  const meta = PARTNER_MODULES[slug];
+  return {
+    slug,
+    meta,
+    portalBase: `/partner-portal/${slug}`,
+    loginPath: `/partner-portal/${slug}/login`,
+    staffLoginPath: `/partner/${slug}/staff-login`,
+  };
+};
+
+/* -------------------------------------------------------------------------- */
 /*                                 UI helpers                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -126,11 +153,18 @@ const errMsg = (e) => {
 const PartnerLoginPage = () => {
   const { login, partner } = usePartner();
   const nav = useNavigate();
+  const { slug, meta, portalBase, staffLoginPath } = useModuleBase();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (partner) return <Navigate to={partner.must_reset_password ? "reset-password" : "/partner-portal"} replace />;
+  // If already authenticated, route them into their actual module (from JWT).
+  if (partner) {
+    const target = partner.must_reset_password
+      ? `${portalBase}/reset-password`
+      : `/partner-portal/${slugForBackendModule(partner.module || meta.backendModule)}`;
+    return <Navigate to={target} replace />;
+  }
 
   const submit = async (e) => {
     e.preventDefault();
@@ -138,7 +172,14 @@ const PartnerLoginPage = () => {
     try {
       const p = await login(email, pw);
       toast.success(`Welcome, ${p.business_name}`);
-      nav(p.must_reset_password ? "/partner-portal/reset-password" : "/partner-portal");
+      // Authorization is server-side — after login, always route the user to
+      // *their* real module. If they logged in from a different module URL,
+      // gently correct that. (See Fixing_Prompt.docx §10.)
+      const realSlug = slugForBackendModule(p.module || meta.backendModule);
+      const target = p.must_reset_password
+        ? `/partner-portal/${realSlug}/reset-password`
+        : `/partner-portal/${realSlug}`;
+      nav(target);
     } catch (err) { toast.error(errMsg(err)); }
     finally { setBusy(false); }
   };
@@ -150,9 +191,10 @@ const PartnerLoginPage = () => {
           <BakedLogo size="md" />
           <span
             className="text-[10px] uppercase tracking-widest mt-3 px-2.5 py-1 rounded-full"
-            style={{ color: "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)", background: "var(--ph-glass)" }}
+            style={{ color: meta.color, border: "1px solid var(--ph-border-strong)", background: "var(--ph-glass)" }}
+            data-testid={`portal-login-brand-${slug}`}
           >
-            Partner Portal
+            {meta.label} · Partner Portal
           </span>
         </div>
 
@@ -187,7 +229,7 @@ const PartnerLoginPage = () => {
                   Sign in with your Store ID + Employee ID / email.
                 </div>
               </div>
-              <Link to="/partner/staff-login"
+              <Link to={staffLoginPath}
                     className="text-sm font-medium px-4 h-10 inline-flex items-center rounded-lg"
                     style={{
                       color: "var(--ph-accent-warm)",
@@ -231,7 +273,8 @@ const PartnerResetPasswordPage = () => {
     try {
       await resetPassword(cur, nw);
       toast.success("Password updated — welcome to your partner portal");
-      nav("/partner-portal");
+      const realSlug = slugForBackendModule(partner.module || "mart");
+      nav(`/partner-portal/${realSlug}`);
     } catch (err) { toast.error(errMsg(err)); }
     finally { setBusy(false); }
   };
@@ -312,7 +355,13 @@ const PortalShell = ({ children }) => {
   const { partner, warehouse, logout, role, staff } = usePartner();
   const nav = useNavigate();
   const loc = useLocation();
-  const activeSeg = loc.pathname.replace(/^\/partner-portal\/?/, "").split("/")[0] || "";
+  // Support both new module-scoped URLs (/partner-portal/martbaked/orders)
+  // and the pre-P0 legacy URLs still living in bookmarks.
+  const pathTail = loc.pathname.replace(/^\/partner-portal\/?/, "");
+  const parts = pathTail.split("/").filter(Boolean);
+  const moduleSlug = parts[0] && PARTNER_MODULES[parts[0]] ? parts[0] : slugForBackendModule(partner?.module || "mart");
+  const activeSeg = (parts[0] && PARTNER_MODULES[parts[0]] ? parts[1] : parts[0]) || "";
+  const portalBase = `/partner-portal/${moduleSlug}`;
   const visible = new Set(NAV_ROLE_ACCESS[role] || NAV_ROLE_ACCESS.owner);
   const visibleNav = NAV.filter(n => visible.has(n.seg));
 
@@ -320,11 +369,11 @@ const PortalShell = ({ children }) => {
     <div className="partner-hub" data-theme="dark" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "260px 1fr" }}>
       {/* Sidebar */}
       <aside className="p-6" style={{ background: "var(--ph-bg-elevated)", borderRight: "1px solid var(--ph-border)" }}>
-        <Link to="/partner-portal" className="flex items-center gap-3">
+        <Link to={portalBase} className="flex items-center gap-3">
           <BakedLogo size="sm" />
         </Link>
         <div className="text-[10px] uppercase tracking-widest mt-2" style={{ color: "var(--ph-fg-subtle)" }}>
-          Partner Portal
+          {PARTNER_MODULES[moduleSlug]?.label || "Partner"} · Partner Portal
         </div>
 
         <div className="mt-8 mb-2 text-xs font-semibold" style={{ color: "var(--ph-fg)" }}>{partner?.business_name}</div>
@@ -364,7 +413,7 @@ const PortalShell = ({ children }) => {
             return (
               <Link
                 key={n.seg}
-                to={`/partner-portal${n.seg ? "/" + n.seg : ""}`}
+                to={`${portalBase}${n.seg ? "/" + n.seg : ""}`}
                 onClick={(e) => { if (n.soon) e.preventDefault(); }}
                 data-testid={`portal-nav-${n.seg || "dashboard"}`}
                 className="flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors"
@@ -384,7 +433,7 @@ const PortalShell = ({ children }) => {
         </nav>
 
         <button
-          onClick={() => { logout(); nav("/partner-portal/login"); toast.success("Signed out"); }}
+          onClick={() => { logout(); nav(`${portalBase}/login`); toast.success("Signed out"); }}
           className="mt-8 flex items-center gap-3 px-3 h-10 w-full rounded-xl text-sm"
           style={{ color: "var(--ph-fg-muted)" }}
           data-testid="portal-logout"
@@ -631,10 +680,69 @@ import { StockCountsPage } from "./StockCountsPage";
 
 const Protected = ({ children, needsReset }) => {
   const { partner, loading } = usePartner();
+  const params = useParams();
+  const urlSlug = params.moduleSlug && PARTNER_MODULES[params.moduleSlug] ? params.moduleSlug : "martbaked";
   if (loading) return <div className="partner-hub" data-theme="dark" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><Loader2 className="animate-spin" size={20} /></div>;
-  if (!partner) return <Navigate to="/partner-portal/login" replace />;
-  if (partner.must_reset_password && !needsReset) return <Navigate to="/partner-portal/reset-password" replace />;
+  if (!partner) return <Navigate to={`/partner-portal/${urlSlug}/login`} replace />;
+  // If the URL slug doesn't match the partner's *real* module, redirect them
+  // silently to their correct module. JWT/session remains authoritative (see
+  // Fixing_Prompt.docx §10).
+  const realSlug = slugForBackendModule(partner.module || "mart");
+  if (realSlug !== urlSlug) {
+    return <Navigate to={`/partner-portal/${realSlug}`} replace />;
+  }
+  if (partner.must_reset_password && !needsReset) {
+    return <Navigate to={`/partner-portal/${realSlug}/reset-password`} replace />;
+  }
   return children;
+};
+
+/**
+ * ModuleRouter — mounted at `/partner-portal/:moduleSlug/*`. Owns login,
+ * reset-password and (for the live MART module) the full authenticated
+ * portal. Non-live modules render a branded coming-soon page.
+ */
+const ModuleRouter = () => {
+  const { moduleSlug } = useParams();
+  const meta = moduleForSlug(moduleSlug);
+  if (!meta) {
+    // Unknown slug → show the selector rather than a blank page.
+    return <ModuleSelectorPage intent="owner" title="Unknown module"
+      subtitle="Pick your BAKĒD module below." />;
+  }
+  if (!meta.isLive) {
+    // Non-MART modules currently render a branded coming-soon shell for
+    // every path — refresh-safe, no blanks.
+    return (
+      <Routes>
+        <Route path="*" element={<ModuleComingSoonPage intent="owner" />} />
+      </Routes>
+    );
+  }
+  // Live module (MART) — full portal.
+  return (
+    <Routes>
+      <Route path="login" element={<PartnerLoginPage />} />
+      <Route path="reset-password" element={<Protected needsReset><PartnerResetPasswordPage /></Protected>} />
+      <Route path="" element={<Protected><PortalShell><DashboardPage /></PortalShell></Protected>} />
+      <Route path="profile" element={<Protected><PortalShell><ProfilePage /></PortalShell></Protected>} />
+      <Route path="warehouse" element={<Protected><PortalShell><WarehousePage /></PortalShell></Protected>} />
+      <Route path="products" element={<Protected><PortalShell><ProductsPage /></PortalShell></Protected>} />
+      <Route path="inventory" element={<Protected><PortalShell><InventoryPage /></PortalShell></Protected>} />
+      <Route path="receiving" element={<Protected><PortalShell><ReceivingPage /></PortalShell></Protected>} />
+      <Route path="counts" element={<Protected><PortalShell><StockCountsPage /></PortalShell></Protected>} />
+      <Route path="purchase-orders" element={<Protected><PortalShell><PurchaseOrdersPage /></PortalShell></Protected>} />
+      <Route path="restock" element={<Protected><PortalShell><RestockSuggestionsPage /></PortalShell></Protected>} />
+      <Route path="invoices" element={<Protected><PortalShell><SupplierInvoicesPage apiClient={partnerApi} role="partner" basePath="/partner/invoices" /></PortalShell></Protected>} />
+      <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
+      <Route path="picker" element={<Protected><PortalShell><PickerPage /></PortalShell></Protected>} />
+      <Route path="picker/:partnerOrderId" element={<Protected><PortalShell><PickerPage /></PortalShell></Protected>} />
+      <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
+      <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />
+      <Route path="accept-invite" element={<AcceptInvitePage />} />
+      <Route path="*" element={<Navigate to={`/partner-portal/${moduleSlug}`} replace />} />
+    </Routes>
+  );
 };
 
 export const PartnerPortalApp = () => {
@@ -646,25 +754,17 @@ export const PartnerPortalApp = () => {
   return (
     <PartnerProvider>
       <Routes>
-        <Route path="login" element={<PartnerLoginPage />} />
-        <Route path="reset-password" element={<Protected needsReset><PartnerResetPasswordPage /></Protected>} />
-        <Route path="" element={<Protected><PortalShell><DashboardPage /></PortalShell></Protected>} />
-        <Route path="profile" element={<Protected><PortalShell><ProfilePage /></PortalShell></Protected>} />
-        <Route path="warehouse" element={<Protected><PortalShell><WarehousePage /></PortalShell></Protected>} />
-        <Route path="products" element={<Protected><PortalShell><ProductsPage /></PortalShell></Protected>} />
-        <Route path="inventory" element={<Protected><PortalShell><InventoryPage /></PortalShell></Protected>} />
-        <Route path="receiving" element={<Protected><PortalShell><ReceivingPage /></PortalShell></Protected>} />
-        <Route path="counts" element={<Protected><PortalShell><StockCountsPage /></PortalShell></Protected>} />
-        <Route path="purchase-orders" element={<Protected><PortalShell><PurchaseOrdersPage /></PortalShell></Protected>} />
-        <Route path="restock" element={<Protected><PortalShell><RestockSuggestionsPage /></PortalShell></Protected>} />
-        <Route path="invoices" element={<Protected><PortalShell><SupplierInvoicesPage apiClient={partnerApi} role="partner" basePath="/partner/invoices" /></PortalShell></Protected>} />
-        <Route path="orders" element={<Protected><PortalShell><OrdersPage /></PortalShell></Protected>} />
-        <Route path="picker" element={<Protected><PortalShell><PickerPage /></PortalShell></Protected>} />
-        <Route path="picker/:partnerOrderId" element={<Protected><PortalShell><PickerPage /></PortalShell></Protected>} />
-        <Route path="wallet" element={<Protected><PortalShell><WalletPage /></PortalShell></Protected>} />
-        <Route path="team" element={<Protected><PortalShell><TeamPage /></PortalShell></Protected>} />
-        <Route path="accept-invite" element={<AcceptInvitePage />} />
-        <Route path="*" element={<Navigate to="/partner-portal" replace />} />
+        {/* Legacy generic URLs → module selector (never guess silently). */}
+        <Route path="login" element={<ModuleSelectorPage intent="owner" />} />
+        <Route path="" element={<ModuleSelectorPage intent="owner"
+          title="Partner Portal"
+          subtitle="Pick your BAKĒD module below to continue." />} />
+
+        {/* Module-scoped sub-app. */}
+        <Route path=":moduleSlug/*" element={<ModuleRouter />} />
+
+        {/* Anything else falls back to the selector. */}
+        <Route path="*" element={<Navigate to="/partner-portal/login" replace />} />
       </Routes>
     </PartnerProvider>
   );

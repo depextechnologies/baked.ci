@@ -30,7 +30,7 @@ export const ExpressServices = () => {
       <ExpressHeader title="Services" onBack={() => navigate("/express")} />
 
       <div className="px-4 pt-3">
-        <div className="text-xs text-white/60">All EXPRESSbakēd logistics services in one place</div>
+        <div className="text-xs text-white/60">All SENDbakēd logistics services in one place</div>
       </div>
 
       <div className="px-4 mt-4 grid grid-cols-2 gap-3">

@@ -307,7 +307,6 @@ const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier 
           <Field label="Country" testId="wizard-field-country">
             <Select value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} data-testid="wizard-input-country">
               <option value="CI">Côte d&apos;Ivoire (CI)</option>
-              <option value="LR">Liberia (LR)</option>
             </Select>
           </Field>
         </div>

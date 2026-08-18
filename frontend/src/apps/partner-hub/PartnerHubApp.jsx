@@ -15,6 +15,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Routes, Route, useNavigate } from "react-router-dom";
 import { StaffLoginPage } from "@/apps/partner-portal/StaffLoginPage";
+import { ModuleSelectorPage } from "@/apps/partner-portal/ModuleSelectorPage";
 import { PartnerApplyApp } from "./PartnerApplyApp";
 import {
   ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Sun,
@@ -230,7 +231,7 @@ const OPPORTUNITIES = [
     desc: "Operate a smart local fulfillment centre and serve thousands of customers through the MARTbakēd platform. AI inventory, live orders, packing stations — all handled.",
     cta: "Become a Dark Store Partner",
     href: "/partner/apply",
-    loginHref: "/partner-portal/login",
+    loginHref: "/partner-portal/martbaked/login",
     image: "https://images.unsplash.com/photo-1553413077-190dd305871c?w=1600&q=80&auto=format&fit=crop",
   },
   {
@@ -671,6 +672,8 @@ const PartnerHubLanding = ({ theme, toggle }) => (
   </div>
 );
 
+const StaffModuleSelector = () => <ModuleSelectorPage intent="staff" />;
+
 export const PartnerHubApp = () => {
   const { theme, toggle } = useHubTheme();
 
@@ -684,7 +687,10 @@ export const PartnerHubApp = () => {
     <Routes>
       <Route path="/" element={<PartnerHubLanding theme={theme} toggle={toggle} />} />
       <Route path="/apply" element={<PartnerApplyApp />} />
-      <Route path="/staff-login" element={<StaffLoginPage />} />
+      {/* Module-specific staff login routes (P0 URL restructure). */}
+      <Route path="/:moduleSlug/staff-login" element={<StaffLoginPage />} />
+      {/* Legacy generic → module selector (staff intent). */}
+      <Route path="/staff-login" element={<StaffModuleSelector />} />
     </Routes>
   );
 };

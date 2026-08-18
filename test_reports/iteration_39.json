@@ -1,0 +1,33 @@
+{
+  "summary": "P0 route/branding audit — 15 refresh URLs all render 200 with correct data-testids; module selector (owner + staff) shows 6 modules (martbaked/sendbaked/shopbaked/foodbaked/autobaked/immobaked) with MART live and the other 5 → coming-soon or coming-soon-shell; MART owner login (partner-alpha-store@test.example / Alpha1234!Beta) lands on /partner-portal/martbaked (not legacy /partner-portal); sidebar Picker/Orders/Wallet/etc hrefs all begin with /partner-portal/martbaked/; refresh of /partner-portal/martbaked/picker while logged in keeps user on the picker route (module-scoped session preserved); logout redirects to /partner-portal/martbaked/login. /partner-portal/shopbaked/login renders module-coming-soon-shopbaked with Continue-to-MART CTA (module-comingsoon-to-mart). Staff login /partner/martbaked/staff-login renders with staff-login-brand-martbaked chip; the sendbaked/shopbaked/foodbaked/autobaked/immobaked staff-login variants all render the branded form (chip data-testid=staff-login-brand-<slug>) — not blocked with a coming-soon shell, which is per current code by design. Liberia removed from PartnerLandingApp COUNTRIES (header shows only 🇨🇮 CI), from /partner/apply country dropdown (only Côte d'Ivoire), from SellerApplyWizard step 1 (only CI). BUT Liberia still present in seller wizard steps 3/6/7 and admin/ModulePages.jsx express pricing filter (see issues). /express shows SENDbakēd wordmark image (alt=SENDbakēd, src=…SENDbakedDark.jpeg) instead of EXPRESSbakēd. Partner-landing hero: 'NOW ONBOARDING — CÔTE D'IVOIRE' (no Liberia). Backend contracts unchanged — MART login succeeded, /partner/dashboard reachable via sidebar; not full-regressioned per E1 instruction ('route/branding audit only').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "p0_spec_misses": [
+      {"file": "/app/frontend/src/apps/martbaked-sellers/SellerApplyWizard.jsx", "issue": "Liberia option (`<option value=\"LR\">LR</option>`) still rendered in Step 3 (Owner nationality, L471), Step 6 (Coverage country, L672), and Step 7 (Billing country, L731). Only Step 1 country dropdown was cleaned. Fixing_Prompt §3 says Liberia must be removed from all user-facing selectors in the seller-apply wizard.", "priority": "HIGH"},
+      {"file": "/app/frontend/src/pages/admin/ModulePages.jsx", "issue": "Admin EXPRESS pricing country filter still lists `<option value=\"LR\">🇱🇷 LR</option>` (L1096). Fixing_Prompt §3 says to remove Liberia from the admin express pricing filter.", "priority": "HIGH"}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Remove `<option value=\"LR\">LR</option>` from SellerApplyWizard.jsx at L471 (owner nationality), L672 (coverage country), L731 (billing country).",
+    "Remove `<option value=\"LR\">🇱🇷 LR</option>` from pages/admin/ModulePages.jsx L1096 (express pricing country filter).",
+    "Optional: consider gating /partner/<non-live-slug>/staff-login behind a coming-soon shell too, similar to /partner-portal/<non-live-slug>/*. Currently the staff form renders and would attempt a real staff-login POST for a module whose partner portal isn't live — server will 401/403 but UX would be cleaner if we short-circuited in the router. Not blocking P0."
+  ],
+  "critical_code_review_comments": [
+    "PartnerPortalApp.jsx `PartnerLoginPage` L162-167: when partner is already authenticated and hits /partner-portal/<other-live-slug>/login, we redirect to `/partner-portal/<realSlug>`. `slugForBackendModule` defaults to 'martbaked' if the JWT lacks `partner.module`. Fine today (only MART is live) but if a second live module ships and JWT payload doesn't include `module`, everyone would get bounced to MART. Add an explicit invariant/log if partner.module is falsy at login-time to catch drift.",
+    "StaffLoginPage doesn't verify that the URL's moduleSlug is a *live* module before rendering the form — a picker or cashier could type /partner/foodbaked/staff-login, get a working-looking form, submit, and see a raw 401/403 toast. Consider rendering ModuleComingSoonPage (intent='staff') for non-live modules for parity with the owner portal.",
+    "ModuleRouter.jsx L716-720: for non-live modules the route `<Route path=\"*\" element={<ModuleComingSoonPage/>}/>` catches everything including `/login`; that's the desired behaviour and works, but note this bypasses the login page entirely — if you ever add analytics/utm tracking that expects to fire on login-page mount, you'll need to distinguish the coming-soon path.",
+    "Duplicate LR option strings across SellerApplyWizard.jsx (3 places) + PartnerApplyApp.jsx patterns suggest a shared COUNTRIES constant (like the one in PartnerLandingApp.jsx) would prevent this class of drift in future — a single source of truth removes the risk of a partial P0 pass like this one."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not tested per E1 instruction)", "frontend": "≈90% — 12/13 acceptance items pass; Liberia removal miss in 4 places (wizard steps 3/6/7 + admin express filter)"},
+  "test_credentials": "Partner Owner: partner-alpha-store@test.example / Alpha1234!Beta · Store: MRT-ABJ-001",
+  "seed_data_creation": "None.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Route/branding audit complete. All 15 refresh URLs render. MART owner login flow + module-scoped session + logout target all correct. Only remaining P0 misses are 4 leftover Liberia (LR) `<option>` tags: SellerApplyWizard.jsx L471/L672/L731 and admin/ModulePages.jsx L1096. Fix those, then P0 pass is clean. E1 explicitly scoped this to route/branding only — backend contracts untouched, no pytest run this iteration.",
+  "rca of the issue": "Liberia removal was done piecemeal by grep'ing user-visible selectors, but 3 secondary `<option value=\"LR\">LR</option>` occurrences in SellerApplyWizard.jsx (owner nationality, coverage-area country, billing country) and one in admin/ModulePages.jsx (express pricing filter) were missed because the LR string is inline-adjacent to CI on the same line and was easy to overlook. Recommendation: extract a shared COUNTRIES constant re-used across all wizards/admin filters, so a single 1-line edit removes Liberia everywhere."
+}

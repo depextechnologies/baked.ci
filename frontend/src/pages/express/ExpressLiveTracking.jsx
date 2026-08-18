@@ -135,7 +135,7 @@ export const ExpressLiveTracking = () => {
             <ArrowLeft size={18} />
           </button>
           <div className="flex-1 text-center">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">EXPRESSbakēd · Live</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SENDbakēd · Live</div>
             <div className="text-sm font-bold">Tracking <span className="text-foreground/60">{state.ref}</span></div>
           </div>
           <div className="min-w-[64px] text-right">

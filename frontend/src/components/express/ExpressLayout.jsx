@@ -17,7 +17,7 @@ export const ExpressHeader = ({ title, step, totalSteps = 5, right, onBack }) =>
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 text-center">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">EXPRESSbakēd</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SENDbakēd</div>
           <div className="text-sm font-bold truncate">{title}</div>
         </div>
         {step != null ? (

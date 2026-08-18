@@ -649,3 +649,25 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Sidebar** — new "Picker" nav item (data-testid `portal-nav-picker`) visible to owner/manager/supervisor/packer.
     - **Testing**: `testing_agent` iteration 38 — **10/10 backend pytest + full Playwright E2E PASS, zero bugs**. Verified: RBAC (packer allowed, cashier 403), scan match by product_id/sku/ean, 404 for invalid codes, auto-flip accepted→packing, 409 already_complete / incomplete_picks, complete → ready. Frontend: sidebar item, queue navigation, progress live-updates, +/- controls, red/green flash, CTA gating.
 
+
+- ✅ **P0 Correction Pass — SENDbakēd rebrand + Module-scoped Partner Portal URLs + Côte d'Ivoire-only UI (2026-02-19)** — from `Fixing_Prompt.docx`.
+    - **Branding**
+        - Swapped `MODULE_LOGO.express.{dark,light}` in `BakedLogo.jsx` to the supplied SENDbakēd JPEGs (`odl93m8h_SENDbaked.jpeg` light-bg, `xaactaon_SENDbakedDark.jpeg` dark-bg). Alt text for `code="express"` overridden to `SENDbakēd`. Internal module identifier `express` untouched everywhere (routes, DB, permissions).
+        - Swapped the primary BAKĒD wordmark to the supplied assets (`s7zvso1h_...(1).jpeg` light-bg + `h99r81z3_...(1).jpeg` dark-bg).
+        - Text sweep of user-facing "EXPRESSbakēd" → "SENDbakēd" in ExpressLayout, ExpressServices, ExpressBookings, ExpressWizard, ExpressLiveTracking, MoversWizard, ComingSoonLanding, TermsOfService, PartnerLandingApp (module card + testimonials).
+    - **Côte d'Ivoire-only UI**
+        - Removed Liberia from user-facing selectors: `PartnerLandingApp.COUNTRIES`, `PartnerApplyApp` country dropdown, `SellerApplyWizard` country dropdown, admin `ModulePages` express-pricing country filter. Landing hero tagline "Now onboarding — Côte d'Ivoire" (Liberia dropped).
+        - Historical Liberia records preserved in DB (no destructive delete).
+    - **Module-scoped Partner Portal URLs**
+        - New module registry `/app/frontend/src/apps/partner-portal/moduleRegistry.js` with 6 slugs (martbaked/sendbaked/shopbaked/foodbaked/autobaked/immobaked). Only MART flagged `isLive:true`.
+        - `PartnerPortalApp.jsx` fully refactored: nested `ModuleRouter` under `/partner-portal/:moduleSlug/*`. Legacy `/partner-portal/login` + `/partner-portal` route to `ModuleSelectorPage` (6-card selector). Non-MART slugs render `ModuleComingSoonPage`.
+        - Every internal path (sidebar nav, logout, reset-password redirect) now module-scoped via `useModuleBase()`. `Protected` component silently redirects mismatched URL-slug ≠ JWT-module to the user's real module — URL swap does not bypass permissions.
+    - **Module-scoped Staff Login URLs**
+        - `PartnerHubApp` adds `/:moduleSlug/staff-login` route. Legacy `/partner/staff-login` → `ModuleSelectorPage(intent="staff")`.
+        - `StaffLoginPage.jsx` refactored to read `moduleSlug` from `useParams()` and route the post-login redirect based on the JWT-issued session's real module (not the URL slug).
+    - **Internal link sweep**
+        - `Footer.jsx` MARTbakēd Partner link → `/partner-portal/martbaked/login`.
+        - `PartnerHubApp` module-card `loginHref` → `/partner-portal/martbaked/login`.
+    - **Testing**: `testing_agent` iteration 39 — **full frontend route audit PASS, zero bugs**. Verified: 15 refresh URLs render, 6-module selector correct, MART login lands module-scoped, coming-soon shells render, sidebar/logout use module-prefixed paths, JWT authoritative, no Liberia in UI, SENDbakēd branding live everywhere.
+    - **Explicitly out of scope (per doc §13)**: Supplier approvals, catalogue, PO, GRN, billing, invoices, replenishment, permissions, DB business logic, API contracts, existing module functionality — all untouched.
+

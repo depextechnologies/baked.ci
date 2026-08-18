@@ -855,14 +855,16 @@ export const ModulePricing = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {["CI", "LR"].map((c) => (
+          {/* baked.ci is Côte d'Ivoire-only for this deployment. Historical
+              LR pricing rows remain in the DB but are not surfaced here. */}
+          {["CI"].map((c) => (
             <button
               key={c}
               data-testid={`pricing-country-${c.toLowerCase()}`}
               onClick={() => setCountry(c)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold motion-fast ${country === c ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
             >
-              {c === "CI" ? "🇨🇮 Côte d'Ivoire" : "🇱🇷 Liberia"}
+              🇨🇮 Côte d&apos;Ivoire
             </button>
           ))}
         </div>

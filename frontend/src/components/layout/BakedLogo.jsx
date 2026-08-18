@@ -2,11 +2,15 @@ import React from "react";
 import { useApp } from "../../contexts/BakedContexts";
 
 // ------- Official brand assets -------
+// Primary BAKĒD wordmark. The two variants below are the approved masters
+// supplied via Fixing_Prompt.docx (P0 correction pass). Use the dark-bg
+// variant on dark surfaces and the light-bg variant on light surfaces.
 const LOGO = {
-  // Primary bakēd wordmark (b + bakēd)
   primary: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/ywbvm3ro_Baked_New_Logo_Transparent.png",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/mg5pgkyt_Baked_New_Logo__Blue_Black_Transparent.png",
+    // Dark-background version: white wordmark on black.
+    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/h99r81z3_WhatsApp%20Image%202026-05-31%20at%208.26.46%20PM%20%281%29.jpeg",
+    // Light-background version: black wordmark on white.
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/s7zvso1h_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%281%29.jpeg",
   },
 };
 
@@ -27,8 +31,11 @@ const MODULE_LOGO = {
     light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/3icgdfzs_WhatsApp%20Image%202026-05-31%20at%208.26.48%20PM%20%282%29.jpeg",
   },
   express: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/tgbxh1o8_WhatsApp%20Image%202026-05-31%20at%208.26.46%20PM%20%284%29.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/9oheevcx_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%284%29.jpeg",
+    // SENDbakēd — official brand assets. The internal module identifier
+    // remains `express` (routes, DB, permissions unchanged); only the
+    // user-facing wordmark and label are rebranded to SENDbakēd.
+    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/xaactaon_SENDbakedDark.jpeg",
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/odl93m8h_SENDbaked.jpeg",
   },
   auto: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/3jzhiamn_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%282%29.jpeg",
@@ -77,10 +84,13 @@ export const BrandedModuleLabel = ({ code, label, color, className = "", height 
   if (!src) {
     return <TextWordmark label={label} color={color} height={height} className={className} />;
   }
+  // Express module has been rebranded to SENDbakēd in the UI — reflect this
+  // in the alt text without touching the internal `code`.
+  const altBrand = code === "express" ? "SENDbakēd" : `${label}bakēd`;
   return (
     <img
       src={src}
-      alt={`${label}bakēd`}
+      alt={altBrand}
       className={`inline-block select-none ${theme === "dark" ? "logo-blend-dark" : "logo-blend-light"} ${className}`}
       style={{ height, width: "auto" }}
       draggable={false}
