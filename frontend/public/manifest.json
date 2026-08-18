@@ -1,0 +1,18 @@
+{
+  "name": "BAKĒD | One App for Everything",
+  "short_name": "BAKĒD",
+  "description": "BAKĒD is Côte d'Ivoire's one app for everything, bringing FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd and SENDbakēd together in one seamless super app.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "lang": "en",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/baked-logo-square.png",          "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/baked-logo-square.png",          "type": "image/png", "sizes": "512x512", "purpose": "any maskable" },
+    { "src": "/baked-logo-wordmark-square.png", "type": "image/png", "sizes": "512x512", "purpose": "any" }
+  ],
+  "categories": ["lifestyle", "food", "shopping", "travel"]
+}

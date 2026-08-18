@@ -3,41 +3,164 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="description" content="A product of emergent.sh" />
+        <meta name="theme-color" content="#0A0A0A" />
+
+        <!-- =============================================================
+             Primary SEO — BAKĒD, one app for everything.
+             Côte d'Ivoire's super app bringing FOOD, MART, SHOP, AUTO,
+             IMMO and SEND under one identity.
+             ============================================================ -->
+        <title>BAKĒD | One App for Everything</title>
+        <meta
+            name="description"
+            content="BAKĒD is Côte d'Ivoire's one app for everything, bringing FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd and SENDbakēd together in one seamless super app."
+        />
+        <meta
+            name="keywords"
+            content="BAKĒD, baked super app, Côte d'Ivoire, Abidjan, FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd, SENDbakēd, food delivery, grocery, marketplace, logistics, real estate, one app for everything"
+        />
+        <meta name="author" content="BAKĒD" />
+        <meta name="application-name" content="BAKĒD" />
+        <link rel="canonical" href="https://www.baked.ci/" />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="BAKĒD" />
+        <meta property="og:title" content="BAKĒD | One App for Everything" />
+        <meta
+            property="og:description"
+            content="BAKĒD is Côte d'Ivoire's one app for everything, bringing FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd and SENDbakēd together in one seamless super app."
+        />
+        <meta property="og:url" content="https://www.baked.ci/" />
+        <meta property="og:image" content="https://www.baked.ci/baked-logo-wordmark-square.png" />
+        <meta property="og:image:alt" content="BAKĒD — One App for Everything" />
+        <meta property="og:locale" content="en_US" />
+        <meta property="og:locale:alternate" content="fr_CI" />
+
+        <!-- Twitter / X -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="BAKĒD | One App for Everything" />
+        <meta
+            name="twitter:description"
+            content="BAKĒD is Côte d'Ivoire's one app for everything, bringing FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd and SENDbakēd together in one seamless super app."
+        />
+        <meta name="twitter:image" content="https://www.baked.ci/baked-logo-wordmark-square.png" />
+
+        <!-- Favicons + PWA -->
+        <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/baked-logo-square.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/baked-logo-square.png" />
+        <link rel="apple-touch-icon" href="%PUBLIC_URL%/baked-logo-square.png" />
+        <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+        <meta name="apple-mobile-web-app-title" content="BAKĒD" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!--
-        manifest.json provides metadata used when your web app is installed on a
-        user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-        -->
-        <!--
-        Notice the use of %PUBLIC_URL% in the tags above.
-        It will be replaced with the URL of the `public` folder during the build.
-        Only files inside the `public` folder can be referenced from the HTML.
 
-        Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-        work correctly both with client-side routing and a non-root public URL.
-        Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-        <title>Baked | One app for everything.</title>
+        <!-- =============================================================
+             JSON-LD Structured Data — Organization, WebSite &
+             SoftwareApplication. Establishes BAKĒD as the brand entity
+             and lists the six sub-applications.
+             ============================================================ -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://www.baked.ci/#organization",
+              "name": "BAKĒD",
+              "alternateName": "Baked",
+              "url": "https://www.baked.ci/",
+              "logo": "https://www.baked.ci/baked-logo-square.png",
+              "description": "BAKĒD is Côte d'Ivoire's one app for everything — a super app bringing food, groceries, shopping, automotive, real-estate and logistics into a single seamless experience.",
+              "areaServed": {
+                "@type": "Country",
+                "name": "Côte d'Ivoire"
+              },
+              "sameAs": [
+                "https://www.baked.ci/"
+              ]
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://www.baked.ci/#website",
+              "url": "https://www.baked.ci/",
+              "name": "BAKĒD",
+              "description": "BAKĒD | One App for Everything.",
+              "publisher": { "@id": "https://www.baked.ci/#organization" },
+              "inLanguage": ["en", "fr"]
+            },
+            {
+              "@type": "SoftwareApplication",
+              "name": "BAKĒD",
+              "applicationCategory": "LifestyleApplication",
+              "operatingSystem": "Web, Android, iOS",
+              "url": "https://www.baked.ci/",
+              "publisher": { "@id": "https://www.baked.ci/#organization" },
+              "offers": { "@type": "Offer", "price": "0", "priceCurrency": "XOF" },
+              "description": "BAKĒD is Côte d'Ivoire's one app for everything, bringing FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd and SENDbakēd together in one seamless super app."
+            },
+            {
+              "@type": "ItemList",
+              "name": "BAKĒD applications",
+              "itemListElement": [
+                { "@type": "ListItem", "position": 1, "name": "FOODbakēd", "url": "https://www.baked.ci/food",     "description": "Food ordering and delivery." },
+                { "@type": "ListItem", "position": 2, "name": "MARTbakēd", "url": "https://www.baked.ci/mart",     "description": "Everyday groceries and essentials." },
+                { "@type": "ListItem", "position": 3, "name": "SHOPbakēd", "url": "https://www.baked.ci/shop",     "description": "Shopping and retail." },
+                { "@type": "ListItem", "position": 4, "name": "AUTObakēd", "url": "https://www.baked.ci/auto",     "description": "Automotive services." },
+                { "@type": "ListItem", "position": 5, "name": "IMMObakēd", "url": "https://www.baked.ci/immo",     "description": "Property and real-estate services." },
+                { "@type": "ListItem", "position": 6, "name": "SENDbakēd", "url": "https://www.baked.ci/express",  "description": "Courier, delivery and moving services." }
+              ]
+            }
+          ]
+        }
+        </script>
+
+        <!-- Runtime error-suppression shim (existing platform behaviour) -->
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
+        <!-- Required runtime infrastructure — retained per §6 exception -->
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
     </head>
     <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
+
         <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
+          SEO-crawlable, human-readable fallback for user agents / crawlers
+          that don't execute JavaScript. Kept semantic and natural — this
+          is not keyword stuffing, it's the actual BAKĒD positioning.
+        -->
+        <noscript>
+            <div style="max-width:720px;margin:0 auto;padding:32px 20px;font-family:Inter,system-ui,sans-serif;color:#111;background:#fff;">
+                <h1 style="font-size:32px;font-weight:800;letter-spacing:-0.02em;margin:0 0 8px;">BAKĒD — One App for Everything</h1>
+                <p style="font-size:16px;line-height:1.6;margin:0 0 16px;">
+                    BAKĒD is Côte d'Ivoire's one app for everything, bringing
+                    FOODbakēd, MARTbakēd, SHOPbakēd, AUTObakēd, IMMObakēd and
+                    SENDbakēd together in one seamless super app.
+                </p>
+                <p style="font-size:14px;line-height:1.6;margin:0 0 24px;color:#555;">
+                    One app. Six ways to make everyday life easier.
+                </p>
+                <h2 style="font-size:18px;font-weight:700;margin:24px 0 12px;">Six applications, one BAKĒD ecosystem</h2>
+                <ul style="padding-left:20px;line-height:1.7;">
+                    <li><strong>FOODbakēd</strong> — Food ordering and delivery.</li>
+                    <li><strong>MARTbakēd</strong> — Everyday groceries and essentials.</li>
+                    <li><strong>SHOPbakēd</strong> — Shopping and retail.</li>
+                    <li><strong>AUTObakēd</strong> — Automotive services.</li>
+                    <li><strong>IMMObakēd</strong> — Property and real-estate services.</li>
+                    <li><strong>SENDbakēd</strong> — Courier, delivery and moving services.</li>
+                </ul>
+                <p style="font-size:14px;line-height:1.6;margin:32px 0 0;color:#555;">
+                    Please enable JavaScript to use the interactive BAKĒD experience.
+                    Learn more at <a href="https://www.baked.ci/" style="color:#0A0A0A;">baked.ci</a>.
+                </p>
+            </div>
+        </noscript>
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+        <!-- Analytics — kept as-is (required runtime infrastructure) -->
         <script>
             !(function (t, e) {
                 var o, n, p, r;
@@ -102,7 +225,7 @@
             })(document, window.posthog || []);
             posthog.init("phc_DbsPb39SRc8z3EiQ6Dhj6ikv4H4rTKcht9d4sZSesceP", {
                 api_host: "https://ap.emergent.sh",
-                person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well,
+                person_profiles: "identified_only",
                 session_recording: {
                     recordCrossOriginIframes: true,
                     capturePerformance: false,

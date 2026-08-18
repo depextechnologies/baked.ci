@@ -1,0 +1,25 @@
+# BAKĒD — https://www.baked.ci/
+# Public production robots policy. Search engines are welcome to crawl the
+# marketing pages; authenticated app surfaces are excluded.
+
+User-agent: *
+Allow: /
+Allow: /food
+Allow: /shop
+Allow: /express
+Allow: /auto
+Allow: /immo
+Allow: /privacy
+Allow: /terms
+Allow: /partner
+Allow: /Sell-on-baked
+Allow: /martbaked/sellers/apply
+
+# Do not index authenticated / admin / API surfaces.
+Disallow: /admin
+Disallow: /api/
+Disallow: /partner-portal
+Disallow: /martbaked/sellers/portal
+Disallow: /martbaked/*/portal
+
+Sitemap: https://www.baked.ci/sitemap.xml
