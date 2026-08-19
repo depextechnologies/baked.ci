@@ -14,6 +14,7 @@ import { Loader2, Package, MessageCircle, Navigation, MapPin, Phone as PhoneIcon
 import { toast } from "sonner";
 import { DriverNavMap } from "../driver/DriverNavMap";
 import { JobChat } from "../driver/JobChat";
+import { useJobSocket } from "../driver/useJobSocket";
 
 const API_BASE = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const trackApi = axios.create({ baseURL: API_BASE });
@@ -42,22 +43,54 @@ export const SendTrackApp = () => {
   const [error, setError] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [unread, setUnread]     = useState(0);
+  // WS-fed live driver position — separate from the polled `job.driver.*`
+  // snapshot so smooth interpolation keeps working across polls.
+  const [livePos, setLivePos] = useState(null);
 
   const loadJob = useCallback(async () => {
     if (!token) { setError("missing_token"); return; }
     try {
       const { data } = await trackApi.get(`/send/track/${jobId}`, { params: { t: token } });
       setJob(data);
+      if (data?.driver?.current_lat != null && data?.driver?.current_lng != null && !livePos) {
+        // Seed the marker with the snapshot so the map doesn't render empty
+        // while we wait for the first WS frame.
+        setLivePos({ lat: data.driver.current_lat, lng: data.driver.current_lng });
+      }
     } catch (e) {
       setError(e?.response?.status === 404 ? "not_found" : "network");
     }
-  }, [jobId, token]);
+  }, [jobId, token, livePos]);
 
-  useEffect(() => {
-    loadJob();
-    const t = setInterval(loadJob, 5000);
-    return () => clearInterval(t);
-  }, [loadJob]);
+  // Initial job snapshot fetch. NOTE: the recurring 5s poll is registered
+  // below and only fires when the WS is *not* connected — that's the
+  // fallback path.
+  useEffect(() => { loadJob(); }, [loadJob]);
+
+  const wsPath = useMemo(() => (
+    token && jobId ? `/api/ws/track/${jobId}?t=${encodeURIComponent(token)}` : null
+  ), [jobId, token]);
+
+  const handleFrame = useCallback((frame) => {
+    if (!frame) return;
+    if (frame.type === "hello") {
+      if (frame.driver?.current_lat != null && frame.driver?.current_lng != null) {
+        setLivePos((prev) => prev || { lat: frame.driver.current_lat, lng: frame.driver.current_lng });
+      }
+      if (frame.status) setJob((prev) => (prev ? { ...prev, status: frame.status } : prev));
+    } else if (frame.type === "location") {
+      setLivePos({ lat: frame.lat, lng: frame.lng, heading: frame.heading, speed_mps: frame.speed_mps });
+    } else if (frame.type === "job_status") {
+      setJob((prev) => (prev ? { ...prev, status: frame.status } : prev));
+    }
+  }, []);
+
+  const { connected: wsConnected } = useJobSocket({
+    enabled: !!wsPath,
+    path: wsPath,
+    onFrame: handleFrame,
+    fallbackPoll: loadJob,
+  });
 
   const listMessages = useCallback(async (after) => {
     const { data } = await trackApi.get(`/send/track/${jobId}/messages`, {
@@ -72,14 +105,6 @@ export const SendTrackApp = () => {
   }, [jobId, token]);
 
   useEffect(() => { document.title = "SENDbakēd · Track your delivery"; }, []);
-
-  // The customer map wants the driver's server-side coordinate as origin.
-  const driverPos = useMemo(() => {
-    if (job?.driver?.current_lat != null && job?.driver?.current_lng != null) {
-      return { lat: job.driver.current_lat, lng: job.driver.current_lng };
-    }
-    return null;
-  }, [job?.driver?.current_lat, job?.driver?.current_lng]);
 
   if (error === "missing_token") return <Fallback icon="key" title="This link is missing a security token" body="Please open the tracking link from your SMS." />;
   if (error === "not_found")     return <Fallback icon="404" title="Tracking link not found" body="The link may have expired. If you were expecting a delivery, contact support." />;
@@ -103,7 +128,14 @@ export const SendTrackApp = () => {
 
         {/* Map */}
         <div className="mt-2">
-          <DriverNavMap job={job} driverPosition={driverPos || { lat: job.pickup.lat, lng: job.pickup.lng }} />
+          <DriverNavMap
+            job={job}
+            livePosition={livePos}
+            driverPosition={livePos || (job.driver?.current_lat != null && job.driver?.current_lng != null
+              ? { lat: job.driver.current_lat, lng: job.driver.current_lng }
+              : { lat: job.pickup.lat, lng: job.pickup.lng })}
+            connectionState={wsConnected ? "live" : "reconnecting"}
+          />
         </div>
 
         {/* Driver card */}

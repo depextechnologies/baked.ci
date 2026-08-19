@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { DriverNavMap } from "./DriverNavMap";
 import { JobChat } from "./JobChat";
+import { useJobSocket } from "./useJobSocket";
 
 /* -------------------------------------------------------------------------- */
 /*  API + auth context                                                         */
@@ -998,6 +999,44 @@ const JobPage = () => {
     if (job && job.status === "delivered") nav("/driver/job/success");
   }, [job, nav]);
 
+  // Realtime WS — only enabled while the job is in-flight. Publishes location
+  // over the socket; falls silently back to the REST poll on disconnect.
+  const wsToken = typeof window !== "undefined" ? localStorage.getItem("baked_driver_token") : null;
+  const wsPath = useMemo(() => (
+    job && job.status !== "delivered" && wsToken
+      ? `/api/ws/driver/jobs/${job.id}?token=${encodeURIComponent(wsToken)}`
+      : null
+  ), [job?.id, job?.status, wsToken]);
+
+  const { connected: wsConnected, send: wsSend } = useJobSocket({
+    enabled: !!wsPath,
+    path: wsPath,
+    onFrame: () => {},
+  });
+
+  // GPS throttle — send location every ~2.5s while moving; also send an
+  // immediate first fix so the customer stops waiting for the periodic poll.
+  const lastSentRef = useRef({ ts: 0, lat: null, lng: null });
+  const publishFix = useCallback((fix) => {
+    if (!wsConnected || !fix) return;
+    const now = Date.now();
+    const gap = now - lastSentRef.current.ts;
+    const km = lastSentRef.current.lat != null
+      ? Math.hypot(fix.lat - lastSentRef.current.lat, fix.lng - lastSentRef.current.lng)
+      : Infinity;
+    // Throttle: send if it's been ≥2s OR the driver has moved a meaningful bit.
+    if (gap < 2500 && km < 0.0005) return;
+    if (wsSend({
+      type: "location",
+      lat: fix.lat, lng: fix.lng,
+      heading: fix.heading ?? null,
+      speed_mps: fix.speed_mps ?? null,
+      ts: now / 1000,
+    })) {
+      lastSentRef.current = { ts: now, lat: fix.lat, lng: fix.lng };
+    }
+  }, [wsConnected, wsSend]);
+
   const listMessages = useCallback(async (after) => {
     if (!job) return { items: [], presets: {} };
     const params = after ? `?after=${encodeURIComponent(after)}` : "";
@@ -1029,7 +1068,7 @@ const JobPage = () => {
       <Header title="Delivery" right={<span className="text-[10px] uppercase tracking-widest text-white/40 capitalize">{job.status.replaceAll("_", " ")}</span>} />
       <div className="px-6 pt-4 pb-24 space-y-5" data-testid="driver-job-page">
         {/* Live nav map — real Google Directions from driver → pickup or → drop-off */}
-        <DriverNavMap job={job} />
+        <DriverNavMap job={job} onDriverPositionChange={publishFix} />
 
         {/* Progress dots */}
         <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/40">
