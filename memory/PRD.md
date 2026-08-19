@@ -174,6 +174,14 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet
 - **P1**: Super Admin Platform (Phase 6), RBAC-guarded admin endpoints, AI Business Insights UI
+- ✅ **SENDbakēd Driver App — Slice 4 (2026-02) — Live Nav Map**
+   - New component `/app/frontend/src/apps/driver/DriverNavMap.jsx`: wraps `@vis.gl/react-google-maps` `APIProvider + Map`, draws a Google Directions polyline from the driver's live GPS to pickup (while `accepted / arriving_pickup`) or drop-off (while `picked_up / arriving_dropoff`). Distance + ETA read from `DirectionsService` and shown as glass chips ([data-testid=driver-map-distance] and [data-testid=driver-map-eta]). Haversine fallback keeps the chip populated before Directions resolves.
+   - Driver marker uses live `navigator.geolocation.watchPosition`; falls back to the pickup coordinate if the driver denies GPS. Destination marker swaps between white-circle (pickup) and black-circle (drop-off).
+   - "Navigate" chip ([data-testid=driver-map-open-google]) deep-links to `https://www.google.com/maps/dir/?api=1&origin=…&destination=…` for native turn-by-turn.
+   - JobPage: placeholder tile removed; new map takes its place. Dashboard "Coming next" chips advanced to Incentives / In-ride chat / Analytics.
+   - **Bug fix (regression from Slice 2)**: `useActiveJob`'s `isMounted` ref was StrictMode-incompatible — the dev-mode simulated-unmount permanently set `mountedRef.current=false`, breaking `/driver/job/live` in dev. Fixed by resetting the ref on the mount body of the effect: `useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, [])`.
+   - **Testing**: `testing_agent_v3_fork` iteration_44.json — frontend Playwright with `context.grant_permissions(['geolocation'])` + `set_geolocation(28.60, 77.35)` verified map render, chip values (7.9 km / 15 min pre-pickup → 5.6 km / 13 min post-pickup), going-to label swap, and Navigate popup URL. 0 console errors on /driver/job/live.
+
 - ✅ **EXPRESSbakēd — Booking Wizard Redesign per Fixing_Prompt.docx (2026-02-24)** — full desktop/tablet parity with the Home page's 45/55 layout.
    - **New component** `/app/frontend/src/components/express/ExpressWizardShell.jsx`:
      - Desktop (≥ md): 45% left = step form, 55% right = persistent live Google Map (sticky).

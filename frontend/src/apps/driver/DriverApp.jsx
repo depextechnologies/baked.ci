@@ -30,6 +30,7 @@ import {
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
   Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark,
 } from "lucide-react";
+import { DriverNavMap } from "./DriverNavMap";
 
 /* -------------------------------------------------------------------------- */
 /*  API + auth context                                                         */
@@ -855,8 +856,8 @@ const DashboardPage = () => {
           <div className="flex gap-3 overflow-x-auto pb-2">
             {[
               { icon: Star,    label: "Incentives" },
-              { icon: Navigation, label: "Live nav map" },
               { icon: PhoneIcon,  label: "In-ride chat" },
+              { icon: TrendingUp, label: "Analytics" },
             ].map((c, i) => (
               <div key={i} className="min-w-[140px] rounded-2xl p-4 bg-white/[0.03] border border-white/10">
                 <c.icon size={18} className="text-orange-500" />
@@ -889,7 +890,10 @@ const useActiveJob = (enabled) => {
   // Guard against setState after unmount — JobPage unmounts as it navigates to
   // /driver/job/success while a poll tick may still be in-flight.
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   const safeSetJob = useCallback((v) => { if (mountedRef.current) setJob(v); }, []);
   const refresh = useCallback(async () => {
     if (!enabled) { if (mountedRef.current) setLoading(false); return; }
@@ -1009,17 +1013,8 @@ const JobPage = () => {
     <Phone>
       <Header title="Delivery" right={<span className="text-[10px] uppercase tracking-widest text-white/40 capitalize">{job.status.replaceAll("_", " ")}</span>} />
       <div className="px-6 pt-4 pb-24 space-y-5" data-testid="driver-job-page">
-        {/* Map placeholder */}
-        <div className="h-52 rounded-3xl border border-white/10 relative overflow-hidden" data-testid="driver-job-map"
-             style={{ background: "linear-gradient(135deg, rgba(255,122,0,0.15), rgba(255,180,84,0.05)), #0a0a0a" }}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <Navigation size={28} className="mx-auto text-orange-500" />
-              <div className="text-xs text-white/50 mt-2">Live navigation</div>
-              <div className="text-[10px] text-white/30">(Google Maps SDK · Slice 4)</div>
-            </div>
-          </div>
-        </div>
+        {/* Live nav map — real Google Directions from driver → pickup or → drop-off */}
+        <DriverNavMap job={job} />
 
         {/* Progress dots */}
         <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/40">

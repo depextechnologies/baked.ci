@@ -1,0 +1,39 @@
+{
+  "summary": "Slice-4 Live Nav Map verified end-to-end on /driver/job/live with Playwright + Noida geolocation grant (28.60, 77.35). All acceptance criteria pass: (a) driver-job-map renders the real Google Map (no placeholder text, driver-job-map-missing is not in DOM since REACT_APP_GOOGLE_MAPS_API_KEY is set), (b) driver-map-distance shows '7.9 km' initially and updates to '5.6 km' after picked_up (destination swaps to dropoff coordinate), (c) driver-map-eta shows '15 min' then '13 min', (d) driver-map-open-google is visible/clickable and page.expect_popup() catches a popup navigation to 'https://www.google.com/maps/dir/?api=1&origin=28.6,77.35&destination=28.5691,77.321&travelmode=driving' — origin uses the granted geolocation, destination uses pickup lat/lng. Going-to label: 'TO PICKUP' at status=accepted → still 'TO PICKUP' after tapping 'I\\'m at pickup' (status=arriving_pickup, correct since it is a pickup stage) → swaps to 'TO DROP-OFF' after entering pickup OTP and reaching status=picked_up (destination coordinate updates from pickup 28.5691,77.321 → dropoff 28.6272,77.3762, verified by the distance chip changing). Wallet regression: driver-wallet-page still renders. Dashboard visit while an in-flight job exists correctly auto-redirects to /driver/job/live (expected Slice-2 behavior, not a Slice-4 regression). 0 console errors and 0 'Google Maps API loaded multiple times' warnings on /driver/job/live.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DriverApp.jsx :: useActiveJob (line 887-914)",
+        "issue": "The mountedRef pattern introduced in iteration 42 to silence the concurrent-render warning is StrictMode-incompatible: `useRef(true)` + `useEffect(() => () => { mountedRef.current = false; }, [])` runs its cleanup during React 18 dev StrictMode's simulated unmount, permanently setting mountedRef.current=false. Every subsequent safeSetJob() becomes a no-op, so JobPage renders 'No active job' forever even though GET /driver/me/active-job returns 200 with a valid job on every poll. This blocked ALL of /driver/job/live in dev. Fixed by testing agent (set mountedRef.current=true on mount, then cleanup sets it to false).",
+        "selector": "[data-testid=driver-job-page]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Review the mountedRef fix applied in DriverApp.jsx useActiveJob so future edits don\\'t regress the StrictMode-safe pattern (must reset ref to true on mount, not just on false in cleanup).",
+    "Consider preventing DashboardPage from auto-nav'ing to /driver/job/live while an in-flight job exists so a driver can still reach the wallet CTA from the dashboard mid-delivery (currently the driver-wallet-entry tile is only reachable via direct URL when a job is active). Not a Slice-4 blocker."
+  ],
+  "critical_code_review_comments": [
+    "frontend/src/apps/driver/DriverApp.jsx:892-894 (before fix) — Classic React 18 StrictMode gotcha. `useRef(true)` initializes only on the first React render, so once the dev-mode simulated cleanup flipped it to false, the second real mount did not reset it. Fixed by initializing on the effect body: `useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, [])`.",
+    "frontend/src/apps/driver/DriverNavMap.jsx:62-92 — Route effect re-creates a new DirectionsRenderer/DirectionsService on every origin/destination/colorKey change and returns a cleanup that calls renderer.setMap(null). Verified no stale polyline overlay lingers when the endpoint switches from pickup to dropoff — the map re-fits correctly (fresh distance 7.9→5.6 km confirms the effect re-ran cleanly).",
+    "frontend/src/apps/driver/DriverNavMap.jsx:134-149 — `useDriverPosition(fallback)` returns `pos || fallback` so the driver marker still shows even before the browser geolocation resolves. Origin sent to Directions is the granted coordinate (28.60,77.35) — verified via the deep-link URL query string.",
+    "frontend/src/apps/driver/DriverNavMap.jsx:158-166 — `goingTo` correctly derived from job.status with dropStages=('picked_up','arriving_dropoff'). Matches Slice-4 spec exactly.",
+    "frontend/src/apps/driver/DriverNavMap.jsx:174-176 — Haversine fallback provides distance/duration before Directions resolves, so the chips render immediately without a loading state. Directions overrides once the API responds — confirmed 7.9 km is the driving distance (not Haversine, which would be ~4.5 km from (28.6,77.35) to (28.5691,77.321)).",
+    "Single APIProvider wraps the Map inside DriverNavMap only; no other <APIProvider> in the driver app so no 'Google Maps loaded multiple times' warning. Verified by capturing console for the full /driver/job/live session."
+  ],
+  "updated_files": [
+    "/app/frontend/src/apps/driver/DriverApp.jsx"
+  ],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100% (all 5 Slice-4 acceptance items pass) after 1 blocking bug fix"},
+  "test_credentials": "Superadmin depexopenai@gmail.com / baked@2026#!$@ via /api/admin/auth/login. Drivers created dynamically each run.",
+  "seed_data_creation": "One new driver + one dispatched+accepted DriverJob per run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "IMPORTANT: The `admin approve` endpoint requires an empty JSON body — `requests.post(..../approve, json={}, ...)` — because the Pydantic ReviewIn model is a required argument (not Optional). Also, before Playwright can render /driver/job/live you MUST context.grant_permissions(['geolocation'], origin=BASE) and context.set_geolocation({latitude, longitude}) BEFORE the goto — otherwise navigator.geolocation.watchPosition never resolves and the map origin falls back to pickup (still renders, just no live-driver marker). Use Noida coord (28.60, 77.35) so the demo IN job produces a sane few-km driving distance (I got 7.9 km to pickup, 5.6 km to dropoff). Slice-4 test-ids: driver-job-map, driver-job-map-missing, driver-map-distance, driver-map-eta, driver-map-open-google, driver-map-loading. Navigate button opens via window.open — capture with `async with page.expect_popup()`.",
+  "rca of the issue": "RCA — 'No active job' bug in /driver/job/live: iteration 42 added an isMounted guard to useActiveJob to silence a React 18 concurrent-render warning. The guard used `const mountedRef = useRef(true); useEffect(() => () => { mountedRef.current = false; }, []);`. In React 18 dev StrictMode (which the app enables via <React.StrictMode> in /app/frontend/src/index.js), effects are intentionally invoked mount → cleanup → mount to surface exactly this class of bug. The cleanup flipped mountedRef.current to false but the second mount had no body statement to reset it, so safeSetJob permanently became a no-op. Even though GET /driver/me/active-job returned 200 with a valid job on every 5-second poll, setJob() was never invoked, and JobPage's `if (!job) return <No active job>` branch persisted forever. Reproduction: (1) bootstrap approved+online driver, (2) dispatch demo job, (3) accept via API, (4) navigate to /driver/job/live — observe 'No active job.' with 200s on the network tab. Mitigation applied: reset the ref on mount inside the effect body (`useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, [])`). Post-fix, the map, chips, stage transitions, and destination swap all work as designed."
+}
