@@ -221,6 +221,16 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Non-goal**: supervisor still runs `uvicorn --workers 1` — this task only makes the layer multi-worker-safe. Flipping to N workers is a one-line supervisor change whenever ops is ready.
 
    - **Step 5 (Estimate)** shows a branded vehicle thumbnail beside "Change" and a live vehicle chip overlay on the map.
+- ✅ **SENDbakēd Slice 9 (2026-02) — Multi-worker uvicorn (`--workers 4`)**
+   - Supervisor override at `/etc/supervisor/conf.d/supervisord_backend_multiworker.conf` re-declares `[program:backend]` with `--workers 4 --no-access-log` (no `--reload` — incompatible with worker mode). Loads after the read-only base config so it wins; disabling it via `.conf.off` is a 5-second rollback.
+   - New helper `/app/scripts/backend_worker_mode.sh {multi|dev|status}` toggles between the two modes without editing supervisor files directly.
+   - **Throttle fix (pre-flip)**: `_last_write_at` was per-worker → risked N× DB-write amplification. New `_should_persist_async` uses Redis `SET NX EX 10` for a cluster-wide reservation; falls back to the per-worker dict if Redis is unavailable. Matches Slice 8's graceful-degradation pattern.
+   - **Testing**: 26/26 (WS regression + pubsub contract) + 1/1 new `test_multiworker_fanout.py` (five concurrent driver→customer WS pairs, all frames delivered — statistically forces cross-worker delivery). LB'd ingress smoke tests 200 across `/health`, `/admin/drivers`, `/admin/drivers/withdrawals`, `/driver/auth/request-otp`.
+   - **Rollback**: `sudo bash /app/scripts/backend_worker_mode.sh dev` reverts to `--workers 1 --reload` and restores hot code reload in ~5s.
+- ✅ **UI polish (2026-02)** — visual edit patches
+   - `BakedLogo` `lg` size bumped 64 → 85 px.
+   - `Footer` link builder now handles absolute URLs (`https://…`) as `<a target="_blank">`, and `Delivery Partner` now points to the SENDbakēd driver PWA URL.
+
    - **Kept intact**: header, wizard progress stepper, Continue footer, all backend calls, dispatch + WebSocket tracking flow.
    - **Verified**: Step 1, 3, 5 desktop screenshots at 1440×900 show the persistent map + branded assets; light theme continues to adapt via `hsl(var(--border/card/muted))`.
 - **P1**: Real SMS OTP (Twilio Verify or Africa's Talking) — swap `OTP_PROVIDER` env

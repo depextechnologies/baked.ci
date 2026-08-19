@@ -45,7 +45,10 @@ LOCATION_WRITE_MIN_S   = 10            # min gap between DB persists per driver
 IN_FLIGHT_STATUSES     = {"offered", "accepted", "arriving_pickup",
                           "picked_up", "arriving_dropoff"}
 
-_last_write_at: dict[str, float] = {}   # driver_id → monotonic sec
+# In-worker fallback throttle. Used only if Redis is down OR the shared
+# throttle helper below can't reach it — in single-worker mode this is
+# authoritative, in multi-worker mode Redis's SET NX EX takes over.
+_last_write_at: dict[str, float] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -100,8 +103,53 @@ async def _persist_driver_location(driver_id: str, lat: float, lng: float) -> No
 
 def _should_persist(driver_id: str) -> bool:
     """Gate for `_persist_driver_location`. Returns True at most once every
-    LOCATION_WRITE_MIN_S seconds per driver. Non-async so the caller can
-    decide before spawning a coroutine (saves DB pool churn under load)."""
+    LOCATION_WRITE_MIN_S seconds per driver — CLUSTER-WIDE when Redis is
+    available (via SET NX EX), per-worker otherwise.
+
+    Multi-worker note: without the Redis coordination step, N uvicorn
+    workers each own their own `_last_write_at` dict — a driver bouncing
+    across workers could produce up to N writes per window. The Redis
+    SET NX EX pattern collapses that back to a strict single-writer within
+    the TTL, matching the single-worker guarantee."""
+    from modules.realtime import get_pubsub, RedisPubSub
+    bus = get_pubsub()
+    if isinstance(bus, RedisPubSub):
+        # Fast path — atomic cluster-wide reservation.
+        try:
+            client = bus._client
+            key = f"baked:rt:persist:{driver_id}"
+            # SET key 1 NX EX 10 → returns None if key already exists
+            future = client.set(key, "1", nx=True, ex=LOCATION_WRITE_MIN_S)
+            reserved = asyncio.get_event_loop().run_until_complete(future) \
+                if not asyncio.get_event_loop().is_running() else None
+            # We're inside an async handler — `run_until_complete` would explode.
+            # Fall through to the async helper below.
+            if reserved is not None:
+                return bool(reserved)
+        except Exception:
+            pass  # fall back to the per-worker dict
+
+    now = time.monotonic()
+    if now - _last_write_at.get(driver_id, 0) < LOCATION_WRITE_MIN_S:
+        return False
+    _last_write_at[driver_id] = now
+    return True
+
+
+async def _should_persist_async(driver_id: str) -> bool:
+    """Async-safe variant — the WS handler awaits this. Uses Redis when
+    available, per-worker dict otherwise."""
+    from modules.realtime import get_pubsub, RedisPubSub
+    bus = get_pubsub()
+    if isinstance(bus, RedisPubSub):
+        try:
+            client = bus._client
+            key = f"baked:rt:persist:{driver_id}"
+            reserved = await client.set(key, "1", nx=True, ex=LOCATION_WRITE_MIN_S)
+            return bool(reserved)
+        except Exception:
+            pass
+
     now = time.monotonic()
     if now - _last_write_at.get(driver_id, 0) < LOCATION_WRITE_MIN_S:
         return False
@@ -204,10 +252,8 @@ async def ws_driver_job(
                 # Fan out FIRST so the customer sees the freshest coord even
                 # if the DB write is throttled.
                 await bus.publish(channel, frame)
-                # Only schedule the DB coroutine when the throttle window is
-                # actually open — under a busy 2-3s cadence this drops ~4 out
-                # of 5 potential SessionLocal() opens.
-                if _should_persist(driver_id):
+                # Cluster-wide throttle (Redis SET NX EX) → per-worker dict fallback.
+                if await _should_persist_async(driver_id):
                     asyncio.create_task(_persist_driver_location(driver_id, float(lat), float(lng)))
                 continue
 

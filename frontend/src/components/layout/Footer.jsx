@@ -16,17 +16,36 @@ import { BakedLogo } from "./BakedLogo";
 
 const LinkList = ({ items }) => (
   <ul className="text-xs text-muted-foreground space-y-2">
-    {items.map(([label, to]) => (
-      <li key={to}>
-        <Link
-          to={to}
-          data-testid={`footer-link-${to.replace(/^\//, "").replace(/\//g, "-")}`}
-          className="hover:text-foreground motion-fast"
-        >
-          {label}
-        </Link>
-      </li>
-    ))}
+    {items.map(([label, to]) => {
+      // External links (absolute URLs) render as regular <a> so they route
+      // to real domains — react-router's <Link to="https://…" /> would
+      // treat the href as a client-side path and 404.
+      const isExternal = /^https?:\/\//i.test(to);
+      const testId = `footer-link-${to.replace(/^https?:\/\//i, "").replace(/^\//, "").replace(/\W+/g, "-")}`;
+      return (
+        <li key={to}>
+          {isExternal ? (
+            <a
+              href={to}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid={testId}
+              className="hover:text-foreground motion-fast"
+            >
+              {label}
+            </a>
+          ) : (
+            <Link
+              to={to}
+              data-testid={testId}
+              className="hover:text-foreground motion-fast"
+            >
+              {label}
+            </Link>
+          )}
+        </li>
+      );
+    })}
   </ul>
 );
 
@@ -59,7 +78,7 @@ const OPPORTUNITIES = [
   ["Partner with BAKĒD",       "/partner"],
   ["Sell on BAKĒD",            "/Sell-on-baked"],
   ["Franchise Opportunities",  "/franchise"],
-  ["Delivery Partner",         "/delivery-partner"],
+  ["Delivery Partner",         "https://baked-platform.preview.emergentagent.com/driver"],
   ["Merchant Registration",    "/merchant-registration"],
 ];
 
