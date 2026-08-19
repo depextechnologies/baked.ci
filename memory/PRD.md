@@ -193,6 +193,14 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 
      - Desktop (≥ md): 45% left = step form, 55% right = persistent live Google Map (sticky).
      - Mobile: full-screen form with a compact map card on top of every step.
+- ✅ **SENDbakēd Slice 6 (2026-02) — In-Ride Chat + Public Customer Tracking**
+   - New table `driver_job_messages` (job_id, sender: driver/customer, preset_key, text) + `driver_jobs.share_token` (unique, 20 char urlsafe). Migration `0024_driver_job_chat` backfills tokens for pre-existing in-flight jobs. `dispatch-demo-job` mints a token and logs the tracking URL to the backend (mocked SMS).
+   - Fixed preset dictionaries per sender: `DRIVER_PRESETS` ("I'm downstairs" etc.) and `CUSTOMER_PRESETS` ("Please come to Gate B" etc.). Server canonicalises the preset label; cross-role preset_key is rejected with 400.
+   - Endpoints — driver (JWT): `GET/POST /api/driver/me/jobs/{id}/messages` (ownership + terminal-state guard `409 chat_closed` after delivered). Public (share-token via `?t=`): `GET /api/send/track/{id}`, `GET/POST /api/send/track/{id}/messages`. Safe subset — no OTPs, no bank data, driver object gated to in-flight statuses.
+   - Frontend: shared `JobChat.jsx` (bottom sheet, preset chips, free-text, 3s incremental polling via `?after=`), floating FAB with unread badge on `/driver/job/live` and the new public `/send/track/:jobId?t=<token>` page. `DriverNavMap` now accepts an optional `driverPosition` prop so the customer page renders the driver's server-side coordinate without a browser geolocation prompt.
+   - **Bug fix**: JobChat's `applyIncoming` was calling `onUnreadChange` inside a `setMessages` updater — moved to run before the state update, silencing the React "setState during render of another component" warning.
+   - **Testing**: `testing_agent_v3_fork` iteration_46.json — 18/18 backend pytest (`/app/backend/tests/test_driver_chat.py`) + full Playwright cross-side propagation test (customer preset → driver unread badge within one poll → open sheet → bubbles verified). All 400/404/409 guard branches asserted.
+
      - `<WizardMap>` sub-component: pickup/drop markers (A/B pins), Google Directions polyline (yellow), auto-fit bounds, live distance + ETA + selected-vehicle chip overlays.
    - **All 5 wizard steps refactored** (Location, Receiver, Vehicle, Package, Estimate) — now render inside `<ExpressWizardShell>` instead of a full-width column. Old `<RouteSummary>` mini-card removed (data lives on the map now).
    - **Step 3 (Vehicle Select)** now uses official EXPRESSbakēd branded assets (`vehicleImage(code)` from `expressAssets.js`) with the same radial-glow treatment as the home cards — replacing the generic Lucide bike/truck icons.

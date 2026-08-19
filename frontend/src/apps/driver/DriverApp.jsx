@@ -28,9 +28,10 @@ import { toast } from "sonner";
 import {
   Loader2, ChevronRight, ChevronLeft, Truck, Bike, Package, Wallet, Star, LogOut,
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
-  Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark,
+  Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark, MessageCircle,
 } from "lucide-react";
 import { DriverNavMap } from "./DriverNavMap";
+import { JobChat } from "./JobChat";
 
 /* -------------------------------------------------------------------------- */
 /*  API + auth context                                                         */
@@ -856,8 +857,8 @@ const DashboardPage = () => {
           <div className="flex gap-3 overflow-x-auto pb-2">
             {[
               { icon: Star,    label: "Incentives" },
-              { icon: PhoneIcon,  label: "In-ride chat" },
               { icon: TrendingUp, label: "Analytics" },
+              { icon: Package,  label: "Trip history" },
             ].map((c, i) => (
               <div key={i} className="min-w-[140px] rounded-2xl p-4 bg-white/[0.03] border border-white/10">
                 <c.icon size={18} className="text-orange-500" />
@@ -989,11 +990,25 @@ const JobPage = () => {
   const { job, refresh, setJob } = useActiveJob(true);
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const nav = useNavigate();
 
   useEffect(() => {
     if (job && job.status === "delivered") nav("/driver/job/success");
   }, [job, nav]);
+
+  const listMessages = useCallback(async (after) => {
+    if (!job) return { items: [], presets: {} };
+    const params = after ? `?after=${encodeURIComponent(after)}` : "";
+    const { data } = await driverApi.get(`/driver/me/jobs/${job.id}/messages${params}`);
+    return data;
+  }, [job?.id]);
+
+  const sendMessage = useCallback(async (payload) => {
+    const { data } = await driverApi.post(`/driver/me/jobs/${job.id}/messages`, payload);
+    return data;
+  }, [job?.id]);
 
   if (!job) return <Phone><Header title="Delivery" /><div className="p-6 text-white/60">No active job.</div></Phone>;
   const meta = STAGE_META[job.status];
@@ -1062,6 +1077,24 @@ const JobPage = () => {
           </PrimaryButton>
         )}
       </div>
+
+      {/* Floating chat FAB */}
+      <button onClick={() => setChatOpen(true)} data-testid="driver-job-chat-fab"
+              className="fixed bottom-6 right-6 w-14 h-14 rounded-full grid place-items-center text-black shadow-[0_20px_50px_-10px_rgba(255,122,0,0.6)]"
+              style={{ background: "linear-gradient(135deg, #FFB454, #FF7A00)", zIndex: 45 }}
+              aria-label="Message customer">
+        <MessageCircle size={22} />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold grid place-items-center border-2 border-black"
+                data-testid="driver-job-chat-unread">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      <JobChat open={chatOpen} onClose={() => setChatOpen(false)}
+               listMessages={listMessages} sendMessage={sendMessage}
+               mySender="driver" onUnreadChange={setUnread} />
     </Phone>
   );
 };

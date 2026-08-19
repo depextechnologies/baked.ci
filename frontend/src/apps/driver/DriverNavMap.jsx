@@ -131,10 +131,11 @@ const haversineKm = (a, b) => {
 /*  Live driver geolocation                                                   */
 /* ------------------------------------------------------------------------- */
 
-const useDriverPosition = (fallback) => {
+const useDriverPosition = (fallback, enabled = true) => {
   const [pos, setPos] = useState(null);
   const [err, setErr] = useState(null);
   useEffect(() => {
+    if (!enabled) return;
     if (!navigator.geolocation) { setErr("no_geoloc"); return; }
     const id = navigator.geolocation.watchPosition(
       (g) => setPos({ lat: g.coords.latitude, lng: g.coords.longitude }),
@@ -142,17 +143,15 @@ const useDriverPosition = (fallback) => {
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
-  // Fall back to `fallback` (e.g. pickup lat/lng) so the map still renders
-  // a sensible route even when the driver denied GPS permission.
-  return { pos: pos || fallback, granted: !!pos, err };
+  }, [enabled]);
+  return { pos: pos || (enabled ? fallback : null), granted: !!pos, err };
 };
 
 /* ------------------------------------------------------------------------- */
 /*  Public NavMap                                                             */
 /* ------------------------------------------------------------------------- */
 
-export const DriverNavMap = ({ job, onMeta }) => {
+export const DriverNavMap = ({ job, onMeta, driverPosition = null }) => {
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
   // Which endpoint is the driver navigating toward right now?
@@ -165,7 +164,17 @@ export const DriverNavMap = ({ job, onMeta }) => {
   const dropoff = useMemo(() => ({ lat: job.dropoff.lat, lng: job.dropoff.lng }), [job.dropoff.lat, job.dropoff.lng]);
   const destination = goingTo === "dropoff" ? dropoff : pickup;
 
-  const { pos: driverPos, granted } = useDriverPosition(pickup);
+  // Two modes:
+  //   - driver-app: read the browser geolocation (default).
+  //   - customer-tracking: caller passes `driverPosition` from the server.
+  const externalPos = useMemo(() => (
+    driverPosition && driverPosition.lat != null && driverPosition.lng != null
+      ? { lat: driverPosition.lat, lng: driverPosition.lng }
+      : null
+  ), [driverPosition?.lat, driverPosition?.lng]);
+  const browser = useDriverPosition(pickup, /* enabled */ !externalPos);
+  const driverPos = externalPos || browser.pos;
+  const granted   = !!externalPos || browser.granted;
 
   const [meta, setMeta] = useState(null);
   const handleMeta = useCallback((m) => { setMeta(m); if (onMeta) onMeta(m); }, [onMeta]);

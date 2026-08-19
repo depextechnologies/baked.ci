@@ -1,0 +1,30 @@
+{
+  "summary": "Slice 6 (in-ride chat + public customer tracking) tested end-to-end. Backend: 18/18 pytest pass (test_driver_chat.py) covering share_token bootstrap, driver preset canonicalisation, freetext, empty/unknown/too-long 400s, ownership 404, public tracking with token (401 missing/404 wrong/safe subset with no OTPs/no bank), customer preset (sender=customer), driver-preset-on-customer-side rejection, incremental polling via ?after= (strict >, bad value silently returns all), and terminal state guards (409 chat_closed after delivered; GET still works; driver=null on public payload). Frontend E2E: driver /driver/job/live shows [data-testid=driver-job-chat-fab], opens [data-testid=jobchat-sheet], presets render as chips, preset click posts a bubble, freetext send works. Public /send/track/:jobId?t=... renders [data-testid=send-track-page], stage title 'Driver is coming', [data-testid=send-track-driver] card shows FE Test / Bike / XX9 (no geolocation prompt — driverPosition passed to DriverNavMap). Wrong token → Fallback ('Tracking link not found'). Cross-side propagation verified: customer preset appears on driver side within one 3s poll — unread badge [data-testid=driver-job-chat-unread] shows count '2', opening sheet clears to 0, customer bubbles [data-testid=jobchat-bubble-customer] appear correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_driver_chat.py",
+    "/app/test_reports/pytest/slice6_chat.xml"
+  ],
+  "action_items": [
+    "React warning during chat poll: 'Cannot update a component (JobPage) while rendering a different component (JobChat)' — indicates a setState call inside render/parent-render phase in JobChat.jsx. Not user-visible, but should be wrapped in useEffect / event handler to be strict-mode safe."
+  ],
+  "critical_code_review_comments": [
+    "backend routes.py `_fetch_messages`: parses `after` with `datetime.fromisoformat(after.replace('Z','+00:00'))` and silently ignores parse failures. This is intentional per spec, but note that if a client fails to URL-encode the '+' in the ISO offset (e.g. hand-crafted curl), the server sees a space, parse fails, and every poll returns the ENTIRE history — bandwidth risk under high message volume. Frontend uses encodeURIComponent/axios params so this is not hit in the app, but consider a fallback `after.replace(' ', '+')` before fromisoformat as belt-and-braces.",
+    "`_public_job_dict`: `customer_name` is returned to anyone with the share token. Fine (customer is looking at their own delivery), but worth remembering it's PII exposed by a URL fragment — the share_token is 20 chars of urlsafe token (secrets.token_urlsafe(18)[:20]) which is ~120 bits; adequate.",
+    "`_resolve_preset` uses `sender == 'driver'` branch selection — good server-side canonicalisation prevents cross-role preset abuse (confirmed: customer sending 'downstairs' returns 400).",
+    "`share_token` generation uses `secrets.token_urlsafe(18)[:20]` — truncating a urlsafe token is fine but the slice can produce '-'/'_' chars; make sure URL routing is not confused by this in any middleware (verified 200 responses in tests).",
+    "JobChat.jsx (P2): the React warning 'Cannot update a component while rendering a different component' suggests a setState call inside a render path — move to useEffect. Non-blocking."
+  ],
+  "updated_files": ["/app/backend/tests/test_driver_chat.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (all P0 + P1 flows verified)"},
+  "test_credentials": "Admin: depexopenai@gmail.com / baked@2026#!$@. Fresh driver bootstrapped per test run via /api/driver/auth/request-otp + dev_hint.",
+  "seed_data_creation": "Bootstrapped one fresh approved driver (drv_a51fe866947f4d7c, +918...) and dispatched job_7223efe099cc411a (accepted state) with share_token stk_ZSHuZo0qDhg3iU5SxBJx used for frontend E2E. Backend tests bootstrap 3 fresh drivers per run (driver_a, driver_b for ownership, one for terminal-state walk to delivered).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Slice 6 is fully green. Regression file: /app/backend/tests/test_driver_chat.py — uses REACT_APP_BACKEND_URL from /app/frontend/.env, bootstraps unique drivers per run (phone derived from time.time()), no cleanup needed. Note: when writing polling tests, ALWAYS use requests `params={'after': cursor}` — passing an unencoded '+' via f-string will make Starlette decode it as a space and the server will silently return ALL history (parse-fail branch)."
+}

@@ -22,6 +22,7 @@ returned in the `dev_hint` field of `request-otp` when `APP_ENV != production`.
 from __future__ import annotations
 import os
 import random
+import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -32,8 +33,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.models import (
-    AdminUser, DRIVER_STATUSES, Driver, DriverEarning, DriverJob, DriverOtp,
-    DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
+    AdminUser, DRIVER_STATUSES, Driver, DriverEarning, DriverJob, DriverJobMessage,
+    DriverOtp, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
 from core.security import create_access_token, decode_token
@@ -503,6 +504,7 @@ def _job_dict(j: DriverJob) -> dict:
         "accepted_at":  j.accepted_at.isoformat()  if j.accepted_at  else None,
         "picked_up_at": j.picked_up_at.isoformat() if j.picked_up_at else None,
         "delivered_at": j.delivered_at.isoformat() if j.delivered_at else None,
+        "share_token":  j.share_token,
     }
 
 
@@ -692,10 +694,14 @@ async def admin_dispatch_demo_job(driver_id: str,
         pickup_otp=f"{random.randint(0, 999_999):06d}",
         delivery_otp=f"{random.randint(0, 999_999):06d}",
         offered_at=now, expires_at=now + timedelta(seconds=45),
+        share_token=f"stk_{secrets.token_urlsafe(18)[:20]}",
         **tpl,
     )
     session.add(j)
     await session.commit(); await session.refresh(j)
+    # Mocked SMS: print the customer's tracking link to the log so QA can
+    # open it in another tab without a real SMS gateway.
+    print(f"[send.track] job={j.id} → {tpl['customer_name']} track=/send/track/{j.id}?t={j.share_token}")
     return _job_dict(j)
 
 
@@ -921,3 +927,195 @@ async def admin_mark_failed(
     await session.commit()
     d = await session.get(Driver, w.driver_id)
     return _withdrawal_admin_dict(w, d)
+
+
+# ===========================================================================
+# Slice 6 — In-ride chat
+# ===========================================================================
+
+# A closed set of quick presets per side. Free-text is still allowed, but the
+# UX pushes users toward presets so translations are trivial and moderation
+# is a non-issue. `preset_key` on the message row is null for free-text.
+DRIVER_PRESETS = {
+    "arriving_soon":   "I'm 2 minutes away.",
+    "at_gate":         "I'm at the gate.",
+    "downstairs":      "I'm downstairs.",
+    "please_confirm":  "Can you confirm the address?",
+    "traffic":         "Slight traffic — running a few minutes late.",
+}
+
+CUSTOMER_PRESETS = {
+    "come_to_gate_b":  "Please come to Gate B.",
+    "coming_down":     "Coming down now.",
+    "leave_at_door":   "Please leave it at the door.",
+    "call_me":         "Please call me on arrival.",
+    "thanks":          "Thanks!",
+}
+
+# Chat is only meaningful while the job is in-flight. Terminal states seal
+# the log for the ops record.
+CHAT_OPEN_STATUSES = ("offered", "accepted", "arriving_pickup", "picked_up", "arriving_dropoff")
+
+
+class ChatSendIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preset_key: Optional[str] = None
+    text:       Optional[str] = None
+
+
+def _msg_dict(m: DriverJobMessage) -> dict:
+    return {
+        "id": m.id, "sender": m.sender, "preset_key": m.preset_key,
+        "text": m.text, "created_at": m.created_at.isoformat(),
+    }
+
+
+def _resolve_preset(sender: str, payload: ChatSendIn) -> tuple[Optional[str], str]:
+    """Returns (preset_key, resolved_text). Presets always win over free
+    text so a client can send just `preset_key` and we canonicalise the
+    label server-side."""
+    presets = DRIVER_PRESETS if sender == "driver" else CUSTOMER_PRESETS
+    if payload.preset_key:
+        if payload.preset_key not in presets:
+            raise HTTPException(400, {"code": "unknown_preset",
+                                      "message": f"Unknown preset '{payload.preset_key}'."})
+        return payload.preset_key, presets[payload.preset_key]
+    text = (payload.text or "").strip()
+    if not text:
+        raise HTTPException(400, {"code": "empty_message",
+                                  "message": "Provide a preset_key or non-empty text."})
+    if len(text) > 500:
+        raise HTTPException(400, {"code": "message_too_long",
+                                  "message": "Messages must be 500 characters or less."})
+    return None, text
+
+
+async def _fetch_messages(session: AsyncSession, job_id: str, after: Optional[str]) -> list[DriverJobMessage]:
+    stmt = (select(DriverJobMessage)
+            .where(DriverJobMessage.job_id == job_id)
+            .order_by(DriverJobMessage.created_at.asc()))
+    if after:
+        # after = ISO timestamp; used for lightweight incremental polling
+        try:
+            cutoff = datetime.fromisoformat(after.replace("Z", "+00:00"))
+            stmt = stmt.where(DriverJobMessage.created_at > cutoff)
+        except Exception:
+            pass  # bad `after` → return everything
+    return (await session.execute(stmt)).scalars().all()
+
+
+# ---- Driver side ---------------------------------------------------------
+
+@router.get("/me/jobs/{job_id}/messages")
+async def driver_list_messages(
+    job_id: str,
+    after: Optional[str] = Query(None),
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    j = await _load_job(session, driver, job_id)   # ownership + 404
+    msgs = await _fetch_messages(session, j.id, after)
+    return {
+        "items": [_msg_dict(m) for m in msgs],
+        "presets": DRIVER_PRESETS,
+        "job_status": j.status,
+    }
+
+
+@router.post("/me/jobs/{job_id}/messages")
+async def driver_send_message(
+    job_id: str,
+    payload: ChatSendIn,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    j = await _load_job(session, driver, job_id)
+    if j.status not in CHAT_OPEN_STATUSES:
+        raise HTTPException(409, {"code": "chat_closed",
+                                  "message": f"Chat is closed for '{j.status}' jobs."})
+    preset_key, text = _resolve_preset("driver", payload)
+    m = DriverJobMessage(job_id=j.id, sender="driver", preset_key=preset_key, text=text)
+    session.add(m)
+    await session.commit(); await session.refresh(m)
+    return _msg_dict(m)
+
+
+# ---- Public customer-tracking side ---------------------------------------
+
+track_router = APIRouter(prefix="/send/track", tags=["send-track"])
+
+
+async def _load_by_share(session: AsyncSession, job_id: str, token: str) -> DriverJob:
+    if not token:
+        raise HTTPException(401, "Tracking token required")
+    j = await session.get(DriverJob, job_id)
+    if not j or not j.share_token or j.share_token != token:
+        raise HTTPException(404, "Job not found")
+    return j
+
+
+def _public_job_dict(j: DriverJob, driver: Optional[Driver]) -> dict:
+    """Safe subset for the customer — no OTPs, no driver phone unless
+    accepted, no bank details anywhere."""
+    return {
+        "id": j.id, "status": j.status,
+        "customer_name": j.customer_name,
+        "pickup":  {"label": j.pickup_label,  "lat": j.pickup_lat,  "lng": j.pickup_lng},
+        "dropoff": {"label": j.dropoff_label, "lat": j.dropoff_lat, "lng": j.dropoff_lng},
+        "distance_km": j.distance_km,
+        "fare": {"amount": j.fare_amount, "currency": j.fare_currency},
+        "driver": None if not driver or j.status not in CHAT_OPEN_STATUSES else {
+            "name": driver.name, "phone_e164": driver.phone_e164,
+            "vehicle_type": driver.vehicle_type, "vehicle_plate": driver.vehicle_plate,
+            "current_lat": driver.current_lat, "current_lng": driver.current_lng,
+        },
+        "accepted_at":  j.accepted_at.isoformat()  if j.accepted_at  else None,
+        "picked_up_at": j.picked_up_at.isoformat() if j.picked_up_at else None,
+        "delivered_at": j.delivered_at.isoformat() if j.delivered_at else None,
+    }
+
+
+@track_router.get("/{job_id}")
+async def track_job(
+    job_id: str,
+    t: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+):
+    j = await _load_by_share(session, job_id, t)
+    d = await session.get(Driver, j.driver_id) if j.driver_id else None
+    return _public_job_dict(j, d)
+
+
+@track_router.get("/{job_id}/messages")
+async def track_list_messages(
+    job_id: str,
+    t: str = Query(...),
+    after: Optional[str] = Query(None),
+    session: AsyncSession = Depends(get_session),
+):
+    j = await _load_by_share(session, job_id, t)
+    msgs = await _fetch_messages(session, j.id, after)
+    return {
+        "items": [_msg_dict(m) for m in msgs],
+        "presets": CUSTOMER_PRESETS,
+        "job_status": j.status,
+    }
+
+
+@track_router.post("/{job_id}/messages")
+async def track_send_message(
+    job_id: str,
+    payload: ChatSendIn,
+    t: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+):
+    j = await _load_by_share(session, job_id, t)
+    if j.status not in CHAT_OPEN_STATUSES:
+        raise HTTPException(409, {"code": "chat_closed",
+                                  "message": f"Chat is closed for '{j.status}' jobs."})
+    preset_key, text = _resolve_preset("customer", payload)
+    m = DriverJobMessage(job_id=j.id, sender="customer", preset_key=preset_key, text=text)
+    session.add(m)
+    await session.commit(); await session.refresh(m)
+    return _msg_dict(m)
+

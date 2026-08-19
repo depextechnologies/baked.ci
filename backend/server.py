@@ -68,6 +68,7 @@ from modules.mart_partner.picker_routes import picker_router as partner_picker_r
 from modules.driver.routes import (  # noqa: E402
     router as driver_router,
     admin_router as driver_admin_router,
+    track_router as driver_track_router,
 )
 from seed import run_seed  # noqa: E402
 
@@ -152,6 +153,7 @@ api_router.include_router(partner_replenishment_router)
 api_router.include_router(partner_picker_router)
 api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
+api_router.include_router(driver_track_router)
 # TODO: food, shop, express, auto, immo
 
 app.include_router(api_router)

@@ -129,6 +129,11 @@ class DriverJob(Base, TimestampMixin):
     cancelled_at:        Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     cancellation_reason: Mapped[Optional[str]] = mapped_column(Text)
 
+    # Slice 6 — customer-side tracking link. Generated when the job is
+    # dispatched, embedded into a `send/track/{job_id}?t=<share_token>` URL
+    # and SMS'd to the customer. Read-only apart from the polling status.
+    share_token:         Mapped[Optional[str]] = mapped_column(String(32), unique=True)
+
 
 
 # ---------------------------------------------------------------------------
@@ -183,3 +188,28 @@ class DriverWithdrawal(Base):
     failure_note:  Mapped[Optional[str]] = mapped_column(Text)
     requested_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     processed_at:  Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
+
+# ---------------------------------------------------------------------------
+# Slice 6 — In-ride chat
+# ---------------------------------------------------------------------------
+
+MESSAGE_SENDERS = ("driver", "customer")
+
+
+class DriverJobMessage(Base):
+    """Append-only chat log tied to a DriverJob. Kept lean — no read
+    receipts, no attachments; presets are the primary UX and free-text is
+    a fallback."""
+    __tablename__ = "driver_job_messages"
+    __table_args__ = (
+        Index("ix_driver_job_messages_job_time", "job_id", "created_at"),
+    )
+
+    id:          Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("msg"))
+    job_id:      Mapped[str] = mapped_column(String, ForeignKey("driver_jobs.id", ondelete="CASCADE"), nullable=False)
+    sender:      Mapped[str] = mapped_column(String(16), nullable=False)   # driver | customer
+    preset_key:  Mapped[Optional[str]] = mapped_column(String(48))
+    text:        Mapped[str] = mapped_column(Text, nullable=False)
+    created_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
