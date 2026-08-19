@@ -8,6 +8,7 @@ import { AdminApp } from "@/apps/admin/AdminApp";
 import { PartnerLandingApp } from "@/apps/partner-landing/PartnerLandingApp";
 import { PartnerHubApp } from "@/apps/partner-hub/PartnerHubApp";
 import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
+import { DriverApp } from "@/apps/driver/DriverApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
 import { SellerPortalApp } from "@/apps/martbaked-sellers/SellerPortalApp";
 
@@ -42,6 +43,7 @@ const App = () => (
         <Routes>
           <Route path="/admin/*" element={<AdminApp />} />
           <Route path="/partner-portal/*" element={<PartnerPortalApp />} />
+          <Route path="/driver/*" element={<DriverApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />

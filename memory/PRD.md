@@ -697,3 +697,23 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Belt-and-braces verified**: hub-distance path works for real addresses (Sector 18 Noida 0.0 km · Sector 62 Noida 8.41 km · Sector 137 Noida 10.15 km · Alpha 1 GN 0.0 km · Delta 1 GN 6.71 km · Connaught Place Delhi 12.02 km — all serviceable; Bangalore 1723 km — not serviceable). The pincode allowlist still short-circuits far-flung Greater Noida coordinates when they carry a matching PIN.
     - No new tables, no migrations — used the existing `MartStore` + `City` idempotent upsert seeders. CI, LR, and existing supplier/partner data untouched.
 
+
+- ✅ **SENDbakēd Driver — Slice 1: Onboarding + KYC + Dashboard (2026-02-19)**. Backend + mobile-web PWA reference implementation (spec: `SENDbaked_Driver.docx` Phases 1-3).
+    - **Backend**
+        - Migration `0021_driver_platform`: `drivers` table (phone-unique, country-tagged, `status ∈ {onboarding, pending_review, approved, suspended, rejected}`, `kyc_step` progression pointer, 7 KYC fact groups + runtime online/lat/lng, reviewer notes) + `driver_otps` table (10-min TTL, 5-try cap, mocked SMS printed to backend logs, `dev_hint` returned in non-production).
+        - Models: `Driver`, `DriverOtp` under `core.models.driver`. Constants `DRIVER_STATUSES`, `KYC_STEPS`, `VEHICLE_TYPES`.
+        - Routes at `/app/backend/modules/driver/routes.py`:
+            - `POST /api/driver/auth/request-otp` and `.../verify-otp` — issues a JWT with `role='driver'`.
+            - `GET /api/driver/me` — masked bank number + gov ID number (last 4 only).
+            - `PATCH /api/driver/me/kyc {step, data}` — server-side whitelist per step so `status='approved'` can't be smuggled in.
+            - `POST /api/driver/me/upload` (multipart) — reuses `object_storage.put_object`; served back via `GET /api/driver/uploads/{key:path}`.
+            - `POST /api/driver/me/submit` — validates every mandatory KYC field is set, then flips `onboarding → pending_review`.
+            - `POST /api/driver/me/online` — 403 unless `status='approved'`; also stashes `lat/lng/area`.
+            - `GET /api/driver/me/dashboard` — stub for Slice 1 (returns the exact shape the UI needs so screens never render undefined; real earnings/incentives arrive in Slice 2-3).
+            - Admin at `/api/admin/drivers` — list + filters (status/country/q) + buckets + approve/reject with reviewer notes.
+    - **Frontend PWA** at `/driver/*` (`/app/frontend/src/apps/driver/DriverApp.jsx`) — mobile-first phone frame (max-width 440), pure-black background, orange (`#FF7A00 → #FFB454`) accent, dark-glass cards, rounded-3xl corners, sticky header, one-hand-friendly bottom CTAs.
+        - Screens: Splash gate · 3-slide onboarding (skippable) · phone+country picker · 6-digit OTP (auto-focus, resend countdown, dev-hint toast) · 7-step KYC wizard (personal / id / licence / selfie / vehicle / bank / emergency) with progress bar and per-step server-validated saves · submitted (application-under-review) · dashboard (online toggle gated by approval, today's earnings placeholder in ₹/CFA per country, current area, coming-next strip).
+        - Country-scoped ID types (Aadhaar/PAN/Passport for IN; CNI/Passport for CI). Country-scoped currency ("₹" for IN, "CFA" for CI). Vehicle-type grid supports the full 5-type set (bike, scooter, tricycle, mini_truck, big_truck).
+    - **Testing**: main agent Playwright smoke-tested the full flow (onboarding → login IN +91 → OTP verify → KYC step 1 → step 2 → dashboard). All test-ids in place. Admin driver-directory curl passes with 4 drivers · correct bucket counts.
+    - **Not in this slice** (parked for Slice 2+): incoming delivery request card, pickup/delivery navigation, OTP/QR delivery verification, earnings dashboard, wallet withdraw, incentives, chat, live location broadcast.
+

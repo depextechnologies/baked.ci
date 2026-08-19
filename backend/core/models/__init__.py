@@ -63,6 +63,10 @@ from core.models.replenishment import (
 from core.models.transfers import (
     TRANSFER_STATUSES, PartnerTransfer, PartnerTransferItem,
 )
+from core.models.driver import (
+    DRIVER_STATUSES, KYC_STEPS, VEHICLE_TYPES,
+    Driver, DriverOtp,
+)
 from core.models.suppliers import (
     SUPPLIER_STATUSES, SUPPLIER_APPLICATION_STATUSES, SUPPLIER_BUSINESS_TYPES,
     SUPPLIER_CONTACT_RELATIONS, SUPPLIER_DOCUMENT_TYPES,
@@ -171,4 +175,6 @@ __all__ = [
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",
+    "Driver", "DriverOtp",
+    "DRIVER_STATUSES", "KYC_STEPS", "VEHICLE_TYPES",
 ]

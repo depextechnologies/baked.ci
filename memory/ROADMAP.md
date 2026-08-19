@@ -1,41 +1,46 @@
 # BAKĒD — Roadmap / Parked Backlog
 
-_Snapshot taken 2026-02-19 when the user paused MART/SEND polish to work on a different module. Resume from any pick below on request._
+_Last snapshot: 2026-02-19 when the user paused polish work to open a new module._
 
-## 🟡 Paused — MART / SEND Polish Backlog
-
-Ordered by expected impact. Every item is fully scoped and ready to build.
+## 🟡 Paused — Polish Backlog (ready to build)
 
 ### P1 · MART Supplier & Fulfilment
 
-- **Handoff Screen** — driver / rider bag-pickup confirmation UI (staff-side). Prints a delivery slip via reportlab and flips the order `ready → out_for_delivery`. Route: `/partner-portal/martbaked/handoff`. Reuses `PartnerOrderPick` state; no new tables required.
-- **Batch Picking** — let a single picker aggregate multiple orders into one aisle sweep. New `pick_batch(id, partner_id, picker_staff_id, order_ids[], status, started_at)` table + `POST /api/partner/picker/batches`. UI shows an "Aisle plan" grouped by shelf location.
-- **Duplicate Catcher** — while a supplier types a proposed product name in `PortalProductRequests.jsx`, hit a debounced `GET /api/supplier/me/duplicate-check?name=…&ean=…` and show a side-by-side match panel from the master catalogue so they don't propose a SKU that already exists.
-- **Draft & Resume** — save an in-progress supplier product request as `status='draft'`. Add a "Drafts" tab in the same page. Endpoint changes: `POST /me/product-requests/drafts`, `POST /me/product-requests/drafts/{id}/submit`.
-- **Rich Image Gallery** — up to 5 photos per product request with drag-to-reorder, primary-photo flag. Backend: `supplier_product_request_images` table; frontend uses the existing `/supplier/uploads` endpoint.
+- **Handoff Screen** — driver/rider bag-pickup confirmation UI with printable slip. Route: `/partner-portal/martbaked/handoff`. Reuses `PartnerOrderPick` state; flips order `ready → out_for_delivery`. No new tables.
+- **Batch Picking** — one picker works multiple orders in a single aisle sweep. New `pick_batch(id, partner_id, picker_staff_id, order_ids[], status, started_at)` table + `POST /api/partner/picker/batches`. UI groups items by shelf.
+- **Duplicate Catcher** — debounced `GET /api/supplier/me/duplicate-check?name=…&ean=…` while a supplier types in `PortalProductRequests.jsx`; side-by-side master comparison to catch duplicate SKUs before submit.
+- **Draft & Resume** — supplier product requests with `status='draft'`; new "Drafts" tab + `POST /me/product-requests/drafts` + `.../submit`.
+- **Rich Image Gallery** — up to 5 photos per product request, drag-to-reorder, primary flag. New `supplier_product_request_images` table.
 
-### P2 · Analytics & Returns
+### P2 · Analytics & Payments
 
-- **Analytics Dashboard (Slice D)** — partner-side charts for sales, top SKUs, waste %, avg pick time. Use `nivo` or `recharts` (already in `package.json`).
-- **Returns / Refunds (Slice H)** — customer-initiated returns with reason codes, refund via wallet or original tender, restocking flow that lands back in `PartnerInventory`.
+- **Analytics Dashboard (Slice D)** — partner-side charts (sales, top SKUs, waste %, avg pick time) via `recharts` (already in `package.json`).
+- **Returns / Refunds (Slice H)** — customer-initiated returns + refund via wallet or original tender + restocking flow.
+- **Real Stripe integration** — replace mocked wallet top-up + checkout with the pre-configured Stripe test key.
 
-### P2 · Payments
+### India NCR follow-ups
 
-- **Real Stripe integration** — replace the currently-MOCKED wallet top-up + checkout with the pre-configured Stripe test key already available in the environment. Existing shape of `POST /api/wallet/topup` unchanged.
+- **Seed IN sub-categories & catalogue** — currently IN has 6 modules + 4 cities + 2 hubs seeded but no MART catalogue rows. QA can browse but not shop end-to-end.
+- **Hindi locale** — `hi-IN` UI strings + a language switcher option.
+- **INR-priced offers** — the `offers` table only has CI XOF prices; IN needs ₹-priced versions.
 
 ### Ops / Deploy
 
-- **Search Console Verify** — after `www.baked.ci` is pointed at this deployment, click *Verify* in GSC (the verification file `googleba68425c95e3bcd1.html` is already live at `/`), then **Sitemaps → Submit** `sitemap.xml`.
-- **Hreflang FR** — add French duplicates of meta title/description + `hreflang` alternates once the FR marketing copy is signed off.
+- **Search Console Verify** — after `www.baked.ci` is pointed at this deployment, click *Verify* in GSC (`googleba68425c95e3bcd1.html` already live), then submit `sitemap.xml`.
+- **Hreflang FR** — French duplicates of meta title/description + `hreflang` alternates once FR marketing copy is signed off.
 
-## ✅ Recently Shipped (for context)
+## ✅ Recently shipped (for context)
 
 See `PRD.md` for the full running changelog. Recent highlights:
 
-- P0 Correction Pass — SENDbakēd rebrand, Module-scoped Partner Portal URLs, Côte d'Ivoire-only UI (2026-02-19)
-- Phase 6a — Tablet Picker Screen (2026-02-19)
-- P2 — Product Approval Feedback Loop + Category Request Submission (2026-02-19)
+- IN NCR Hubs Seed — Sector 18 Noida + Alpha 1 Greater Noida (distance-based routing live)
+- IN NCR Pincode Allowlist (201301–201318) + `postal_code` param on serviceability
+- "Use my location" chip in TopNav country switcher; LR fully hidden (`production_visible=false`)
+- India country added alongside Côte d'Ivoire (₹ INR, +91, en-IN, New Delhi center, geolocation auto-detect)
+- White-label SEO — index.html title/OG/Twitter/JSON-LD, robots.txt, sitemap.xml, manifest.json, GSC HTML file
+- SENDbakēd vehicle assets (Bike / 3W / Truck)
+- P0 Correction Pass — SENDbakēd rebrand, module-scoped Partner Portal URLs, CI-only UI (LR hidden)
+- Phase 6a — Tablet Picker Screen
+- P2 — Product Approval Feedback Loop + Category Request Submission
 - Phase 5 — Supplier Billing (3-way match)
 - Phase 4 — GRN Docs + Replenishment → PO + PO Email Notifications
-- SENDbakēd vehicle assets swapped (Bike / 3W / Truck)
-- White-label SEO + Brand Identity (index.html, manifest, robots.txt, sitemap.xml, JSON-LD)
