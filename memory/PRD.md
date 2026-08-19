@@ -212,6 +212,14 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Bug fixes surfaced in review**: (a) `_persist_driver_location` create_task now gated at the call-site — under a 2 s cadence this drops ~4 of 5 potential `SessionLocal()` opens; (b) WS reject paths now `accept()` then `close(code=…)` so custom codes are actually observable on the client; (c) pub/sub drop-oldest now logs a warning so ops can catch slow subscribers.
 
    - **Step 3 (Vehicle Select)** now uses official EXPRESSbakēd branded assets (`vehicleImage(code)` from `expressAssets.js`) with the same radial-glow treatment as the home cards — replacing the generic Lucide bike/truck icons.
+- ✅ **SENDbakēd Slice 8 (2026-02) — Redis realtime broker (multi-worker-ready)**
+   - Redis 7.0.15 installed via apt + supervised (`/etc/supervisor/conf.d/supervisord_redis.conf`), config at `/app/backend/redis.conf` (bind 127.0.0.1, pubsub-only, `save ""`, `appendonly no`, `maxmemory 128mb`). Redis is a **pub/sub fan-out only** — Postgres remains the source of truth for every application row.
+   - `modules/realtime/__init__.py` rewritten with a `PubSubBackend` Protocol + two implementations (`InProcessPubSub`, `RedisPubSub`). Boot-time selection via `initialise_pubsub()` — picks Redis when `REDIS_URL` is set AND `ping` succeeds within 2s, else falls back to `InProc`. Frontend / route contract unchanged.
+   - `redis>=5.0` added to `requirements.txt` (pinned at 5.3.1). `RedisPubSub` uses `redis.asyncio` with `decode_responses=True` and JSON-serialised frames on the wire.
+   - Graceful degradation: `publish()` failures are logged + dropped (no crash). WS auth guards still fire without Redis. Frontend REST-poll fallback continues to work — realtime is best-effort, not a hard dependency.
+   - **Testing**: `testing_agent_v3_fork` iteration_48.json — 14/14 parametrised contract (`test_pubsub_contract.py`, 7 assertions × 2 backends), 12/12 realtime WS suite (`test_realtime_ws.py`, now backed by Redis), new cross-process test (`test_redis_cross_process.py`) proving fan-out survives across processes = multi-worker safe, graceful-degradation walk (Redis stopped → REST + auth-guards still 200/401/404/4xxx), and env-toggle test confirming clean InProc fallback when `REDIS_URL` is unset.
+   - **Non-goal**: supervisor still runs `uvicorn --workers 1` — this task only makes the layer multi-worker-safe. Flipping to N workers is a one-line supervisor change whenever ops is ready.
+
    - **Step 5 (Estimate)** shows a branded vehicle thumbnail beside "Change" and a live vehicle chip overlay on the map.
    - **Kept intact**: header, wizard progress stepper, Continue footer, all backend calls, dispatch + WebSocket tracking flow.
    - **Verified**: Step 1, 3, 5 desktop screenshots at 1440×900 show the persistent map + branded assets; light theme continues to adapt via `hsl(var(--border/card/muted))`.

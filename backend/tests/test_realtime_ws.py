@@ -217,19 +217,19 @@ class TestAuthGuards:
     def test_driver_ws_malformed_jwt_rejected(self, job_a):
         url = f"{WS_URL}/api/ws/driver/jobs/{job_a['id']}?token=not-a-jwt"
         code = asyncio.run(_expect_ws_reject(url))
-        assert code in (403, 401), f"expected reject, got {code}"
+        assert code in (403, 401, 4401), f"expected reject, got {code}"
 
     def test_driver_ws_wrong_role_admin_token_rejected(self, job_a, admin_headers):
         admin_jwt = admin_headers["Authorization"].split()[1]
         url = f"{WS_URL}/api/ws/driver/jobs/{job_a['id']}?token={admin_jwt}"
         code = asyncio.run(_expect_ws_reject(url))
-        assert code in (403, 401), f"expected reject, got {code}"
+        assert code in (403, 401, 4401), f"expected reject, got {code}"
 
     def test_driver_ws_wrong_driver_rejected(self, job_a, driver_b):
         # driver_b's JWT on job_a → 4403 not_your_job
         url = f"{WS_URL}/api/ws/driver/jobs/{job_a['id']}?token={driver_b['jwt']}"
         code = asyncio.run(_expect_ws_reject(url))
-        assert code in (403, 401), f"expected reject, got {code}"
+        assert code in (403, 401, 4403), f"expected reject, got {code}"
 
     def test_customer_ws_no_t_rejected(self, job_a):
         url = f"{WS_URL}/api/ws/track/{job_a['id']}"
@@ -239,7 +239,7 @@ class TestAuthGuards:
     def test_customer_ws_wrong_token_rejected(self, job_a):
         url = f"{WS_URL}/api/ws/track/{job_a['id']}?t=bogus_token_xxx"
         code = asyncio.run(_expect_ws_reject(url))
-        assert code in (403, 404), f"expected reject, got {code}"
+        assert code in (403, 404, 4404), f"expected reject, got {code}"
 
     def test_driver_ws_terminal_job_rejected(self, admin_headers):
         """Bootstrap a fresh driver+job, walk to delivered, then try WS."""
@@ -248,7 +248,7 @@ class TestAuthGuards:
         _walk_to_delivered(drv, job["id"])
         url = f"{WS_URL}/api/ws/driver/jobs/{job['id']}?token={drv['jwt']}"
         code = asyncio.run(_expect_ws_reject(url))
-        assert code in (403, 409), f"expected terminal reject, got {code}"
+        assert code in (403, 409, 4409), f"expected terminal reject, got {code}"
 
 
 # ---------------------------------------------------------------------------

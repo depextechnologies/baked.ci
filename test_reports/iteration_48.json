@@ -1,0 +1,52 @@
+{
+  "summary": "Slice 8 Redis realtime broker swap validated end-to-end. Contract parity (14/14), full WS suite (12/12), cross-process fan-out (<1ms), graceful degradation on Redis down, and InProc fallback via env-toggle all pass. Regression smoke tests (admin login/withdrawals, driver OTP) OK.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pubsub_contract.py",
+    "/app/backend/tests/test_realtime_ws.py",
+    "/app/backend/tests/test_redis_cross_process.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "realtime module cleanly abstracted behind Protocol; both InProc and Redis backends selected via env + 2s PING probe as spec'd.",
+    "Backend startup logs the chosen backend explicitly (`realtime.pubsub redis backend ready` / `baked.startup realtime backend=redis`) — good observability.",
+    "Graceful degradation verified: with Redis down, REST endpoints return normal codes (200/404/401, no 500s) and WS auth-guards still fire (7/7 AuthGuards tests pass). REST poll fallback path preserved as documented.",
+    "When REDIS_URL is unset, backend cleanly falls back to InProc — env-gated selection works as specified.",
+    "Redis pub/sub is fire-and-forget so a `publish()` while no subscribers exist is truly a no-op (contract test confirms this). Note: this also means historical frames are not replayed to late subscribers — matches spec (`hello` frame from customer join comes from server logic, not from broker replay)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_redis_cross_process.py (new — cross-process fan-out test)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "test_credentials": "Superadmin depexopenai@gmail.com / baked@2026#!$@ — verified via POST /api/admin/auth/login → token issued, /api/admin/drivers/withdrawals → 200. Driver OTP request via /api/driver/auth/request-otp with {phone_e164, country} → 200 with dev_hint.",
+  "seed_data_creation": "None — used existing seeded admin and generated ephemeral pubsub channels for cross-process test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Redis realtime broker is live via supervisor at 127.0.0.1:6379 (pubsub-only, no persistence). Backend chooses Redis when REDIS_URL is set AND ping succeeds within 2s, else InProc. Contract tests at test_pubsub_contract.py cover both backends (14 pytest ids). test_realtime_ws.py exercises the live redis-backed broker. test_redis_cross_process.py verifies two-process fan-out via redis.asyncio directly. Graceful degradation confirmed: REST + WS auth-guards continue to work when Redis is down; only broadcast fan-out inside the WS handler degrades (client falls back to REST poll). All Slice-7 auth guards still return 4401/4403/4404/4409 close codes via accept-then-close pattern.",
+  "detailed_test_results": {
+    "startup_logs": "'realtime.pubsub redis backend ready url=redis://127.0.0.1:6379/0' and 'baked.startup realtime backend=redis' both present in backend log.",
+    "contract_tests": "14/14 pass — both [inproc] and [redis] parameterizations executed; none skipped.",
+    "ws_regression": "12/12 pass in tests/test_realtime_ws.py against live redis-backed broker (~38s runtime).",
+    "cross_process_fanout": "PASS — subscriber process received publisher process's frame; latency well under 500ms threshold.",
+    "graceful_degradation_redis_down": {
+      "GET /api/health": 200,
+      "GET /api/send/track/nonexistent?t=abc": 404,
+      "GET /api/driver/me (no auth)": 401,
+      "WS auth-guards (TestAuthGuards)": "7/7 pass"
+    },
+    "inproc_fallback": "With REDIS_URL commented in .env → log shows 'realtime.pubsub inproc backend ready' and 'baked.startup realtime backend=inproc'; TestBroadcast::test_customer_receives_hello_then_driver_location passes on InProc.",
+    "regression_smoke": {
+      "admin_login": "200, JWT issued (len=237)",
+      "admin_withdrawals": "GET /api/admin/drivers/withdrawals → 200",
+      "driver_otp": "POST /api/driver/auth/request-otp → 200 with dev_hint"
+    }
+  }
+}

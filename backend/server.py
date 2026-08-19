@@ -291,6 +291,14 @@ async def _on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("baked.startup object_storage_init_failed err=%s — supplier uploads will fail until fixed", e)
 
+    # ---- 4) Realtime pub/sub — Redis if REDIS_URL is reachable, InProc otherwise. ----
+    try:
+        from modules.realtime import initialise_pubsub
+        bus = await initialise_pubsub()
+        logger.info("baked.startup realtime backend=%s", getattr(bus, "name", "?"))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("baked.startup realtime_init_failed err=%s — WS fan-out will use inproc fallback", e)
+
     logger.info("baked.startup done")
 
 
