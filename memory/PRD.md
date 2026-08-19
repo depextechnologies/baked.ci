@@ -184,6 +184,13 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 
 - ✅ **EXPRESSbakēd — Booking Wizard Redesign per Fixing_Prompt.docx (2026-02-24)** — full desktop/tablet parity with the Home page's 45/55 layout.
    - **New component** `/app/frontend/src/components/express/ExpressWizardShell.jsx`:
+- ✅ **SENDbakēd Slice 5 (2026-02) — Admin Payout Console**
+   - New endpoints on the driver admin_router (prefix `/api/admin/drivers`): `GET /withdrawals` (status/country/q filters, buckets over unfiltered set, pending_totals per currency, nested driver + last-4-masked bank), `POST /withdrawals/{id}/mark-paid` (409 on non-pending, clears stale failure_note), `POST /withdrawals/{id}/mark-failed` (optional note, empty stored as null).
+   - New page `/app/frontend/src/pages/admin/AdminDriverPayouts.jsx`: KPI strip (pending amount per currency), pending/paid/failed/all tabs with badge counts, name/phone search, table with mark-paid + mark-failed buttons on pending rows, and a mark-failed dialog with an optional note that the driver sees back in their wallet.
+   - Sidebar entry added under Platform Governance between Finance and Analytics ([data-testid=admin-nav-driver-payouts]).
+   - Balance recomputation verified — `available_balance = lifetime - Σ(pending|paid)`, so mark-failed restores the driver's balance automatically; mark-paid keeps the amount locked.
+   - **Testing**: `testing_agent_v3_fork` iteration_45.json — 14/14 backend pytest (`/app/backend/tests/test_admin_driver_payouts.py`) + full Playwright E2E on the console including dialog + note visibility + search + KPI.
+
      - Desktop (≥ md): 45% left = step form, 55% right = persistent live Google Map (sticky).
      - Mobile: full-screen form with a compact map card on top of every step.
      - `<WizardMap>` sub-component: pickup/drop markers (A/B pins), Google Directions polyline (yellow), auto-fit bounds, live distance + ETA + selected-vehicle chip overlays.

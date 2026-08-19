@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db import get_session
 from core.models import (
     AdminUser, DRIVER_STATUSES, Driver, DriverEarning, DriverJob, DriverOtp,
-    DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES,
+    DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
 from core.security import create_access_token, decode_token
@@ -817,3 +817,107 @@ async def list_withdrawals(driver: Driver = Depends(_current_driver),
         .order_by(DriverWithdrawal.requested_at.desc())
     )).scalars().all()
     return {"items": [_withdrawal_dict(w) for w in rows]}
+
+
+
+# ===========================================================================
+# Slice 5 — Admin Payout Console
+# ===========================================================================
+
+def _withdrawal_admin_dict(w: DriverWithdrawal, d: Optional[Driver]) -> dict:
+    """Same shape as the driver-facing dict + a `driver` sub-object so the
+    ops table can render name/phone without a second round-trip."""
+    def _mask(v: Optional[str]) -> Optional[str]:
+        if not v: return v
+        return v if len(v) <= 4 else "•" * (len(v) - 4) + v[-4:]
+    return {
+        "id": w.id, "amount": w.amount, "currency": w.currency, "status": w.status,
+        "bank": {"holder": w.bank_holder, "account_masked": _mask(w.bank_account), "ifsc": w.bank_ifsc},
+        "failure_note": w.failure_note,
+        "requested_at": w.requested_at.isoformat(),
+        "processed_at": w.processed_at.isoformat() if w.processed_at else None,
+        "driver": None if not d else {
+            "id": d.id, "name": d.name, "phone_e164": d.phone_e164, "country": d.country,
+        },
+    }
+
+
+@admin_router.get("/withdrawals")
+async def admin_list_withdrawals(
+    status:  Optional[str] = Query(None),
+    country: Optional[str] = Query(None),
+    q:       Optional[str] = Query(None, description="Fuzzy match on driver name/phone"),
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = (select(DriverWithdrawal, Driver)
+            .join(Driver, Driver.id == DriverWithdrawal.driver_id)
+            .order_by(DriverWithdrawal.requested_at.desc()))
+    if status:  stmt = stmt.where(DriverWithdrawal.status == status)
+    if country: stmt = stmt.where(Driver.country == country.upper())
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where((Driver.name.ilike(like)) | (Driver.phone_e164.ilike(like)))
+    rows = (await session.execute(stmt)).all()
+    items = [_withdrawal_admin_dict(w, d) for (w, d) in rows]
+
+    # Buckets over the un-filtered set so the tab counts stay stable when the
+    # operator filters by country/q.
+    bstmt = select(DriverWithdrawal.status, func.count(DriverWithdrawal.id)).group_by(DriverWithdrawal.status)
+    buckets = {s: 0 for s in WITHDRAWAL_STATUSES}
+    for s, c in (await session.execute(bstmt)).all():
+        buckets[s] = c
+
+    # Sum of pending payouts per currency — surfaced as an ops KPI card.
+    kstmt = (select(DriverWithdrawal.currency, func.coalesce(func.sum(DriverWithdrawal.amount), 0))
+             .where(DriverWithdrawal.status == "pending")
+             .group_by(DriverWithdrawal.currency))
+    pending_totals = {c: float(t) for c, t in (await session.execute(kstmt)).all()}
+
+    return {"items": items, "buckets": buckets, "pending_totals": pending_totals}
+
+
+class MarkFailedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    note: Optional[str] = None
+
+
+async def _load_withdrawal(session: AsyncSession, wid: str) -> DriverWithdrawal:
+    w = await session.get(DriverWithdrawal, wid)
+    if not w: raise HTTPException(404, "Withdrawal not found")
+    return w
+
+
+@admin_router.post("/withdrawals/{withdrawal_id}/mark-paid")
+async def admin_mark_paid(
+    withdrawal_id: str,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    w = await _load_withdrawal(session, withdrawal_id)
+    if w.status != "pending":
+        raise HTTPException(409, f"Cannot mark {w.status} withdrawal as paid")
+    w.status = "paid"
+    w.processed_at = datetime.now(timezone.utc)
+    w.failure_note = None
+    await session.commit()
+    d = await session.get(Driver, w.driver_id)
+    return _withdrawal_admin_dict(w, d)
+
+
+@admin_router.post("/withdrawals/{withdrawal_id}/mark-failed")
+async def admin_mark_failed(
+    withdrawal_id: str,
+    payload: MarkFailedIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    w = await _load_withdrawal(session, withdrawal_id)
+    if w.status != "pending":
+        raise HTTPException(409, f"Cannot mark {w.status} withdrawal as failed")
+    w.status = "failed"
+    w.processed_at = datetime.now(timezone.utc)
+    w.failure_note = (payload.note or "").strip() or None
+    await session.commit()
+    d = await session.get(Driver, w.driver_id)
+    return _withdrawal_admin_dict(w, d)
