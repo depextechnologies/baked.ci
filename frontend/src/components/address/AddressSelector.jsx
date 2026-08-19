@@ -10,6 +10,13 @@ import { useIsMobile } from "../../hooks/useIsMobile";
 const LABEL_ICON = { Home: Home, Office: Building2, Warehouse: Warehouse, Family: Users2, Other: MapPin };
 const LABEL_OPTIONS = ["Home", "Office", "Warehouse", "Family", "Other"];
 
+// Quick-tap suggestions under the address search. Keep as a small map so
+// new BAKĒD launch countries can be added without touching render code.
+const SUGGESTED_ADDRESSES = {
+  CI: ["Cocody, Abidjan", "Plateau, Abidjan", "Marcory, Abidjan"],
+  IN: ["Connaught Place, New Delhi", "Saket, New Delhi", "Karol Bagh, New Delhi"],
+};
+
 // -------- Missing-key fallback (rendered before <APIProvider> can mount) --------
 const NoKeyBanner = ({ onClose }) => (
   <div className="p-8 text-center" data-testid="addr-selector-nokey">
@@ -189,7 +196,7 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
             <section className="mt-4 mb-6 px-4">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Suggested</div>
               <div className="flex flex-wrap gap-2">
-                {(activeCountry === "LR" ? ["Sinkor, Monrovia", "Congo Town, Monrovia", "Mamba Point"] : ["Cocody, Abidjan", "Plateau, Abidjan", "Marcory, Abidjan"]).map((s) => (
+                {(SUGGESTED_ADDRESSES[activeCountry] || SUGGESTED_ADDRESSES.CI).map((s) => (
                   <button
                     key={s}
                     data-testid={`addr-suggested-${s}`}

@@ -10,6 +10,15 @@ import { Bike, Truck, ShoppingBasket, Wallet2, Sparkles, ArrowRight, Zap, Packag
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 
+// Popular neighborhoods surfaced under the "Delivery in X min" card.
+// Keep the two-to-three most recognisable zones per launch country so the
+// chip strip feels curated. LR intentionally omitted from the UI per the P0
+// correction pass — the row still exists in the DB.
+const POPULAR_ZONES = {
+  CI: ["Cocody", "Plateau", "Marcory"],
+  IN: ["Connaught Place", "Saket", "Karol Bagh"],
+};
+
 export const HomePage = () => {
   const { country, uiLocale, language } = useApp();
   const navigate = useNavigate();
@@ -112,7 +121,10 @@ export const HomePage = () => {
           <div className="h-px bg-border" />
           <div className="text-[11px] text-muted-foreground">{t(locale, "delivery.popular_near")}</div>
           <div className="flex flex-wrap gap-2">
-            {(country.code === "CI" ? ["Cocody", "Plateau", "Marcory"] : ["Sinkor", "Congo Town", "Monrovia"]).map((z, i) => (
+            {/* Popular neighborhoods per country. Kept as a small map so
+                new BAKĒD launch countries can be added without touching
+                the render code. */}
+            {(POPULAR_ZONES[country.code] || POPULAR_ZONES.CI).map((z, i) => (
               <span key={z} className={`baked-chip text-[11px] px-3 py-1 border border-border ${i === 0 ? "text-black" : ""}`} style={i === 0 ? { backgroundColor: "#77BC1F" } : {}}>
                 {z}
               </span>
