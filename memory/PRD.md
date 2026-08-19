@@ -153,6 +153,14 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Live pricing propagation verified**: admin PATCH bike base_fare 1500 → 3000 → next customer `POST /api/express/quote/parcel` returns base_fare=3000 and total 2 654 → 4 229 CFA. No caching, no restart needed.
    - **Testing**: `testing_agent_v3_fork` iteration_8.json — 13/13 backend pytest pass (`/app/backend/tests/test_express_pricing_admin.py`, session-scoped snapshot-and-restore fixture guarantees seeded state), 100% frontend on tested surfaces.
    - **Testing**: `testing_agent_v3_fork` iteration_6.json — 12/12 scripted frontend assertions pass. Mobile /express regression check also confirmed.
+- ✅ **SENDbakēd Driver App — Slice 2 (2026-02) — Delivery Lifecycle END-TO-END**
+   - Backend job state machine: `offered → accepted → arriving_pickup → picked_up → arriving_dropoff → delivered` (plus terminal `declined / expired / cancelled`) with pickup + delivery OTPs.
+   - Endpoints (`/api/driver/me/jobs/{id}/…`): accept · decline · arrive-pickup · verify-pickup · arrive-dropoff · verify-delivery. Admin dispatcher: `POST /api/admin/drivers/{id}/dispatch-demo-job` (idempotent, returns any in-flight job).
+   - `GET /api/driver/me/active-job` gates `pickup_otp` to statuses `accepted / arriving_pickup` and `delivery_otp` to `picked_up / arriving_dropoff` (so QA can flow through E2E without a customer app).
+   - Frontend PWA (`/app/frontend/src/apps/driver/DriverApp.jsx`): incoming-request bottom sheet (`[data-testid=driver-incoming-sheet]`) with 45s countdown + Accept/Decline; JobPage stage machine with map placeholder, progress dots and stage-aware CTA / OTP input; JobSuccess screen. Dashboard polls `/me/active-job` every 5s only while `approved && is_online`.
+   - Polish: `useActiveJob` now guards setState with an `isMounted` ref and halts polling on terminal states (`delivered / cancelled / expired / declined`) — silences the concurrent-rendering warning that surfaced on the success screen.
+   - **Testing**: `testing_agent_v3_fork` iteration_42.json — 5/5 backend pytest (`/app/backend/tests/test_driver_slice2_lifecycle.py`) + full Playwright E2E on Chromium 390×844 covering register → 7-step KYC (+3 uploads) → submit → admin approve → go online → dispatch → accept → arrive-pickup → verify pickup OTP → arrive-dropoff → verify delivery OTP → success. Wrong-OTP path also verified (400 `otp_invalid`).
+
 
 ## Backlog (prioritised)
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet

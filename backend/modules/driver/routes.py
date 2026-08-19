@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.models import (
-    AdminUser, DRIVER_STATUSES, Driver, DriverOtp, KYC_STEPS, VEHICLE_TYPES,
+    AdminUser, DRIVER_STATUSES, Driver, DriverJob, DriverOtp, KYC_STEPS, VEHICLE_TYPES,
 )
 from core.providers import object_storage
 from core.security import create_access_token, decode_token
@@ -464,3 +464,211 @@ async def admin_reject(
     d.reviewer_notes = payload.notes
     await session.commit()
     return _driver_dict(d)
+
+
+# ===========================================================================
+# Slice 2 — Delivery lifecycle
+# ===========================================================================
+
+def _job_dict(j: DriverJob) -> dict:
+    return {
+        "id": j.id, "status": j.status, "job_type": j.job_type,
+        "customer_name": j.customer_name, "customer_phone": j.customer_phone,
+        "pickup":  {"label": j.pickup_label,  "lat": j.pickup_lat,  "lng": j.pickup_lng},
+        "dropoff": {"label": j.dropoff_label, "lat": j.dropoff_lat, "lng": j.dropoff_lng},
+        "distance_km": j.distance_km,
+        "fare": {"amount": j.fare_amount, "currency": j.fare_currency},
+        # OTPs are surfaced to the driver so they can verify — in a real
+        # deploy the customer's app would show them; the driver types them in.
+        # For the mock we return both so QA can flow through end-to-end.
+        "pickup_otp":   j.pickup_otp   if j.status in ("accepted", "arriving_pickup") else None,
+        "delivery_otp": j.delivery_otp if j.status in ("picked_up", "arriving_dropoff") else None,
+        "expires_at":   j.expires_at.isoformat()   if j.expires_at   else None,
+        "offered_at":   j.offered_at.isoformat()   if j.offered_at   else None,
+        "accepted_at":  j.accepted_at.isoformat()  if j.accepted_at  else None,
+        "picked_up_at": j.picked_up_at.isoformat() if j.picked_up_at else None,
+        "delivered_at": j.delivered_at.isoformat() if j.delivered_at else None,
+    }
+
+
+@router.get("/me/active-job")
+async def get_active_job(
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the driver's currently in-flight job (if any).
+
+    "In-flight" = status is anything other than a terminal state. If the
+    offered job has expired since it was created, we quietly transition it
+    to `expired` on the way out so the client never sees a stale offer.
+    """
+    j = (await session.execute(
+        select(DriverJob).where(
+            DriverJob.driver_id == driver.id,
+            DriverJob.status.in_(("offered", "accepted", "arriving_pickup",
+                                   "picked_up", "arriving_dropoff")),
+        ).order_by(DriverJob.created_at.desc())
+    )).scalars().first()
+    if j and j.status == "offered" and j.expires_at and j.expires_at < datetime.now(timezone.utc):
+        j.status = "expired"
+        await session.commit()
+        return None
+    return _job_dict(j) if j else None
+
+
+def _require_job(session, driver: Driver, job_id: str) -> DriverJob:
+    """Sync helper used inside async routes — session.get is awaited by caller."""
+    return None  # placeholder — real helpers below use awaited session.get
+
+
+async def _load_job(session: AsyncSession, driver: Driver, job_id: str) -> DriverJob:
+    j = await session.get(DriverJob, job_id)
+    if not j or j.driver_id != driver.id:
+        raise HTTPException(404, "Job not found")
+    return j
+
+
+def _txn_stamp(j: DriverJob, status: str, extra_col: Optional[str] = None):
+    now = datetime.now(timezone.utc)
+    j.status = status
+    if extra_col:
+        setattr(j, extra_col, now)
+
+
+@router.post("/me/jobs/{job_id}/accept")
+async def accept_job(job_id: str,
+                     driver: Driver = Depends(_current_driver),
+                     session: AsyncSession = Depends(get_session)):
+    j = await _load_job(session, driver, job_id)
+    if j.status != "offered":
+        raise HTTPException(409, f"Cannot accept a job in status '{j.status}'")
+    if j.expires_at and j.expires_at < datetime.now(timezone.utc):
+        j.status = "expired"; await session.commit()
+        raise HTTPException(409, {"code": "expired", "message": "This request has expired."})
+    _txn_stamp(j, "accepted", "accepted_at")
+    await session.commit(); return _job_dict(j)
+
+
+class DeclineIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: Optional[str] = None
+
+
+@router.post("/me/jobs/{job_id}/decline")
+async def decline_job(job_id: str, payload: DeclineIn,
+                      driver: Driver = Depends(_current_driver),
+                      session: AsyncSession = Depends(get_session)):
+    j = await _load_job(session, driver, job_id)
+    if j.status != "offered":
+        raise HTTPException(409, f"Cannot decline a job in status '{j.status}'")
+    _txn_stamp(j, "declined")
+    j.cancellation_reason = payload.reason
+    await session.commit(); return _job_dict(j)
+
+
+@router.post("/me/jobs/{job_id}/arrive-pickup")
+async def arrive_pickup(job_id: str,
+                        driver: Driver = Depends(_current_driver),
+                        session: AsyncSession = Depends(get_session)):
+    j = await _load_job(session, driver, job_id)
+    if j.status != "accepted":
+        raise HTTPException(409, f"Cannot arrive-pickup from status '{j.status}'")
+    _txn_stamp(j, "arriving_pickup")
+    await session.commit(); return _job_dict(j)
+
+
+class VerifyOtpJobIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str
+
+
+@router.post("/me/jobs/{job_id}/verify-pickup")
+async def verify_pickup(job_id: str, payload: VerifyOtpJobIn,
+                        driver: Driver = Depends(_current_driver),
+                        session: AsyncSession = Depends(get_session)):
+    j = await _load_job(session, driver, job_id)
+    if j.status not in ("accepted", "arriving_pickup"):
+        raise HTTPException(409, f"Cannot verify pickup from status '{j.status}'")
+    if payload.code.strip() != j.pickup_otp:
+        raise HTTPException(400, {"code": "otp_invalid", "message": "Pickup OTP is incorrect."})
+    _txn_stamp(j, "picked_up", "picked_up_at")
+    await session.commit(); return _job_dict(j)
+
+
+@router.post("/me/jobs/{job_id}/arrive-dropoff")
+async def arrive_dropoff(job_id: str,
+                         driver: Driver = Depends(_current_driver),
+                         session: AsyncSession = Depends(get_session)):
+    j = await _load_job(session, driver, job_id)
+    if j.status != "picked_up":
+        raise HTTPException(409, f"Cannot arrive-dropoff from status '{j.status}'")
+    _txn_stamp(j, "arriving_dropoff")
+    await session.commit(); return _job_dict(j)
+
+
+@router.post("/me/jobs/{job_id}/verify-delivery")
+async def verify_delivery(job_id: str, payload: VerifyOtpJobIn,
+                          driver: Driver = Depends(_current_driver),
+                          session: AsyncSession = Depends(get_session)):
+    j = await _load_job(session, driver, job_id)
+    if j.status not in ("picked_up", "arriving_dropoff"):
+        raise HTTPException(409, f"Cannot verify delivery from status '{j.status}'")
+    if payload.code.strip() != j.delivery_otp:
+        raise HTTPException(400, {"code": "otp_invalid", "message": "Delivery OTP is incorrect."})
+    _txn_stamp(j, "delivered", "delivered_at")
+    await session.commit(); return _job_dict(j)
+
+
+# ---------------------------------------------------------------------------
+# Admin — one-click demo job dispatcher (used by QA to trigger Slice 2 flow)
+# ---------------------------------------------------------------------------
+
+_DEMO_JOB_TEMPLATES = {
+    "IN": {
+        "customer_name": "Ananya Verma", "customer_phone": "+919990001122",
+        "pickup_label": "MARTbakēd Sector 18 Noida",
+        "pickup_lat": 28.5691, "pickup_lng": 77.3210,
+        "dropoff_label": "Sector 62, Noida",
+        "dropoff_lat": 28.6272, "dropoff_lng": 77.3762,
+        "distance_km": 8.4, "fare_amount": 156.0, "fare_currency": "INR",
+    },
+    "CI": {
+        "customer_name": "Mariam Diallo", "customer_phone": "+22507070707",
+        "pickup_label": "MARTbakēd Cocody",
+        "pickup_lat": 5.3600, "pickup_lng": -4.0083,
+        "dropoff_label": "Plateau, Abidjan",
+        "dropoff_lat": 5.3197, "dropoff_lng": -4.0166,
+        "distance_km": 6.2, "fare_amount": 2500.0, "fare_currency": "XOF",
+    },
+}
+
+
+@admin_router.post("/{driver_id}/dispatch-demo-job")
+async def admin_dispatch_demo_job(driver_id: str,
+                                  admin: AdminUser = Depends(get_current_admin),
+                                  session: AsyncSession = Depends(get_session)):
+    """Insert a fake `offered` DriverJob for the target driver. Idempotency:
+    if the driver already has an in-flight job we return that one instead of
+    stacking offers."""
+    d = await session.get(Driver, driver_id)
+    if not d: raise HTTPException(404, "Driver not found")
+    existing = (await session.execute(
+        select(DriverJob).where(
+            DriverJob.driver_id == d.id,
+            DriverJob.status.in_(("offered", "accepted", "arriving_pickup",
+                                   "picked_up", "arriving_dropoff")),
+        )
+    )).scalars().first()
+    if existing: return _job_dict(existing)
+    tpl = _DEMO_JOB_TEMPLATES.get(d.country, _DEMO_JOB_TEMPLATES["IN"])
+    now = datetime.now(timezone.utc)
+    j = DriverJob(
+        driver_id=d.id, country=d.country, status="offered", job_type="parcel",
+        pickup_otp=f"{random.randint(0, 999_999):06d}",
+        delivery_otp=f"{random.randint(0, 999_999):06d}",
+        offered_at=now, expires_at=now + timedelta(seconds=45),
+        **tpl,
+    )
+    session.add(j)
+    await session.commit(); await session.refresh(j)
+    return _job_dict(j)

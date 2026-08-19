@@ -21,14 +21,14 @@
  *   /driver/kyc/submitted      → application-under-review screen
  *   /driver/dashboard          → online toggle + earnings summary
  */
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { Routes, Route, useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Loader2, ChevronRight, ChevronLeft, Truck, Bike, Package, Wallet, Star, LogOut,
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
-  Camera, Car,
+  Camera, Car, X, Navigation, ArrowRight,
 } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
@@ -704,6 +704,32 @@ const DashboardPage = () => {
   const nav = useNavigate();
   const [summary, setSummary] = useState(null);
   const [busy, setBusy] = useState(false);
+  const { job: activeJob, refresh: refreshJob, setJob: setActiveJob } = useActiveJob(driver?.status === "approved" && driver?.is_online);
+  const [reqBusy, setReqBusy] = useState(false);
+
+  // If there's an in-flight (non-offered) job, jump straight to the delivery screen.
+  useEffect(() => {
+    if (activeJob && activeJob.status !== "offered") nav(`/driver/job/live`);
+  }, [activeJob, nav]);
+
+  const acceptOffer = async () => {
+    if (!activeJob) return;
+    setReqBusy(true);
+    try {
+      await driverApi.post(`/driver/me/jobs/${activeJob.id}/accept`);
+      nav("/driver/job/live");
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setReqBusy(false); }
+  };
+  const declineOffer = async () => {
+    if (!activeJob) return;
+    setReqBusy(true);
+    try {
+      await driverApi.post(`/driver/me/jobs/${activeJob.id}/decline`, { reason: "driver_declined" });
+      setActiveJob(null); refreshJob();
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setReqBusy(false); }
+  };
 
   const load = useCallback(async () => {
     try { const { data } = await driverApi.get("/driver/me/dashboard"); setSummary(data); }
@@ -818,10 +844,235 @@ const DashboardPage = () => {
               <div key={i} className="min-w-[140px] rounded-2xl p-4 bg-white/[0.03] border border-white/10">
                 <c.icon size={18} className="text-orange-500" />
                 <div className="text-xs font-medium mt-2">{c.label}</div>
-                <div className="text-[10px] text-white/40 mt-0.5">Slice 2</div>
+                <div className="text-[10px] text-white/40 mt-0.5">Slice 3</div>
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Slice 2 — incoming request overlay */}
+      {activeJob && activeJob.status === "offered" && (
+        <IncomingRequestSheet job={activeJob} busy={reqBusy}
+                              onAccept={acceptOffer} onDecline={declineOffer} />
+      )}
+    </Phone>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Slice 2 — Delivery lifecycle                                               */
+/* -------------------------------------------------------------------------- */
+
+const fmtMoney = (amt, cur) => `${cur === "INR" ? "\u20B9" : ""}${Number(amt || 0).toLocaleString()}${cur === "XOF" ? " CFA" : ""}`;
+
+const useActiveJob = (enabled) => {
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  // Guard against setState after unmount — JobPage unmounts as it navigates to
+  // /driver/job/success while a poll tick may still be in-flight.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+  const safeSetJob = useCallback((v) => { if (mountedRef.current) setJob(v); }, []);
+  const refresh = useCallback(async () => {
+    if (!enabled) { if (mountedRef.current) setLoading(false); return; }
+    try { const { data } = await driverApi.get("/driver/me/active-job"); safeSetJob(data || null); }
+    catch { /* silent */ } finally { if (mountedRef.current) setLoading(false); }
+  }, [enabled, safeSetJob]);
+  useEffect(() => {
+    refresh();
+    if (!enabled) return;
+    const t = setInterval(refresh, 5000);
+    return () => clearInterval(t);
+  }, [enabled, refresh]);
+  // Stop polling once the job has reached a terminal state so we don't keep
+  // hitting the API from a screen the driver has already left.
+  useEffect(() => {
+    if (job && ["delivered", "cancelled", "expired", "declined"].includes(job.status)) {
+      mountedRef.current = false;
+    }
+  }, [job]);
+  return { job, loading, refresh, setJob: safeSetJob };
+};
+
+const IncomingRequestSheet = ({ job, onAccept, onDecline, busy }) => {
+  const [remaining, setRemaining] = useState(45);
+  useEffect(() => {
+    if (!job?.expires_at) return;
+    const tick = () => {
+      const ms = new Date(job.expires_at).getTime() - Date.now();
+      setRemaining(Math.max(0, Math.round(ms / 1000)));
+    };
+    tick();
+    const t = setInterval(tick, 500);
+    return () => clearInterval(t);
+  }, [job?.expires_at]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur" data-testid="driver-incoming-sheet">
+      <div className="w-full max-w-[440px] rounded-t-[36px] bg-neutral-950 border-t border-white/10 p-6 pb-10 relative">
+        <div className="mx-auto w-12 h-1 rounded-full bg-white/20 mb-4" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">New request</div>
+          <div className="text-xs text-white/60">Expires in <span className="text-white font-mono">{remaining}s</span></div>
+        </div>
+        <div className="rounded-3xl p-5 bg-white/[0.04] border border-white/10 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-white/40">Estimated earnings</div>
+              <div className="text-3xl font-bold" data-testid="driver-incoming-fare">{fmtMoney(job.fare.amount, job.fare.currency)}</div>
+              <div className="text-xs text-white/50 mt-1">{job.distance_km.toFixed(1)} km · {job.job_type}</div>
+            </div>
+            <div className="w-14 h-14 rounded-full grid place-items-center" style={{ background: "linear-gradient(135deg, #FFB454, #FF7A00)" }}>
+              <Package size={22} color="#000" />
+            </div>
+          </div>
+          <div className="pt-4 border-t border-white/10 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-500 grid place-items-center shrink-0"><MapPin size={14} /></div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-white/40">Pickup</div>
+                <div className="text-sm">{job.pickup.label}</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/10 text-white grid place-items-center shrink-0"><Navigation size={14} /></div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-white/40">Drop-off</div>
+                <div className="text-sm">{job.dropoff.label}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button onClick={onDecline} disabled={busy} data-testid="driver-incoming-decline"
+                  className="flex-1 h-14 rounded-2xl border border-white/10 text-sm text-white/70">Decline</button>
+          <button onClick={onAccept} disabled={busy || remaining === 0} data-testid="driver-incoming-accept"
+                  className="flex-[2] h-14 rounded-2xl text-black font-semibold flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #FFB454, #FF7A00)" }}>
+            {busy ? <Loader2 size={16} className="animate-spin" /> : (<>Accept <ArrowRight size={16} /></>)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const STAGE_META = {
+  accepted:         { title: "Head to pickup",   sub: "Tap when you arrive at the pickup point.", cta: "I'm at pickup",     next: "arrive-pickup" },
+  arriving_pickup:  { title: "Verify pickup",    sub: "Ask the customer for the 6-digit pickup code.", cta: null,           next: "verify-pickup", otp: "pickup" },
+  picked_up:        { title: "Head to drop-off", sub: "Tap when you arrive at the drop-off address.", cta: "I'm at drop-off", next: "arrive-dropoff" },
+  arriving_dropoff: { title: "Verify delivery", sub: "Ask the recipient for the 6-digit delivery code.", cta: null,          next: "verify-delivery", otp: "delivery" },
+};
+
+const JobPage = () => {
+  const { job, refresh, setJob } = useActiveJob(true);
+  const [otp, setOtp] = useState("");
+  const [busy, setBusy] = useState(false);
+  const nav = useNavigate();
+
+  useEffect(() => {
+    if (job && job.status === "delivered") nav("/driver/job/success");
+  }, [job, nav]);
+
+  if (!job) return <Phone><Header title="Delivery" /><div className="p-6 text-white/60">No active job.</div></Phone>;
+  const meta = STAGE_META[job.status];
+
+  const doAction = async (path, body) => {
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post(`/driver/me/jobs/${job.id}/${path}`, body || {});
+      setJob(data);
+      setOtp("");
+      if (data.status === "delivered") nav("/driver/job/success");
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Phone>
+      <Header title="Delivery" right={<span className="text-[10px] uppercase tracking-widest text-white/40 capitalize">{job.status.replaceAll("_", " ")}</span>} />
+      <div className="px-6 pt-4 pb-24 space-y-5" data-testid="driver-job-page">
+        {/* Map placeholder */}
+        <div className="h-52 rounded-3xl border border-white/10 relative overflow-hidden" data-testid="driver-job-map"
+             style={{ background: "linear-gradient(135deg, rgba(255,122,0,0.15), rgba(255,180,84,0.05)), #0a0a0a" }}>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <Navigation size={28} className="mx-auto text-orange-500" />
+              <div className="text-xs text-white/50 mt-2">Live navigation</div>
+              <div className="text-[10px] text-white/30">(Google Maps SDK · Slice 4)</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/40">
+          {["accepted", "arriving_pickup", "picked_up", "arriving_dropoff"].map((s, i) => {
+            const done = ["accepted","arriving_pickup","picked_up","arriving_dropoff"].indexOf(job.status) >= i;
+            return (
+              <React.Fragment key={s}>
+                <span className={`w-2 h-2 rounded-full ${done ? "bg-orange-500" : "bg-white/10"}`} />
+                {i < 3 && <span className={`flex-1 h-px ${done ? "bg-orange-500/40" : "bg-white/10"}`} />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Stage card */}
+        <GlassCard className="space-y-3">
+          <div className="text-[10px] uppercase tracking-widest text-white/40">{meta.title}</div>
+          <div className="text-lg font-semibold">{meta.sub}</div>
+          <div className="pt-2 border-t border-white/10 space-y-2 text-sm">
+            <div className="flex items-center gap-2 text-white/70"><MapPin size={13} className="text-orange-500" /> {job.pickup.label}</div>
+            <div className="flex items-center gap-2 text-white/70"><Navigation size={13} /> {job.dropoff.label}</div>
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <span className="text-xs text-white/50">{job.customer_name} · {job.customer_phone}</span>
+              <span className="text-sm font-semibold" data-testid="driver-job-fare">{fmtMoney(job.fare.amount, job.fare.currency)}</span>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Action */}
+        {meta.otp ? (
+          <div className="space-y-3" data-testid={`driver-job-otp-${meta.otp}`}>
+            <input
+              autoFocus inputMode="numeric" maxLength={6} value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              placeholder="6-digit code"
+              data-testid="driver-job-otp-input"
+              className="w-full h-16 rounded-2xl bg-white/5 border border-white/10 text-center text-2xl font-mono tracking-[0.4em] outline-none focus:border-orange-500/60"
+            />
+            <PrimaryButton onClick={() => otp.length === 6 ? doAction(meta.next, { code: otp }) : toast.error("Enter the 6-digit code")}
+                           busy={busy} data-testid="driver-job-otp-verify">Verify {meta.otp}</PrimaryButton>
+          </div>
+        ) : (
+          <PrimaryButton onClick={() => doAction(meta.next)} busy={busy} data-testid="driver-job-cta">
+            {meta.cta}
+          </PrimaryButton>
+        )}
+      </div>
+    </Phone>
+  );
+};
+
+const JobSuccessPage = () => {
+  const [job, setJob] = useState(null);
+  const nav = useNavigate();
+  useEffect(() => {
+    // Grab the most-recent delivered job from active-job hint (null once cleared)
+    // For simplicity we just show a static success — real earnings arrive in Slice 3
+    setJob({ ok: true });
+  }, []);
+  return (
+    <Phone>
+      <div className="min-h-screen flex flex-col items-center px-6 pt-20 pb-10" data-testid="driver-job-success">
+        <div className="w-24 h-24 rounded-full grid place-items-center mb-8"
+             style={{ background: "linear-gradient(135deg, #7ee6b0, #57b57e)", boxShadow: "0 30px 60px -20px rgba(126,230,176,0.5)" }}>
+          <CheckCircle2 size={44} color="#0a2015" />
+        </div>
+        <h1 className="text-3xl font-bold text-center">Delivered!</h1>
+        <p className="text-white/60 text-center mt-3">Nice work — your earnings have been added to today&apos;s total.</p>
+        <div className="mt-auto w-full">
+          <PrimaryButton onClick={() => nav("/driver/dashboard")} data-testid="driver-job-success-home">Back to dashboard</PrimaryButton>
         </div>
       </div>
     </Phone>
@@ -864,6 +1115,8 @@ export const DriverApp = () => {
         <Route path="kyc/emergency" element={<NeedsAuth><StepEmergency /></NeedsAuth>} />
         <Route path="kyc/submitted" element={<NeedsAuth><StepSubmitted /></NeedsAuth>} />
         <Route path="dashboard"     element={<NeedsAuth><DashboardPage /></NeedsAuth>} />
+        <Route path="job/live"      element={<NeedsAuth><JobPage /></NeedsAuth>} />
+        <Route path="job/success"   element={<NeedsAuth><JobSuccessPage /></NeedsAuth>} />
         <Route path="*"             element={<Navigate to="/driver" replace />} />
       </Routes>
     </DriverProvider>

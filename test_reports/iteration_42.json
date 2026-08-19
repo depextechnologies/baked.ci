@@ -1,0 +1,32 @@
+{
+  "summary": "Full Slice-2 delivery lifecycle verified end-to-end on both backend and driver PWA. Backend pytest (5/5 pass): register → OTP → KYC wizard (personal/id/licence/selfie/vehicle/bank/emergency + 3 uploads) → submit (pending_review) → admin approve → go online → dispatch demo job → accept → arrive-pickup → verify pickup OTP → picked_up → arrive-dropoff → verify delivery OTP → delivered → active-job returns null. Wrong-OTP path also verified (400 otp_invalid). Frontend Playwright E2E (Chromium, 390x844 iPhone viewport, token seeded into localStorage['baked_driver_token']): driver-online-toggle toggles is_online=true on server; after admin dispatch-demo-job the driver-incoming-sheet overlay appears within the 5s poll window; driver-incoming-fare renders '₹156'; Accept navigates to /driver/job/live with driver-job-page mounted at stage 'Head to pickup'; driver-job-cta advances to arriving_pickup showing driver-job-otp-input; entering the pickup_otp (fetched via /me/active-job) and tapping driver-job-otp-verify transitions to picked_up; next cta → arriving_dropoff → delivery OTP verified → auto-navigates to /driver/job/success (driver-job-success mounted). No timing/polling races observed — the 5s polling picked up the offer on the very first tick after dispatch.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/driver/job/success", "issues": ["Non-fatal React 18 warning surfaces via CRA dev overlay: 'There was an error during concurrent rendering but React was able to recover by instead synchronously rendering the entire root.' Root cause is likely the JobPage useActiveJob poller doing a setJob after JobPage unmounts on nav to /driver/job/success, and JobSuccessPage's own useEffect setJob({ok:true}) racing with it. React recovers with a sync render so the success screen still shows correctly, but the red dev overlay is user-visible in preview builds. Fix: guard useActiveJob against setState after unmount (isMounted ref or AbortController) and/or stop polling when job becomes 'delivered' so no post-unmount setState occurs."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_driver_slice2_lifecycle.py",
+    "/app/test_reports/pytest/slice2_lifecycle.xml"
+  ],
+  "action_items": [
+    "(Optional polish) Stop useActiveJob polling / guard setState once job.status === 'delivered' or component unmounts to eliminate the concurrent-rendering warning surfaced by the CRA overlay on the success page."
+  ],
+  "critical_code_review_comments": [
+    "backend/modules/driver/routes.py — _job_dict correctly gates pickup_otp/delivery_otp to the exact statuses documented in the review request (accepted/arriving_pickup and picked_up/arriving_dropoff). Wrong-OTP verify endpoints return 400 with {code:'otp_invalid'} — verified.",
+    "admin dispatch-demo-job is idempotent: existing in-flight job for the same driver is returned instead of stacking offers — matches doc.",
+    "GET /me/active-job auto-expires stale 'offered' rows to 'expired' when past expires_at — verified by code inspection (not exercised in this run since the flow accepts within ~2s).",
+    "Frontend useActiveJob (DriverApp.jsx line ~869) does not stop the setInterval when the job reaches a terminal state — leads to a post-unmount setJob call on the success page and the concurrent-render warning (see design issue)."
+  ],
+  "updated_files": ["/app/backend/tests/test_driver_slice2_lifecycle.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all Slice-2 UI steps pass)"},
+  "test_credentials": "Superadmin depexopenai@gmail.com / baked@2026#!$@ used via POST /api/admin/auth/login (NOT /api/admin/login — the review-request mentioned /api/admin/login but the actual mounted path is /api/admin/auth/login). Driver phones are generated dynamically as +9199900XXXXX per run; OTP from dev_hint.",
+  "seed_data_creation": "Each run creates 1 new driver via phone-OTP and 1 DriverJob (dispatched by admin). No cleanup performed — rows are minimal and unique per run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Correct admin login path is POST /api/admin/auth/login. Correct driver localStorage token key is 'baked_driver_token' (plus 'baked_driver_onboarded'='1' to skip the onboarding gate). To seed a fully-approved driver in one shot, hit request-otp → verify-otp → PATCH each of the 7 KYC steps (whitelisted fields per KYC_FIELD_WHITELIST) → 3 uploads (gov_id_front, licence_front, selfie via multipart with kind=) → POST /me/submit → admin approve. Then set localStorage token BEFORE navigating to /driver/dashboard. Incoming sheet reliably appears within 5s (poll interval) after admin dispatch-demo-job. The only non-blocking observation is a React concurrent-render warning on the success page caused by useActiveJob polling continuing across the JobPage → JobSuccessPage unmount.",
+  "rca of the issue": "N/A — no blocking issues. The single non-blocking React warning root cause is documented in critical_code_review_comments and design_issues."
+}
