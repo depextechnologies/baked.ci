@@ -51,7 +51,7 @@ const MODULE_LOGO = {
 export const BakedLogo = ({ size = "md", className = "", "data-testid": testId }) => {
   const { theme } = useApp() || { theme: "dark" };
   const src = theme === "dark" ? LOGO.primary.dark : LOGO.primary.light;
-  const heightMap = { sm: 24, md: 32, lg: 85 };
+  const heightMap = { sm: 24, md: 32, lg: 75 };
   return (
     <img
       src={src}
