@@ -68,6 +68,29 @@ COUNTRIES = [
         "delivery_eta_min": "15-20 min",
         "service_radius_km": 15,
     },
+    {
+        # India — added for the development/QA team's location-based testing
+        # (see docs/prompts/India_Location.txt §1). Kept alongside CI; does
+        # NOT replace it. Frontend selectors + Google Places pick this up
+        # automatically via /api/config/countries.
+        "code": "IN",
+        "name": "India",
+        "flag": "🇮🇳",
+        "currency": "INR",
+        "currency_symbol": "₹",
+        "locale": "en-IN",
+        "phone_code": "+91",
+        "timezone": "Asia/Kolkata",
+        "active": True,
+        "primary": False,
+        "production_visible": True,
+        # INR-denominated defaults calibrated for New Delhi delivery economics
+        "min_order": 199,
+        "delivery_fee": 29,
+        "free_delivery_over": 499,
+        "delivery_eta_min": "20-30 min",
+        "service_radius_km": 15,
+    },
 ]
 
 MODULES = [

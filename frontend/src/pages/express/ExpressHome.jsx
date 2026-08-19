@@ -27,7 +27,7 @@ const YELLOW_TINT = "#FCC44C22";
 // Reference points per country — used as the map center + basis for driver sprinkling
 const COUNTRY_CENTER = {
   CI: { lat: 5.3600, lng: -4.0083, label: "Cocody, Abidjan" },
-  LR: { lat: 6.3005, lng: -10.7969, label: "Sinkor, Monrovia" },
+  IN: { lat: 28.6139, lng: 77.2090, label: "Connaught Place, New Delhi" },
 };
 
 // Deterministically-seeded driver positions around a center (so they don't jitter on re-render).

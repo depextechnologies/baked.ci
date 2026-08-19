@@ -88,7 +88,7 @@ export const PortalLocations = () => {
           <label className="text-xs uppercase tracking-widest" style={{ color: "var(--pl-fg-muted)" }}>Country</label>
           <select value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })}
             className="w-full mt-2 px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid="portal-loc-country">
-            <option value="CI">CI</option><option value="LR">LR</option>
+                        <option value="CI">CI</option><option value="IN">IN</option>
           </select>
         </div>
         <div>

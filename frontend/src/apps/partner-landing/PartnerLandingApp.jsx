@@ -71,8 +71,9 @@ const ThemeToggle = ({ theme, onToggle }) => (
 
 const COUNTRIES = [
   { code: "CI", label: "Côte d'Ivoire", flag: "🇨🇮" },
-  // Historical: Liberia records remain in the database but the baked.ci
-  // deployment is currently Côte d'Ivoire-only (P0 correction pass).
+  { code: "IN", label: "India",          flag: "🇮🇳" },
+  // Historical: Liberia records remain in the database but are hidden from
+  // every user-facing selector (per P0 correction pass).
 ];
 
 const CountrySelector = () => {
@@ -226,7 +227,7 @@ const HeroSection = () => (
         <div>
           <Reveal>
             <div className="pl-eyebrow mb-6" style={{ color: "var(--pl-accent)" }}>
-              Now onboarding — Côte d&apos;Ivoire
+              Now onboarding — Côte d&apos;Ivoire & India
             </div>
           </Reveal>
           <Reveal delay={80}>

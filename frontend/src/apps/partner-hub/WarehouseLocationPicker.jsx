@@ -28,6 +28,7 @@ import {
 const SUPPORTED = ["CI"];
 const COUNTRY_CENTER = {
   CI: { lat: 5.345317, lng: -4.024429 }, // Abidjan
+  IN: { lat: 28.6139,  lng: 77.2090   }, // New Delhi
 };
 
 

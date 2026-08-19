@@ -119,6 +119,7 @@ const BusinessStep = ({ f, set }) => (
     <Field label="Country">
       <SelectInput name="country" value={f.country} onChange={e => set("country", e.target.value)}>
         <option value="CI">Côte d&apos;Ivoire</option>
+        <option value="IN">India</option>
       </SelectInput>
     </Field>
     <Field label="Registration number (optional)">

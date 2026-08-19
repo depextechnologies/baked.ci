@@ -671,3 +671,13 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **Testing**: `testing_agent` iteration 39 — **full frontend route audit PASS, zero bugs**. Verified: 15 refresh URLs render, 6-module selector correct, MART login lands module-scoped, coming-soon shells render, sidebar/logout use module-prefixed paths, JWT authoritative, no Liberia in UI, SENDbakēd branding live everywhere.
     - **Explicitly out of scope (per doc §13)**: Supplier approvals, catalogue, PO, GRN, billing, invoices, replenishment, permissions, DB business logic, API contracts, existing module functionality — all untouched.
 
+
+- ✅ **India (IN) testing location added alongside Côte d'Ivoire (2026-02-19)** — from `docs/prompts/India_Location.txt`. Narrow scope, all reversible.
+    - **Backend** (`seed.py`): added IN country row with the exact spec (currency INR / ₹, locale en-IN, phone_code +91, timezone Asia/Kolkata, delivery_fee 29, min_order 199, free_delivery_over 499, active + production_visible). Module-config seeder auto-picks it up so `/api/config/modules?country=IN` returns all 6 modules. CI + LR rows untouched.
+    - **Frontend selectors** now offer [CI, IN] in `PartnerLandingApp.COUNTRIES`, `PartnerApplyApp` dropdown, `SellerApplyWizard` step-1 dropdown, `PortalLocations` supplier location dropdown, admin `ModulePages` express-pricing filter. Landing hero tagline "Now onboarding — Côte d'Ivoire & India". LR still hidden from UI (per P0 correction pass), records preserved in DB.
+    - **Map centers**: added New Delhi (28.6139, 77.2090) to `COUNTRY_CENTER` in `ExpressWizardShell`, `ExpressHome`, `WarehouseLocationPicker`.
+    - **First-visit geolocation → country auto-detect** in `BakedContexts.jsx`: runs once if no prior `baked_country` in localStorage (module-load snapshot guard). Uses browser `getCurrentPosition` + Google `reverseGeocode`, validates against the backend-supplied allowlist, silently no-ops on any error. User's explicit choice is never overridden.
+    - **Google Places** already country-scoped via `includedRegionCodes:[iso.toLowerCase()]` — Delhi suggestions when IN active, Abidjan when CI active.
+    - **Phone codes**: `+91 IN` was already in `PhoneLoginDialog.COUNTRY_CODES`.
+    - **Testing**: `testing_agent` iteration 40 — **backend + frontend PASS, zero bugs**. Verified: backend row shape, `/api/config/modules?country=IN` returns 6, dropdowns limited to [CI, IN], `₹499/₹29/₹199` render on MART home when baked_country=IN, `500/3,000/15,000 CFA` when CI, refresh-safe across all module URLs.
+

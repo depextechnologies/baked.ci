@@ -22,7 +22,7 @@ import { vehicleImage } from "../../lib/expressAssets";
 const YELLOW = "#FCC44C";
 const COUNTRY_CENTER = {
   CI: { lat: 5.36, lng: -4.0083 },
-  LR: { lat: 6.3005, lng: -10.7969 },
+  IN: { lat: 28.6139, lng: 77.2090 },
 };
 
 // ---------- Sub-components ----------

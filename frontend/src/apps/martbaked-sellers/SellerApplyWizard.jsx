@@ -307,6 +307,7 @@ const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier 
           <Field label="Country" testId="wizard-field-country">
             <Select value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} data-testid="wizard-input-country">
               <option value="CI">Côte d&apos;Ivoire (CI)</option>
+              <option value="IN">India (IN)</option>
             </Select>
           </Field>
         </div>
@@ -468,7 +469,7 @@ const StepOwner = ({ appId, contact, onNext, onPrev, refresh }) => {
         </Field>
         <Field label="Nationality">
           <Select value={c.nationality} onChange={(e) => setC({ ...c, nationality: e.target.value })} data-testid="wizard-input-owner-nationality">
-            <option value="CI">CI</option><option value="LR">LR</option>
+                        <option value="CI">CI</option><option value="IN">IN</option>
           </Select>
         </Field>
         <Field label="ID type"><Input value={c.id_type} onChange={(e) => setC({ ...c, id_type: e.target.value })} placeholder="National ID / Passport" data-testid="wizard-input-owner-id-type" /></Field>
@@ -669,7 +670,7 @@ const StepCoverage = ({ appId, existing, supplier, onNext, onPrev, refresh }) =>
             <Field label="Zone"><Input value={r.zone} onChange={(e) => upd(i, { zone: e.target.value })} placeholder="Cocody" data-testid={`wizard-coverage-zone-${i}`} /></Field>
             <Field label="Country">
               <Select value={r.country} onChange={(e) => upd(i, { country: e.target.value })} data-testid={`wizard-coverage-country-${i}`}>
-                <option value="CI">CI</option><option value="LR">LR</option>
+                            <option value="CI">CI</option><option value="IN">IN</option>
               </Select>
             </Field>
             <button type="button" onClick={() => del(i)} className="pl-btn pl-btn-ghost h-11" data-testid={`wizard-coverage-del-${i}`}><Trash2 size={14} /> Remove</button>
@@ -728,7 +729,7 @@ const StepBanking = ({ appId, bank, onNext, onPrev, refresh }) => {
         <Field label="Billing city"><Input value={f.billing_city} onChange={(e) => setF({ ...f, billing_city: e.target.value })} data-testid="wizard-input-billing-city" /></Field>
         <Field label="Billing country">
           <Select value={f.billing_country} onChange={(e) => setF({ ...f, billing_country: e.target.value })} data-testid="wizard-input-billing-country">
-            <option value="CI">CI</option><option value="LR">LR</option>
+                        <option value="CI">CI</option><option value="IN">IN</option>
           </Select>
         </Field>
       </div>

@@ -84,6 +84,11 @@ export const useAuth = () => useContext(AuthCtx);
 // Owns: active business module, active country (config), theme, UI language
 const DEFAULT_COUNTRY = "CI";
 
+// Snapshot at module-load: was the country ever persisted before this session
+// started? Used to decide whether the geolocation-based auto-detect should
+// run (we only auto-detect on the very first visit).
+const HAD_SAVED_COUNTRY = !!localStorage.getItem("baked_country");
+
 // Auto-detect UI language from the browser (equivalent to Accept-Language on the client).
 // Called only on the very first visit — persisted afterwards.
 const detectInitialLanguage = () => {
@@ -135,6 +140,44 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => { localStorage.setItem("baked_country", countryCode); }, [countryCode]);
   useEffect(() => { localStorage.setItem("baked_language", language); document.documentElement.lang = language; }, [language]);
+
+  /**
+   * First-visit geolocation → country detection.
+   *
+   * Runs once on mount only when `baked_country` has NEVER been set (so we
+   * respect any explicit choice the user has already made). Uses the browser
+   * geolocation API + Google reverse-geocode; silently no-ops on any error
+   * (denied permission, HTTPS-only host, no Google Maps loaded yet, etc.).
+   * The detected ISO must match one of the countries the backend returns as
+   * `production_visible` — otherwise we leave the default in place.
+   *
+   * See docs/prompts/India_Location.txt §3.
+   */
+  useEffect(() => {
+    if (HAD_SAVED_COUNTRY) return;                          // respect any prior explicit choice
+    if (!navigator.geolocation) return;                     // no geo API → keep default
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { reverseGeocode } = await import("../lib/googleMaps");
+          const place = await reverseGeocode({ lat: coords.latitude, lng: coords.longitude });
+          const iso = (place?.country || "").toUpperCase();
+          if (cancelled || !iso) return;
+          // Only accept ISOs the backend actually surfaces — this is the
+          // whitelist that keeps LR (and anything else) off the UI.
+          const allowed = countries.map((c) => c.code);
+          if (allowed.length > 0 && !allowed.includes(iso)) return;
+          setCountryCode(iso);
+        } catch { /* silent fallback — default country stays */ }
+      },
+      () => { /* permission denied → keep default, never break */ },
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 60 * 60 * 1000 },
+    );
+    return () => { cancelled = true; };
+    // countries load asynchronously; re-run once they're in so the whitelist
+    // check has real data.
+  }, [countries]);
 
   useEffect(() => {
     (async () => {
