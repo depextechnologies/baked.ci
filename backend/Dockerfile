@@ -49,10 +49,12 @@ EXPOSE 8001
 
 # --------------------------------------------------
 # Health Check
-# Requires: GET /health -> HTTP 200
+# Requires: GET /api/health -> HTTP 200
+# (docker-compose.yml defines its own healthcheck that overrides this one
+# when run via `docker compose`; this stays correct for standalone `docker run`)
 # --------------------------------------------------
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-CMD curl -f http://localhost:8001/health || exit 1
+CMD curl -f http://localhost:8001/api/health || exit 1
 
 # --------------------------------------------------
 # Start Server
