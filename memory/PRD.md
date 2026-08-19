@@ -688,3 +688,12 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
     - **LR hidden from customer UI**: flipped `LR.production_visible=False` in `seed.py`, and `/api/config/countries` now always filters by `production_visible` (removed the APP_ENV dev bypass that was masking the leak). LR row preserved for FK integrity from legacy suppliers/partners.
     - **Testing**: `testing_agent` iteration 41 — **backend 9/9 pytest PASS + frontend full E2E PASS, zero bugs**. Verified: `/api/config/countries` returns [CI, IN] only, Noida pincodes serviceable, Bangalore denied, IN-without-pincode falls back to hubs, CI Cocody still serves ~0.87 km, admin `?country=LR` still works.
 
+
+- ✅ **IN NCR Hub Seed (2026-02-19)** — Delhi NCR pilot now has real hubs, enabling distance-based routing alongside the pincode allowlist.
+    - **Two hubs seeded in `seed.py > STORES_IN`**:
+        - `MARTbakēd Sector 18 Noida` (28.5691, 77.3210) — 15 km radius covers Sectors 1–140 Noida + Delhi border.
+        - `MARTbakēd Alpha 1 Greater Noida` (28.4744, 77.5040) — 15 km radius covers Greater Noida sectors + Greater Noida West.
+    - **Four IN cities** added to `CITIES_IN`: New Delhi, Noida, Greater Noida, Gurugram.
+    - **Belt-and-braces verified**: hub-distance path works for real addresses (Sector 18 Noida 0.0 km · Sector 62 Noida 8.41 km · Sector 137 Noida 10.15 km · Alpha 1 GN 0.0 km · Delta 1 GN 6.71 km · Connaught Place Delhi 12.02 km — all serviceable; Bangalore 1723 km — not serviceable). The pincode allowlist still short-circuits far-flung Greater Noida coordinates when they carry a matching PIN.
+    - No new tables, no migrations — used the existing `MartStore` + `City` idempotent upsert seeders. CI, LR, and existing supplier/partner data untouched.
+

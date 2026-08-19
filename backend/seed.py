@@ -426,6 +426,16 @@ STORES_LR = [
     {"name": "MARTbakēd Congo Town", "address": "Congo Town, Monrovia", "eta": "20-25 min", "rating": 4.5, "country": "LR", "latitude": 6.2500, "longitude": -10.7500},
 ]
 
+# India NCR pilot hubs. Coordinates chosen so a 15km service radius covers:
+#   • Sector 18 Noida → all Noida sectors 1–140 + Delhi border neighbourhoods
+#   • Alpha 1 Greater Noida → all Greater Noida sectors + Greater Noida West
+# Together with the pincode allowlist (201301–201318) this gives full NCR
+# coverage via both hub-distance AND pincode paths.
+STORES_IN = [
+    {"name": "MARTbakēd Sector 18 Noida", "address": "Sector 18, Noida, Uttar Pradesh", "eta": "20-30 min", "rating": 4.6, "country": "IN", "latitude": 28.5691, "longitude": 77.3210},
+    {"name": "MARTbakēd Alpha 1 Greater Noida", "address": "Alpha 1, Greater Noida, Uttar Pradesh", "eta": "25-35 min", "rating": 4.5, "country": "IN", "latitude": 28.4744, "longitude": 77.5040},
+]
+
 CITIES_CI = [
     {"name": "Abidjan", "country": "CI", "latitude": 5.3600, "longitude": -4.0083},
     {"name": "Bouaké", "country": "CI", "latitude": 7.6903, "longitude": -5.0300},
@@ -437,6 +447,12 @@ CITIES_LR = [
     {"name": "Monrovia", "country": "LR", "latitude": 6.3005, "longitude": -10.7969},
     {"name": "Buchanan", "country": "LR", "latitude": 5.8770, "longitude": -10.0467},
     {"name": "Ganta", "country": "LR", "latitude": 7.2367, "longitude": -8.9800},
+]
+CITIES_IN = [
+    {"name": "New Delhi",     "country": "IN", "latitude": 28.6139, "longitude": 77.2090},
+    {"name": "Noida",         "country": "IN", "latitude": 28.5355, "longitude": 77.3910},
+    {"name": "Greater Noida", "country": "IN", "latitude": 28.4744, "longitude": 77.5040},
+    {"name": "Gurugram",      "country": "IN", "latitude": 28.4595, "longitude": 77.0266},
 ]
 
 ROLES = [
@@ -581,13 +597,13 @@ async def _seed_offers(session: AsyncSession):
 
 
 async def _seed_stores(session: AsyncSession):
-    for s in STORES_CI + STORES_LR:
+    for s in STORES_CI + STORES_LR + STORES_IN:
         values = {**s, "id": new_id("str"), "module": "mart", "deleted_at": None, "active": True}
         await _upsert(session, MartStore, ["name", "country"], values)
 
 
 async def _seed_cities(session: AsyncSession):
-    for c in CITIES_CI + CITIES_LR:
+    for c in CITIES_CI + CITIES_LR + CITIES_IN:
         values = {**c, "id": new_id("city"), "active": True, "deleted_at": None}
         await _upsert(session, City, ["name", "country"], values)
 
