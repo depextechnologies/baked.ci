@@ -2,7 +2,6 @@
 
 Adding a new country/module = insert into `countries`/`configurations`. No code change.
 """
-import os
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,19 +14,15 @@ from core.serializers import row_to_dict
 router = APIRouter(prefix="/config", tags=["config"])
 
 
-def _is_production() -> bool:
-    return (os.environ.get("APP_ENV") or "").lower() == "production"
-
-
 @router.get("/countries")
 async def list_countries(session: AsyncSession = Depends(get_session)):
-    """Return active countries. In production, only rows explicitly marked
-    `production_visible=True` are exposed to the customer UI. QA/dev environments
-    see everything so newly seeded countries can be tested before rollout.
+    """Return active + production-visible countries.
+
+    Historical rows (e.g. LR) can be kept in the DB with
+    `production_visible=False` so they're preserved for FK references from
+    old suppliers/partners but never surfaced in customer UIs.
     """
-    stmt = select(Country).where(Country.active.is_(True))
-    if _is_production():
-        stmt = stmt.where(Country.production_visible.is_(True))
+    stmt = select(Country).where(Country.active.is_(True), Country.production_visible.is_(True))
     rows = (await session.execute(stmt)).scalars().all()
     return [row_to_dict(r) for r in rows]
 

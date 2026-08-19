@@ -60,7 +60,11 @@ COUNTRIES = [
         "timezone": "Africa/Monrovia",
         "active": True,
         "primary": False,
-        "production_visible": True,
+        # Row preserved for historical records (existing supplier/partner
+        # rows may still reference country='LR'), but hidden from the
+        # customer-facing UI per the P0 correction pass (baked.ci ships to
+        # CI + IN today).
+        "production_visible": False,
         # Liberian Dollar denominated — round market values (approx: 1 USD ≈ 190 LRD)
         "min_order": 2000,
         "delivery_fee": 200,

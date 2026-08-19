@@ -4,18 +4,42 @@ import { BakedLogo } from "./BakedLogo";
 import { useAuth, useApp, useCart } from "../../contexts/BakedContexts";
 import { NAV } from "../../constants/testIds";
 import { formatMoney, t } from "../../lib/i18n";
-import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut } from "lucide-react";
+import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut, MapPin, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 import { AddressPill } from "../address/AddressPill";
+import { toast } from "sonner";
+
+const DETECT_REASON_COPY = {
+  denied:                "Location permission is blocked. Enable it in your browser settings, then try again.",
+  unavailable:           "Couldn't read your location right now. Try again in a moment.",
+  timeout:               "Location request timed out. Move to an open area or try again.",
+  unsupported:           "This device doesn't support location detection.",
+  no_maps:               "Maps service is unavailable. Try again in a moment.",
+  not_supported_country: "We haven't launched in your country yet — you can pick a supported one below.",
+  no_country:            "Couldn't determine your country. Pick one from the list.",
+};
 
 export const TopNav = () => {
   const { customer, logout, openLogin } = useAuth();
-  const { country, countries, setCountryCode, theme, toggleTheme, language, setLanguage } = useApp();
+  const { country, countries, setCountryCode, detectCountryByLocation, theme, toggleTheme, language, setLanguage } = useApp();
   const { cart } = useCart();
   const navigate = useNavigate();
+  const [detecting, setDetecting] = React.useState(false);
 
   const locale = language ? `${language}-${country?.code || "CI"}` : (country?.locale || "en");
+
+  const onDetectClick = async () => {
+    setDetecting(true);
+    const res = await detectCountryByLocation();
+    setDetecting(false);
+    if (res.ok) {
+      const c = countries.find((x) => x.code === res.iso);
+      toast.success(`Detected — switched to ${c?.name || res.iso}`);
+    } else {
+      toast.error(DETECT_REASON_COPY[res.reason] || "Couldn't detect your location.");
+    }
+  };
 
   return (
     <>
@@ -58,6 +82,17 @@ export const TopNav = () => {
                   </button>
                 ))}
               </div>
+              {/* "Use my location" chip — re-run geolocation for users who
+                  dismissed the first-visit prompt or changed their mind. */}
+              <button
+                data-testid="country-detect-chip"
+                onClick={onDetectClick}
+                disabled={detecting}
+                className="mt-3 w-full flex items-center justify-center gap-2 h-9 rounded-lg text-xs font-semibold border border-border bg-secondary/50 hover:bg-secondary motion-fast disabled:opacity-60"
+              >
+                {detecting ? <Loader2 size={12} className="animate-spin" /> : <MapPin size={12} />}
+                {detecting ? "Detecting…" : "Use my location"}
+              </button>
             </PopoverContent>
           </Popover>
 

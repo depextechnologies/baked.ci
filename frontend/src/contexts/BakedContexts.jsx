@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { api } from "../lib/api";
 
 const AuthCtx = createContext(null);
@@ -142,42 +142,63 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem("baked_language", language); document.documentElement.lang = language; }, [language]);
 
   /**
-   * First-visit geolocation → country detection.
+   * Geolocation → country detection. Returns a Promise that resolves to
+   * `{ ok, iso?, reason? }` — never throws.
    *
-   * Runs once on mount only when `baked_country` has NEVER been set (so we
-   * respect any explicit choice the user has already made). Uses the browser
-   * geolocation API + Google reverse-geocode; silently no-ops on any error
-   * (denied permission, HTTPS-only host, no Google Maps loaded yet, etc.).
-   * The detected ISO must match one of the countries the backend returns as
-   * `production_visible` — otherwise we leave the default in place.
+   *   ok=true  → the detected country was accepted and `setCountryCode` fired
+   *   ok=false → reasons: "unsupported" | "denied" | "unavailable" | "timeout"
+   *              | "no_maps" | "not_supported_country" | "no_country"
    *
-   * See docs/prompts/India_Location.txt §3.
+   * Reused by (a) the first-visit auto-detect effect below and (b) the
+   * "Use my location" chip in the country switcher (`TopNav.jsx`).
    */
-  useEffect(() => {
-    if (HAD_SAVED_COUNTRY) return;                          // respect any prior explicit choice
-    if (!navigator.geolocation) return;                     // no geo API → keep default
-    let cancelled = false;
+  const detectCountryByLocation = useCallback(() => new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve({ ok: false, reason: "unsupported" }); return; }
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
           const { reverseGeocode } = await import("../lib/googleMaps");
           const place = await reverseGeocode({ lat: coords.latitude, lng: coords.longitude });
           const iso = (place?.country || "").toUpperCase();
-          if (cancelled || !iso) return;
-          // Only accept ISOs the backend actually surfaces — this is the
-          // whitelist that keeps LR (and anything else) off the UI.
+          if (!iso) return resolve({ ok: false, reason: "no_country" });
           const allowed = countries.map((c) => c.code);
-          if (allowed.length > 0 && !allowed.includes(iso)) return;
+          if (allowed.length > 0 && !allowed.includes(iso)) {
+            return resolve({ ok: false, iso, reason: "not_supported_country" });
+          }
           setCountryCode(iso);
-        } catch { /* silent fallback — default country stays */ }
+          resolve({ ok: true, iso });
+        } catch { resolve({ ok: false, reason: "no_maps" }); }
       },
-      () => { /* permission denied → keep default, never break */ },
+      (err) => {
+        // PositionError.code — 1: PERMISSION_DENIED, 2: POSITION_UNAVAILABLE, 3: TIMEOUT
+        const reason = err?.code === 1 ? "denied"
+                     : err?.code === 2 ? "unavailable"
+                     : err?.code === 3 ? "timeout"
+                     : "unavailable";
+        resolve({ ok: false, reason });
+      },
       { enableHighAccuracy: false, timeout: 6000, maximumAge: 60 * 60 * 1000 },
     );
-    return () => { cancelled = true; };
-    // countries load asynchronously; re-run once they're in so the whitelist
-    // check has real data.
-  }, [countries]);
+  }), [countries]);
+
+  /**
+   * First-visit geolocation → country detection.
+   *
+   * Runs once on mount only when `baked_country` has NEVER been set (so we
+   * respect any explicit choice the user has already made). Silently no-ops
+   * on any error — never blocks the app.
+   *
+   * See docs/prompts/India_Location.txt §3.
+   */
+  const firstVisitDetectFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (HAD_SAVED_COUNTRY) return;                          // respect any prior explicit choice
+    if (countries.length === 0) return;                     // wait until backend allowlist is loaded
+    if (firstVisitDetectFiredRef.current) return;            // fire-and-forget only once per session
+    firstVisitDetectFiredRef.current = true;
+    detectCountryByLocation();
+  }, [countries, detectCountryByLocation]);
 
   useEffect(() => {
     (async () => {
@@ -198,7 +219,7 @@ export const AppProvider = ({ children }) => {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode]);
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);

@@ -249,7 +249,12 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
       if (candidate.latitude == null || candidate.longitude == null) { setSvc({ loading: false, serviceable: false, message: "Missing coordinates" }); return; }
       try {
         const { data } = await api.get("/addresses/serviceability", {
-          params: { lat: candidate.latitude, lng: candidate.longitude, country: candidate.country || activeCountry },
+          params: {
+            lat: candidate.latitude,
+            lng: candidate.longitude,
+            country: candidate.country || activeCountry,
+            postal_code: candidate.postal_code || undefined,
+          },
         });
         setSvc({ loading: false, ...data });
       } catch (e) {

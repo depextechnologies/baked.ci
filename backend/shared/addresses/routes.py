@@ -24,6 +24,24 @@ router = APIRouter(prefix="/addresses", tags=["addresses"])
 
 
 # ---------- serviceability ----------
+
+# India pincode allowlist — Noida + Greater Noida (201301–201318) for the
+# NCR pilot. Any address with a matching postal code short-circuits the
+# hub-distance check so QA can test the Delhi NCR flow before real hubs
+# are seeded. See docs/prompts/India_Location.txt (follow-up: "allow all
+# noida and greater noida pin codes").
+IN_PINCODE_ALLOWLIST = {f"{p}" for p in range(201301, 201319)}
+
+
+def _matches_country_pincode_allowlist(country: str, postal_code: Optional[str]) -> bool:
+    if not postal_code:
+        return False
+    pc = postal_code.strip()
+    if country == "IN":
+        return pc in IN_PINCODE_ALLOWLIST
+    return False
+
+
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Great-circle distance in kilometres."""
     R = 6371.0088
@@ -38,15 +56,35 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 async def check_serviceability(
     lat: float = Query(..., description="Latitude of the address"),
     lng: float = Query(..., description="Longitude of the address"),
-    country: str = Query("CI", description="ISO country code (CI, LR)"),
+    country: str = Query("CI", description="ISO country code (CI, IN)"),
+    postal_code: Optional[str] = Query(None, description="Postal / PIN code (used for country-level allowlists)"),
     session: AsyncSession = Depends(get_session),
 ):
     """Return whether BAKĒD delivers to a given coordinate.
+
+    Countries can either be hub-radius-based (default: address must sit
+    within `service_radius_km` of an active hub) or pincode-allowlist-based
+    (bypasses hub geometry entirely — India NCR uses this today for the
+    Noida + Greater Noida pilot).
 
     Response shape:
       { serviceable: bool, distance_km, nearest_hub, radius_km, message }
     """
     code = (country or "CI").upper()
+
+    # Country-level pincode allowlist bypass (used by IN NCR pilot).
+    if _matches_country_pincode_allowlist(code, postal_code):
+        return {
+            "serviceable": True,
+            "distance_km": None,
+            "nearest_hub": None,
+            "radius_km": None,
+            "country": code,
+            "postal_code": (postal_code or "").strip(),
+            "match": "pincode_allowlist",
+            "message": "You're within our delivery zone (Delhi NCR pilot).",
+        }
+
     country_row = (
         await session.execute(select(Country).where(Country.code == code, Country.active.is_(True)))
     ).scalar_one_or_none()
