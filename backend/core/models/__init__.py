@@ -65,7 +65,8 @@ from core.models.transfers import (
 )
 from core.models.driver import (
     DRIVER_STATUSES, KYC_STEPS, VEHICLE_TYPES, JOB_STATUSES,
-    Driver, DriverJob, DriverOtp,
+    EARNING_KINDS, WITHDRAWAL_STATUSES,
+    Driver, DriverJob, DriverOtp, DriverEarning, DriverWithdrawal,
 )
 from core.models.suppliers import (
     SUPPLIER_STATUSES, SUPPLIER_APPLICATION_STATUSES, SUPPLIER_BUSINESS_TYPES,
@@ -175,6 +176,7 @@ __all__ = [
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",
-    "Driver", "DriverJob", "DriverOtp",
+    "Driver", "DriverJob", "DriverOtp", "DriverEarning", "DriverWithdrawal",
+    "EARNING_KINDS", "WITHDRAWAL_STATUSES",
     "DRIVER_STATUSES", "KYC_STEPS", "VEHICLE_TYPES", "JOB_STATUSES",
 ]

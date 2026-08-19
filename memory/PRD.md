@@ -163,6 +163,15 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 
 
 ## Backlog (prioritised)
+- ✅ **SENDbakēd Driver App — Slice 3 (2026-02) — Wallet: earnings ledger + withdrawals**
+   - New tables: `driver_earnings` (append-only ledger, kind: fare/tip/bonus/adjustment) with unique index on (job_id, kind) — guarantees no double-credit on retries. `driver_withdrawals` (status: pending/paid/failed) with bank snapshot frozen at request time. Migration `0023_driver_wallet` includes an idempotent backfill for pre-existing delivered jobs.
+   - Auto-credit hook: `POST /api/driver/me/jobs/{id}/verify-delivery` now inserts a `fare` earning inside the same commit (SELECT-then-INSERT guarded by the unique index).
+   - Endpoints: `GET /api/driver/me/earnings` returns `{ currency, available_balance, lifetime, today/week/month {amount, trips}, recent[30], pending_withdrawal }`. `POST /me/withdrawals` (validations in order: bank_missing → withdrawal_pending → below_minimum → insufficient_balance; minimums ₹100 / 1000 CFA). `GET /me/withdrawals` newest-first. `available_balance = lifetime - Σ(pending|paid)`, so a pending request locks funds.
+   - Frontend PWA (`/driver/wallet`): balance hero card, `[data-testid=wallet-*]` test-ids across balance, range-picker (today/week/month), ledger list, pending payout strip, and a bottom sheet WithdrawSheet with bank last-4 snapshot + amount input. Dashboard gained a `[data-testid=driver-wallet-entry]` tile; the "Coming next" chips advanced to Slice 4 (Incentives, Live nav map, In-ride chat).
+   - Dashboard summary now sources today's earnings from the ledger — no more hardcoded `0`.
+   - **Mocked**: payout gateway — status starts `pending`, no real bank transfer yet (Stripe/Razorpay slotted for Phase 8).
+   - **Testing**: `testing_agent_v3_fork` iteration_43.json — 9/9 backend pytest (`/app/backend/tests/test_driver_wallet.py`) covering zero-balance shape, fare-credit idempotency, dashboard ledger source, and all 4 withdrawal validation branches. Full Playwright E2E on 390×844 iPhone viewport verified the wallet page, range picker, ledger, withdraw sheet submit → pending state.
+
 - **P0**: Checkout + Order flow (Phase 2), Payment provider abstraction, Wallet
 - **P1**: Super Admin Platform (Phase 6), RBAC-guarded admin endpoints, AI Business Insights UI
 - ✅ **EXPRESSbakēd — Booking Wizard Redesign per Fixing_Prompt.docx (2026-02-24)** — full desktop/tablet parity with the Home page's 45/55 layout.

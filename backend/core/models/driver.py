@@ -128,3 +128,58 @@ class DriverJob(Base, TimestampMixin):
     delivered_at:        Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     cancelled_at:        Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     cancellation_reason: Mapped[Optional[str]] = mapped_column(Text)
+
+
+
+# ---------------------------------------------------------------------------
+# Slice 3 — Wallet: earnings ledger + withdrawals
+# ---------------------------------------------------------------------------
+
+EARNING_KINDS       = ("fare", "tip", "bonus", "adjustment")
+WITHDRAWAL_STATUSES = ("pending", "paid", "failed")
+
+
+class DriverEarning(Base):
+    """One immutable ledger row per credit to the driver's wallet.
+
+    We credit `fare` automatically when a `DriverJob` transitions to
+    `delivered`. `tip / bonus / adjustment` are placeholders for future
+    slices — the aggregation endpoint treats them all identically.
+    """
+    __tablename__ = "driver_earnings"
+    __table_args__ = (
+        Index("ix_driver_earnings_driver_time", "driver_id", "created_at"),
+        Index("ux_driver_earnings_job_kind", "job_id", "kind", unique=True),
+    )
+
+    id:         Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("dern"))
+    driver_id:  Mapped[str] = mapped_column(String, ForeignKey("drivers.id", ondelete="CASCADE"), nullable=False)
+    job_id:     Mapped[Optional[str]] = mapped_column(String, ForeignKey("driver_jobs.id", ondelete="SET NULL"))
+    kind:       Mapped[str] = mapped_column(String(16), nullable=False, default="fare", server_default="fare")
+    amount:     Mapped[float] = mapped_column(Float, nullable=False)
+    currency:   Mapped[str] = mapped_column(String(8), nullable=False)
+    note:       Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class DriverWithdrawal(Base):
+    """A driver-initiated payout request. Mocked — status starts `pending`,
+    an operator can later flip it to `paid` / `failed`. Bank snapshot is
+    frozen at request time so a later profile edit doesn't rewrite history."""
+    __tablename__ = "driver_withdrawals"
+    __table_args__ = (
+        Index("ix_driver_withdrawals_driver_time", "driver_id", "requested_at"),
+        Index("ix_driver_withdrawals_status", "status"),
+    )
+
+    id:            Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("dwd"))
+    driver_id:     Mapped[str] = mapped_column(String, ForeignKey("drivers.id", ondelete="CASCADE"), nullable=False)
+    amount:        Mapped[float] = mapped_column(Float, nullable=False)
+    currency:      Mapped[str] = mapped_column(String(8), nullable=False)
+    status:        Mapped[str] = mapped_column(String(16), nullable=False, default="pending", server_default="pending")
+    bank_holder:   Mapped[Optional[str]] = mapped_column(String(200))
+    bank_account:  Mapped[Optional[str]] = mapped_column(String(80))
+    bank_ifsc:     Mapped[Optional[str]] = mapped_column(String(40))
+    failure_note:  Mapped[Optional[str]] = mapped_column(Text)
+    requested_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    processed_at:  Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

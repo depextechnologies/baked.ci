@@ -32,7 +32,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.models import (
-    AdminUser, DRIVER_STATUSES, Driver, DriverJob, DriverOtp, KYC_STEPS, VEHICLE_TYPES,
+    AdminUser, DRIVER_STATUSES, Driver, DriverEarning, DriverJob, DriverOtp,
+    DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES,
 )
 from core.providers import object_storage
 from core.security import create_access_token, decode_token
@@ -376,21 +377,35 @@ async def set_online(
 
 
 @router.get("/me/dashboard")
-async def driver_dashboard(driver: Driver = Depends(_current_driver)):
-    """Slice 1 stub — real earnings/jobs arrive in Slice 2 with the delivery
-    lifecycle. For now we return the shape the frontend needs so screens
-    can render without ever rendering `undefined`."""
+async def driver_dashboard(driver: Driver = Depends(_current_driver),
+                            session: AsyncSession = Depends(get_session)):
+    """Slice-3-aware summary — today's earnings come from `driver_earnings`
+    so the dashboard mirrors the wallet without a second network round-trip."""
+    now = datetime.now(timezone.utc)
+    start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    todays = (await session.execute(
+        select(DriverEarning).where(
+            DriverEarning.driver_id == driver.id,
+            DriverEarning.created_at >= start_today,
+        )
+    )).scalars().all()
+    currency = _currency_for(driver.country)
     return {
         "driver": {"id": driver.id, "name": driver.name, "status": driver.status,
                    "is_online": driver.is_online, "kyc_step": driver.kyc_step,
                    "vehicle_type": driver.vehicle_type},
         "today": {
-            "earnings":      {"amount": 0, "currency": _currency_for(driver.country), "trips": 0, "hours_online": 0},
+            "earnings": {
+                "amount": round(sum(e.amount for e in todays), 2),
+                "currency": currency,
+                "trips":   sum(1 for e in todays if e.kind == "fare"),
+                "hours_online": 0,
+            },
             "acceptance_rate": None,
             "cancellation_rate": None,
         },
         "current_area": driver.current_area or ("New Delhi" if driver.country == "IN" else "Cocody, Abidjan"),
-        "incentives": [],           # populated in Slice 3 (Earnings + wallet)
+        "incentives": [],
         "next_payout": None,
     }
 
@@ -616,6 +631,16 @@ async def verify_delivery(job_id: str, payload: VerifyOtpJobIn,
     if payload.code.strip() != j.delivery_otp:
         raise HTTPException(400, {"code": "otp_invalid", "message": "Delivery OTP is incorrect."})
     _txn_stamp(j, "delivered", "delivered_at")
+    # Credit the wallet ledger. Unique (job_id, kind) index guarantees we
+    # never double-credit if the client retries verify-delivery.
+    existing = (await session.execute(
+        select(DriverEarning).where(DriverEarning.job_id == j.id, DriverEarning.kind == "fare")
+    )).scalars().first()
+    if not existing:
+        session.add(DriverEarning(
+            driver_id=driver.id, job_id=j.id, kind="fare",
+            amount=j.fare_amount, currency=j.fare_currency,
+        ))
     await session.commit(); return _job_dict(j)
 
 
@@ -672,3 +697,123 @@ async def admin_dispatch_demo_job(driver_id: str,
     session.add(j)
     await session.commit(); await session.refresh(j)
     return _job_dict(j)
+
+
+# ===========================================================================
+# Slice 3 — Wallet (earnings ledger + withdrawals)
+# ===========================================================================
+
+def _sum_since(session_rows, since: datetime) -> float:
+    """Helper: sum earnings amount from an already-fetched list, since `since`."""
+    return sum(e.amount for e in session_rows if e.created_at >= since)
+
+
+def _earning_dict(e: DriverEarning) -> dict:
+    return {
+        "id": e.id, "job_id": e.job_id, "kind": e.kind,
+        "amount": e.amount, "currency": e.currency, "note": e.note,
+        "created_at": e.created_at.isoformat(),
+    }
+
+
+def _withdrawal_dict(w: DriverWithdrawal) -> dict:
+    return {
+        "id": w.id, "amount": w.amount, "currency": w.currency, "status": w.status,
+        "bank": {"holder": w.bank_holder, "account": w.bank_account, "ifsc": w.bank_ifsc},
+        "failure_note": w.failure_note,
+        "requested_at": w.requested_at.isoformat(),
+        "processed_at": w.processed_at.isoformat() if w.processed_at else None,
+    }
+
+
+@router.get("/me/earnings")
+async def driver_earnings(driver: Driver = Depends(_current_driver),
+                          session: AsyncSession = Depends(get_session)):
+    """Wallet summary — today / this-week / this-month / all-time totals plus
+    the last 30 ledger rows and pending-withdrawals count. `available_balance`
+    = lifetime earnings - (paid + pending withdrawals) so a driver can't
+    double-spend an in-flight request."""
+    now = datetime.now(timezone.utc)
+    start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_week  = start_today - timedelta(days=start_today.weekday())
+    start_month = start_today.replace(day=1)
+
+    earnings = (await session.execute(
+        select(DriverEarning).where(DriverEarning.driver_id == driver.id)
+        .order_by(DriverEarning.created_at.desc())
+    )).scalars().all()
+
+    lifetime = sum(e.amount for e in earnings)
+    withdrawals = (await session.execute(
+        select(DriverWithdrawal).where(DriverWithdrawal.driver_id == driver.id)
+        .order_by(DriverWithdrawal.requested_at.desc())
+    )).scalars().all()
+    locked = sum(w.amount for w in withdrawals if w.status in ("pending", "paid"))
+    currency = earnings[0].currency if earnings else _currency_for(driver.country)
+
+    return {
+        "currency": currency,
+        "available_balance": round(lifetime - locked, 2),
+        "lifetime": round(lifetime, 2),
+        "today":  {"amount": round(_sum_since(earnings, start_today), 2),
+                    "trips": sum(1 for e in earnings if e.kind == "fare" and e.created_at >= start_today)},
+        "week":   {"amount": round(_sum_since(earnings, start_week),  2),
+                    "trips": sum(1 for e in earnings if e.kind == "fare" and e.created_at >= start_week)},
+        "month":  {"amount": round(_sum_since(earnings, start_month), 2),
+                    "trips": sum(1 for e in earnings if e.kind == "fare" and e.created_at >= start_month)},
+        "recent": [_earning_dict(e) for e in earnings[:30]],
+        "pending_withdrawal": next((_withdrawal_dict(w) for w in withdrawals if w.status == "pending"), None),
+    }
+
+
+class WithdrawIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    amount: float = Field(..., gt=0)
+
+
+# Business rule: a driver in India can request payouts as small as ₹100; in
+# CI the minimum is 1000 CFA. Keeps the operator's payout ops sane.
+MIN_WITHDRAWAL = {"INR": 100.0, "XOF": 1000.0}
+
+
+@router.post("/me/withdrawals")
+async def request_withdrawal(payload: WithdrawIn,
+                             driver: Driver = Depends(_current_driver),
+                             session: AsyncSession = Depends(get_session)):
+    if not driver.bank_account_number:
+        raise HTTPException(409, {"code": "bank_missing",
+                                  "message": "Add your bank details before requesting a payout."})
+    # Reuse the summary logic so validation is authoritative.
+    summary = await driver_earnings(driver=driver, session=session)
+    currency = summary["currency"]
+    minimum  = MIN_WITHDRAWAL.get(currency, 100.0)
+
+    if summary["pending_withdrawal"]:
+        raise HTTPException(409, {"code": "withdrawal_pending",
+                                  "message": "You already have a pending payout — wait for it to clear."})
+    if payload.amount < minimum:
+        raise HTTPException(400, {"code": "below_minimum",
+                                  "message": f"Minimum payout is {minimum:.0f} {currency}."})
+    if payload.amount > summary["available_balance"]:
+        raise HTTPException(400, {"code": "insufficient_balance",
+                                  "message": "Requested amount exceeds available balance."})
+    w = DriverWithdrawal(
+        driver_id=driver.id, amount=round(payload.amount, 2), currency=currency,
+        status="pending",
+        bank_holder=driver.bank_account_holder,
+        bank_account=driver.bank_account_number,   # already masked in _driver_dict, raw here for ops
+        bank_ifsc=driver.bank_ifsc_or_swift,
+    )
+    session.add(w)
+    await session.commit(); await session.refresh(w)
+    return _withdrawal_dict(w)
+
+
+@router.get("/me/withdrawals")
+async def list_withdrawals(driver: Driver = Depends(_current_driver),
+                           session: AsyncSession = Depends(get_session)):
+    rows = (await session.execute(
+        select(DriverWithdrawal).where(DriverWithdrawal.driver_id == driver.id)
+        .order_by(DriverWithdrawal.requested_at.desc())
+    )).scalars().all()
+    return {"items": [_withdrawal_dict(w) for w in rows]}

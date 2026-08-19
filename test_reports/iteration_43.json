@@ -1,0 +1,32 @@
+{
+  "summary": "Slice-3 Wallet feature verified end-to-end. Backend pytest 9/9 pass covering: (a) fresh driver zero-balance shape, (b) verify-delivery credits DriverEarning with matching job_id/kind='fare'/currency='INR' + retry stays at lifetime=fare (unique (job_id, kind) index + 409 on re-verify — no double-credit), (c) dashboard today.earnings.amount sourced from ledger (=₹156 post-delivery, not 0), (d) all four withdrawal validation branches: below_minimum (amount=50<100 → 400), insufficient_balance (999999 → 400), withdrawal_pending (2nd request while pending → 409), bank_missing (fresh un-KYC'd driver → 409). Success path: POST withdrawal returns status='pending', available_balance drops to 0 (locked=lifetime), currency=INR, GET /me/withdrawals returns newest-first. Frontend Playwright E2E on iPhone viewport (390x844): dashboard shows driver-wallet-entry tile which navigates to /driver/wallet; wallet-balance-card renders ₹156 at wallet-available-balance; wallet-withdraw-cta enabled when balance>0; range-picker today/week/month switches wallet-range-amount correctly (all show ₹156 for this run since delivery is today); wallet-ledger-list renders the fare row; tapping cta opens wallet-withdraw-sheet prefilled with 156; wallet-withdraw-submit posts, sheet closes, success toast 'Payout requested' shows, wallet-pending-strip appears with '₹156 · payout requested', and wallet-withdraw-cta becomes disabled with label 'Payout in progress'. No console errors seen on the wallet page.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_driver_wallet.py",
+    "/app/test_reports/pytest/slice3_wallet.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/modules/driver/routes.py:634-643 — verify_delivery guards double-credit with a SELECT-then-INSERT inside the same session; the unique (job_id, kind) DB index is the real safety net if two concurrent requests race. In practice verify-delivery is also gated by the status transition check (`if j.status not in ('picked_up','arriving_dropoff')`) so a second call gets 409 before reaching the ledger block — verified by the idempotency test.",
+    "backend/modules/driver/routes.py:783 — bank_missing is checked BEFORE pending_withdrawal, below_minimum, and insufficient_balance. Ordering matches the review-request expectations.",
+    "backend/modules/driver/routes.py:751 — `locked = sum(w.amount for w in withdrawals if w.status in ('pending','paid'))` correctly excludes failed withdrawals so a rejected payout returns funds to available_balance. Confirmed by manual code inspection.",
+    "backend/modules/driver/routes.py:787 — request_withdrawal calls driver_earnings() to reuse balance math. Clean, no drift risk between GET and POST validation.",
+    "frontend/src/apps/driver/DriverApp.jsx:1156 — withdraw CTA disabled state correctly combines `available_balance <= 0 || !!pending`, so a driver with a pending payout even for a smaller amount still cannot open the sheet — verified in UI.",
+    "frontend/src/apps/driver/DriverApp.jsx:1245 — WithdrawSheet prefills `String(summary.available_balance)`; if available_balance is 0 the CTA is already disabled so the sheet never opens with 0 — safe."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_driver_wallet.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all Slice-3 wallet UI steps pass)"},
+  "test_credentials": "Superadmin depexopenai@gmail.com / baked@2026#!$@ via /api/admin/auth/login. Drivers created dynamically via phone-OTP; OTP from dev_hint.",
+  "seed_data_creation": "Per run: 2 drivers (one fully-approved with 1 completed delivery + 1 pending withdrawal, one un-KYC'd for the bank_missing branch) + 1 additional approved driver from the Playwright bootstrap. All rows unique per run — no cleanup performed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file: /app/backend/tests/test_driver_wallet.py — reuses the same OTP+KYC+approve helper as Slice 2. To trigger bank_missing branch, hit /me/withdrawals with a fresh driver (post-OTP, pre-KYC) because /me/submit requires bank_account_number so an approved driver always has bank set. IN demo fare = ₹156. Frontend token key = 'baked_driver_token', plus 'baked_driver_onboarded'='1'. Wallet page test-ids all namespaced under wallet-* (balance-card, available-balance, withdraw-cta, range-picker, range-today|week|month, range-amount, ledger-empty|list, pending-strip, withdraw-sheet, withdraw-amount, withdraw-submit, withdraw-close). Dashboard tile: driver-wallet-entry.",
+  "rca of the issue": "N/A — no issues found."
+}

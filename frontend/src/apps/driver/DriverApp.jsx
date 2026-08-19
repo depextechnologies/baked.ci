@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import {
   Loader2, ChevronRight, ChevronLeft, Truck, Bike, Package, Wallet, Star, LogOut,
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
-  Camera, Car, X, Navigation, ArrowRight,
+  Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark,
 } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
@@ -832,19 +832,36 @@ const DashboardPage = () => {
           </div>
         )}
 
+        {/* Wallet card — deep-link to /driver/wallet */}
+        <button
+          onClick={() => nav("/driver/wallet")}
+          data-testid="driver-wallet-entry"
+          className="mt-6 w-full rounded-3xl p-5 border border-white/10 bg-white/[0.04] backdrop-blur-xl flex items-center gap-4 text-left hover:bg-white/[0.06] transition"
+        >
+          <div className="w-12 h-12 rounded-2xl grid place-items-center"
+               style={{ background: "linear-gradient(135deg, #FFB454, #FF7A00)" }}>
+            <Wallet size={20} color="#000" />
+          </div>
+          <div className="flex-1">
+            <div className="text-[10px] uppercase tracking-widest text-white/40">Wallet</div>
+            <div className="text-sm font-semibold mt-0.5">View earnings &amp; withdraw</div>
+          </div>
+          <ChevronRight size={18} className="text-white/40" />
+        </button>
+
         {/* Coming soon strip */}
         <div className="mt-8">
           <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3">Coming next</div>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {[
-              { icon: Package, label: "Delivery requests" },
               { icon: Star,    label: "Incentives" },
-              { icon: Wallet,  label: "Withdraw payouts" },
+              { icon: Navigation, label: "Live nav map" },
+              { icon: PhoneIcon,  label: "In-ride chat" },
             ].map((c, i) => (
               <div key={i} className="min-w-[140px] rounded-2xl p-4 bg-white/[0.03] border border-white/10">
                 <c.icon size={18} className="text-orange-500" />
                 <div className="text-xs font-medium mt-2">{c.label}</div>
-                <div className="text-[10px] text-white/40 mt-0.5">Slice 3</div>
+                <div className="text-[10px] text-white/40 mt-0.5">Slice 4</div>
               </div>
             ))}
           </div>
@@ -1080,6 +1097,221 @@ const JobSuccessPage = () => {
 };
 
 /* -------------------------------------------------------------------------- */
+/*  Slice 3 — Wallet (earnings + withdraw)                                     */
+/* -------------------------------------------------------------------------- */
+
+const walletFmt = (amt, cur) =>
+  cur === "INR" ? `₹${Number(amt || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+                : `${Number(amt || 0).toLocaleString()} ${cur === "XOF" ? "CFA" : cur}`;
+
+const dayLabel = (iso) => {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffH = (now - d) / 36e5;
+  if (diffH < 24) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString([], { day: "2-digit", month: "short" });
+};
+
+const WalletPage = () => {
+  const nav = useNavigate();
+  const { driver } = useDriver();
+  const [summary, setSummary] = useState(null);
+  const [range, setRange]     = useState("today");
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try { const { data } = await driverApi.get("/driver/me/earnings"); setSummary(data); }
+    catch (err) { toast.error(errMsg(err)); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  if (!summary) return (
+    <Phone><Header title="Wallet" back={() => nav("/driver/dashboard")} />
+      <div className="h-64 grid place-items-center"><Loader2 className="animate-spin" size={22} /></div>
+    </Phone>
+  );
+
+  const bucket = summary[range] || { amount: 0, trips: 0 };
+  const rangeLabel = { today: "Today", week: "This week", month: "This month" }[range];
+  const pending = summary.pending_withdrawal;
+
+  return (
+    <Phone>
+      <Header title="Wallet" back={() => nav("/driver/dashboard")} />
+      <div className="px-6 pt-4 pb-28" data-testid="driver-wallet-page">
+        {/* Balance hero */}
+        <div className="rounded-[28px] p-6 mt-2 relative overflow-hidden"
+             style={{ background: "linear-gradient(135deg, #FF7A00 0%, #FFB454 55%, #FFD08A 100%)",
+                      boxShadow: "0 30px 60px -20px rgba(255,122,0,0.55)" }}
+             data-testid="wallet-balance-card">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-black/70">Available balance</div>
+          <div className="text-4xl font-bold text-black mt-2" data-testid="wallet-available-balance">
+            {walletFmt(summary.available_balance, summary.currency)}
+          </div>
+          <div className="text-xs text-black/60 mt-1">
+            Lifetime earnings {walletFmt(summary.lifetime, summary.currency)}
+          </div>
+          <button
+            onClick={() => setSheetOpen(true)}
+            disabled={summary.available_balance <= 0 || !!pending}
+            data-testid="wallet-withdraw-cta"
+            className="mt-5 w-full h-12 rounded-2xl bg-black text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:bg-black/40 disabled:text-white/60"
+          >
+            <ArrowUpRight size={16} />
+            {pending ? "Payout in progress" : "Withdraw to bank"}
+          </button>
+          <TrendingUp size={72} className="absolute -right-3 -bottom-3 text-black/10" />
+        </div>
+
+        {/* Pending payout strip */}
+        {pending && (
+          <div className="mt-4 rounded-2xl p-4 border border-orange-500/30 bg-orange-500/5 flex items-center gap-3"
+               data-testid="wallet-pending-strip">
+            <div className="w-10 h-10 rounded-full bg-orange-500/20 text-orange-500 grid place-items-center"><Clock size={16} /></div>
+            <div className="flex-1">
+              <div className="text-sm font-semibold">
+                {walletFmt(pending.amount, pending.currency)} · payout requested
+              </div>
+              <div className="text-[11px] text-white/50">
+                Requested {dayLabel(pending.requested_at)} · usually clears within 2 working days
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Range picker */}
+        <div className="mt-6 grid grid-cols-3 gap-2 p-1 rounded-2xl bg-white/[0.04] border border-white/10"
+             data-testid="wallet-range-picker">
+          {["today", "week", "month"].map((k) => (
+            <button key={k} onClick={() => setRange(k)} data-testid={`wallet-range-${k}`}
+              className={`h-10 rounded-xl text-xs font-medium capitalize transition
+                          ${range === k ? "bg-white/10 text-white" : "text-white/50"}`}>
+              {k === "today" ? "Today" : k === "week" ? "Week" : "Month"}
+            </button>
+          ))}
+        </div>
+
+        <GlassCard className="mt-3">
+          <div className="text-[10px] uppercase tracking-widest text-white/40">{rangeLabel} earnings</div>
+          <div className="text-3xl font-bold mt-2" data-testid="wallet-range-amount">
+            {walletFmt(bucket.amount, summary.currency)}
+          </div>
+          <div className="text-[11px] text-white/50 mt-1">{bucket.trips} {bucket.trips === 1 ? "trip" : "trips"}</div>
+        </GlassCard>
+
+        {/* Ledger */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[10px] uppercase tracking-widest text-white/40">Recent earnings</div>
+            <div className="text-[10px] text-white/30">Last 30</div>
+          </div>
+          {summary.recent.length === 0 ? (
+            <div className="rounded-2xl p-6 border border-white/10 bg-white/[0.03] text-center text-sm text-white/50"
+                 data-testid="wallet-ledger-empty">
+              No earnings yet — complete your first delivery to see it here.
+            </div>
+          ) : (
+            <div className="space-y-2" data-testid="wallet-ledger-list">
+              {summary.recent.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 p-3 rounded-2xl border border-white/10 bg-white/[0.03]">
+                  <div className="w-10 h-10 rounded-full grid place-items-center"
+                       style={{ background: "linear-gradient(135deg, #FFB454, #FF7A00)" }}>
+                    <Package size={16} color="#000" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate capitalize">
+                      {e.kind === "fare" ? "Delivery earnings" : e.kind}
+                    </div>
+                    <div className="text-[11px] text-white/40">{dayLabel(e.created_at)}</div>
+                  </div>
+                  <div className="text-sm font-semibold text-orange-400">
+                    +{walletFmt(e.amount, e.currency)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {sheetOpen && <WithdrawSheet summary={summary} driver={driver}
+                                    onClose={() => setSheetOpen(false)}
+                                    onSuccess={() => { setSheetOpen(false); load(); }} />}
+    </Phone>
+  );
+};
+
+const WithdrawSheet = ({ summary, driver, onClose, onSuccess }) => {
+  const [amount, setAmount] = useState(String(summary.available_balance));
+  const [busy, setBusy]     = useState(false);
+  const submit = async () => {
+    const val = Number(amount);
+    if (!val || val <= 0) return toast.error("Enter an amount");
+    setBusy(true);
+    try {
+      await driverApi.post("/driver/me/withdrawals", { amount: val });
+      toast.success("Payout requested");
+      onSuccess();
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setBusy(false); }
+  };
+  const bankLast4 = driver?.bank_account_number?.slice(-4) || "••••";
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur"
+         data-testid="wallet-withdraw-sheet" onClick={onClose}>
+      <div className="w-full max-w-[440px] rounded-t-[36px] bg-neutral-950 border-t border-white/10 p-6 pb-10"
+           onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto w-12 h-1 rounded-full bg-white/20 mb-4" />
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">Withdraw</div>
+            <div className="text-xl font-bold mt-1">To your bank</div>
+          </div>
+          <button onClick={onClose} data-testid="wallet-withdraw-close"
+                  className="w-9 h-9 rounded-full bg-white/5 grid place-items-center"><X size={16} /></button>
+        </div>
+
+        <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-white/10 grid place-items-center"><Landmark size={16} /></div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold truncate">{driver?.bank_account_holder || "—"}</div>
+            <div className="text-[11px] text-white/50">Ending ••{bankLast4} · {driver?.bank_ifsc_or_swift || ""}</div>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Amount</div>
+          <div className="flex items-stretch gap-3">
+            <div className="h-14 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center text-base">
+              {summary.currency === "INR" ? "₹" : summary.currency}
+            </div>
+            <input
+              autoFocus inputMode="decimal" value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              data-testid="wallet-withdraw-amount"
+              className="flex-1 h-14 rounded-2xl bg-white/5 border border-white/10 px-4 text-base outline-none focus:border-orange-500/60"
+            />
+          </div>
+          <div className="text-[11px] text-white/40 mt-2">
+            Available: <span className="text-white">{walletFmt(summary.available_balance, summary.currency)}</span>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <PrimaryButton onClick={submit} busy={busy} data-testid="wallet-withdraw-submit">
+            Request payout
+          </PrimaryButton>
+          <p className="text-[10px] text-white/40 text-center mt-3 leading-relaxed">
+            Payouts typically clear within 2 working days. This is a demo — no funds actually move yet.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+/* -------------------------------------------------------------------------- */
 /*  App                                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -1117,6 +1349,7 @@ export const DriverApp = () => {
         <Route path="dashboard"     element={<NeedsAuth><DashboardPage /></NeedsAuth>} />
         <Route path="job/live"      element={<NeedsAuth><JobPage /></NeedsAuth>} />
         <Route path="job/success"   element={<NeedsAuth><JobSuccessPage /></NeedsAuth>} />
+        <Route path="wallet"        element={<NeedsAuth><WalletPage /></NeedsAuth>} />
         <Route path="*"             element={<Navigate to="/driver" replace />} />
       </Routes>
     </DriverProvider>
