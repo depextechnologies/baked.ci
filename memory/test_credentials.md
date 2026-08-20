@@ -27,5 +27,17 @@
 - Slug: `echo` → portal path `/martbaked/echo/portal/dashboard`
 - Login credentials: request activation from Super Admin after approval (activation email flow)
 
+## SENDbakēd Test Driver (phone OTP)
+- Country: IN (India)
+- Phone: `+919990001234`
+- Driver ID: `drv_80fb10f9def94f95`
+- Status: `approved` + `is_online=true` (KYC + admin approval already done in DB)
+- PWA login: `https://baked-platform.preview.emergentagent.com/driver`
+- **How to get the OTP** (mocked SMS): after tapping Continue on the phone-entry screen, open DevTools → Network → the response to `/api/driver/auth/request-otp` returns `dev_hint` = the 6-digit code. It's also printed to `/var/log/supervisor/backend.err.log`. OTP is valid for 10 minutes.
+- Active demo job auto-dispatched — you'll see an incoming-request overlay right after login. Accept it to walk the delivery + chat + wallet flows.
+- **Customer tracking page** (public, no login):
+  - Format: `https://baked-platform.preview.emergentagent.com/send/track/{JOB_ID}?t={SHARE_TOKEN}`
+  - To dispatch a fresh job + get a fresh tracking link, hit `POST /api/admin/drivers/drv_80fb10f9def94f95/dispatch-demo-job` with the Super Admin JWT — the response includes `id` and `share_token`.
+
 ## Notes
 - Legacy `/martbaked/sellers/portal/*` still works — auto-redirects to the resolved slug URL client-side.
