@@ -8,9 +8,9 @@ import { useApp } from "../../contexts/BakedContexts";
 const LOGO = {
   primary: {
     // Dark-background version: white wordmark.
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/21jnti32_Baked_White.png",
+    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/yz6nfmbn_Baked_Black.png",
     // Light-background version: black wordmark.
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/yz6nfmbn_Baked_Black.png",
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/21jnti32_Baked_White.png",
   },
 };
 
