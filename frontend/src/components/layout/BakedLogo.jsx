@@ -2,15 +2,15 @@ import React from "react";
 import { useApp } from "../../contexts/BakedContexts";
 
 // ------- Official brand assets -------
-// Primary BAKĒD wordmark. The two variants below are the approved masters
-// supplied via Fixing_Prompt.docx (P0 correction pass). Use the dark-bg
-// variant on dark surfaces and the light-bg variant on light surfaces.
+// Primary BAKĒD wordmark. Provided as transparent PNGs so they blend
+// on any background — white glyph for dark surfaces, black glyph for
+// light surfaces. Themed via `useApp().theme`.
 const LOGO = {
   primary: {
-    // Dark-background version: white wordmark on black.
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/h99r81z3_WhatsApp%20Image%202026-05-31%20at%208.26.46%20PM%20%281%29.jpeg",
-    // Light-background version: black wordmark on white.
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/s7zvso1h_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%281%29.jpeg",
+    // Dark-background version: white wordmark.
+    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/21jnti32_Baked_White.png",
+    // Light-background version: black wordmark.
+    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/yz6nfmbn_Baked_Black.png",
   },
 };
 
@@ -51,7 +51,7 @@ const MODULE_LOGO = {
 export const BakedLogo = ({ size = "md", className = "", "data-testid": testId }) => {
   const { theme } = useApp() || { theme: "dark" };
   const src = theme === "dark" ? LOGO.primary.dark : LOGO.primary.light;
-  const heightMap = { sm: 24, md: 32, lg: 70 };
+  const heightMap = { sm: 28, md: 40, lg: 70 };
   return (
     <img
       src={src}
