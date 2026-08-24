@@ -1,5 +1,11 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #14: Footer redesign (COMPLETE)
+- Brand column: logo + green Sparkles icon + brand promise ("Groceries, rides, deliveries and homes — one app for everyday Africa. Fast, fair, and unapologetically local.") + 5 social pills (Facebook / Instagram / Twitter / LinkedIn / YouTube) + mailto contact.
+- Legal bar (row 2): copyright with current year, country flag + name, and 4 quick legal links (Terms / Privacy / Cookies / Accessibility).
+- All existing `footer-link-*` testids preserved (no regression on Issue #12 links).
+- Verified 28/29 desktop checks by testing agent (`/app/test_reports/iteration_58.json`). Mobile stacking is untestable in preview because `/terms` and `/privacy` switch to MobileShell — a shell/route decision, not a Footer bug.
+
 ## 2026-02-24 — Social.docx Issue #13: Top header tightening (COMPLETE)
 - Cart button: badge moved to top-right (`-top-1.5 -right-1.5`), amount `whitespace-nowrap` + only shown on `lg+`, `shrink-0` on the wrapper.
 - Offers / Orders / Login collapsed from icon+label stacks into consistent icon-only 40×40 pill buttons on `md+`.
@@ -104,7 +110,6 @@ _(both driver issues shipped)_
 _(#7 shipped — every checkout now uses the Google Maps picker)_
 
 ### Phase 5 (Website UX) — NEXT / P1
-- #14: Footer redesign
 - #15: Word sweep (branding consistency)
 - #16: Product card `+` button
 
