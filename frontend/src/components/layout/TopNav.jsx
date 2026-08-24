@@ -4,7 +4,7 @@ import { BakedLogo } from "./BakedLogo";
 import { useAuth, useApp, useCart } from "../../contexts/BakedContexts";
 import { NAV } from "../../constants/testIds";
 import { formatMoney, t } from "../../lib/i18n";
-import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, MapPin, Loader2, Menu, X } from "lucide-react";
+import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, MapPin, Loader2, Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/sheet";
 import { AddressPill } from "../address/AddressPill";
@@ -131,16 +131,12 @@ export const TopNav = () => {
             <Search size={18} />
           </button>
 
-          {/* Right actions — Offers/Orders/Account/Language/Theme all hidden on <md; live inside the drawer instead */}
-          <button data-testid={NAV.offers} onClick={() => navigate("/products?sort=price_asc")}
+          {/* Right actions — quick pill buttons; everything below lg is in the drawer.
+              Offers & Orders removed per user request (routes still exist). */}
+          <button data-testid={NAV.aiAssistant} onClick={() => navigate("/ai-assistant")}
                   className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
-                  title={t(locale, "nav.offers")} aria-label={t(locale, "nav.offers")}>
-            <Tag size={18} />
-          </button>
-          <button data-testid={NAV.orders} onClick={() => navigate("/orders")}
-                  className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
-                  title={t(locale, "nav.orders")} aria-label={t(locale, "nav.orders")}>
-            <Package size={18} />
+                  title="AI Assistant" aria-label="AI Assistant">
+            <Sparkles size={18} style={{ color: "#77BC1F" }} />
           </button>
 
           {customer ? (
@@ -178,31 +174,34 @@ export const TopNav = () => {
             </span>
           </button>
 
-          {/* Language switcher — desktop only */}
-          <div
-            data-testid="top-nav-language-switcher"
-            className="hidden lg:flex baked-btn overflow-hidden border border-border items-stretch text-xs font-semibold shrink-0"
-            role="group"
-            aria-label="Language"
-          >
-            <button
-              data-testid="top-nav-language-fr"
-              onClick={() => setLanguage("fr")}
-              className={`px-3 py-2 motion-fast ${language === "fr" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}
-              aria-pressed={language === "fr"}
-            >
-              FR
-            </button>
-            <div className="w-px bg-border" />
-            <button
-              data-testid="top-nav-language-en"
-              onClick={() => setLanguage("en")}
-              className={`px-3 py-2 motion-fast ${language === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}
-              aria-pressed={language === "en"}
-            >
-              EN
-            </button>
-          </div>
+          {/* Language switcher — dropdown, desktop only */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                data-testid="top-nav-language-switcher"
+                className="hidden lg:flex items-center gap-1 h-10 px-3 rounded-full border border-border text-xs font-semibold hover:bg-secondary motion-fast shrink-0"
+                aria-label="Language"
+              >
+                {language === "fr" ? "FR" : "EN"} <ChevronDown size={12} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-40 p-1">
+              <button
+                data-testid="top-nav-language-fr"
+                onClick={() => setLanguage("fr")}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "fr" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
+              >
+                FR — Français
+              </button>
+              <button
+                data-testid="top-nav-language-en"
+                onClick={() => setLanguage("en")}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "en" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
+              >
+                EN — English
+              </button>
+            </PopoverContent>
+          </Popover>
 
           {/* Theme toggle — desktop only */}
           <button
@@ -268,6 +267,7 @@ export const TopNav = () => {
                 <nav className="p-2">
                   {[
                     { icon: MapPin,       label: t(locale, "nav.categories") || "Categories",   to: "/categories",             testid: "drawer-categories" },
+                    { icon: Sparkles,     label: "AI Assistant",                                 to: "/ai-assistant",           testid: "drawer-ai-assistant" },
                     { icon: Tag,          label: t(locale, "nav.offers"),                        to: "/products?sort=price_asc", testid: "drawer-offers" },
                     { icon: Package,      label: t(locale, "nav.orders"),                        to: "/orders",                 testid: "drawer-orders" },
                   ].map(({ icon: Icon, label, to, testid }) => (

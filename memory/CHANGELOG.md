@@ -33,7 +33,15 @@
 - All existing `footer-link-*` testids preserved (no regression on Issue #12 links).
 - Verified 28/29 desktop checks by testing agent (`/app/test_reports/iteration_58.json`). Mobile stacking is untestable in preview because `/terms` and `/privacy` switch to MobileShell — a shell/route decision, not a Footer bug.
 
-## 2026-02-24 — Social.docx Issue #13: Top header tightening (COMPLETE)
+## 2026-02-24 — Issue #13 rework per user spec (COMPLETE)
+- **Removed** Offers icon and Orders icon from TopNav (per user requirement).
+- **Added** AI Assistant menu item ([data-testid="top-nav-ai-assistant"]) using green Sparkles icon → routes to `/ai-assistant`.
+- **Converted** FR/EN pill switcher into a proper dropdown ([data-testid="top-nav-language-switcher"]) — trigger shows current locale (FR or EN) with chevron; opens a Popover with "FR — Français" / "EN — English" options.
+- Kept everything else unchanged: Logo, Address, Country, Search, Account, Cart, Theme.
+- Offers + Orders still exist as routes and in the mobile & desktop side drawers (AI Assistant added there too).
+- Routes / pages / backend for Offers and Orders are untouched.
+
+## 2026-02-24 — Social.docx Issue #13: Top header tightening (SUPERSEDED)
 - Cart button: badge moved to top-right (`-top-1.5 -right-1.5`), amount `whitespace-nowrap` + only shown on `lg+`, `shrink-0` on the wrapper.
 - Offers / Orders / Login collapsed from icon+label stacks into consistent icon-only 40×40 pill buttons on `md+`.
 - Language switcher and Theme toggle hidden below `lg` (they duplicate what's in the drawer).

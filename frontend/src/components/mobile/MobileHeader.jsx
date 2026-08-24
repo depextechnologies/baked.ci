@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, Wallet2, Bell, Menu, User, Package, Tag, Settings2, Sun, Moon, Grid3x3, MapPin as MapPinIcon, LogOut } from "lucide-react";
+import { Search, Wallet2, Bell, Menu, User, Package, Tag, Settings2, Sun, Moon, Grid3x3, MapPin as MapPinIcon, LogOut, Sparkles } from "lucide-react";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { BakedLogo } from "../layout/BakedLogo";
 import { t } from "../../lib/i18n";
@@ -113,6 +113,7 @@ export const MobileHeader = ({ variant = "home", title }) => {
               <nav className="p-2">
                 {[
                   { icon: Grid3x3,   label: tOr(locale, "nav.categories", "Categories"), to: "/categories",              testid: "m-drawer-categories" },
+                  { icon: Sparkles,  label: "AI Assistant",                               to: "/ai-assistant",            testid: "m-drawer-ai-assistant" },
                   { icon: Tag,       label: tOr(locale, "nav.offers", "Offers"),          to: "/products?sort=price_asc", testid: "m-drawer-offers" },
                   { icon: Package,   label: tOr(locale, "nav.orders", "Orders"),          to: "/orders",                  testid: "m-drawer-orders" },
                   { icon: MapPinIcon,label: tOr(locale, "nav.addresses", "Addresses"),    to: "/addresses",               testid: "m-drawer-addresses" },
