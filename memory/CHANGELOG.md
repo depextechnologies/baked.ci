@@ -17,7 +17,17 @@
 - Left untouched (by design): asset URLs on the Emergent CDN (immutable filenames), the `BAKED_ENV` env var name, the `_make_ref_code` referral prefix (ASCII by design), and code comments.
 - Repo-wide grep now returns ZERO visible-text violations of `MARTbaked`, `SENDbaked`, `baked Rewards`, or `[BAKED]`.
 
-## 2026-02-24 — Social.docx Issue #14: Footer redesign (COMPLETE)
+## 2026-02-24 — Social.docx Issue #14: Footer redesign v2 (COMPLETE — user-corrected spec)
+- Rewrote to exact 4-section spec provided by user:
+  - **Brand**: BAKĒD logo + Google Play + Apple App Store download buttons
+  - **Useful links**: About us · FAQs · Blogs/News · Career
+  - **Opportunities**: Partner with Baked · Sell on Baked · Delivery Partner · Invest with us
+  - **Support**: Help Center · Contact Us · Terms & Conditions · Privacy Policy
+- Clean single-line copyright bar underneath.
+- Kept all existing correct URLs (/about /help /blog /careers /partner /Sell-on-baked /driver /invest /contact /terms /privacy).
+- Store badges link to `play.google.com/store` and `apple.com/app-store/` — swap to real listings when live.
+
+## 2026-02-24 — Social.docx Issue #14: Footer redesign v1 (SUPERSEDED)
 - Brand column: logo + green Sparkles icon + brand promise ("Groceries, rides, deliveries and homes — one app for everyday Africa. Fast, fair, and unapologetically local.") + 5 social pills (Facebook / Instagram / Twitter / LinkedIn / YouTube) + mailto contact.
 - Legal bar (row 2): copyright with current year, country flag + name, and 4 quick legal links (Terms / Privacy / Cookies / Accessibility).
 - All existing `footer-link-*` testids preserved (no regression on Issue #12 links).
