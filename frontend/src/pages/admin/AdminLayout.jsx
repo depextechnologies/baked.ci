@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain,
   ScrollText, UserCog, LogOut, ShoppingBasket, Utensils, ShoppingBag, Truck,
   Car, Home as HomeIcon, Settings2, Plug, Server, BarChart3, Warehouse, Wallet,
+  ClipboardCheck,
 } from "lucide-react";
 import { MODULES } from "../../lib/modules";
 import { NotificationBell } from "../../components/notifications/NotificationBell";
@@ -24,6 +25,7 @@ const GOVERNANCE = [
   { to: "/admin/insights", icon: Brain, label: "AI Business Insights" },
   { to: "/admin/finance", icon: DollarSign, label: "Finance" },
   { to: "/admin/driver-payouts", icon: Wallet, label: "Driver Payouts" },
+  { to: "/admin/mart-partner-approvals", icon: ClipboardCheck, label: "Darkstore Approvals" },
   { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
   { to: "/admin/api-management", icon: Plug, label: "API Management" },

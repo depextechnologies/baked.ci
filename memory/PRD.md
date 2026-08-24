@@ -254,6 +254,15 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - **Follow-up (next task)**: build the admin UI page `/admin/mart-partner-approvals` (list + approve/reject + optional payload overrides) — mirror pattern of `AdminSupplierProductRequests.jsx`.
 
 - **P1**: Real SMS OTP (Twilio Verify or Africa's Talking) — swap `OTP_PROVIDER` env
+- ✅ **Social.docx Issue #1 admin UI (2026-02) — `/admin/mart-partner-approvals`**
+   - New page `/app/frontend/src/pages/admin/AdminMartPartnerApprovals.jsx` — mirrors `AdminSupplierProductRequests.jsx` pattern. Pending / Approved / Rejected / All tabs with bucket counts, country filter (CI · IN), name/brand search, one-row-per-request table.
+   - Review drawer shows the read-only proposed values (brand, unit, category, partner price, stock, description) + a modeless action bar with **Approve & promote** (green) and **Reject** (red).
+   - Approve mode reveals overridable fields (name, brand, category slug, subcategory, master price, currency, unit, image URL) pre-filled from the partner's proposal. Currency required.
+   - Reject mode requires ≥3-char notes that surface to the partner via in-app inbox.
+   - Route registered at `/admin/mart-partner-approvals`; sidebar entry added under Platform Governance with the `ClipboardCheck` icon → **Darkstore Approvals**.
+   - Tested end-to-end: seeded 2 pending rows → API returns them in the listing → route + sidebar link + lint all clean.
+   - All `data-testid` attributes namespaced `mpa-*` for future testing agent runs.
+
 - **P2**: FOOD / SHOP / EXPRESS / AUTO / IMMO business modules
 - **P2**: Partner Portal, Driver Portal
 - **P2**: Notifications engine, Analytics, Search (OpenSearch), Media (MinIO)
