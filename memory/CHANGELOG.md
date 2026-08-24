@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #5: New driver admin queue (COMPLETE)
+- Root cause: backend `/api/admin/drivers` endpoints existed but no frontend UI consumed them, so signed-up drivers were invisible to admins.
+- New page `AdminDriverApplications.jsx` mounted at `/admin/driver-applications` with sidebar link (Bike icon) between Driver Payouts and Darkstore Approvals.
+- Bucket tabs: onboarding · pending_review · approved · rejected · suspended (with live counts).
+- Table with name/phone/country/vehicle/kyc_step/submitted/created + right-hand detail drawer showing Identity/KYC, Vehicle, Banking, Emergency contact, Location, Reviewer notes.
+- Approve / Reject actions call existing backend endpoints (no backend changes needed).
+- Guardrail: onboarding drivers show italic "hasn't submitted KYC yet — nothing to review" instead of approve/reject buttons.
+- Seed data added (5 drivers across all buckets).
+- Verified 10/10 pytest backend + 100% Playwright E2E (report `/app/test_reports/iteration_53.json`).
+
 ## 2026-02-24 — Social.docx Issue #9: Supplier ↔ Warehouse assignment (COMPLETE)
 - New model `SupplierWarehouseAssignment` + migrations 0027 (table) & 0028 (relax audit CHECK constraint for two new actions).
 - New admin routes under `/api/admin/modules/mart/suppliers/{sid}/warehouses`:
@@ -57,7 +67,6 @@
 _(all four inventory issues shipped)_
 
 ### Phase 2 (Driver) — NEXT / P1
-- #5: New driver missing from Admin queue
 - #6: Approved driver looped back to onboarding
 
 ### Phase 3 (Customer / Location) — P1

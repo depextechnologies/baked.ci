@@ -41,3 +41,10 @@
 
 ## Notes
 - Legacy `/martbaked/sellers/portal/*` still works — auto-redirects to the resolved slug URL client-side.
+
+## Seeded Driver Applications (for Admin queue QA)
+- `drv_seed_onb1` — Rahul Onboarding · IN · onboarding
+- `drv_seed_onb2` — Awa Diallo · CI · onboarding
+- `drv_seed_pend1` — Priya Kumar · IN · pending_review (full KYC — approve me)
+- `drv_seed_pend2` — Kouame Bakayoko · CI · pending_review (full KYC)
+- `drv_seed_appr1` — Existing Driver · IN · approved
