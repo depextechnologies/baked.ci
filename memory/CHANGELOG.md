@@ -1,5 +1,13 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #16: Product card + button (COMPLETE)
+- Restored / polished the tap-to-add `+` pill on customer product cards.
+- Desktop `ProductCard.jsx`: replaced text `+ Add` with lucide Plus icon + 'Add', h-9 (36px), `active:scale-95`, `aria-label`.
+- Mobile `MobileProductCard.jsx` row layout: added the missing Plus icon + bumped to h-9 (was h-6 text-only); `aria-label`.
+- Mobile grid layout already had the Plus icon — added the missing `aria-label` for a11y consistency.
+- Testing agent verified 60/60 product cards on desktop + mobile home carousel + mobile row toggle. Tap → cart badge increments, stepper replaces the pill; removing the last unit restores the pill (`/app/test_reports/iteration_60.json`).
+- **Phase 5 (Website UX polish) is now fully shipped** — all of #12, #13, #14, #15, #16 are live.
+
 ## 2026-02-24 — Social.docx Issue #15: Word sweep / branding consistency (COMPLETE)
 - Canonical: `BAKĒD` (uppercase + macron) and `MARTbakēd / SENDbakēd / SHOPbakēd / FOODbakēd / AUTObakēd / IMMObakēd`.
 - Fixed user-visible copy in 9 spots:
@@ -118,8 +126,8 @@ _(both driver issues shipped)_
 ### Phase 3 (Customer / Location) — ✅ COMPLETE
 _(#7 shipped — every checkout now uses the Google Maps picker)_
 
-### Phase 5 (Website UX) — NEXT / P1
-- #16: Product card `+` button
+### Phase 5 (Website UX) — ✅ COMPLETE
+_(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer, #15 word sweep, #16 product card + button)_
 
 ### Phase 7 — P2
 - Analytics dashboard (Slice D)

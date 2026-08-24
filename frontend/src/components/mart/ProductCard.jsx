@@ -52,10 +52,11 @@ export const ProductCard = ({ product }) => {
             <button
               data-testid={PRODUCT.addBtn(product.id)}
               onClick={handleAdd}
-              className="baked-btn px-3 py-1.5 text-xs font-bold motion-fast"
+              aria-label={`Add ${product.name} to cart`}
+              className="baked-btn px-3 h-9 text-xs font-bold motion-fast active:scale-95 flex items-center gap-1"
               style={{ backgroundColor: moduleGreen, color: "#0a1200" }}
             >
-              + Add
+              <Plus size={14} strokeWidth={3} /> Add
             </button>
           ) : (
             <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: moduleGreen }}>

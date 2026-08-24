@@ -58,7 +58,12 @@ export const MobileProductCard = ({ product, layout = "grid" }) => {
             </div>
             {inCart > 0
               ? <QuantityStepper value={inCart} onDecrement={onDec} onIncrement={onInc} size="sm" testid={`m-pc-qty-${product.id}`} />
-              : <button data-testid={`m-pc-add-${product.id}`} onClick={onAdd} className="baked-btn px-3 py-1.5 text-xs font-bold border-2 motion-fast active:scale-95" style={{ borderColor: "#77BC1F", color: "#77BC1F" }}>ADD</button>}
+              : <button data-testid={`m-pc-add-${product.id}`} onClick={onAdd}
+                        aria-label={`Add ${product.name} to cart`}
+                        className="baked-btn px-3 h-9 text-xs font-bold border-2 motion-fast active:scale-95 flex items-center gap-1"
+                        style={{ borderColor: "#77BC1F", color: "#77BC1F" }}>
+                  <Plus size={14} strokeWidth={3} /> ADD
+                </button>}
           </div>
         </div>
       </div>
@@ -81,7 +86,10 @@ export const MobileProductCard = ({ product, layout = "grid" }) => {
         <div className="absolute bottom-1.5 right-1.5">
           {inCart > 0
             ? <QuantityStepper value={inCart} onDecrement={onDec} onIncrement={onInc} size="sm" testid={`m-pc-qty-${product.id}`} />
-            : <button data-testid={`m-pc-add-${product.id}`} onClick={onAdd} className="baked-btn px-3 h-8 text-xs font-bold bg-background border-2 flex items-center gap-0.5 motion-fast active:scale-95" style={{ borderColor: "#77BC1F", color: "#77BC1F" }}><Plus size={12} strokeWidth={3} /> ADD</button>}
+            : <button data-testid={`m-pc-add-${product.id}`} onClick={onAdd}
+                      aria-label={`Add ${product.name} to cart`}
+                      className="baked-btn px-3 h-8 text-xs font-bold bg-background border-2 flex items-center gap-0.5 motion-fast active:scale-95"
+                      style={{ borderColor: "#77BC1F", color: "#77BC1F" }}><Plus size={12} strokeWidth={3} /> ADD</button>}
         </div>
       </div>
       <div className="p-2">
