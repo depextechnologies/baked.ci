@@ -1,5 +1,12 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #7: Google Maps address picker on checkout (COMPLETE)
+- Root cause: `CheckoutPage.jsx` used an inline text-only "Add address" form that produced addresses without lat/lng/place_id — deliveries relied on free-text strings only.
+- Fix: removed the inline form entirely. `+ Add new address` now opens the existing shared `AddressSelector` (Google Places autocomplete + Advanced Marker map preview + serviceability + auto-save).
+- `saveAddress(candidate)` callback POSTs the picked place (with `latitude`, `longitude`, `place_id`, `formatted_address`, `region`, `postal_code`, `instructions`) to `/customers/me/addresses` and auto-selects the new row.
+- Each address row on checkout now shows a `📍 lat, lng` pin sub-line proving the coordinate is stored.
+- Testing agent 100% E2E (real Google Places autocomplete succeeded in preview): 8/8 acceptance points + placed a real COD order and confirmed `address_snapshot` carries the coordinates end-to-end (`/app/test_reports/iteration_55.json`).
+
 ## 2026-02-24 — Social.docx Issue #6: Approved driver KYC loop-back (COMPLETE)
 - Root cause: `NeedsAuth` on `/driver/kyc/*` routes allowed approved drivers to reach onboarding pages via bookmarks / back-button / stale links.
 - Fix: new `NeedsKyc` guard in `DriverApp.jsx` — approved drivers are `<Navigate to="/driver/dashboard" replace />` before any KYC step renders.
@@ -76,10 +83,10 @@ _(all four inventory issues shipped)_
 ### Phase 2 (Driver) — ✅ COMPLETE
 _(both driver issues shipped)_
 
-### Phase 3 (Customer / Location) — NEXT / P1
-- #7: Google Maps address picker
+### Phase 3 (Customer / Location) — ✅ COMPLETE
+_(#7 shipped — every checkout now uses the Google Maps picker)_
 
-### Phase 5 (Website UX) — P1
+### Phase 5 (Website UX) — NEXT / P1
 - #12: Mobile menu
 - #13: Top header cleanup
 - #14: Footer redesign

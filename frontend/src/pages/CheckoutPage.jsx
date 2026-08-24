@@ -11,7 +11,7 @@ import { PhoneLoginDialog } from "../components/auth/PhoneLoginDialog";
 
 export const CheckoutPage = () => {
   const { customer } = useAuth();
-  const { country, uiLocale, language, activeAddress } = useApp();
+  const { country, uiLocale, language, activeAddress, openAddressSelector } = useApp();
   const { cart, reload: reloadCart } = useCart();
   const navigate = useNavigate();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -23,32 +23,35 @@ export const CheckoutPage = () => {
   const [method, setMethod] = useState("cod");
   const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showNewAddr, setShowNewAddr] = useState(false);
-  const [newAddr, setNewAddr] = useState({ label: "Home", line1: "", city: country.code === "CI" ? "Abidjan" : "Monrovia", instructions: "" });
+
+  const loadAddresses = async (preferAddressId) => {
+    const { data } = await api.get("/customers/me/addresses");
+    setAddresses(data);
+    let selectedId = preferAddressId;
+    if (!selectedId && activeAddress && data.length) {
+      const match = data.find((a) => (
+        (activeAddress.id && a.id === activeAddress.id) ||
+        (activeAddress.place_id && a.place_id === activeAddress.place_id) ||
+        (activeAddress.formatted_address && a.formatted_address === activeAddress.formatted_address)
+      ));
+      if (match) selectedId = match.id;
+    }
+    if (!selectedId && data.length) selectedId = data.find(a => a.is_default)?.id || data[0].id;
+    setAddressId(selectedId);
+    return data;
+  };
 
   useEffect(() => {
     if (!customer) { setLoginOpen(true); return; }
     (async () => {
-      const [ad, sl, mt] = await Promise.all([
-        api.get("/customers/me/addresses"),
+      const [_, sl, mt] = await Promise.all([
+        loadAddresses(),
         api.get(`/mart/delivery-slots?country=${country.code}`),
         api.get(`/mart/payment-methods?country=${country.code}`),
       ]);
-      setAddresses(ad.data);
+      void _;
       setSlots(sl.data);
       setMethods(mt.data);
-      // Pre-select using activeAddress from the shared AddressSelector when possible.
-      let selectedId = null;
-      if (activeAddress && ad.data.length) {
-        const match = ad.data.find((a) => (
-          (activeAddress.id && a.id === activeAddress.id) ||
-          (activeAddress.place_id && a.place_id === activeAddress.place_id) ||
-          (activeAddress.formatted_address && a.formatted_address === activeAddress.formatted_address)
-        ));
-        if (match) selectedId = match.id;
-      }
-      if (!selectedId && ad.data.length) selectedId = ad.data.find(a => a.is_default)?.id || ad.data[0].id;
-      setAddressId(selectedId);
       if (sl.data.length) setSlotId(sl.data[0].id);
     })();
   }, [customer, country.code, activeAddress]);
@@ -58,14 +61,43 @@ export const CheckoutPage = () => {
   const elig = checkOrderEligibility(subtotal, country);
   const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
 
-  const saveAddress = async () => {
-    if (!newAddr.line1.trim()) { toast.error(language === "en" ? "Enter an address" : "Entrez une adresse"); return; }
-    const { data } = await api.post("/customers/me/addresses", { ...newAddr, country: country.code, is_default: addresses.length === 0 });
-    setAddresses((prev) => [...prev, data]);
-    setAddressId(data.id);
-    setShowNewAddr(false);
-    setNewAddr({ label: "Home", line1: "", city: country.code === "CI" ? "Abidjan" : "Monrovia", instructions: "" });
+  const saveAddress = async (candidate) => {
+    // Called by AddressSelector's onPick — persist the picked place, refresh
+    // the list, and auto-select. This guarantees checkout ONLY uses
+    // Google-verified addresses with lat/lng coordinates.
+    const payload = {
+      label: "Home",
+      line1: candidate.line1 || candidate.formatted_address,
+      city: candidate.city || "",
+      region: candidate.region,
+      country: (candidate.country || country.code).toUpperCase(),
+      postal_code: candidate.postal_code,
+      latitude: candidate.latitude,
+      longitude: candidate.longitude,
+      place_id: candidate.place_id,
+      formatted_address: candidate.formatted_address,
+      instructions: candidate.instructions || "",
+      is_default: addresses.length === 0,
+    };
+    try {
+      // If the pick already has an id (came from saved list), just select it.
+      if (candidate.id || candidate._saved_id) {
+        await loadAddresses(candidate.id || candidate._saved_id);
+      } else {
+        const { data } = await api.post("/customers/me/addresses", payload);
+        await loadAddresses(data.id);
+      }
+      toast.success(language === "en" ? "Address added" : "Adresse ajoutée");
+    } catch (e) {
+      const detail = e?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : (language === "en" ? "Couldn't save address" : "Impossible d'enregistrer"));
+    }
   };
+
+  const openPicker = () => openAddressSelector({
+    onPick: saveAddress,
+    title: language === "en" ? "Add delivery address" : "Ajouter une adresse",
+  });
 
   const placeOrder = async () => {
     if (!addressId) { toast.error(language === "en" ? "Please choose an address" : "Veuillez choisir une adresse"); return; }
@@ -127,24 +159,20 @@ export const CheckoutPage = () => {
                 <input type="radio" name="addr" checked={addressId === a.id} onChange={() => setAddressId(a.id)} className="mt-1 accent-[#77BC1F]" />
                 <div className="flex-1">
                   <div className="text-sm font-semibold">{a.label}</div>
-                  <div className="text-xs text-muted-foreground">{a.line1}{a.line2 ? `, ${a.line2}` : ""}, {a.city}</div>
+                  <div className="text-xs text-muted-foreground">{a.formatted_address || `${a.line1}${a.line2 ? `, ${a.line2}` : ""}${a.city ? `, ${a.city}` : ""}`}</div>
+                  {a.latitude != null && a.longitude != null && (
+                    <div className="text-[10px] font-mono text-muted-foreground/70 mt-0.5" data-testid={`checkout-address-pin-${a.id}`}>
+                      📍 {Number(a.latitude).toFixed(5)}, {Number(a.longitude).toFixed(5)}
+                    </div>
+                  )}
                   {a.instructions && <div className="text-[11px] text-muted-foreground mt-0.5">📝 {a.instructions}</div>}
                 </div>
               </label>
             ))}
-            {showNewAddr ? (
-              <div className="baked-card border border-border p-3 space-y-2">
-                <input value={newAddr.label} onChange={(e) => setNewAddr({ ...newAddr, label: e.target.value })} placeholder={language === "en" ? "Label (Home, Office…)" : "Étiquette"} className="baked-input w-full bg-secondary px-3 py-2 text-sm outline-none" />
-                <input data-testid="checkout-new-address-line1" value={newAddr.line1} onChange={(e) => setNewAddr({ ...newAddr, line1: e.target.value })} placeholder={language === "en" ? "Street address" : "Adresse"} className="baked-input w-full bg-secondary px-3 py-2 text-sm outline-none" />
-                <input value={newAddr.city} onChange={(e) => setNewAddr({ ...newAddr, city: e.target.value })} placeholder={language === "en" ? "City" : "Ville"} className="baked-input w-full bg-secondary px-3 py-2 text-sm outline-none" />
-                <div className="flex gap-2">
-                  <Button data-testid="checkout-save-address" onClick={saveAddress} size="sm" className="baked-btn font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>{language === "en" ? "Save address" : "Enregistrer"}</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setShowNewAddr(false)}>{language === "en" ? "Cancel" : "Annuler"}</Button>
-                </div>
-              </div>
-            ) : (
-              <button data-testid="checkout-add-address-btn" onClick={() => setShowNewAddr(true)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 mt-1"><PlusCircle size={16} /> {language === "en" ? "Add new address" : "Ajouter une adresse"}</button>
-            )}
+            <button data-testid="checkout-add-address-btn" onClick={openPicker}
+                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 mt-1">
+              <PlusCircle size={16} /> {language === "en" ? "Add new address" : "Ajouter une adresse"}
+            </button>
           </div>
         </section>
 
