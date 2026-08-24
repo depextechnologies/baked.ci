@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 57 — Frontend-only verification of Issue #13 (TopNav tightening across breakpoints). Tested at 1440, 1200, 1024, 820 & 700 viewports on the customer home route. All acceptance criteria pass: layout has no horizontal overflow at any width, cart amount `0 CFA` renders on a single line at >=lg, cart badge sits at top-right of the button (offset -6px top / -6px right, not overlapping the ShoppingCart icon), address pill / language switcher / theme toggle correctly hide below lg, and hamburger correctly appears below lg only. Hamburger drawer opens with Auth / quick-nav / country / language / theme sections and auto-closes on route change (Issue #12 regression preserved). Search input submits on Enter and navigates to /products?search=<q>. At 700px (<md) the customer route correctly renders MobileShell rather than TopNav (negative case verified).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "TopNav @ 1024px", "issues": ["Search input compresses to ~60px effective width because Address pill (258px) + Country (64px) + Offers/Orders/Login/Cart/Lang/Theme consume most of the container; still functional and does not overflow, but at exactly 1024 the search shows a very narrow field. Consider hiding the address pill at lg and only showing it at xl, or shortening the address CTA text, for a more comfortable search field at 1024."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Constants file /app/frontend/src/constants/testIds.js has a duplicate `searchInput` key (`top-nav-search-input` overwritten by `ai-search-input`) — the later object literal wins and hides the top-nav constant. TopNav.jsx uses NAV.searchInput imported from a NAV namespace so it still works, but the duplicate key is misleading and should be cleaned up.",
+    "TopNav.jsx is ~350 lines and mixes desktop nav + drawer contents. Not yet over the 700-line threshold, but the drawer contents are a natural split point (TopNavDrawer) if this file keeps growing.",
+    "The address pill container uses `flex-shrink min-w-0` at lg but its inner AddressPill renders text 'Set your delivery address' which is 258px wide at 1024 — pill does not truncate; consider allowing text truncation so search gets more room at exactly 1024."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a", "frontend": "100%" },
+  "test_credentials": "not required for header layout",
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Issue #13 layout is fully verified at 1440/1200/1024/820. Cart badge is at .-top-1.5 -right-1.5 (measured offset -6/-6 relative to cart button — top-right, not overlapping icon). At 820 the visible testids are exactly: top-nav-logo, top-nav-country-select, top-nav-search-input, top-nav-offers, top-nav-orders, auth-open-login-btn, top-nav-cart-button + top-nav-cart-count (no top-nav-cart-total), topnav-hamburger. top-nav-language-switcher & top-nav-theme-toggle are display:none below lg (they exist in DOM). At 700 (< md) the whole TopNav is unmounted and MobileShell renders (correct per Issue #12). Search Enter -> /products?search=<query> works. Drawer auto-close on navigation confirmed by clicking drawer-orders and finding the drawer removed from the DOM.",
+  "measurements": {
+    "1440": {"cart_total_visible": true, "cart_total_h/lh": "20/20 (single line)", "badge_offset": "top:-6, right:-6", "overflow": false, "hamburger_visible": false, "lang_visible": true, "theme_visible": true, "address_visible": true},
+    "1200": {"cart_total_visible": true, "cart_total_h/lh": "20/20 (single line)", "badge_offset": "top:-6, right:-6", "overflow": false, "hamburger_visible": false, "lang_visible": true, "theme_visible": true, "address_visible": true},
+    "1024": {"cart_total_visible": true, "cart_total_h/lh": "20/20 (single line)", "badge_offset": "top:-6, right:-6", "overflow": false, "hamburger_visible": false, "lang_visible": true, "theme_visible": true, "address_visible": true, "search_effective_width_px": 60},
+    "820":  {"cart_total_visible": false, "hamburger_visible": true, "lang_visible": false, "theme_visible": false, "address_visible": false, "overflow": false, "badge_offset": "top:-6, right:-6"},
+    "700":  {"topnav_rendered": false, "note": "MobileShell active (correct — < md)"}
+  }
+}

@@ -1,5 +1,13 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #13: Top header tightening (COMPLETE)
+- Cart button: badge moved to top-right (`-top-1.5 -right-1.5`), amount `whitespace-nowrap` + only shown on `lg+`, `shrink-0` on the wrapper.
+- Offers / Orders / Login collapsed from icon+label stacks into consistent icon-only 40×40 pill buttons on `md+`.
+- Language switcher and Theme toggle hidden below `lg` (they duplicate what's in the drawer).
+- Hamburger (`topnav-hamburger`) visible whenever below `lg` — one obvious escape hatch.
+- Address pill hidden below `lg`; at `lg` uses a compact "Set address" label with `max-w-[140px]` (grows to 240px at `xl+`).
+- Verified 100% by testing agent across 1440 / 1200 / 1024 / 820 / 700 (`/app/test_reports/iteration_57.json`).
+
 ## 2026-02-24 — Social.docx Issue #12: Mobile hamburger menu (COMPLETE)
 - Root cause: `MobileHeader` had no hamburger/menu access and `TopNav` at small viewports crammed all desktop chrome into one overflowing row.
 - Fix (MobileHeader): added a `Menu` icon button ([data-testid="m-header-menu"]) that opens a right-side Sheet drawer ([data-testid="m-header-drawer"]) with Auth block, 6 quick-nav items, Country switcher, FR/EN language pills, theme toggle, and Sign out.
@@ -96,7 +104,6 @@ _(both driver issues shipped)_
 _(#7 shipped — every checkout now uses the Google Maps picker)_
 
 ### Phase 5 (Website UX) — NEXT / P1
-- #13: Top header cleanup
 - #14: Footer redesign
 - #15: Word sweep (branding consistency)
 - #16: Product card `+` button

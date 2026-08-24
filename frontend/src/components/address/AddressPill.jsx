@@ -44,15 +44,15 @@ export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
       className="hidden md:flex items-center gap-2 px-3 py-2 baked-btn hover:bg-secondary motion-fast border border-border"
     >
       <MapPin size={18} style={{ color: "#77BC1F" }} />
-      <div className="text-left">
+      <div className="text-left min-w-0">
         <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
           {activeAddress ? (label ? `Deliver to · ${label}` : "Delivering to") : "Choose delivery"}
         </div>
-        <div className="text-sm font-medium max-w-[240px] truncate">
-          {line1 || "Set your delivery address"}
+        <div className="text-sm font-medium max-w-[140px] xl:max-w-[240px] truncate">
+          {line1 || "Set address"}
         </div>
         {activeAddress && city && (
-          <div className="text-[10px] text-muted-foreground max-w-[240px] truncate">{city}</div>
+          <div className="text-[10px] text-muted-foreground max-w-[140px] xl:max-w-[240px] truncate">{city}</div>
         )}
       </div>
       <ChevronDown size={14} className="text-muted-foreground" />

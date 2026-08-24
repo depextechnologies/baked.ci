@@ -56,8 +56,8 @@ export const TopNav = () => {
             <BakedLogo size="md" />
           </Link>
 
-          {/* Delivery address — opens the Address Selector */}
-          <div className="hidden sm:block flex-shrink min-w-0">
+          {/* Delivery address — desktop only; below lg users open the picker from checkout / mobile shell */}
+          <div className="hidden lg:block flex-shrink min-w-0">
             <AddressPill variant="desktop" testid={NAV.deliveryAddress} />
           </div>
 
@@ -132,32 +132,34 @@ export const TopNav = () => {
           </button>
 
           {/* Right actions — Offers/Orders/Account/Language/Theme all hidden on <md; live inside the drawer instead */}
-          <button data-testid={NAV.offers} className="hidden lg:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast" onClick={() => navigate("/products?sort=price_asc")}>
-            <Tag size={20} />
-            <span className="text-[11px] mt-0.5">{t(locale, "nav.offers")}</span>
+          <button data-testid={NAV.offers} onClick={() => navigate("/products?sort=price_asc")}
+                  className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+                  title={t(locale, "nav.offers")} aria-label={t(locale, "nav.offers")}>
+            <Tag size={18} />
           </button>
-          <button data-testid={NAV.orders} className="hidden lg:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
-            <Package size={20} />
-            <span className="text-[11px] mt-0.5">{t(locale, "nav.orders")}</span>
+          <button data-testid={NAV.orders} onClick={() => navigate("/orders")}
+                  className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+                  title={t(locale, "nav.orders")} aria-label={t(locale, "nav.orders")}>
+            <Package size={18} />
           </button>
 
           {customer ? (
-            <button data-testid={NAV.account} onClick={() => navigate("/profile")} className="hidden md:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
-              {customer.picture ? (
-                <img src={customer.picture} alt="me" className="w-6 h-6 rounded-full object-cover" />
-              ) : (
-                <User size={20} />
-              )}
-              <span className="text-[11px] mt-0.5 max-w-[80px] truncate">{customer.name || customer.phone || t(locale, "nav.account")}</span>
+            <button data-testid={NAV.account} onClick={() => navigate("/profile")}
+                    className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+                    title={customer.name || customer.phone || t(locale, "nav.account")}
+                    aria-label={t(locale, "nav.account")}>
+              {customer.picture
+                ? <img src={customer.picture} alt="" className="w-6 h-6 rounded-full object-cover" />
+                : <User size={18} />}
             </button>
           ) : (
             <button
               data-testid="auth-open-login-btn"
               onClick={() => openLogin("/profile")}
-              className="hidden md:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast"
+              className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+              title={t(locale, "nav.login")} aria-label={t(locale, "nav.login")}
             >
-              <User size={20} />
-              <span className="text-[11px] mt-0.5">{t(locale, "nav.login")}</span>
+              <User size={18} />
             </button>
           )}
 
@@ -165,13 +167,13 @@ export const TopNav = () => {
           <button
             data-testid={NAV.cartButton}
             onClick={() => navigate("/cart")}
-            className="relative baked-btn px-2 md:px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2"
+            className="relative baked-btn px-2 md:px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2 shrink-0"
           >
             <ShoppingCart size={18} style={{ color: "#77BC1F" }} />
-            <span data-testid={NAV.cartCount} className="absolute -top-1 -left-1 text-[10px] bg-[hsl(var(--mart))] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            <span data-testid={NAV.cartCount} className="absolute -top-1.5 -right-1.5 text-[10px] bg-[hsl(var(--mart))] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none">
               {cart.item_count || 0}
             </span>
-            <span data-testid={NAV.cartTotal} className="hidden sm:inline text-sm font-semibold">
+            <span data-testid={NAV.cartTotal} className="hidden lg:inline text-sm font-semibold whitespace-nowrap">
               {formatMoney(cart.subtotal || 0, country?.currency, country?.currency_symbol)}
             </span>
           </button>
@@ -179,7 +181,7 @@ export const TopNav = () => {
           {/* Language switcher — desktop only */}
           <div
             data-testid="top-nav-language-switcher"
-            className="hidden md:flex baked-btn overflow-hidden border border-border items-stretch text-xs font-semibold"
+            className="hidden lg:flex baked-btn overflow-hidden border border-border items-stretch text-xs font-semibold shrink-0"
             role="group"
             aria-label="Language"
           >
@@ -206,18 +208,18 @@ export const TopNav = () => {
           <button
             data-testid={NAV.themeToggle}
             onClick={toggleTheme}
-            className="hidden md:flex baked-btn w-10 h-10 items-center justify-center bg-secondary hover:bg-secondary/80 motion-fast"
+            className="hidden lg:flex baked-btn w-10 h-10 items-center justify-center bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
             aria-label="Toggle theme"
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          {/* Mobile hamburger — opens the side drawer */}
+          {/* Hamburger — opens the side drawer (visible below lg since language/theme sit there) */}
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
             <SheetTrigger asChild>
               <button
                 data-testid="topnav-hamburger"
-                className="md:hidden w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast"
+                className="lg:hidden w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast shrink-0"
                 aria-label="Open menu"
               >
                 <Menu size={20} />
