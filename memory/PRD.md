@@ -242,6 +242,17 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
 
    - **Kept intact**: header, wizard progress stepper, Continue footer, all backend calls, dispatch + WebSocket tracking flow.
    - **Verified**: Step 1, 3, 5 desktop screenshots at 1440×900 show the persistent map + branded assets; light theme continues to adapt via `hsl(var(--border/card/muted))`.
+- ✅ **Social.docx Issue #1 (2026-02) — Darkstore custom-product approval chain (backend)**
+   - **Root cause diagnosed**: Darkstore-side `POST /partner/products/custom` created `PartnerProduct` rows with `approval_status='pending', is_active=False, source='custom'`. No admin endpoint ever promoted these into the shared `mart_products` table, so even after ops "approved" (by flipping DB rows) the row stayed invisible on every Darkstore's `/partner/master-catalog?q=`.
+   - **Fix — three new admin endpoints on `mart_partner.admin_router`**:
+     - `GET /api/admin/mart-partner/partner-products?status=pending|approved|rejected|all&country=&q=&limit=` — review queue with buckets + enriched partner/warehouse info.
+     - `POST /api/admin/mart-partner/partner-products/{id}/approve` — creates a new `MartProduct` (country=partner.country, module=partner.module, name/brand/unit/category/currency copied or overridden via payload), then rewires the `PartnerProduct` to `source='master'`, `master_product_id=<new>`, `approval_status='approved'`, `is_active=True`. Also duplicate-safe: if a MartProduct with the same `(name, country, module)` already exists it links to it instead. In-app notification to the partner.
+     - `POST /api/admin/mart-partner/partner-products/{id}/reject` — with required notes, sends the notification back to the partner.
+   - Idempotency: re-approving returns 400 `not_custom` because after promotion the source flips to `master` (correct — approval is one-shot).
+   - **Verified end-to-end**: seeded a `pending` custom row, called approve → response shows `master_product_id`, DB shows a fresh `mart_products` row in `CI`/`mart`/`active`, buckets update, re-approve blocked.
+   - **Non-goals honoured**: no schema change, no rename of internal identifiers, no bypass of the approval gate, no data duplication (single MartProduct per `(name, country, module)`).
+   - **Follow-up (next task)**: build the admin UI page `/admin/mart-partner-approvals` (list + approve/reject + optional payload overrides) — mirror pattern of `AdminSupplierProductRequests.jsx`.
+
 - **P1**: Real SMS OTP (Twilio Verify or Africa's Talking) — swap `OTP_PROVIDER` env
 - **P2**: FOOD / SHOP / EXPRESS / AUTO / IMMO business modules
 - **P2**: Partner Portal, Driver Portal
