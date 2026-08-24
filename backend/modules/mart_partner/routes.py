@@ -1283,11 +1283,17 @@ async def list_partner_products(
 async def search_master_catalog(
     q: Optional[str] = None,
     category: Optional[str] = None,
+    subcategory: Optional[str] = None,
     limit: int = Query(30, ge=1, le=100),
     partner: Partner = Depends(get_current_partner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Search the shared MART master catalog scoped to the partner's country."""
+    """Search the shared MART master catalog scoped to the partner's country.
+
+    Filters: free-text `q`, `category` slug, and `subcategory` slug. All three
+    can combine — the search dialog on the Darkstore side uses them together
+    so ops can narrow 1000s of SKUs down to a handful of matches (Social.docx #2).
+    """
     stmt = (
         select(MartProduct)
         .where(MartProduct.country == partner.country, MartProduct.module == partner.module)
@@ -1298,6 +1304,8 @@ async def search_master_catalog(
         stmt = stmt.where((MartProduct.name.ilike(like)) | (MartProduct.brand.ilike(like)))
     if category:
         stmt = stmt.where(MartProduct.category_slug == category)
+    if subcategory:
+        stmt = stmt.where(MartProduct.subcategory_slug == subcategory)
 
     rows = (await session.execute(stmt.limit(limit))).scalars().all()
 
@@ -1314,6 +1322,7 @@ async def search_master_catalog(
             {
                 "id": r.id, "name": r.name, "brand": r.brand, "unit": r.unit,
                 "image": r.image, "category_slug": r.category_slug,
+                "subcategory_slug": r.subcategory_slug,
                 "price": float(r.price), "currency": r.currency,
                 "currency_symbol": r.currency_symbol,
                 "already_linked": r.id in linked_ids,

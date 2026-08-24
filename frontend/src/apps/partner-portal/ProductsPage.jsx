@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Package, Plus, Search, Link2, X } from "lucide-react";
-import { partnerApi } from "./PartnerPortalApp";
+import { partnerApi, usePartner } from "./PartnerPortalApp";
 
 const fieldStyle = { background: "var(--ph-card)", color: "var(--ph-fg)", border: "1px solid var(--ph-border-strong)" };
 const FIELD = "px-3 h-10 rounded-lg w-full text-sm";
@@ -21,24 +21,58 @@ const money = (n, cur = "XOF") => `${Number(n).toLocaleString()} ${cur === "XOF"
 /* ---------------- Add-product modal (master search + custom form) ---------- */
 
 const AddProductModal = ({ open, onClose, onDone }) => {
+  const { partner } = usePartner();
+  const country = partner?.country || "CI";
   const [mode, setMode] = useState("master"); // master | custom
   const [q, setQ] = useState("");
   const [master, setMaster] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [cats, setCats] = useState([]);           // [{slug, name}]
+  const [subs, setSubs] = useState([]);           // [{slug, name}]
+  const [cat, setCat] = useState("");             // selected category slug
+  const [sub, setSub] = useState("");             // selected subcategory slug
 
-  const search = async () => {
+  const search = async (extra = {}) => {
     setLoading(true);
     try {
-      const { data } = await partnerApi.get(`/partner/master-catalog?q=${encodeURIComponent(q)}&limit=30`);
+      const params = new URLSearchParams({ limit: "30" });
+      if (q.trim()) params.set("q", q.trim());
+      const useCat = extra.cat ?? cat;
+      const useSub = extra.sub ?? sub;
+      if (useCat) params.set("category", useCat);
+      if (useSub) params.set("subcategory", useSub);
+      const { data } = await partnerApi.get(`/partner/master-catalog?${params}`);
       setMaster(data.items);
     } finally { setLoading(false); }
   };
   useEffect(() => { if (open && mode === "master") search(); /* eslint-disable-next-line */ }, [open, mode]);
 
+  // Category / subcategory dropdowns — populate on open.
+  useEffect(() => {
+    if (!open || mode !== "master") return;
+    partnerApi.get(`/mart/categories?country=${country}`).then(r => setCats(r.data || [])).catch(() => setCats([]));
+  }, [open, mode, country]);
+
+  useEffect(() => {
+    if (!cat) { setSubs([]); setSub(""); return; }
+    partnerApi.get(`/mart/subcategories?country=${country}&category=${encodeURIComponent(cat)}`)
+      .then(r => setSubs(r.data || []))
+      .catch(() => setSubs([]));
+    setSub(""); // reset when parent changes
+  }, [cat, country]);
+
+  const onCatChange = (v) => { setCat(v); search({ cat: v, sub: "" }); };
+  const onSubChange = (v) => { setSub(v); search({ sub: v }); };
+
   /* Master link form */
   const [selected, setSelected] = useState(null);
   const [linkPrice, setLinkPrice] = useState("");
   const [linkStock, setLinkStock] = useState("0");
+
+  // Reset filter + selection state when the modal closes so it opens fresh next time.
+  useEffect(() => {
+    if (!open) { setCat(""); setSub(""); setSubs([]); setQ(""); setSelected(null); }
+  }, [open]);
   const linkSubmit = async () => {
     if (!selected) return;
     if (!linkPrice || Number(linkPrice) <= 0) return toast.error("Enter a valid price");
@@ -121,6 +155,53 @@ const AddProductModal = ({ open, onClose, onDone }) => {
                 <Search size={14} className="inline mr-1" /> Search
               </button>
             </div>
+
+            {/* Category / Subcategory filters — Social.docx Issue #2 */}
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <select value={cat} onChange={e => onCatChange(e.target.value)}
+                      className={FIELD} style={fieldStyle}
+                      data-testid="master-category-select">
+                <option value="">All categories</option>
+                {cats.map(c => (
+                  <option key={c.slug || c.id} value={c.slug}>{c.name}</option>
+                ))}
+              </select>
+              <select value={sub} onChange={e => onSubChange(e.target.value)}
+                      disabled={!cat}
+                      className={FIELD} style={{ ...fieldStyle, opacity: cat ? 1 : 0.55 }}
+                      data-testid="master-subcategory-select">
+                <option value="">{cat ? "All subcategories" : "Pick a category first"}</option>
+                {subs.map(s => (
+                  <option key={s.slug || s.id} value={s.slug}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            {(cat || sub) && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[10px] uppercase tracking-widest" style={{ color: "var(--ph-fg-subtle)" }}>Filters:</span>
+                {cat && (
+                  <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                        style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}
+                        data-testid="filter-chip-category">
+                    {(cats.find(c => c.slug === cat)?.name) || cat}
+                  </span>
+                )}
+                {sub && (
+                  <span className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                        style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}
+                        data-testid="filter-chip-subcategory">
+                    {(subs.find(s => s.slug === sub)?.name) || sub}
+                  </span>
+                )}
+                <button onClick={() => { setCat(""); setSub(""); setSubs([]); search({ cat: "", sub: "" }); }}
+                        className="text-[10px] uppercase tracking-widest underline"
+                        style={{ color: "var(--ph-fg-subtle)" }}
+                        data-testid="filter-clear-btn">
+                  Clear
+                </button>
+              </div>
+            )}
+
             <p className="text-xs mt-2" style={{ color: "var(--ph-fg-subtle)" }}>
               {loading ? "Searching…" : `${master.length} product(s)`}
             </p>

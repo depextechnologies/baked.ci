@@ -1,0 +1,30 @@
+{
+  "summary": "Social.docx Issue #2 — Category + Subcategory filter dropdowns in the Partner 'Add Product from Master' modal verified end-to-end. Backend contract (mart categories/subcategories + partner master-catalog filtering) passes 8/8 pytest. Frontend Playwright flow validates dropdown rendering, dependent-enable behaviour, chips, result narrowing (30 → 25 → 5 for Fruits & Légumes → Fruits Frais), and Clear reset.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_master_catalog_filters.py",
+    "/app/test_reports/pytest/master_catalog_filters.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "master-catalog response omits subcategory_slug on each item — not blocking (UI uses server-side filter), but including it would help future admin/debug tooling and client-side chip labelling.",
+    "AddProductModal state (cat/sub/subs) is not reset when the modal is closed; reopening carries over the previous filter selection. Minor UX — consider clearing on close.",
+    "The onCatChange handler passes {cat: v, sub: ''} into search(), which correctly ignores stale state — good. onSubChange only passes sub; because setSub is async, using the extra override was the right call here.",
+    "Category slug 'All categories' is rendered as an option with empty value — clean; no accidental empty-slug filter fired against the API (verified in network calls)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_master_catalog_filters.py (new)"
+  ],
+  "success_rate": { "backend": "100% (8/8)", "frontend": "100% (all assertions passed)" },
+  "test_credentials": "partner-alpha-store@test.example / Alpha1234!Beta — login flow requires clicking MARTbakēd module card first (confirmed).",
+  "seed_data_creation": "None — used existing CI seed catalog. Confirmed Fruits Frais subcategory contains Banane Cavendish, Orange Douce, Pomme Royale Gala, Fraises, Raisin Noir (5 items).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Correct partner Products URL is /partner-portal/martbaked/products (module-slug resolved). Bare /partner-portal/products lands on an 'Unknown module' screen — not a bug for this scope but worth noting. GET /api/mart/subcategories requires the ?category=<slug> query param (returns 422 otherwise). GET /api/partner/master-catalog accepts optional q, category, subcategory, limit and is scoped server-side to the partner's country+module.",
+  "rca of the issue": "N/A — feature implementation verified working as spec'd. Backend was already correctly filtering; freshly added <select> UI wires cat/sub selects to /api/mart/categories, /api/mart/subcategories, and re-fires /api/partner/master-catalog with the chosen slugs."
+}
