@@ -1,5 +1,14 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #12: Mobile hamburger menu (COMPLETE)
+- Root cause: `MobileHeader` had no hamburger/menu access and `TopNav` at small viewports crammed all desktop chrome into one overflowing row.
+- Fix (MobileHeader): added a `Menu` icon button ([data-testid="m-header-menu"]) that opens a right-side Sheet drawer ([data-testid="m-header-drawer"]) with Auth block, 6 quick-nav items, Country switcher, FR/EN language pills, theme toggle, and Sign out.
+- Fix (TopNav): hid country popover / offers / orders / account / language / theme on `<md` viewports and moved them into a mirrored drawer accessible via [data-testid="topnav-hamburger"].
+- Auto-close on route change via `useEffect` watching `location.pathname + location.search`.
+- Added `SheetDescription` (sr-only) to satisfy Radix a11y contract.
+- Human-readable label fallbacks (`tOr()` helper) so missing i18n keys never leak.
+- Verified 100% by testing agent across mobile 390×800, desktop 1280×800, and small-desktop 600×800 (`/app/test_reports/iteration_56.json`).
+
 ## 2026-02-24 — Social.docx Issue #7: Google Maps address picker on checkout (COMPLETE)
 - Root cause: `CheckoutPage.jsx` used an inline text-only "Add address" form that produced addresses without lat/lng/place_id — deliveries relied on free-text strings only.
 - Fix: removed the inline form entirely. `+ Add new address` now opens the existing shared `AddressSelector` (Google Places autocomplete + Advanced Marker map preview + serviceability + auto-save).
@@ -87,7 +96,6 @@ _(both driver issues shipped)_
 _(#7 shipped — every checkout now uses the Google Maps picker)_
 
 ### Phase 5 (Website UX) — NEXT / P1
-- #12: Mobile menu
 - #13: Top header cleanup
 - #14: Footer redesign
 - #15: Word sweep (branding consistency)
