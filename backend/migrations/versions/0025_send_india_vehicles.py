@@ -29,6 +29,13 @@ _IN_VEHICLES = [
 
 
 def upgrade() -> None:
+    # Ensure IN row exists in `countries` (seed script may run later; migration
+    # must be idempotent even against a freshly-created DB).
+    op.execute("""
+        INSERT INTO countries (code, name, currency, currency_symbol, locale, flag, active, "primary", production_visible)
+        VALUES ('IN', 'India', 'INR', '₹', 'en-IN', '🇮🇳', TRUE, FALSE, TRUE)
+        ON CONFLICT (code) DO NOTHING
+    """)
     for code, name, desc, kg, eta_lo, eta_hi, price, sort, image in _IN_VEHICLES:
         # Explicit id — `express_vehicles.id` has no server default in this
         # schema. Deterministic so re-running produces the same rows and

@@ -3,6 +3,26 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-24) — Homepage CMS Phase C shipped
+- ✅ **Homepage CMS Phase C — Visual Polish (2026-02-24)** — full rewrite of `/app/frontend/src/pages/ConfigHomepage.jsx` to premium dark-first design matching Baked Mart.pdf + HomeLook.png + Inventory_Prompt.txt.
+  - Hero: full-bleed image with dark overlay, headline, MARTbakēd chip, primary green CTA + optional secondary CTA, right-side delivery info panel bound to `country` config (Delivery in ETA, min order, delivery fee, free-over threshold, "Popular near you").
+  - Module switcher: 6 coloured tiles (MART green `#77BC1F`, FOOD orange `#F97316`, SHOP cyan `#06B6D4`, SEND yellow `#FCC44C`, AUTO red `#EF4444`, IMMO purple `#A855F7`) with icon plate, taglines, hover glow, deep-links to `/`, `/food`, `/shop`, `/express`, `/auto`, `/immo`.
+  - Category grid: rich tiles with image support + hover lift; falls back to Store icon on missing image.
+  - Promotional banner: full-bleed image with gradient overlay, badge, headline, CTA.
+  - Banner trio: 3-across dark cards with images + eyebrow + label + subtitle + arrow hover reveal.
+  - Product carousel: horizontal snap-scroll with prev/next `ChevronLeft/Right` buttons that scroll 80% of container width, keyboard/mouse friendly.
+  - Brand carousel: greyscale-until-hover logo strip.
+  - App promotion: two-column dark-green gradient with QR + Play/App Store buttons (styled with tagline eyebrow).
+  - CTA strip: green gradient with radial glow.
+  - **Trust strip**: persistent 4-tile row (fast delivery / range / prices / returns) always rendered at page tail — admin cannot accidentally hide the reassurance messaging.
+  - `compactMoney()` helper strips trailing `.00` on whole-value currency amounts for cleaner delivery-panel presentation.
+  - Every interactive element carries a `data-testid` (`hp-*`).
+  - **Testing**: `testing_agent_v3_fork` iteration_61.json — 9/9 backend pytest (`/app/backend/tests/test_homepage_cms.py` covers Phase B upload roundtrip + Phase C public feed + admin CRUD + auth-gates) + full Playwright E2E on desktop 1440x900 + mobile 390x844. Zero console errors. Country switch CI → IN verified.
+- ✅ **Homepage CMS Phase B (2026-02-24)** — image uploads via Emergent Object Storage.
+  - Admin: `POST /api/admin/homepage-sections/uploads` — 8 MB size cap, image-type validated, returns relative `/api/homepage/uploads/{key}` URL.
+  - Public serve: `GET /api/homepage/uploads/{key:path}` — content-type preserved.
+  - Frontend: `ImageField` inside `AdminHomepageManagement.jsx` — upload button with progress state, preview render, clear button.
+
 ## Tech Stack (v1)
 - Frontend: React (CRA) + Tailwind + shadcn/ui + Framer + React Router + sonner + Poppins
 - Backend: FastAPI + Motor (MongoDB) + emergentintegrations + JWT

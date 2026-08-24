@@ -32,6 +32,7 @@ import { AdminSupplierProductRequests } from "@/pages/admin/AdminSupplierProduct
 import { AdminDriverPayouts } from "@/pages/admin/AdminDriverPayouts";
 import { AdminMartPartnerApprovals } from "@/pages/admin/AdminMartPartnerApprovals";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
+import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
 import { SupplierInvoicesPage as AdminSupplierInvoices } from "@/components/invoices/SupplierInvoicesPage";
 import { adminApi } from "@/contexts/AdminContext";
 
@@ -58,6 +59,7 @@ export const AdminApp = () => (
       <Route path="customers" element={<AdminCustomers />} />
       <Route path="driver-payouts" element={<AdminDriverPayouts />} />
       <Route path="driver-applications" element={<AdminDriverApplications />} />
+      <Route path="homepage-management" element={<AdminHomepageManagement />} />
       <Route path="mart-partner-approvals" element={<AdminMartPartnerApprovals />} />
       {/*
         Inventory Control Tower belongs to MARTbakēd — the global route

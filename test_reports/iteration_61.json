@@ -1,0 +1,34 @@
+{
+  "summary": "Phase B (admin image uploads) + Phase C (visual polish of ConfigHomepage) fully verified. Backend: 9/9 pytest cases pass covering public GET /api/homepage (CI+IN), admin list auth-gate, admin CRUD roundtrip (create→patch→GET on public feed→delete), upload auth-gate, non-image rejection (400), and upload+serve roundtrip that verifies returned bytes match uploaded bytes. Frontend desktop CI (1440x900): data-testid=config-homepage present with all Phase C testids — hp-hero-title (‘Tout ce dont vous avez besoin, livré en quelques minutes’), hp-hero-cta, hp-hero-delivery-panel showing 10-15 min / CFA500.00 fee / CFA3000.00 min / free over CFA15000.00 / ‘Côte d’Ivoire’, hp-module-switcher with all 6 tiles (hp-module-mart|food|shop|express|auto|immo), clicking hp-module-express navigated to /express, category tiles rendered as hp-cat-{slug} (fruits-vegetables, dairy-eggs, beverages…) and clicking navigated to /products?category=fruits-vegetables, hp-carousel-prev-{id}+hp-carousel-next-{id} present (scrollLeft went 4→1070 on click), hp-google-play, hp-app-store, hp-cta-strip-link, hp-trust-strip all rendered. Country switch to IN via header country picker: hp-hero-delivery-panel updated to 20-30 min / ₹29.00 fee / ₹199.00 min / free over ₹499.00 / ‘India’. Mobile 390x844: no horizontal overflow (scrollWidth==viewport==390), hp-hero-delivery-panel + hp-trust-strip present, 0 console errors. Phase B admin upload E2E: logged in as super admin, opened Homepage Management, opened Hero drawer, uploaded a PNG via hidden file input — URL field populated with ‘/api/homepage/uploads/baked-platform/homepage/adm_a61fd…/20260824T140029….png’, ‘Uploaded’ toast displayed. Zero console errors across every scenario. Regression: /admin/homepage-management lists all 10 sections with Edit/Up/Down/Delete/Toggle-Enabled/Add controls.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Homepage hero delivery panel", "issues": ["Currency formatting shows two decimals (CFA500.00, CFA3000.00, ₹29.00, ₹199.00). Review spec called for CFA500 / CFA3000 / ₹29 / ₹199 without decimals for cleaner presentation. formatMoney is producing trailing .00 for whole-number values."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_homepage_cms.py",
+    "/app/test_reports/pytest/homepage_cms.xml"
+  ],
+  "action_items": [
+    "Add data-testid=\"admin-email\", data-testid=\"admin-password\", data-testid=\"admin-submit\" on the Super Admin login form at /admin/login. The review context lists them as expected testids but they are absent — testing had to fall back to positional input selectors, which is brittle.",
+    "Consider tightening formatMoney to drop trailing .00 for whole numbers on the hero delivery panel (CFA500 vs CFA500.00). Cosmetic — matches the spec ask in Phase C.",
+    "The review request text referenced testid `hp-cat-baked-platform` but the CI seed does not include a `baked-platform` category slug (actual slugs: fruits-vegetables, dairy-eggs, beverages, …). This is a request-text mismatch, not a bug. If a canonical BAKĒD-branded category tile is desired, add it to the CI category_grid seed.",
+    "Verify light-theme toggle actually toggles a class/attribute on <html> — after clicking the theme button, document.documentElement.className remained empty; theme may not be persisting or may only be applied via CSS variables on a lower node. Text remained readable in the screenshot so it may be working via data-theme attribute; worth a quick confirmation."
+  ],
+  "critical_code_review_comments": [
+    "ConfigHomepage.jsx line 33: `abs()` prefixes REACT_APP_BACKEND_URL only when URL starts with '/'. Good. But `abs()` is not applied to PromoBanner.cfg.image (line 374) — the CSS `url(${abs(cfg.image)})` DOES call abs, so scratch that; verified OK.",
+    "ConfigHomepage.jsx trust strip is hard-coded and always rendered after admin sections. Comment says ‘admin can’t accidentally hide it’ — this is intentional and matches the review spec (‘Trust strip at end’ + ‘persistent’).",
+    "modules/homepage/__init__.py upload endpoint is properly auth-gated, image-type validated, 8MB size-limited, and serves back via a public GET. Good pattern.",
+    "Admin login page (source not inspected here) is missing the promised data-testid trio — this is a repeat testability gap flagged in earlier iterations."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "~95% — all functional testids and integrations verified; only cosmetic/testability nits"},
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ — validated at both POST /api/admin/auth/login and UI /admin/login (via positional input selectors).",
+  "seed_data_creation": "None persisted — CRUD test creates a TEST_PromoBanner section and deletes it in finally block. Admin upload E2E uploaded one tiny 1x1 PNG to storage (~130 bytes) at /api/homepage/uploads/baked-platform/homepage/adm_a61fd…/20260824T140029….png — safe to leave, but the hero section was NOT saved so config still points at the original background.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file /app/backend/tests/test_homepage_cms.py covers Phase B+C API surface — run first on future homepage changes. Admin login form still has no data-testid attrs; use `page.query_selector_all('input')` positional fallback ([0]=email, [1]=password) and `button:has-text('Sign in')`. Category grid slugs come from CI seed (fruits-vegetables etc.), not `baked-platform`. IN country currently has 0 homepage sections so hp-empty renders — that is the documented expected state."
+}

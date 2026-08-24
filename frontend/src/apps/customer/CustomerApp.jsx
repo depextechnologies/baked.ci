@@ -13,6 +13,7 @@ import { TopNav } from "@/components/layout/TopNav";
 import { ModuleTabs } from "@/components/layout/ModuleTabs";
 import { Footer } from "@/components/layout/Footer";
 import { HomePage } from "@/pages/HomePage";
+import { ConfigHomepage } from "@/pages/ConfigHomepage";
 import { CategoriesIndexPage, CategoryDetailPage } from "@/pages/CategoryPage";
 import { ProductListPage } from "@/pages/ProductListPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
@@ -78,7 +79,7 @@ const DesktopCustomerShell = () => (
     <TopNav />
     <ModuleTabs />
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<CategoriesIndexPage />} />
       <Route path="/categories/:slug" element={<CategoryDetailPage />} />
       <Route path="/products" element={<ProductListPage />} />
@@ -127,7 +128,7 @@ const DesktopCustomerShell = () => (
 const MobileCustomerShell = () => (
   <MobileShell>
     <Routes>
-      <Route path="/" element={<MobileHome />} />
+      <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<MobileCategoryPage />} />
       <Route path="/categories/:slug" element={<MobileCategoryPage />} />
       <Route path="/products" element={<MobileCategoryPage />} />

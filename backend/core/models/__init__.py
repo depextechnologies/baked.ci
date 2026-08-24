@@ -45,6 +45,7 @@ from core.models.partner_commerce import (
     PARTNER_ORDER_STATUSES, PARTNER_WALLET_TX_KINDS,
     PartnerOrder, PartnerOrderPick, PartnerProduct, PartnerWallet, PartnerWalletTxn,
 )
+from core.models.homepage import HomepageSection, HOMEPAGE_SECTION_TYPES
 from core.models.partner_staff import (
     PARTNER_STAFF_ROLES, PartnerStaff, PartnerStaffAuditLog,
     PartnerStaffStoreAssignment,
@@ -142,6 +143,8 @@ __all__ = [
     "WarehouseShelf",
     "WarehouseBin",
     "WarehouseCategoryDefault",
+    "HomepageSection",
+    "HOMEPAGE_SECTION_TYPES",
     "PartnerProduct",
     "PartnerOrder",
     "PartnerOrderPick",

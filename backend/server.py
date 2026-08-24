@@ -147,6 +147,11 @@ api_router.include_router(orders_router)
 api_router.include_router(mart_partner_router)
 api_router.include_router(mart_partner_admin_router)
 api_router.include_router(partner_portal_router)
+
+# Homepage — public + admin CRUD (Social.docx §Homepage)
+from modules.homepage import router as homepage_public_router, admin_router as homepage_admin_router  # noqa: E402
+api_router.include_router(homepage_public_router)
+api_router.include_router(homepage_admin_router)
 api_router.include_router(partner_staff_router)
 api_router.include_router(partner_inventory_router)
 api_router.include_router(partner_inventory_ops_router)
