@@ -1389,6 +1389,20 @@ const NeedsAuth = ({ children }) => {
   return children;
 };
 
+/**
+ * Guard for /driver/kyc/* routes — Social.docx §6.
+ * Approved drivers should NEVER be looped back into KYC pages via bookmarks,
+ * stale links, or hitting the back button after approval. Bounce them
+ * straight to the dashboard.
+ */
+const NeedsKyc = ({ children }) => {
+  const { driver, loading } = useDriver();
+  if (loading) return <Phone><div className="h-screen grid place-items-center"><Loader2 className="animate-spin" size={22} /></div></Phone>;
+  if (!driver) return <Navigate to="/driver/login" replace />;
+  if (driver.status === "approved") return <Navigate to="/driver/dashboard" replace />;
+  return children;
+};
+
 export const DriverApp = () => {
   useEffect(() => {
     const prev = document.title;
@@ -1405,14 +1419,14 @@ export const DriverApp = () => {
         <Route path="onboarding"    element={<OnboardingPage />} />
         <Route path="login"         element={<LoginPage />} />
         <Route path="otp"           element={<OtpPage />} />
-        <Route path="kyc/personal"  element={<NeedsAuth><StepPersonal /></NeedsAuth>} />
-        <Route path="kyc/id"        element={<NeedsAuth><StepId /></NeedsAuth>} />
-        <Route path="kyc/licence"   element={<NeedsAuth><StepLicence /></NeedsAuth>} />
-        <Route path="kyc/selfie"    element={<NeedsAuth><StepSelfie /></NeedsAuth>} />
-        <Route path="kyc/vehicle"   element={<NeedsAuth><StepVehicle /></NeedsAuth>} />
-        <Route path="kyc/bank"      element={<NeedsAuth><StepBank /></NeedsAuth>} />
-        <Route path="kyc/emergency" element={<NeedsAuth><StepEmergency /></NeedsAuth>} />
-        <Route path="kyc/submitted" element={<NeedsAuth><StepSubmitted /></NeedsAuth>} />
+        <Route path="kyc/personal"  element={<NeedsKyc><StepPersonal /></NeedsKyc>} />
+        <Route path="kyc/id"        element={<NeedsKyc><StepId /></NeedsKyc>} />
+        <Route path="kyc/licence"   element={<NeedsKyc><StepLicence /></NeedsKyc>} />
+        <Route path="kyc/selfie"    element={<NeedsKyc><StepSelfie /></NeedsKyc>} />
+        <Route path="kyc/vehicle"   element={<NeedsKyc><StepVehicle /></NeedsKyc>} />
+        <Route path="kyc/bank"      element={<NeedsKyc><StepBank /></NeedsKyc>} />
+        <Route path="kyc/emergency" element={<NeedsKyc><StepEmergency /></NeedsKyc>} />
+        <Route path="kyc/submitted" element={<NeedsKyc><StepSubmitted /></NeedsKyc>} />
         <Route path="dashboard"     element={<NeedsAuth><DashboardPage /></NeedsAuth>} />
         <Route path="job/live"      element={<NeedsAuth><JobPage /></NeedsAuth>} />
         <Route path="job/success"   element={<NeedsAuth><JobSuccessPage /></NeedsAuth>} />

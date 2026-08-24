@@ -1,0 +1,19 @@
+{
+  "summary": "Iteration 54 — Verified Social.docx Issue #6 `NeedsKyc` guard on /driver/kyc/*. Backend request-otp / verify-otp return correct next_step for all 3 driver states. Full UI verification: APPROVED driver (drv_seed_appr1 / +919999900003) is redirected from ALL 8 KYC routes (personal, id, licence, selfie, vehicle, bank, emergency, submitted) to /driver/dashboard, and the dashboard renders with data-testid=driver-dashboard. PENDING driver (+919999900002) and ONBOARDING driver (+919999900001) can still render every KYC route — NeedsKyc correctly does NOT bounce them. Unauthenticated user visiting /driver/kyc/personal is redirected to /driver/login (falls back to auth check).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "NeedsKyc implementation is clean & correctly composes with the existing auth check (loading -> unauth -> approved-bounce -> render).",
+    "DriverApp.jsx is 1441 lines — split into smaller modules (auth/context, KYC steps, dashboard, guards) for maintainability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "APPROVED +919999900003 / PENDING +919999900002 / ONBOARDING +919999900001 (dev_hint OTP from request-otp response)",
+  "seed_data_creation": "Reset drv_seed_appr1.status back to 'approved' via SessionLocal before running tests (was already approved, kept idempotent).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "NeedsKyc guard at DriverApp.jsx:1398 is verified. Login token stored in localStorage['baked_driver_token']. Backend /api/driver/auth/{request-otp,verify-otp} use `phone_e164` field. verify-otp payload is {phone_e164, code} — NOT otp_id. next_step logic: approved->dashboard, pending_review->submitted, onboarding->vehicle. For UI-only guard tests you can inject the token directly via localStorage and navigate — no need to complete full OTP UI flow.",
+  "rca of the issue": "Fixed already by main agent — old NeedsAuth wrapper allowed approved drivers to view KYC pages via stale links/bookmarks. New NeedsKyc guard adds a `driver.status === 'approved'` early-exit that <Navigate to='/driver/dashboard' replace />, closing the loop-back."
+}

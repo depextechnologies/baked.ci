@@ -1,5 +1,12 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #6: Approved driver KYC loop-back (COMPLETE)
+- Root cause: `NeedsAuth` on `/driver/kyc/*` routes allowed approved drivers to reach onboarding pages via bookmarks / back-button / stale links.
+- Fix: new `NeedsKyc` guard in `DriverApp.jsx` — approved drivers are `<Navigate to="/driver/dashboard" replace />` before any KYC step renders.
+- All 8 KYC routes (personal, id, licence, selfie, vehicle, bank, emergency, submitted) now use `NeedsKyc` instead of `NeedsAuth`.
+- Pending / onboarding drivers still reach KYC screens as expected. Unauth users still bounce to `/driver/login`.
+- Verified 100% frontend by testing agent (`/app/test_reports/iteration_54.json`).
+
 ## 2026-02-24 — Social.docx Issue #5: New driver admin queue (COMPLETE)
 - Root cause: backend `/api/admin/drivers` endpoints existed but no frontend UI consumed them, so signed-up drivers were invisible to admins.
 - New page `AdminDriverApplications.jsx` mounted at `/admin/driver-applications` with sidebar link (Bike icon) between Driver Payouts and Darkstore Approvals.
@@ -66,10 +73,10 @@
 ### Phase 1 (Inventory) — ✅ COMPLETE
 _(all four inventory issues shipped)_
 
-### Phase 2 (Driver) — NEXT / P1
-- #6: Approved driver looped back to onboarding
+### Phase 2 (Driver) — ✅ COMPLETE
+_(both driver issues shipped)_
 
-### Phase 3 (Customer / Location) — P1
+### Phase 3 (Customer / Location) — NEXT / P1
 - #7: Google Maps address picker
 
 ### Phase 5 (Website UX) — P1
