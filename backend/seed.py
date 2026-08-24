@@ -932,6 +932,9 @@ async def run_seed():
         # Phase 2A: demo suppliers so the SA review UI has data to render
         from shared.suppliers.seed import seed_demo_suppliers
         await seed_demo_suppliers(session)
+        # Homepage CMS default stack (CI + IN) — insert-only, admin edits preserved.
+        from modules.homepage.seed import seed_homepage
+        await seed_homepage(session)
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars
