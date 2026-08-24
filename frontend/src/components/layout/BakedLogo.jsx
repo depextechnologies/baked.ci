@@ -84,9 +84,9 @@ export const BrandedModuleLabel = ({ code, label, color, className = "", height 
   if (!src) {
     return <TextWordmark label={label} color={color} height={height} className={className} />;
   }
-  // Express module has been rebranded to SENDbakēd in the UI — reflect this
+  // Express module has been rebranded to SENDbaked in the UI — reflect this
   // in the alt text without touching the internal `code`.
-  const altBrand = code === "express" ? "SENDbakēd" : `${label}bakēd`;
+  const altBrand = code === "express" ? "SENDbaked" : `${label}bakēd`;
   return (
     <img
       src={src}

@@ -231,6 +231,15 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - `BakedLogo` `lg` size bumped 64 → 85 px.
    - `Footer` link builder now handles absolute URLs (`https://…`) as `<a target="_blank">`, and `Delivery Partner` now points to the SENDbakēd driver PWA URL.
 
+- ✅ **Social.docx Phase 4 (2026-02) — Issues #10 + #11**
+   - **#10 India vehicle catalogue seeded** — new migration `0025_send_india_vehicles.py` inserts 3 SENDbaked vehicles (`bike`, `three_wheeler` "Mini 3 Wheeler", `truck`) for `country='IN'` mirroring the CI seed shape. Prices in INR (₹79 / ₹199 / ₹1,499). Deterministic IDs (`exv_in_<code>`) + `ON CONFLICT DO NOTHING` — idempotent. Verified via `GET /api/express/vehicles?country=IN` → 3 rows.
+   - **#11 SENDbaked branding sweep** — user-facing "EXPRESS" → "SEND" everywhere:
+     - `lib/modules.js` — `express` entry now `label: "SEND", suffix: "baked"` (internal `code: 'express'` preserved for schema/API stability).
+     - `pages/express/ExpressHome.jsx` — both `<BrandedModuleLabel label="EXPRESS">` sites now pass `"SEND"`.
+     - `components/layout/BakedLogo.jsx` — express fallback `altBrand` reads `SENDbaked` (no macron).
+     - `lib/expressAssets.js` — wordmark URL swapped from `EXPRESSbaked.png` to `SENDbaked.jpeg`.
+   - Non-goals honoured: no schema rename (`express_vehicles` stays), no API-path rename (`/api/express/*` stays), no touching the `express` code identifier anywhere in backend or frontend routing.
+
    - **Kept intact**: header, wizard progress stepper, Continue footer, all backend calls, dispatch + WebSocket tracking flow.
    - **Verified**: Step 1, 3, 5 desktop screenshots at 1440×900 show the persistent map + branded assets; light theme continues to adapt via `hsl(var(--border/card/muted))`.
 - **P1**: Real SMS OTP (Twilio Verify or Africa's Talking) — swap `OTP_PROVIDER` env

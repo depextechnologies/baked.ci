@@ -105,7 +105,7 @@ const ExpressTopBar = () => {
       */}
       <div className="flex items-center gap-3">
         <span data-testid="exp-top-wordmark" className="inline-flex items-center shrink-0">
-          <BrandedModuleLabel code="express" label="EXPRESS" color={YELLOW} height={28} />
+          <BrandedModuleLabel code="express" label="SEND" color={YELLOW} height={28} />
         </span>
         <div className="flex-1" />
         <button data-testid="exp-top-bell" className="relative w-10 h-10 rounded-full flex items-center justify-center motion-fast active:scale-95" style={{ border: "1px solid #2a2a2a" }} aria-label="Notifications">
@@ -371,7 +371,7 @@ const ExpressDesktopHome = () => {
           {/* Section 1 — Clean header: EXPRESSbakēd logo + delivery location + ETA badge (nothing else) */}
           <div>
             <span data-testid="exp-dt-wordmark" className="inline-flex items-center">
-              <BrandedModuleLabel code="express" label="EXPRESS" color={YELLOW} height={36} />
+              <BrandedModuleLabel code="express" label="SEND" color={YELLOW} height={36} />
             </span>
             <button data-testid="exp-dt-address" onClick={openAddressSelector} className="mt-4 flex items-start gap-2 text-left w-full">
               <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW_TINT }}>
