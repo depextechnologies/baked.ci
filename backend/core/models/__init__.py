@@ -75,6 +75,7 @@ from core.models.suppliers import (
     Supplier, SupplierApplication, SupplierContact, SupplierDocument,
     SupplierSupplyLocation, SupplierCategoryInterest, SupplierBankInfo,
     SupplierReviewAudit, SupplierProduct, SupplierProductRequest,
+    SupplierWarehouseAssignment,
 )
 from core.models.purchase_orders import (
     PO_STATUSES, PO_ACTOR_KINDS,
@@ -169,6 +170,7 @@ __all__ = [
     "Supplier", "SupplierApplication", "SupplierContact", "SupplierDocument",
     "SupplierSupplyLocation", "SupplierCategoryInterest", "SupplierBankInfo",
     "SupplierReviewAudit", "SupplierProduct", "SupplierProductRequest",
+    "SupplierWarehouseAssignment",
     "PO_STATUSES", "PO_ACTOR_KINDS",
     "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderReceipt",
     "PurchaseOrderReceiptLine", "PurchaseOrderAudit",

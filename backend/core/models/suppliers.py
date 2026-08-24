@@ -266,3 +266,27 @@ class SupplierReviewAudit(Base):
     to_status: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+
+
+class SupplierWarehouseAssignment(Base, TimestampMixin):
+    """Social.docx §9 — Bind a supplier to one or more darkstores/FCs.
+
+    Only the assigned warehouses can raise purchase orders against this
+    supplier, and the supplier portal filters "customers" to just these
+    stores. Marking `is_primary=true` designates the default warehouse
+    when a new PO auto-selects one for the supplier.
+    """
+    __tablename__ = "supplier_warehouse_assignments"
+    __table_args__ = (
+        UniqueConstraint("supplier_id", "warehouse_id", name="uq_swa_supplier_warehouse"),
+        Index("ix_swa_supplier", "supplier_id"),
+        Index("ix_swa_warehouse", "warehouse_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("swa"))
+    supplier_id: Mapped[str] = mapped_column(String, ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
+    warehouse_id: Mapped[str] = mapped_column(String, ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    assigned_by_admin_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("admin_users.id"), nullable=True)

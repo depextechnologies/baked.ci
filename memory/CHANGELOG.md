@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #9: Supplier ↔ Warehouse assignment (COMPLETE)
+- New model `SupplierWarehouseAssignment` + migrations 0027 (table) & 0028 (relax audit CHECK constraint for two new actions).
+- New admin routes under `/api/admin/modules/mart/suppliers/{sid}/warehouses`:
+  - `GET`  — assignments + eligible warehouses (with `is_assigned` boolean)
+  - `POST` — idempotent assign (re-POST updates existing row, avoids 409); enforces same-country; one-primary invariant maintained
+  - `DELETE {warehouse_id}` — unassign (204)
+- Every assign/unassign writes a `supplier_review_audit` row.
+- Frontend: new `SupplierWarehousesCard` on the Admin Supplier Applications drawer, above 'Audit trail'. Renders empty state, eligible list with `Assign` buttons, assigned rows with `Make primary` / `Remove`.
+- Verified 8/8 pytest backend + full Playwright E2E (report `/app/test_reports/iteration_52.json`).
+
 ## 2026-02-24 — Social.docx Issue #8: Pick location per order line (COMPLETE)
 - New backend helper `_batch_primary_locations` batches Zone/Aisle/Rack/Shelf/Bin lookups in 5 IN-queries (no N+1).
 - `GET /api/partner/orders` (list + detail) — each `items[]` now carries `pick_location` + `partner_product_id`.
@@ -43,10 +53,10 @@
 - Pytest coverage: `backend/tests/test_pubsub_contract.py`, `test_multiworker_fanout.py`.
 
 ## Open — Social.docx Roadmap
-### Phase 1 (Inventory) — NEXT
-- #9: Supplier → Darkstore/FC assignment
+### Phase 1 (Inventory) — ✅ COMPLETE
+_(all four inventory issues shipped)_
 
-### Phase 2 (Driver) — P1
+### Phase 2 (Driver) — NEXT / P1
 - #5: New driver missing from Admin queue
 - #6: Approved driver looped back to onboarding
 
