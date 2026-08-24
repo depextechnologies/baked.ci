@@ -325,3 +325,24 @@ class WarehouseBin(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+
+class WarehouseCategoryDefault(Base, TimestampMixin):
+    """Per-warehouse default zone/aisle mapping for a MART category.
+
+    Purpose (Social.docx §4): when ops assign a SKU to a bin, they should
+    default to bins under the category's suggested zone, not scan the whole
+    warehouse. One row per (warehouse, category_slug).
+    """
+    __tablename__ = "warehouse_category_defaults"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "category_slug", name="uq_whcd_wh_category"),
+        Index("ix_whcd_warehouse", "warehouse_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("whcd"))
+    warehouse_id: Mapped[str] = mapped_column(String, ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False)
+    category_slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    zone_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("warehouse_zones.id", ondelete="SET NULL"), nullable=True)
+    aisle_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("warehouse_aisles.id", ondelete="SET NULL"), nullable=True)

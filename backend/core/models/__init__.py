@@ -37,7 +37,8 @@ from core.models.express import (
 from core.models.vendors import ModuleVendor, VendorDocument
 from core.models.partners import (
     APPLICATION_STATUSES, Partner, PartnerApplication, Warehouse,
-    WarehouseAisle, WarehouseBin, WarehouseRack, WarehouseShelf, WarehouseZone,
+    WarehouseAisle, WarehouseBin, WarehouseCategoryDefault, WarehouseRack,
+    WarehouseShelf, WarehouseZone,
     WAREHOUSE_STATUSES, WAREHOUSE_STATUS_OPERATIONAL, WAREHOUSE_STATUS_MANAGEABLE,
 )
 from core.models.partner_commerce import (
@@ -139,6 +140,7 @@ __all__ = [
     "WarehouseRack",
     "WarehouseShelf",
     "WarehouseBin",
+    "WarehouseCategoryDefault",
     "PartnerProduct",
     "PartnerOrder",
     "PartnerOrderPick",

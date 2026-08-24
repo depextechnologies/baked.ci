@@ -1258,10 +1258,31 @@ async def list_partner_products(
     rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
     masters = await _load_masters(session, [r.master_product_id for r in rows if r.master_product_id])
 
+    # Preload primary bin locations for every SKU on this page (Social.docx §4).
+    from core.models import PartnerProductLocation
+    from modules.mart_partner.inventory_routes import _build_bin_path
+    prod_ids = [r.id for r in rows]
+    locs = (await session.execute(
+        select(PartnerProductLocation).where(PartnerProductLocation.partner_product_id.in_(prod_ids))
+    )).scalars().all() if prod_ids else []
+    primary_by_prod: dict[str, PartnerProductLocation] = {}
+    for loc in locs:
+        cur = primary_by_prod.get(loc.partner_product_id)
+        # Keep the primary, falling back to the first non-primary we see.
+        if loc.is_primary or cur is None:
+            primary_by_prod[loc.partner_product_id] = loc
+    location_paths: dict[str, dict] = {}
+    for pid, loc in primary_by_prod.items():
+        path = await _build_bin_path(session, loc.bin_id)
+        if path:
+            location_paths[pid] = {**path, "is_primary": loc.is_primary,
+                                    "quantity_at_location": loc.quantity_at_location}
+
     items = []
     for r in rows:
         m = masters.get(r.master_product_id) if r.master_product_id else None
         d = _partner_product_dict(r, m)
+        d["primary_location"] = location_paths.get(r.id)
         if q:
             hay = " ".join([str(d.get(k) or "") for k in ("name", "brand", "sku_code")]).lower()
             if q.lower() not in hay:

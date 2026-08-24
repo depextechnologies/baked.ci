@@ -1,5 +1,16 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #4: Zone→Bin location mapping (COMPLETE)
+- New backend table `warehouse_category_defaults` + migration `0026_warehouse_category_defaults.py`.
+- New backend routes (mounted under `/api/partner/inventory/`):
+  - `GET  /warehouse/{wh}/category-defaults` — list all MART categories + current zone/aisle mapping (null when unmapped).
+  - `PUT  /warehouse/{wh}/category-defaults` — upsert `{category_slug, zone_id, aisle_id}`; passing both nulls deletes the row.
+- `GET /api/partner/products` now returns `primary_location` per SKU (label, zone, aisle, rack, shelf, bin) using existing `PartnerProductLocation`.
+- Frontend Warehouse page: new **Category → Zone defaults** section — one row per category with a zone `<select>` that persists via PUT.
+- Frontend Products page: each row gains a **Location** button that opens a bin-picker modal (recursive tree of zones/aisles/racks/shelves/bins). Ops can assign, mark primary, or remove bin assignments. Row now shows the primary bin path in accent colour, or "No pick location set" when unassigned.
+- Seed data: `wh_alpha_demo_seed` seeded with Zone A (Ambient) → Aisle 01 (Fruits) → Rack R1 → Shelf S1 → Bins B01/B02, plus Zone C (Cold Room). Banane Cavendish pre-assigned to Bin B01 (primary).
+- Verified 5/5 pytest backend + Playwright E2E (report `/app/test_reports/iteration_50.json`); one URL-prefix bug caught and fixed.
+
 ## 2026-02-24 — Social.docx Issue #2: Category + Subcategory filters (COMPLETE)
 - Added `<select>` category + subcategory dropdowns to the Partner Portal "Add Product from Master" modal (`ProductsPage.jsx`).
 - Categories fetched from `GET /api/mart/categories?country=<partner.country>`; subcategories from `GET /api/mart/subcategories?country=…&category=<slug>`.
@@ -24,8 +35,7 @@
 
 ## Open — Social.docx Roadmap
 ### Phase 1 (Inventory) — NEXT
-- #4: Zone → Aisle → Rack → Bin ↔ Category / Product mapping
-- #8: Show pick location per order item
+- #8: Show pick location per order item (partial — PartnerProductLocation exists, just needs to bubble up on the order/picker pages)
 - #9: Supplier → Darkstore/FC assignment
 
 ### Phase 2 (Driver) — P1

@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Package, Plus, Search, Link2, X } from "lucide-react";
+import { Package, Plus, Search, Link2, X, MapPin, ChevronRight } from "lucide-react";
 import { partnerApi, usePartner } from "./PartnerPortalApp";
 
 const fieldStyle = { background: "var(--ph-card)", color: "var(--ph-fg)", border: "1px solid var(--ph-border-strong)" };
@@ -367,12 +367,250 @@ const CategoryRequestForm = ({ onClose }) => {
   );
 };
 
+/* -------------------- SKU-Location assignment modal ---------------------- */
+
+const LocationModal = ({ open, onClose, product, onSaved }) => {
+  const { warehouse } = usePartner();
+  const [tree, setTree] = useState(null);
+  const [assigns, setAssigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [selBin, setSelBin] = useState(null);   // { bin, shelf, rack, aisle, zone } — flat path
+  const [qty, setQty] = useState("0");
+  const [isPrimary, setIsPrimary] = useState(true);
+  const [expandedIds, setExpandedIds] = useState({}); // { [nodeId]: true }
+
+  const load = async () => {
+    if (!warehouse || !product) return;
+    setLoading(true);
+    try {
+      const [{ data: t }, { data: a }] = await Promise.all([
+        partnerApi.get(`/partner/warehouse/${warehouse.id}/tree`),
+        partnerApi.get(`/partner/inventory/locations/${product.id}`),
+      ]);
+      setTree(t);
+      setAssigns(a.items || []);
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { if (open) load(); /* eslint-disable-next-line */ }, [open, product?.id]);
+
+  // Reset selection when modal closes
+  useEffect(() => {
+    if (!open) { setSelBin(null); setQty("0"); setIsPrimary(true); setExpandedIds({}); }
+  }, [open]);
+
+  const toggle = (id) => setExpandedIds(m => ({ ...m, [id]: !m[id] }));
+
+  const submit = async () => {
+    if (!selBin) return toast.error("Pick a bin first");
+    setBusy(true);
+    try {
+      await partnerApi.post(`/partner/inventory/locations/${product.id}`, {
+        bin_id: selBin.bin.id,
+        quantity_at_location: Number(qty) || 0,
+        is_primary: isPrimary,
+      });
+      toast.success(`Assigned to ${selBin.label}`);
+      setSelBin(null); setQty("0"); setIsPrimary(true);
+      await load();
+      onSaved?.();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setBusy(false); }
+  };
+
+  const removeAssign = async (locId) => {
+    if (!window.confirm("Remove this location assignment?")) return;
+    try {
+      await partnerApi.delete(`/partner/inventory/locations/${locId}`);
+      toast.success("Removed");
+      await load();
+      onSaved?.();
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+
+  const setPrimary = async (loc) => {
+    try {
+      await partnerApi.patch(`/partner/inventory/locations/${loc.id}`, { is_primary: true });
+      toast.success("Primary updated");
+      await load();
+      onSaved?.();
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+
+  if (!open) return null;
+
+  // Recursive renderer for the warehouse tree (zone → aisle → rack → shelf → bin).
+  const renderNode = (node, level, ancestors) => {
+    const hasChildren = (node.children || []).length > 0;
+    const isBin = level === "bin";
+    const expanded = !!expandedIds[node.id];
+    const nextLevel = { zone: "aisle", aisle: "rack", rack: "shelf", shelf: "bin", bin: null }[level];
+    const path = { ...ancestors, [level]: node };
+    const levels = ["zone", "aisle", "rack", "shelf", "bin"];
+    const labels = ["Zone", "Aisle", "Rack", "Shelf", "Bin"];
+    const label = levels
+      .map((L, i) => path[L] ? `${labels[i]} ${path[L].code}` : null)
+      .filter(Boolean)
+      .join(" · ");
+    const pathObj = {
+      zone:  path.zone  && { id: path.zone.id,  code: path.zone.code,  name: path.zone.name  },
+      aisle: path.aisle && { id: path.aisle.id, code: path.aisle.code, name: path.aisle.name },
+      rack:  path.rack  && { id: path.rack.id,  code: path.rack.code,  name: path.rack.name  },
+      shelf: path.shelf && { id: path.shelf.id, code: path.shelf.code, name: path.shelf.name },
+      bin:   path.bin   && { id: path.bin.id,   code: path.bin.code,   name: path.bin.name   },
+      label,
+    };
+    const selected = isBin && selBin?.bin?.id === node.id;
+    return (
+      <div key={node.id} style={{ marginLeft: 0 }} data-testid={`tree-${level}-${node.code}`}>
+        <div className="flex items-center gap-2 py-1.5 text-sm" style={{ paddingLeft: (["zone","aisle","rack","shelf","bin"].indexOf(level)) * 16 }}>
+          {hasChildren || isBin ? (
+            <button onClick={() => isBin ? setSelBin(pathObj) : toggle(node.id)}
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5"
+                    style={{ color: "var(--ph-fg-subtle)" }}>
+              {isBin ? <MapPin size={12} style={{ color: selected ? "var(--ph-accent-warm)" : undefined }} />
+                     : <ChevronRight size={14} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />}
+            </button>
+          ) : <div className="w-6" />}
+          <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>{level}</span>
+          <span className="font-mono text-xs" style={{ color: "var(--ph-fg)" }}>{node.code}</span>
+          <span className="text-xs" style={{ color: "var(--ph-fg-muted)" }}>{node.name}</span>
+          {isBin && (
+            <button onClick={() => setSelBin(pathObj)}
+                    className="ml-auto text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                    style={{
+                      background: selected ? "var(--ph-accent-warm)" : "transparent",
+                      color:      selected ? "#0a0a0f" : "var(--ph-accent-warm)",
+                      border:     "1px solid var(--ph-accent-warm)",
+                    }}
+                    data-testid={`tree-bin-select-${node.code}`}>
+              {selected ? "Selected" : "Pick"}
+            </button>
+          )}
+        </div>
+        {expanded && nextLevel && (node.children || []).map(c => renderNode(c, nextLevel, path))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.75)" }}
+         data-testid="location-modal">
+      <div className="w-full max-w-3xl rounded-2xl overflow-hidden" style={{ background: "var(--ph-bg-elevated)", border: "1px solid var(--ph-border-strong)" }}>
+        <div className="flex items-center justify-between p-5" style={{ borderBottom: "1px solid var(--ph-border)" }}>
+          <div>
+            <div className="ph-eyebrow">Pick location</div>
+            <h2 className="ph-h3 mt-1" style={{ color: "var(--ph-fg)" }}>{product?.name}</h2>
+            <p className="text-xs mt-1" style={{ color: "var(--ph-fg-subtle)" }}>
+              Assign one or more bins so pickers know where to grab this SKU.
+            </p>
+          </div>
+          <button onClick={onClose} data-testid="location-modal-close"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border)" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 max-h-[70vh] overflow-y-auto space-y-6">
+          {/* Existing assignments */}
+          <section>
+            <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--ph-fg-subtle)" }}>
+              Current locations
+            </div>
+            {assigns.length === 0 ? (
+              <div className="p-4 rounded-xl text-sm" style={{ background: "var(--ph-card)", color: "var(--ph-fg-muted)" }}
+                   data-testid="location-none">
+                No location assigned yet. Pick a bin below.
+              </div>
+            ) : (
+              <div className="rounded-xl overflow-hidden" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
+                {assigns.map(a => (
+                  <div key={a.id} className="flex items-center gap-3 py-2 px-3 text-sm"
+                       style={{ borderBottom: "1px solid var(--ph-border)" }}
+                       data-testid={`location-row-${a.id}`}>
+                    <MapPin size={14} style={{ color: a.is_primary ? "var(--ph-accent-warm)" : "var(--ph-fg-subtle)" }} />
+                    <span style={{ color: "var(--ph-fg)" }}>{a.path?.label || a.bin_id}</span>
+                    {a.is_primary && (
+                      <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+                            style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>Primary</span>
+                    )}
+                    <span className="ml-auto text-xs" style={{ color: "var(--ph-fg-subtle)" }}>Qty: {a.quantity_at_location}</span>
+                    {!a.is_primary && (
+                      <button onClick={() => setPrimary(a)} className="text-xs px-2 h-7 rounded"
+                              style={{ color: "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)" }}
+                              data-testid={`location-primary-${a.id}`}>Make primary</button>
+                    )}
+                    <button onClick={() => removeAssign(a.id)} className="text-xs px-2 h-7 rounded text-rose-400"
+                            style={{ border: "1px solid var(--ph-border-strong)" }}
+                            data-testid={`location-remove-${a.id}`}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Warehouse tree picker */}
+          <section>
+            <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--ph-fg-subtle)" }}>
+              Warehouse tree
+            </div>
+            {loading ? (
+              <p className="text-sm" style={{ color: "var(--ph-fg-subtle)" }}>Loading…</p>
+            ) : !tree || tree.zones.length === 0 ? (
+              <div className="p-4 rounded-xl text-sm" style={{ background: "var(--ph-card)", color: "var(--ph-fg-muted)" }}>
+                No zones yet. Set up your warehouse first under Warehouse → Storage hierarchy.
+              </div>
+            ) : (
+              <div className="rounded-xl p-2" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }} data-testid="location-tree">
+                {tree.zones.map(z => renderNode(z, "zone", {}))}
+              </div>
+            )}
+          </section>
+
+          {/* Assign form */}
+          {selBin && (
+            <section className="p-4 rounded-xl" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-accent-warm)" }}>
+              <div className="text-xs uppercase tracking-widest mb-3" style={{ color: "var(--ph-accent-warm)" }}>
+                Assign to {selBin.label}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>
+                  Quantity at this location
+                  <input value={qty} onChange={e => setQty(e.target.value)} type="number" min="0"
+                         className={FIELD + " mt-1"} style={fieldStyle} data-testid="location-qty-input" />
+                </label>
+                <label className="text-xs flex items-center gap-2" style={{ color: "var(--ph-fg-subtle)" }}>
+                  <input type="checkbox" checked={isPrimary} onChange={e => setIsPrimary(e.target.checked)}
+                         data-testid="location-primary-checkbox" />
+                  Mark as primary pick location
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setSelBin(null)} className="px-4 h-10 rounded-lg text-sm"
+                        style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>
+                <button disabled={busy} onClick={submit} className="px-4 h-10 rounded-lg text-sm font-medium"
+                        style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }}
+                        data-testid="location-assign-btn">
+                  {busy ? "Saving…" : "Assign"}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* -------------------------- Editable product row -------------------------- */
 
 const ProductRow = ({ p, onChange }) => {
   const [editing, setEditing] = useState(false);
   const [price, setPrice] = useState(String(p.partner_price));
   const [stock, setStock] = useState(String(p.stock_qty));
+  const [showLocation, setShowLocation] = useState(false);
   const lowStock = p.stock_qty <= p.low_stock_threshold;
 
   const save = async () => {
@@ -442,6 +680,17 @@ const ProductRow = ({ p, onChange }) => {
             <span className="ml-2">Master: {money(p.master_price, p.currency)}</span>
           )}
         </div>
+        {p.primary_location?.label ? (
+          <div className="flex items-center gap-1 mt-1 text-xs" data-testid={`product-location-${p.id}`}
+               style={{ color: "var(--ph-accent-warm)" }}>
+            <MapPin size={11} /> {p.primary_location.label}
+          </div>
+        ) : (
+          <div className="text-xs mt-1" style={{ color: "var(--ph-fg-subtle)" }}
+               data-testid={`product-location-none-${p.id}`}>
+            No pick location set
+          </div>
+        )}
       </div>
 
       {editing ? (
@@ -465,6 +714,11 @@ const ProductRow = ({ p, onChange }) => {
           <button onClick={() => setEditing(true)} className="px-2 h-8 text-xs rounded"
                   style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border-strong)" }}
                   data-testid={`row-edit-${p.id}`}>Edit</button>
+          <button onClick={() => setShowLocation(true)} className="px-2 h-8 text-xs rounded flex items-center gap-1"
+                  style={{ color: "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)" }}
+                  data-testid={`row-location-${p.id}`}>
+            <MapPin size={12} /> Location
+          </button>
           <button onClick={toggleActive} className="px-2 h-8 text-xs rounded"
                   style={{ color: p.is_active ? "var(--ph-fg-muted)" : "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)" }}
                   data-testid={`row-toggle-${p.id}`}>{p.is_active ? "Hide" : "Show"}</button>
@@ -473,6 +727,12 @@ const ProductRow = ({ p, onChange }) => {
                   data-testid={`row-delete-${p.id}`}>Delete</button>
         </>
       )}
+      <LocationModal
+        open={showLocation}
+        onClose={() => setShowLocation(false)}
+        product={p}
+        onSaved={onChange}
+      />
     </div>
   );
 };

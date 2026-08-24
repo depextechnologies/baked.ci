@@ -641,3 +641,121 @@ async def stock_by_location(
             "bins":    len(bins_),   "assignments": len(ppl),
         },
     }
+
+
+
+# ============================================================================
+#         Social.docx §4 — CATEGORY → default ZONE mapping per warehouse
+# ============================================================================
+from core.models import WarehouseCategoryDefault, MartCategory
+
+
+class CategoryDefaultIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    category_slug: str = Field(..., min_length=1, max_length=120)
+    zone_id: Optional[str] = None       # null clears the mapping
+    aisle_id: Optional[str] = None      # optional secondary hint
+
+
+def _cat_default_dict(row: WarehouseCategoryDefault) -> dict:
+    return {
+        "id": row.id,
+        "category_slug": row.category_slug,
+        "zone_id": row.zone_id,
+        "aisle_id": row.aisle_id,
+    }
+
+
+@router.get("/warehouse/{warehouse_id}/category-defaults")
+async def list_category_defaults(
+    warehouse_id: str,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return every category in the partner's country alongside its currently
+    mapped default zone/aisle (null when unmapped). Categories with no mapping
+    row still appear so the UI can render one row per category."""
+    wh = await _assert_owns_warehouse(session, partner, warehouse_id)
+    cats = (await session.execute(
+        select(MartCategory).where(
+            MartCategory.country == wh.country,
+            MartCategory.module == (partner.module or "mart"),
+            MartCategory.deleted_at.is_(None),
+        ).order_by(MartCategory.order)
+    )).scalars().all()
+
+    mappings = (await session.execute(
+        select(WarehouseCategoryDefault).where(WarehouseCategoryDefault.warehouse_id == wh.id)
+    )).scalars().all()
+    by_slug = {m.category_slug: m for m in mappings}
+
+    return {
+        "warehouse_id": wh.id,
+        "items": [
+            {
+                "category_slug": c.slug,
+                "category_name": c.name or c.name_en or c.slug,
+                "icon": c.icon,
+                "mapping": _cat_default_dict(by_slug[c.slug]) if c.slug in by_slug else None,
+            } for c in cats
+        ],
+    }
+
+
+@router.put("/warehouse/{warehouse_id}/category-defaults",
+            dependencies=[Depends(require_role("owner", "manager", "inventory_manager", "warehouse_manager"))])
+async def upsert_category_default(
+    warehouse_id: str, payload: CategoryDefaultIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Upsert a category → zone mapping. Pass zone_id=null to clear it.
+
+    Validation: the zone (and optional aisle) must belong to this warehouse.
+    """
+    wh = await _assert_owns_warehouse(session, partner, warehouse_id)
+
+    # Validate zone / aisle ownership if provided
+    if payload.zone_id:
+        z = await session.get(WarehouseZone, payload.zone_id)
+        if not z or z.warehouse_id != wh.id:
+            raise HTTPException(400, "Zone does not belong to this warehouse")
+    if payload.aisle_id:
+        a = await session.get(WarehouseAisle, payload.aisle_id)
+        if not a:
+            raise HTTPException(400, "Aisle not found")
+        # Aisle must sit under the chosen zone (or under any zone in this wh if zone_id is None)
+        if payload.zone_id and a.zone_id != payload.zone_id:
+            raise HTTPException(400, "Aisle is not under the selected zone")
+        parent_zone = await session.get(WarehouseZone, a.zone_id)
+        if not parent_zone or parent_zone.warehouse_id != wh.id:
+            raise HTTPException(400, "Aisle does not belong to this warehouse")
+
+    existing = (await session.execute(
+        select(WarehouseCategoryDefault).where(
+            WarehouseCategoryDefault.warehouse_id == wh.id,
+            WarehouseCategoryDefault.category_slug == payload.category_slug,
+        )
+    )).scalar_one_or_none()
+
+    # Clearing: zone_id=None and aisle_id=None → delete the row if present
+    if payload.zone_id is None and payload.aisle_id is None:
+        if existing:
+            await session.delete(existing)
+            await session.commit()
+        return {"mapping": None}
+
+    if existing:
+        existing.zone_id = payload.zone_id
+        existing.aisle_id = payload.aisle_id
+    else:
+        existing = WarehouseCategoryDefault(
+            warehouse_id=wh.id,
+            category_slug=payload.category_slug,
+            zone_id=payload.zone_id,
+            aisle_id=payload.aisle_id,
+        )
+        session.add(existing)
+    await session.commit()
+    await session.refresh(existing)
+    return {"mapping": _cat_default_dict(existing)}

@@ -1,0 +1,45 @@
+{
+  "summary": "Social.docx Issue #4 tested end-to-end. Backend routes (GET/PUT /api/partner/inventory/warehouse/{id}/category-defaults, and enriched /api/partner/products.primary_location) all pass 5/5 pytest. Frontend Products page + LocationModal work end-to-end (open modal, expand tree, pick bin, set qty + primary, assign, verify current-locations, verify row shows bin path, cleanup). CRITICAL frontend bug: WarehouseEditor's CategoryDefaultsSection hits the WRONG backend URL — both GET and PUT are missing the `/inventory/` prefix, so the section always renders 'No categories available in your country yet.' and any zone selection would fail with 404. Backend endpoints themselves are correct and verified.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "WarehouseEditor → CategoryDefaultsSection",
+        "issue": "Both GET and PUT use `/partner/warehouse/{warehouseId}/category-defaults` — the correct backend path is `/partner/inventory/warehouse/{warehouseId}/category-defaults`. Result: the section always renders empty state ('No categories available in your country yet.') and clicking any zone in the select would 404. Network capture confirms only the wrong URL is being called (2× 404 errors on the warehouse page). Backend endpoint returns 200 with populated categories when hit directly (5/5 pytest passes).",
+        "selector": "[data-testid=\"category-defaults-section\"]",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Warehouse → Category → Zone defaults",
+        "issue": "Frontend calls wrong URL prefix (missing `/inventory/`). Fix: in /app/frontend/src/apps/partner-portal/WarehouseEditor.jsx lines 231 and 240, change `/partner/warehouse/${warehouseId}/category-defaults` → `/partner/inventory/warehouse/${warehouseId}/category-defaults`.",
+        "affected_selectors": ["[data-testid=\"category-defaults-section\"]", "[data-testid^=\"cat-default-select-\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_warehouse_category_defaults.py",
+    "/app/test_reports/pytest/warehouse_cat_defaults.xml"
+  ],
+  "action_items": [
+    "FIX (one-line, two occurrences): In /app/frontend/src/apps/partner-portal/WarehouseEditor.jsx CategoryDefaultsSection, add `/inventory` to both the GET (line 231) and PUT (line 240) URLs so they read `/partner/inventory/warehouse/${warehouseId}/category-defaults`. After the fix, category rows will render and zone selection will persist (backend already verified working via pytest)."
+  ],
+  "critical_code_review_comments": [
+    "URL prefix mismatch between frontend and backend for category-defaults — happens because backend router is mounted with `prefix=\"/partner/inventory\"` but the frontend was written as if it lived under `/partner/warehouse/...`. Consider a small integration/E2E test that hits both endpoints via the actual axios client to catch such wiring regressions.",
+    "backend inventory_routes.py: the `assign_location` unique-constraint 409 message ('This bin is already assigned to that product') is user-friendly — however no catch for FK errors when passing a bin from a different partner's warehouse. Currently handled via `_assert_owns_warehouse` → 403, which is correct.",
+    "list_partner_products enrich block does N+1 `_build_bin_path` calls (one per SKU with a primary location). For a large catalog this could add latency. Consider batching zone/aisle/rack/shelf lookups.",
+    "CategoryDefaultsSection re-fetches the whole list after every `setZone` — fine for a small set but expensive at scale. Consider optimistic in-place update after PUT."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_warehouse_category_defaults.py (new)"
+  ],
+  "success_rate": { "backend": "100% (5/5)", "frontend": "50% — Products/LocationModal fully working; Warehouse Category-Defaults broken by URL bug" },
+  "test_credentials": "partner-alpha-store@test.example / Alpha1234!Beta — MARTbakēd module. Warehouse id: wh_alpha_demo_seed.",
+  "seed_data_creation": "None created. Verified pre-existing Banane Cavendish → Bin B01 primary assignment. Test temporarily assigned Baguette Tradition to B02 and then cleaned up via Remove.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent fixes the CategoryDefaultsSection URL, retest by: (1) navigate /partner-portal/martbaked/warehouse, scroll to `[data-testid=\"category-defaults-section\"]`, verify rows populate; (2) pick a zone from any `[data-testid=\"cat-default-select-<slug>\"]`, reload, verify value persists; (3) re-select the blank option to clear (should not error). Backend pytest at /app/backend/tests/test_warehouse_category_defaults.py already covers all API contract cases and passes.",
+  "rca of the issue": "Backend router `router = APIRouter(prefix=\"/partner/inventory\", ...)` in /app/backend/modules/mart_partner/inventory_routes.py mounts the new endpoints under `/api/partner/inventory/warehouse/{id}/category-defaults`. The React WarehouseEditor.jsx was written as if the routes were mounted directly under `/partner/warehouse/...`, causing every GET/PUT from that section to return 404. This is a pure frontend URL wiring bug; the backend contract is correct."
+}
