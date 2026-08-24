@@ -60,7 +60,7 @@ export const SupplierInvoicesPage = ({ apiClient, role, basePath }) => {
   return (
     <div className="space-y-5" data-testid={`${role}-invoices-page`}>
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">MARTbaked · Billing</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">MARTbakēd · Billing</div>
         <h2 className="text-2xl font-bold flex items-center gap-2 text-foreground">
           <Receipt size={18} className="text-primary" /> Supplier Invoices
         </h2>

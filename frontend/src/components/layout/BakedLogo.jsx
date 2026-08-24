@@ -86,7 +86,7 @@ export const BrandedModuleLabel = ({ code, label, color, className = "", height 
   }
   // Express module has been rebranded to SENDbaked in the UI — reflect this
   // in the alt text without touching the internal `code`.
-  const altBrand = code === "express" ? "SENDbaked" : `${label}bakēd`;
+  const altBrand = code === "express" ? "SENDbakēd" : `${label}bakēd`;
   return (
     <img
       src={src}

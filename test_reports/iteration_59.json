@@ -1,0 +1,75 @@
+{
+  "summary": "Iteration 59 — Word-sweep branding reconciliation. Verified all 7 files_of_reference contain the correct BAKĒD / MARTbakēd / SENDbakēd copy. Ran repo-wide grep to enforce the 'ZERO visible occurrences' rule. Found 2 remaining visible-text misses ('baked Rewards') outside the listed files, plus 1 stale regression test still asserting the old '[BAKED]' subject. Regression-safe items (BAKED_ENV, _make_ref_code returning 'BAKED<hash>', asset URLs) confirmed unchanged.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/app/backend/tests/test_purchase_orders_phase4c_notifications.py (lines 129, 158)",
+        "issue": "Regression test still asserts f'[BAKED] New PO ...' and f'[BAKED] PO ... acknowledged by ...'. After the branding sweep the subject line is now '[BAKĒD] ...' (see /app/backend/shared/purchase_orders/notifications.py:82, 111, 135). These two assertions will fail on next pytest run."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DesktopProfileShell",
+        "issue": "Nav label still reads 'baked Rewards' — violates spec 'ZERO occurrences of baked Rewards in visible DOM text'. Should be 'BAKĒD Rewards' to match MobileRewards heading + MobileOrderConfirmation chip.",
+        "selector": "/app/frontend/src/components/profile/DesktopProfileShell.jsx:11 — { to: '/profile/rewards', label: 'baked Rewards', icon: Gift }",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "MobileProfile",
+        "issue": "Row testid='m-prof-nav-rewards' still labelled 'baked Rewards'. Same violation as DesktopProfileShell. This is the entry-point that navigates to /rewards where the heading (correctly) now shows 'BAKĒD Rewards'.",
+        "selector": "/app/frontend/src/pages/mobile/MobileProfile.jsx:125 — <Row testid=\"m-prof-nav-rewards\" ... label=\"baked Rewards\" ... />",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verification_details": {
+    "files_of_reference_verified_ok": [
+      "SupplierInvoicesPage.jsx:63 → 'MARTbakēd · Billing' ✓",
+      "BakedLogo.jsx:89 → altBrand = code==='express' ? 'SENDbakēd' : `${label}bakēd` ✓",
+      "MobileOrderConfirmation.jsx:79 → 'BAKĒD Rewards' ✓",
+      "MobileRewards.jsx:26 → 'BAKĒD Rewards' heading ✓",
+      "supplier_invoices/service.py:144,157 → actor_label 'MARTbakēd auto-draft' / 'MARTbakēd' ✓",
+      "purchase_orders/notifications.py:82,85,111,114,135,138 → subjects '[BAKĒD] …' + brand chip 'BAKĒD · MARTbakēd' ✓",
+      "purchase_orders/grn.py:128 → header 'BAKĒD · MARTbakēd' ✓; :495 → footer_note 'BAKĒD Platform · MARTbakēd · Auto-generated GRN · Not a tax invoice' ✓"
+    ],
+    "regression_safe_items_confirmed": [
+      "backend/shared/auth/routes.py:32 BAKED_ENV = os.environ.get('BAKED_ENV','development') unchanged ✓",
+      "backend/shared/customer/routes.py:190 _make_ref_code returns 'BAKED'+hash (ASCII referral code) unchanged ✓",
+      "BAKĒD occurrences in repo: 177 (spec said 148+ existing must remain) ✓"
+    ],
+    "grep_scan_visible_text_misses": [
+      "profile/DesktopProfileShell.jsx:11 'baked Rewards' (visible nav label)",
+      "pages/mobile/MobileProfile.jsx:125 'baked Rewards' (visible row label)"
+    ],
+    "grep_scan_exempt_items_left_asis": [
+      "lib/modules.js:15 — code comment (exempt)",
+      "components/layout/BakedLogo.jsx:87 — code comment (exempt)",
+      "components/mobile/FilterDrawer.jsx:7 — jsdoc comment (exempt)",
+      "components/mobile/MobileProductCard.jsx:10 — jsdoc comment (exempt)",
+      "backend/migrations/versions/0025_send_india_vehicles.py:1 — migration docstring (exempt)"
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Update /app/frontend/src/components/profile/DesktopProfileShell.jsx:11 label from 'baked Rewards' → 'BAKĒD Rewards'.",
+    "Update /app/frontend/src/pages/mobile/MobileProfile.jsx:125 Row label from 'baked Rewards' → 'BAKĒD Rewards'.",
+    "Update /app/backend/tests/test_purchase_orders_phase4c_notifications.py lines 129 & 158: replace '[BAKED]' with '[BAKĒD]' in the two f-string assertions to match new subject line."
+  ],
+  "critical_code_review_comments": [
+    "Branding sweep was scoped only to the 7 files_of_reference but the acceptance criterion is 'ZERO visible occurrences'. A repo-wide grep should be part of the sweep — it found two additional profile-nav labels that were missed.",
+    "The purchase_orders notifications regression tests were not updated in the same commit as the subject-line change. This is a common gap in copy-sweep PRs — always grep test/ dirs for the old brand token when touching template strings."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no runtime tests executed — static verification only)", "frontend": "N/A (static verification only)"},
+  "test_credentials": "Not required for static grep verification. Partner login (partner-alpha-store@test.example / Alpha1234!Beta) was noted but no UI login needed since all changes were verifiable via file inspection.",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 7 explicitly-listed files in the branding sweep are correct. Only remaining bugs are: (1) two 'baked Rewards' visible labels in profile shells (DesktopProfileShell.jsx:11, MobileProfile.jsx:125), and (2) two stale '[BAKED]' assertions in test_purchase_orders_phase4c_notifications.py (lines 129, 158). Once those 3 lines are fixed, run pytest /app/backend/tests/test_purchase_orders_phase4c_notifications.py and a fresh grep 'MARTbaked\\|SENDbaked\\|baked Rewards' across /app/frontend/src excluding code comments — should return zero hits.",
+  "rca of the issue": "The branding sweep updated the 7 hot-spot files but missed (a) two nav labels that reference the Rewards module by human-facing name in the profile shells, and (b) the accompanying regression test file which hardcoded the old '[BAKED]' subject prefix. Root cause: the sweep was file-scoped rather than token-scoped. Mitigation: run `grep -rn 'MARTbaked\\|SENDbaked\\|baked Rewards\\|\\[BAKED\\]' /app --include='*.py' --include='*.js' --include='*.jsx'` and address every result that is user-visible text or an assertion on user-visible text."
+}

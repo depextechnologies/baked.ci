@@ -23,7 +23,7 @@ export const MobileRewards = () => {
     <div className="pb-24">
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-rew-back" onClick={() => nav("/profile")} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0"><div className="text-base font-bold">baked Rewards</div><div className="text-[11px] text-muted-foreground">Earn every time you shop. Redeem for discounts.</div></div>
+        <div className="flex-1 min-w-0"><div className="text-base font-bold">BAKĒD Rewards</div><div className="text-[11px] text-muted-foreground">Earn every time you shop. Redeem for discounts.</div></div>
         <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Info"><HelpCircle size={16} /></button>
       </div>
 

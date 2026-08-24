@@ -76,7 +76,7 @@ export const MobileOrderConfirmation = () => {
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C", color: "#0a1200" }}><Star size={18} fill="#0a1200" strokeWidth={2.5} /></div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold">baked Rewards</div>
+                <div className="text-sm font-bold">BAKĒD Rewards</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
                   {order.points_earned > 0 && <>You earned <b style={{ color: "#FCC44C" }}>+{order.points_earned} pts</b></>}
                   {order.points_redeemed > 0 && <>{order.points_earned > 0 ? " · " : ""}Redeemed <b style={{ color: "#77BC1F" }}>{order.points_redeemed} pts</b></>}
