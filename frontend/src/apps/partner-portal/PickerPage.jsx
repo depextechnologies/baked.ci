@@ -16,9 +16,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ScanLine, Package, Plus, Minus, CheckCircle2, Loader2, RefreshCw,
-  ClipboardCheck, ChevronRight, AlertCircle,
+  ClipboardCheck, ChevronRight, AlertCircle, MapPin,
 } from "lucide-react";
-import { partnerApi } from "./PartnerPortalApp";
+import { partnerApi, useModuleBase } from "./PartnerPortalApp";
 
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;
@@ -53,6 +53,7 @@ const ScanFeedback = ({ status }) => {
 export const PickerPage = () => {
   const { partnerOrderId } = useParams();
   const nav = useNavigate();
+  const { portalBase } = useModuleBase();
 
   const [queue, setQueue] = useState({ items: [], buckets: { accepted: 0, packing: 0 } });
   const [active, setActive] = useState(null);
@@ -132,13 +133,13 @@ export const PickerPage = () => {
       const { data } = await partnerApi.post(`/partner/picker/orders/${active.id}/complete`);
       toast.success(`${data.order_number} marked ready for handoff`);
       setActive(null);
-      nav("/partner-portal/picker");
+      nav(`${portalBase}/picker`);
       loadQueue();
     } catch (e) { toast.error(errMsg(e)); }
     finally { setBusyComplete(false); }
   };
 
-  const openOrder = (id) => nav(`/partner-portal/picker/${id}`);
+  const openOrder = (id) => nav(`${portalBase}/picker/${id}`);
 
   const allComplete = useMemo(
     () => active && active.lines.length > 0 && active.lines.every(l => l.is_complete),
@@ -313,6 +314,19 @@ export const PickerPage = () => {
                         {l.ean_upc && <span className="font-mono opacity-75">{l.ean_upc}</span>}
                         {l.unit && <span>· {l.unit}</span>}
                       </div>
+                      {l.pick_location?.label ? (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium"
+                             data-testid={`picker-line-location-${l.id}`}
+                             style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)",
+                                      border: "1px solid var(--ph-accent-warm)" }}>
+                          <MapPin size={11} /> {l.pick_location.label}
+                        </div>
+                      ) : (
+                        <div className="mt-1.5 text-[11px]" style={{ color: "var(--ph-fg-subtle)" }}
+                             data-testid={`picker-line-location-none-${l.id}`}>
+                          No pick location — check with your team
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => setItemQty(l.id, Math.max(0, l.picked_qty - 1))}

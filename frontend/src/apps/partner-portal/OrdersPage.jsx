@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ShoppingBag, ChevronRight, Package } from "lucide-react";
+import { ShoppingBag, ChevronRight, Package, MapPin } from "lucide-react";
 import { partnerApi } from "./PartnerPortalApp";
 
 const errMsg = (e) => {
@@ -123,13 +123,26 @@ const OrderDrawer = ({ orderId, onClose, onChange }) => {
               <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--ph-fg-subtle)" }}>Items</div>
               <div className="rounded-xl overflow-hidden" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
                 {order.items.map(it => (
-                  <div key={it.id} className="flex items-center gap-3 p-3" style={{ borderBottom: "1px solid var(--ph-border)" }}>
+                  <div key={it.id} className="flex items-center gap-3 p-3" style={{ borderBottom: "1px solid var(--ph-border)" }}
+                       data-testid={`order-item-${it.id}`}>
                     {it.image
                       ? <img src={it.image} alt="" className="w-10 h-10 rounded object-cover" />
                       : <div className="w-10 h-10 rounded flex items-center justify-center" style={{ background: "var(--ph-bg-elevated)" }}><Package size={14} /></div>}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm" style={{ color: "var(--ph-fg)" }}>{it.name}</div>
                       <div className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>{it.brand} · {it.unit}</div>
+                      {it.pick_location?.label ? (
+                        <div className="flex items-center gap-1 mt-1 text-xs"
+                             data-testid={`order-item-pick-location-${it.id}`}
+                             style={{ color: "var(--ph-accent-warm)" }}>
+                          <MapPin size={11} /> {it.pick_location.label}
+                        </div>
+                      ) : it.partner_product_id ? (
+                        <div className="text-xs mt-1" style={{ color: "var(--ph-fg-subtle)" }}
+                             data-testid={`order-item-pick-location-none-${it.id}`}>
+                          No pick location — assign one under Products
+                        </div>
+                      ) : null}
                     </div>
                     <div className="text-xs" style={{ color: "var(--ph-fg-muted)" }}>× {it.quantity}</div>
                     <div className="text-sm font-mono w-24 text-right" style={{ color: "var(--ph-fg)" }}>{money(it.line_total, order.currency)}</div>

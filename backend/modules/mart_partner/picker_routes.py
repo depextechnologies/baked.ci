@@ -72,7 +72,27 @@ async def _load_order_or_404(session: AsyncSession, actor: PartnerActor, po_id: 
 async def _pick_dict(session: AsyncSession, po: PartnerOrder,
                      items: list[OrderItem], picks: dict[str, PartnerOrderPick]) -> dict:
     """Serialise an order with pick progress for the tablet UI."""
+    from modules.mart_partner.routes import _batch_primary_locations
     order = await session.get(CustomerOrder, po.order_id)
+    pick_locations = await _batch_primary_locations(
+        session, [it.partner_product_id for it in items if it.partner_product_id]
+    )
+    # Sort lines by walking order — zone code → aisle code → rack code → shelf → bin —
+    # so packers travel the shortest route. Items without a bin sink to the end.
+    def _walk_key(it: OrderItem):
+        loc = pick_locations.get(it.partner_product_id) if it.partner_product_id else None
+        if not loc:
+            return (1, "", "", "", "", "")  # unassigned last
+        return (
+            0,
+            (loc.get("zone")  or {}).get("code") or "",
+            (loc.get("aisle") or {}).get("code") or "",
+            (loc.get("rack")  or {}).get("code") or "",
+            (loc.get("shelf") or {}).get("code") or "",
+            (loc.get("bin")   or {}).get("code") or "",
+        )
+    items = sorted(items, key=_walk_key)
+
     lines_out = []
     total_required = 0
     total_picked = 0
@@ -104,6 +124,8 @@ async def _pick_dict(session: AsyncSession, po: PartnerOrder,
             "is_complete": picked_qty >= req,
             "line_total": float(it.line_total or 0),
             "currency": it.currency,
+            # Social.docx §8 — pick location per line item
+            "pick_location": pick_locations.get(it.partner_product_id) if it.partner_product_id else None,
         })
     return {
         "id": po.id,

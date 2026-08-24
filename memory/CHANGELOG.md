@@ -1,5 +1,14 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — Social.docx Issue #8: Pick location per order line (COMPLETE)
+- New backend helper `_batch_primary_locations` batches Zone/Aisle/Rack/Shelf/Bin lookups in 5 IN-queries (no N+1).
+- `GET /api/partner/orders` (list + detail) — each `items[]` now carries `pick_location` + `partner_product_id`.
+- `GET /api/partner/picker/orders/{po_id}` — each `lines[]` carries `pick_location` **and** lines are sorted by walking order (zone → aisle → rack → shelf → bin, unassigned last).
+- Frontend Orders page shows an accent-warm MapPin pill on each line ("Zone A · Aisle 01 · Rack R1 · Shelf S1 · Bin B01") or "No pick location — assign one under Products" fallback.
+- Frontend Picker page shows a bordered accent-warm pill on each line, correctly sorted for shortest-walk picking.
+- Bonus: Fixed a pre-existing routing bug in PickerPage.jsx where nav absolute paths were missing the module slug (now uses `portalBase` from `useModuleBase`).
+- Verified 3/3 pytest backend + Playwright E2E (report `/app/test_reports/iteration_51.json`).
+
 ## 2026-02-24 — Social.docx Issue #4: Zone→Bin location mapping (COMPLETE)
 - New backend table `warehouse_category_defaults` + migration `0026_warehouse_category_defaults.py`.
 - New backend routes (mounted under `/api/partner/inventory/`):
@@ -35,7 +44,6 @@
 
 ## Open — Social.docx Roadmap
 ### Phase 1 (Inventory) — NEXT
-- #8: Show pick location per order item (partial — PartnerProductLocation exists, just needs to bubble up on the order/picker pages)
 - #9: Supplier → Darkstore/FC assignment
 
 ### Phase 2 (Driver) — P1

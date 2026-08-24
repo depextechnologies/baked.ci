@@ -1144,6 +1144,75 @@ from core.models import (
 
 # ---------------------------------------------------------------- helpers ---
 
+async def _batch_primary_locations(session: AsyncSession, partner_product_ids: list[str]) -> dict[str, dict]:
+    """Return `{partner_product_id: {label, zone, aisle, rack, shelf, bin, quantity_at_location}}`
+    for every SKU that has at least one PartnerProductLocation.
+
+    Prefers `is_primary=true`; falls back to the first assignment when no
+    primary is set. Batched to avoid N+1 fetches (Social.docx §8).
+    """
+    if not partner_product_ids:
+        return {}
+    from core.models import (
+        PartnerProductLocation, WarehouseBin, WarehouseShelf, WarehouseRack,
+        WarehouseAisle, WarehouseZone,
+    )
+    ids = list(set([i for i in partner_product_ids if i]))
+    if not ids:
+        return {}
+    locs = (await session.execute(
+        select(PartnerProductLocation).where(PartnerProductLocation.partner_product_id.in_(ids))
+    )).scalars().all()
+    if not locs:
+        return {}
+
+    # Prefer primary; fall back to any single assignment.
+    best: dict[str, "PartnerProductLocation"] = {}
+    for loc in locs:
+        cur = best.get(loc.partner_product_id)
+        if loc.is_primary or cur is None:
+            best[loc.partner_product_id] = loc
+
+    bin_ids = list({loc.bin_id for loc in best.values()})
+    bins = {b.id: b for b in (await session.execute(select(WarehouseBin).where(WarehouseBin.id.in_(bin_ids)))).scalars().all()}
+    shelf_ids = list({b.shelf_id for b in bins.values()})
+    shelves = {s.id: s for s in (await session.execute(select(WarehouseShelf).where(WarehouseShelf.id.in_(shelf_ids)))).scalars().all()} if shelf_ids else {}
+    rack_ids = list({s.rack_id for s in shelves.values()})
+    racks = {r.id: r for r in (await session.execute(select(WarehouseRack).where(WarehouseRack.id.in_(rack_ids)))).scalars().all()} if rack_ids else {}
+    aisle_ids = list({r.aisle_id for r in racks.values()})
+    aisles = {a.id: a for a in (await session.execute(select(WarehouseAisle).where(WarehouseAisle.id.in_(aisle_ids)))).scalars().all()} if aisle_ids else {}
+    zone_ids = list({a.zone_id for a in aisles.values()})
+    zones = {z.id: z for z in (await session.execute(select(WarehouseZone).where(WarehouseZone.id.in_(zone_ids)))).scalars().all()} if zone_ids else {}
+
+    out: dict[str, dict] = {}
+    for ppid, loc in best.items():
+        b = bins.get(loc.bin_id)
+        if not b:
+            continue
+        s = shelves.get(b.shelf_id)
+        r = racks.get(s.rack_id) if s else None
+        a = aisles.get(r.aisle_id) if r else None
+        z = zones.get(a.zone_id) if a else None
+        label = " · ".join(filter(None, [
+            f"Zone {z.code}"  if z else None,
+            f"Aisle {a.code}" if a else None,
+            f"Rack {r.code}"  if r else None,
+            f"Shelf {s.code}" if s else None,
+            f"Bin {b.code}"   if b else None,
+        ]))
+        out[ppid] = {
+            "label": label,
+            "zone":  {"id": z.id, "code": z.code, "name": z.name} if z else None,
+            "aisle": {"id": a.id, "code": a.code, "name": a.name} if a else None,
+            "rack":  {"id": r.id, "code": r.code, "name": r.name} if r else None,
+            "shelf": {"id": s.id, "code": s.code, "name": s.name} if s else None,
+            "bin":   {"id": b.id, "code": b.code, "name": b.name},
+            "is_primary": loc.is_primary,
+            "quantity_at_location": loc.quantity_at_location,
+        }
+    return out
+
+
 def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = None) -> dict:
     """Merge partner-owned fields with master fallbacks (for source=master)."""
     if row.source == "master" and master is not None:
@@ -1259,24 +1328,7 @@ async def list_partner_products(
     masters = await _load_masters(session, [r.master_product_id for r in rows if r.master_product_id])
 
     # Preload primary bin locations for every SKU on this page (Social.docx §4).
-    from core.models import PartnerProductLocation
-    from modules.mart_partner.inventory_routes import _build_bin_path
-    prod_ids = [r.id for r in rows]
-    locs = (await session.execute(
-        select(PartnerProductLocation).where(PartnerProductLocation.partner_product_id.in_(prod_ids))
-    )).scalars().all() if prod_ids else []
-    primary_by_prod: dict[str, PartnerProductLocation] = {}
-    for loc in locs:
-        cur = primary_by_prod.get(loc.partner_product_id)
-        # Keep the primary, falling back to the first non-primary we see.
-        if loc.is_primary or cur is None:
-            primary_by_prod[loc.partner_product_id] = loc
-    location_paths: dict[str, dict] = {}
-    for pid, loc in primary_by_prod.items():
-        path = await _build_bin_path(session, loc.bin_id)
-        if path:
-            location_paths[pid] = {**path, "is_primary": loc.is_primary,
-                                    "quantity_at_location": loc.quantity_at_location}
+    location_paths = await _batch_primary_locations(session, [r.id for r in rows])
 
     items = []
     for r in rows:
@@ -1483,7 +1535,9 @@ _ORDER_TRANSITIONS = {
 }
 
 
-def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) -> dict:
+def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem],
+                pick_locations: Optional[dict[str, dict]] = None) -> dict:
+    pick_locations = pick_locations or {}
     return {
         "id": po.id,
         "order_id": order.id,
@@ -1508,6 +1562,9 @@ def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) 
                 "id": it.id, "name": it.name, "brand": it.brand, "unit": it.unit,
                 "image": it.image, "price": float(it.price), "quantity": it.quantity,
                 "line_total": float(it.line_total),
+                # Social.docx §8 — pick location per line item
+                "partner_product_id": it.partner_product_id,
+                "pick_location": pick_locations.get(it.partner_product_id) if it.partner_product_id else None,
             } for it in items
         ],
         "accepted_at":    po.accepted_at.isoformat() if po.accepted_at else None,
@@ -1555,12 +1612,16 @@ async def list_partner_orders(
     ).scalars().all():
         items_by_po.setdefault(it.partner_order_id, []).append(it)
 
+    # Batch-load primary bin locations across every line in every order.
+    all_ppids = list({it.partner_product_id for lst in items_by_po.values() for it in lst if it.partner_product_id})
+    pick_locations = await _batch_primary_locations(session, all_ppids)
+
     out = []
     for po in pos:
         o = orders.get(po.order_id)
         if not o:
             continue
-        out.append(_order_dict(po, o, items_by_po.get(po.id, [])))
+        out.append(_order_dict(po, o, items_by_po.get(po.id, []), pick_locations=pick_locations))
 
     # Status buckets for the tab UI
     bucket_rows = (await session.execute(
@@ -1587,7 +1648,10 @@ async def get_partner_order(
     items = (await session.execute(
         select(OrderItem).where(OrderItem.partner_order_id == po.id)
     )).scalars().all()
-    return _order_dict(po, order, list(items))
+    pick_locations = await _batch_primary_locations(
+        session, [it.partner_product_id for it in items if it.partner_product_id]
+    )
+    return _order_dict(po, order, list(items), pick_locations=pick_locations)
 
 
 class OrderStatusIn(BaseModel):
@@ -1662,7 +1726,10 @@ async def update_partner_order_status(
     items = (await session.execute(
         select(OrderItem).where(OrderItem.partner_order_id == po.id)
     )).scalars().all()
-    return _order_dict(po, order, list(items))
+    pick_locations = await _batch_primary_locations(
+        session, [it.partner_product_id for it in items if it.partner_product_id]
+    )
+    return _order_dict(po, order, list(items), pick_locations=pick_locations)
 
 
 # ============================================================================
