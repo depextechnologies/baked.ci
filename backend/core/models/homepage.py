@@ -23,7 +23,6 @@ HOMEPAGE_SECTION_TYPES = [
     "brand_carousel",
     "app_promotion",
     "cta_strip",
-    "module_switcher",
 ]
 
 

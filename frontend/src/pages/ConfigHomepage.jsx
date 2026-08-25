@@ -21,7 +21,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Loader2, Smartphone, Store,
-  ShoppingBag, UtensilsCrossed, Truck, Car, Home as HomeIcon, Package,
+  Truck, Car, Home as HomeIcon, Package,
   Bike, Clock, Wallet, Tag, RotateCcw, MapPin,
 } from "lucide-react";
 import { api } from "../lib/api";
@@ -249,74 +249,15 @@ const Hero = ({ section, country }) => {
 
 
 /* ============================================================================
- * MODULE SWITCHER — coloured cards, one per BAKĒD app
+ * (module_switcher renderer removed per client request — 2026-02)
+ * The switcher tab-bar still exists globally in the customer top-nav; the
+ * homepage no longer duplicates it as a section.
  * ============================================================================ */
 
-const MODULE_META = {
-  MART:  { code: "mart",    color: "#77BC1F", icon: ShoppingBag,     tagline: "Groceries & Daily Needs" },
-  FOOD:  { code: "food",    color: "#F97316", icon: UtensilsCrossed, tagline: "Restaurants & Food" },
-  SHOP:  { code: "shop",    color: "#06B6D4", icon: Store,           tagline: "Electronics & Lifestyle" },
-  SEND:  { code: "express", color: "#FCC44C", icon: Truck,           tagline: "Courier & Delivery" },
-  AUTO:  { code: "auto",    color: "#EF4444", icon: Car,             tagline: "Vehicles & Services" },
-  IMMO:  { code: "immo",    color: "#A855F7", icon: HomeIcon,        tagline: "Real Estate & Property" },
-};
 const MODULE_ROUTES = {
   mart: "/", food: "/food", shop: "/shop", express: "/express", auto: "/auto", immo: "/immo",
 };
-const stripBaked = (s = "") => s.replace(/bakēd|baked/gi, "").trim().toUpperCase();
-
-const ModuleSwitcher = ({ section }) => {
-  const nav = useNavigate();
-  const raw = section.config?.modules?.length
-    ? section.config.modules
-    : ["MART", "FOOD", "SHOP", "SEND", "AUTO", "IMMO"];
-  return (
-    <div className="baked-container">
-      <SectionHeader
-        eyebrow="One app · six worlds"
-        title={section.title || "Explore BAKĒD"}
-        subtitle={section.subtitle}
-      />
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="hp-module-switcher">
-        {raw.map((raw2) => {
-          const key = stripBaked(raw2);
-          const meta = MODULE_META[key];
-          if (!meta) return null;
-          const Icon = meta.icon;
-          return (
-            <button
-              key={key}
-              onClick={() => nav(MODULE_ROUTES[meta.code])}
-              className="group text-left rounded-2xl p-4 md:p-5 bg-card border border-border hover:border-transparent hover:shadow-lg transition-all relative overflow-hidden"
-              data-testid={`hp-module-${meta.code}`}
-              style={{ "--m": meta.color }}
-            >
-              <div
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                style={{ background: `radial-gradient(120% 90% at 0% 0%, ${meta.color}22, transparent 60%)` }}
-              />
-              <div className="relative">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-3"
-                  style={{ background: `${meta.color}22`, color: meta.color }}
-                >
-                  <Icon size={22} />
-                </div>
-                <div className="font-bold text-sm md:text-base">
-                  <span style={{ color: meta.color }}>{key}</span>
-                  <span className="text-foreground/90">bakēd</span>
-                </div>
-                <div className="text-[11px] md:text-xs text-muted-foreground mt-1 line-clamp-2">
-                  {meta.tagline}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+void MODULE_ROUTES;
 
 
 /* ============================================================================
@@ -411,7 +352,8 @@ const PromoBanner = ({ section }) => {
 
 
 /* ============================================================================
- * BANNER TRIO
+ * BANNER ROW — up to 4 fixed-size promo cards (320w × 258h) in one row.
+ * Backend key kept as `banner_trio` to preserve API + config compat.
  * ============================================================================ */
 
 const BannerTrio = ({ section }) => {
@@ -421,13 +363,20 @@ const BannerTrio = ({ section }) => {
       {(section.title || section.subtitle) && (
         <SectionHeader title={section.title} subtitle={section.subtitle} />
       )}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      {/* Horizontal scroll on smaller screens; 4-across on ≥1360px so 4×320+gaps fits. */}
+      <div
+        className="flex gap-4 overflow-x-auto lg:overflow-visible lg:grid lg:grid-cols-4 no-scrollbar pb-2 lg:pb-0 -mx-1 px-1"
+        data-testid="hp-banner-row"
+      >
         {banners.map((b, i) => (
           <Link
             key={i}
             to={b.link || "/products"}
-            className="group relative rounded-2xl overflow-hidden min-h-[180px] flex items-end p-5 hover:-translate-y-0.5 transition-transform"
+            className="group relative rounded-2xl overflow-hidden flex items-end p-5 hover:-translate-y-0.5 transition-transform shrink-0"
             style={{
+              width: 320,
+              minHeight: 258,
+              maxWidth: "100%",
               background: b.image
                 ? `linear-gradient(180deg, rgba(0,0,0,.1) 0%, rgba(0,0,0,.75) 100%), url(${abs(b.image)}) center/cover`
                 : "linear-gradient(160deg, #262626, #0a0a0a)",
@@ -690,7 +639,6 @@ void Wallet;
 
 const RENDERERS = {
   hero:                Hero,
-  module_switcher:     ModuleSwitcher,
   category_grid:       CategoryGrid,
   promotional_banner:  PromoBanner,
   banner_trio:         BannerTrio,

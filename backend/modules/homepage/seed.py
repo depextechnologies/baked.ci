@@ -10,6 +10,7 @@ Adding a new country: append a `_SECTIONS_XX` dict + list it in the
 and give it a fresh sequence number.
 """
 from __future__ import annotations
+from sqlalchemy import delete as sa_delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,11 +23,9 @@ _DEFAULT_HERO_BG = (
     "?w=1600&auto=format&fit=crop&q=70"
 )
 
-_MODULES = ["MART", "FOOD", "SHOP", "SEND", "AUTO", "IMMO"]
-
 
 def _shape(country: str, texts: dict) -> list[dict]:
-    """Build the 10-section homepage stack for one country from the localised text pack."""
+    """Build the 9-section homepage stack for one country from the localised text pack."""
     return [
         {
             "id": f"hps_{country.lower()}_010_hero",
@@ -42,16 +41,6 @@ def _shape(country: str, texts: dict) -> list[dict]:
                 "background_image": _DEFAULT_HERO_BG,
             },
             "display_order": 10,
-            "is_enabled": True,
-        },
-        {
-            "id": f"hps_{country.lower()}_020_module_switcher",
-            "country": country,
-            "section_type": "module_switcher",
-            "title": texts["modules_title"],
-            "subtitle": texts["modules_subtitle"],
-            "config": {"modules": _MODULES},
-            "display_order": 20,
             "is_enabled": True,
         },
         {
@@ -99,6 +88,7 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "is_enabled": True,
         },
         {
+            # 4 banners × 320w × 258h per client spec (2026-02).
             "id": f"hps_{country.lower()}_060_banner_trio",
             "country": country,
             "section_type": "banner_trio",
@@ -109,6 +99,7 @@ def _shape(country: str, texts: dict) -> list[dict]:
                     {"label": texts["trio_1_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_1_subtitle"], "link": "/products?category=fruits-vegetables"},
                     {"label": texts["trio_2_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_2_subtitle"], "link": "/products?category=beverages"},
                     {"label": texts["trio_3_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_3_subtitle"], "link": "/products?category=grocery"},
+                    {"label": texts["trio_4_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_4_subtitle"], "link": "/products?category=bakery-bread"},
                 ],
             },
             "display_order": 60,
@@ -169,9 +160,6 @@ _CI_TEXTS = {
     "hero_subtitle":      "Livraison rapide dans toute la ville",
     "hero_cta":           "Commander maintenant",
     "hero_cta_secondary": "Voir les catégories",
-    # Module switcher
-    "modules_title":    "Explore BAKĒD",
-    "modules_subtitle": "Une app, six univers",
     # Categories
     "categories_title":    "Categories",
     "categories_subtitle": "Achetez par département",
@@ -189,7 +177,7 @@ _CI_TEXTS = {
     # Bestsellers
     "bestsellers_title":    "Meilleures Ventes",
     "bestsellers_subtitle": "Best-sellers sélectionnés pour vous",
-    # Banner trio
+    # Banner row (4 tiles)
     "discover_title":  "Découvrez plus",
     "trio_eyebrow":    "Boutique",
     "trio_1_label":    "Fruits & Légumes",
@@ -198,6 +186,8 @@ _CI_TEXTS = {
     "trio_2_subtitle": "Rafraîchissez-vous",
     "trio_3_label":    "Épicerie",
     "trio_3_subtitle": "Essentiels du quotidien",
+    "trio_4_label":    "Boulangerie",
+    "trio_4_subtitle": "Pain frais du jour",
     # New arrivals
     "new_title":    "Nouveautés",
     "new_subtitle": "Juste arrivé dans votre magasin",
@@ -220,9 +210,6 @@ _IN_TEXTS = {
     "hero_subtitle":      "Fresh groceries, daily essentials & more at your doorstep",
     "hero_cta":           "Shop now",
     "hero_cta_secondary": "Browse categories",
-    # Module switcher
-    "modules_title":    "Explore BAKĒD",
-    "modules_subtitle": "One app, six worlds",
     # Categories
     "categories_title":    "Categories",
     "categories_subtitle": "Shop by department",
@@ -240,7 +227,7 @@ _IN_TEXTS = {
     # Bestsellers
     "bestsellers_title":    "Best Sellers",
     "bestsellers_subtitle": "Curated top picks for you",
-    # Banner trio
+    # Banner row (4 tiles)
     "discover_title":  "Discover more",
     "trio_eyebrow":    "Shop",
     "trio_1_label":    "Fresh Produce",
@@ -249,6 +236,8 @@ _IN_TEXTS = {
     "trio_2_subtitle": "Stay refreshed",
     "trio_3_label":    "Home Essentials",
     "trio_3_subtitle": "Everyday must-haves",
+    "trio_4_label":    "Bakery",
+    "trio_4_subtitle": "Fresh bread daily",
     # New arrivals
     "new_title":    "New Arrivals",
     "new_subtitle": "Just landed in your store",
@@ -276,14 +265,28 @@ async def seed_homepage(session: AsyncSession) -> dict[str, int]:
 
     Insert-only-if-missing so any admin edit via /admin/homepage-management is
     never overwritten by a subsequent restart.
-    Returns a per-country row count for logging.
+
+    Also purges any legacy `module_switcher` rows — the section was removed
+    from the homepage per client request (2026-02) and the switcher lives
+    only in the global top-nav now.
     """
+    # Purge deprecated section type first (safe: rows carry no unique customer data).
+    await session.execute(sa_delete(HomepageSection).where(HomepageSection.section_type == "module_switcher"))
+    # One-time reshape: the banner_trio row now carries 4 banners instead of 3.
+    # Delete only the ORIGINAL 3-banner shape so admin customisations are preserved.
+    await session.execute(
+        sa_delete(HomepageSection).where(
+            HomepageSection.section_type == "banner_trio",
+            HomepageSection.config["banners"].astext.like("%[%]%"),  # is a JSON array
+            func.jsonb_array_length(HomepageSection.config["banners"]) == 3,  # exactly 3 entries
+        )
+    )
+
     counts: dict[str, int] = {}
     for country, texts in _ALL_COUNTRIES:
         rows = _shape(country, texts)
         stmt = pg_insert(HomepageSection).values(rows).on_conflict_do_nothing(index_elements=["id"])
         result = await session.execute(stmt)
-        # rowcount reflects rows actually inserted (missing ids); 0 if all present.
         counts[country] = result.rowcount or 0
     await session.commit()
     return counts

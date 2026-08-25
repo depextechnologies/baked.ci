@@ -44,11 +44,6 @@ const SECTION_SCHEMAS = {
       F.image("mobile_background_image", "Mobile background image URL (optional)"),
     ],
   },
-  module_switcher: {
-    label: "Module Switcher (MART · FOOD · SHOP · SEND · AUTO · IMMO)",
-    top: [F.text("title", "Title"), F.text("subtitle", "Subtitle")],
-    config: [F.list("modules", "Modules to display", [F.text("value", "Module")])],
-  },
   category_grid: {
     label: "Category Grid",
     top: [F.text("title", "Title"), F.text("subtitle", "Subtitle")],
