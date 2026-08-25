@@ -18,18 +18,18 @@ export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
       <button
         data-testid={testid}
         onClick={openAddressSelector}
-        className="flex items-start gap-2 text-left min-w-0 max-w-[70vw]"
+        className="flex items-center gap-2 text-left min-w-0 w-full"
       >
-        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
           <MapPin size={15} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-            <span>{activeAddress ? (label || "Deliver to") : "Choose"}</span>
+          <div className="text-[9px] uppercase tracking-widest text-muted-foreground flex items-center gap-1 leading-none">
+            <span>Deliver to</span>
             <ChevronDown size={10} />
           </div>
-          <div className="text-sm font-bold truncate">
-            {line1 || <>Set delivery address · {country?.name || ""}</>}
+          <div className="text-[13px] font-bold truncate leading-tight mt-0.5">
+            {line1 || `Set address · ${country?.name || ""}`}
           </div>
         </div>
       </button>
