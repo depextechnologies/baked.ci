@@ -31,6 +31,8 @@ import {
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
   Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark, MessageCircle,
   Mail, Lock, Eye, EyeOff, Check,
+  Home as HomeIcon, Wallet as WalletIcon, ClipboardList as ClipboardIcon,
+  User as UserIcon, Power as PowerIcon,
 } from "lucide-react";
 import { DriverNavMap } from "./DriverNavMap";
 import { JobChat } from "./JobChat";
@@ -1154,6 +1156,199 @@ const StepSubmitted = () => {
   );
 };
 
+/**
+ * DriverBottomNav — floating pill nav matching Fixing_Prompt Screenshot 1.
+ * Layout: [Home] [Earnings] [POWER (online toggle)] [Orders] [Profile]
+ * The center button is deliberately larger and colour-coded to the current
+ * online state. It's the primary CTA on this surface.
+ */
+const DriverBottomNav = () => {
+  const { driver, setDriver } = useDriver();
+  const nav = useNavigate();
+  const loc = useLocation();
+  const [toggling, setToggling] = useState(false);
+  const online = !!driver?.is_online;
+  const isApproved = driver?.status === "approved";
+
+  const toggleOnline = async () => {
+    if (!isApproved) { toast.error("Approved drivers only."); return; }
+    setToggling(true);
+    const capture = () => new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 30000 },
+      );
+    });
+    try {
+      const coords = online ? {} : await capture();
+      const { data } = await driverApi.post("/driver/me/online",
+        { is_online: !online, ...(coords.lat ? coords : {}) });
+      setDriver({ ...driver, is_online: data.is_online });
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setToggling(false); }
+  };
+
+  const items = [
+    { key: "home",     label: "Home",     to: "/driver/dashboard", icon: HomeIcon,     testid: "driver-nav-home" },
+    { key: "earnings", label: "Earnings", to: "/driver/wallet",    icon: WalletIcon,   testid: "driver-nav-earnings" },
+    { key: "orders",   label: "Orders",   to: "/driver/orders",    icon: ClipboardIcon,testid: "driver-nav-orders" },
+    { key: "profile",  label: "Profile",  to: "/driver/profile",   icon: UserIcon,     testid: "driver-nav-profile" },
+  ];
+  const activeKey =
+    loc.pathname.includes("/driver/wallet")   ? "earnings" :
+    loc.pathname.includes("/driver/orders")   ? "orders"   :
+    loc.pathname.includes("/driver/profile")  ? "profile"  : "home";
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-[max(env(safe-area-inset-bottom),8px)] pointer-events-none">
+      <div
+        className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/10 bg-neutral-950/90 backdrop-blur-md px-2 py-2 shadow-2xl"
+        style={{ boxShadow: "0 20px 45px -20px rgba(0,0,0,.9)" }}
+        data-testid="driver-bottom-nav"
+      >
+        {items.slice(0, 2).map((it) => (
+          <NavPill key={it.key} item={it} active={activeKey === it.key} onClick={() => nav(it.to)} />
+        ))}
+
+        {/* Center POWER button — larger and coloured to online state */}
+        <button
+          onClick={toggleOnline}
+          disabled={toggling}
+          data-testid="driver-nav-power"
+          aria-label={online ? "Go offline" : "Go online"}
+          className="mx-1 relative w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
+          style={{
+            background: online
+              ? "linear-gradient(135deg,#FF9A2B,#FF7A00)"
+              : "linear-gradient(135deg,#3b3b3b,#1a1a1a)",
+            boxShadow: online ? "0 0 0 4px rgba(255,138,30,.18), 0 10px 25px -10px #FF7A00" : "none",
+            color: online ? "#0a0a0a" : "rgba(255,255,255,.85)",
+          }}
+        >
+          {toggling
+            ? <Loader2 size={22} className="animate-spin" />
+            : <PowerIcon size={22} strokeWidth={2.4} />}
+          {online && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-neutral-950" />
+          )}
+        </button>
+
+        {items.slice(2).map((it) => (
+          <NavPill key={it.key} item={it} active={activeKey === it.key} onClick={() => nav(it.to)} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const NavPill = ({ item, active, onClick }) => {
+  const Icon = item.icon;
+  return (
+    <button
+      onClick={onClick}
+      data-testid={item.testid}
+      className="w-14 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-colors"
+      style={{ color: active ? "#FF8A1E" : "rgba(255,255,255,.55)" }}
+    >
+      <Icon size={18} />
+      <span className="text-[9px] font-semibold">{item.label}</span>
+    </button>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Placeholder screens (Orders + Profile) — routed from the bottom nav.       */
+/* -------------------------------------------------------------------------- */
+
+const ComingSoonScreen = ({ title, tagline, icon: Icon = Clock }) => {
+  const nav = useNavigate();
+  return (
+    <Phone>
+      <DriverBottomNav />
+      <div className="px-6 pt-10 pb-32 min-h-screen">
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+        <h1 className="text-3xl font-bold mt-2">{title}</h1>
+        <p className="text-sm text-white/60 mt-2 max-w-[300px]">{tagline}</p>
+        <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+          <div
+            className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
+            style={{ background: "rgba(255,138,30,.15)", color: "#FF8A1E" }}
+          >
+            <Icon size={22} />
+          </div>
+          <div className="text-lg font-semibold mt-4">Coming next</div>
+          <div className="text-xs text-white/50 mt-1.5 leading-relaxed">
+            We&apos;re polishing this screen. Real deliveries still work — head back to your dashboard to take jobs.
+          </div>
+          <button
+            data-testid="coming-soon-back"
+            onClick={() => nav("/driver/dashboard")}
+            className="mt-6 w-full h-11 rounded-xl text-sm font-semibold"
+            style={{ background: "linear-gradient(135deg,#FF9A2B,#FF7A00)", color: "#0a0a0a" }}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </Phone>
+  );
+};
+
+const DriverProfilePage = () => {
+  const { driver, logout } = useDriver();
+  const nav = useNavigate();
+  return (
+    <Phone>
+      <DriverBottomNav />
+      <div className="px-6 pt-10 pb-32 min-h-screen" data-testid="driver-profile">
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+        <h1 className="text-3xl font-bold mt-2">Profile</h1>
+        <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 flex items-center gap-4">
+          {driver?.photo_url ? (
+            <img src={driver.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover" />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-white/10 grid place-items-center"><User size={22} /></div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-lg font-bold truncate">{driver?.name || "Driver"}</div>
+            <div className="text-xs text-white/60 truncate">{driver?.email || driver?.phone_e164}</div>
+            <div className="text-[10px] uppercase tracking-widest text-white/40 mt-1">Status · {driver?.status?.replaceAll("_"," ")}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          {[
+            { icon: Wallet,       label: "Wallet & payouts", to: "/driver/wallet",   testid: "profile-nav-wallet" },
+            { icon: IdCard,       label: "KYC documents",    to: `/driver/kyc/${driver?.kyc_step || "personal"}`, testid: "profile-nav-kyc" },
+            { icon: ShieldCheck,  label: "Support",          to: "/help",            testid: "profile-nav-support" },
+          ].map((row) => (
+            <button
+              key={row.label}
+              data-testid={row.testid}
+              onClick={() => nav(row.to)}
+              className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+            >
+              <row.icon size={18} style={{ color: "#FF8A1E" }} />
+              <span className="text-sm font-medium flex-1 text-left">{row.label}</span>
+              <ChevronRight size={16} className="text-white/40" />
+            </button>
+          ))}
+        </div>
+
+        <button
+          data-testid="profile-logout"
+          onClick={() => { logout(); nav("/driver/login"); }}
+          className="mt-6 w-full h-12 rounded-2xl text-sm font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10"
+        >
+          <LogOut size={14} className="inline mr-2" /> Sign out
+        </button>
+      </div>
+    </Phone>
+  );
+};
+
 /* -------------------------------------------------------------------------- */
 /*  Dashboard                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -1385,6 +1580,7 @@ const DashboardPage = () => {
         onAccept={dispatch.accept}
         onDecline={dispatch.decline}
       />
+      <DriverBottomNav />
       <div className="px-6 pt-8 pb-24" data-testid="driver-dashboard">
         <div className="flex items-center justify-between">
           <div>
@@ -1819,6 +2015,7 @@ const WalletPage = () => {
 
   if (!summary) return (
     <Phone><Header title="Wallet" back={() => nav("/driver/dashboard")} />
+      <DriverBottomNav />
       <div className="h-64 grid place-items-center"><Loader2 className="animate-spin" size={22} /></div>
     </Phone>
   );
@@ -1830,6 +2027,7 @@ const WalletPage = () => {
   return (
     <Phone>
       <Header title="Wallet" back={() => nav("/driver/dashboard")} />
+      <DriverBottomNav />
       <div className="px-6 pt-4 pb-28" data-testid="driver-wallet-page">
         {/* Balance hero */}
         <div className="rounded-[28px] p-6 mt-2 relative overflow-hidden"
@@ -2057,6 +2255,8 @@ export const DriverApp = () => {
         <Route path="job/live"      element={<NeedsAuth><JobPage /></NeedsAuth>} />
         <Route path="job/success"   element={<NeedsAuth><JobSuccessPage /></NeedsAuth>} />
         <Route path="wallet"        element={<NeedsAuth><WalletPage /></NeedsAuth>} />
+        <Route path="orders"        element={<NeedsAuth><ComingSoonScreen title="Orders" tagline="Your job history & active deliveries land here soon." icon={ClipboardIcon} /></NeedsAuth>} />
+        <Route path="profile"       element={<NeedsAuth><DriverProfilePage /></NeedsAuth>} />
         <Route path="*"             element={<Navigate to="/driver" replace />} />
       </Routes>
     </DriverProvider>
