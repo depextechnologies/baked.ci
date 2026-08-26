@@ -659,8 +659,223 @@ async def set_online(
     if payload.lat is not None: driver.current_lat = payload.lat
     if payload.lng is not None: driver.current_lng = payload.lng
     if payload.area:            driver.current_area = payload.area
+
+    # --- Bridge into the dispatch pool (Phase A) --------------------------
+    # A real SENDbakēd driver toggling Online must appear in module_drivers
+    # with is_available=True and a fresh last_seen_at, or matching queries
+    # will keep returning None.
+    from modules.driver.dispatch_bridge import set_availability
+    await set_availability(
+        session, driver,
+        is_available=payload.is_online,
+        lat=payload.lat, lng=payload.lng,
+    )
+    # If the driver just went offline while an offer was outstanding, kick
+    # the express dispatcher to reassign — otherwise the customer sits on
+    # 'offering' until the TTL expires.
+    if not payload.is_online:
+        from modules.driver.dispatch_bridge import get_or_create_module_driver
+        from modules.express.dispatch import decline_offer
+        md = await get_or_create_module_driver(session, driver)
+        from core.models import ExpressBooking
+        from sqlalchemy import select
+        pending = (await session.execute(
+            select(ExpressBooking).where(
+                ExpressBooking.offered_to_driver_id == md.id,
+                ExpressBooking.status == "offering",
+            )
+        )).scalars().all()
+        for b in pending:
+            await decline_offer(session, b, md.id)
+
     await session.commit()
     return {"is_online": driver.is_online, "last_seen_at": driver.last_seen_at.isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# Live location pings — 8-30s cadence from the driver PWA (geolocation).
+# ---------------------------------------------------------------------------
+
+class LocationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lat:      float = Field(..., ge=-90,  le=90)
+    lng:      float = Field(..., ge=-180, le=180)
+    heading:  Optional[float] = Field(None, ge=0, le=360)
+    speed:    Optional[float] = Field(None, ge=0)
+    accuracy: Optional[float] = Field(None, ge=0)
+
+
+@router.post("/me/location")
+async def push_location(
+    payload: LocationIn,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update the driver's latest GPS + last_seen_at. Also mirrored into
+    module_drivers so the dispatch freshness filter is satisfied.
+
+    Rejects obviously-bad pings (0,0 island coords) as a soft signal — the
+    client shouldn't push a fix it didn't successfully acquire.
+    """
+    if payload.lat == 0 and payload.lng == 0:
+        raise HTTPException(400, {"code": "invalid_location", "message": "Refusing (0,0) fix."})
+    from modules.driver.dispatch_bridge import push_location as bridge_push
+    await bridge_push(session, driver, lat=payload.lat, lng=payload.lng)
+    await session.commit()
+    return {"ok": True, "last_seen_at": driver.last_seen_at.isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# Offer flow — Incoming Delivery Request (SENDbakēd)
+# ---------------------------------------------------------------------------
+
+@router.get("/me/offers/current")
+async def current_offer(
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Polling fallback — the driver PWA hits this when the WebSocket is
+    momentarily disconnected so a pending offer isn't missed."""
+    from core.models import ExpressBooking, ModuleDriver
+    from sqlalchemy import select
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None:
+        return {"offer": None}
+    now = datetime.now(timezone.utc)
+    booking = (await session.execute(
+        select(ExpressBooking).where(
+            ExpressBooking.offered_to_driver_id == md.id,
+            ExpressBooking.status == "offering",
+            ExpressBooking.offer_expires_at > now,
+        ).order_by(ExpressBooking.offered_at.desc())
+    )).scalars().first()
+    if not booking:
+        return {"offer": None}
+    from modules.express.dispatch import _offer_payload
+    return {"offer": _offer_payload(booking)}
+
+
+@router.post("/me/offers/{booking_id}/accept")
+async def accept_offer(
+    booking_id: str,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Atomic accept. Losing driver gets a structured error; winning driver
+    gets the booking snapshot for their in-progress screen."""
+    from core.models import ExpressBooking, ModuleDriver
+    from sqlalchemy import select
+    from modules.express.dispatch import accept_offer_atomic
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None:
+        raise HTTPException(400, {"code": "not_dispatchable", "message": "Go online first."})
+
+    ok, reason = await accept_offer_atomic(session, booking_id, md.id)
+    if not ok:
+        await session.commit()
+        raise HTTPException(409, {"code": reason, "message": f"Cannot accept: {reason}."})
+    await session.commit()
+
+    # Broadcast the assignment on the customer's existing express WS
+    # channel so their /send/track/:id transitions off "Finding driver".
+    try:
+        from modules.express.tracking import broadcast_snapshot
+        await broadcast_snapshot(session, booking_id)
+    except Exception:
+        pass
+
+    booking = await session.get(ExpressBooking, booking_id)
+    from modules.express.serializers import booking_to_dict
+    return await booking_to_dict(session, booking)
+
+
+@router.post("/me/offers/{booking_id}/decline")
+async def decline_offer_route(
+    booking_id: str,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    from core.models import ExpressBooking, ModuleDriver
+    from sqlalchemy import select
+    from modules.express.dispatch import decline_offer
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None:
+        raise HTTPException(400, {"code": "not_dispatchable", "message": "Not in dispatch pool."})
+    booking = await session.get(ExpressBooking, booking_id)
+    if booking is None or booking.offered_to_driver_id != md.id:
+        raise HTTPException(404, {"code": "no_offer", "message": "No matching offer."})
+    await decline_offer(session, booking, md.id)
+    await session.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Driver WebSocket — job offers + location echoes
+# ---------------------------------------------------------------------------
+
+from fastapi import WebSocket, WebSocketDisconnect  # local import keeps module top clean
+
+@router.websocket("/ws")
+async def driver_ws(ws: WebSocket, token: str = ""):
+    """Per-driver realtime channel. Auth via `?token=<jwt>` query param
+    since browsers can't set Authorization headers on WebSocket handshakes.
+
+    Events emitted server → client:
+        job_offer       — dispatch pushed a new offer to this driver
+        offer_expired   — an offer was let time out
+        offer_cancelled — the customer cancelled while offer pending
+    """
+    from modules.driver.realtime import register, unregister
+    from core.db import SessionLocal
+    from core.security import decode_token as _decode
+
+    try:
+        claims = _decode(token) if token else None
+    except Exception:
+        claims = None
+    if not claims or claims.get("role") != DRIVER_JWT_ROLE:
+        await ws.close(code=4401, reason="unauthorized")
+        return
+    driver_id = claims.get("sub")
+
+    await ws.accept()
+    await register(driver_id, ws)
+    try:
+        # Send any outstanding offer immediately on connect (handles reconnect
+        # after a network blip — no missed request).
+        async with SessionLocal() as s:
+            from core.models import ExpressBooking, ModuleDriver
+            from sqlalchemy import select
+            md = (await s.execute(
+                select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver_id)
+            )).scalar_one_or_none()
+            if md is not None:
+                now = datetime.now(timezone.utc)
+                pending = (await s.execute(
+                    select(ExpressBooking).where(
+                        ExpressBooking.offered_to_driver_id == md.id,
+                        ExpressBooking.status == "offering",
+                        ExpressBooking.offer_expires_at > now,
+                    )
+                )).scalars().first()
+                if pending:
+                    from modules.express.dispatch import _offer_payload
+                    await ws.send_json({"event": "job_offer", "payload": _offer_payload(pending)})
+
+        # Keep the socket open; the client sends heartbeat pings but we don't
+        # depend on their content — just staying open is enough.
+        while True:
+            _ = await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await unregister(driver_id, ws)
 
 
 @router.get("/me/dashboard")

@@ -332,9 +332,19 @@ async def create_parcel_booking(
         ExpressBookingTimeline(booking_id=booking.id, code="searching", label="Searching for a driver…", at=now),
     ])
     await session.commit()
+    # --- Phase A: try to dispatch a real online driver immediately -------
+    # The dispatcher is fire-and-forget — if no driver qualifies right now
+    # the timeout worker will retry when a driver next comes online / pings.
+    from modules.express.dispatch import dispatch_next_offer
+    try:
+        await dispatch_next_offer(session, booking)
+        await session.commit()
+    except Exception:  # noqa: BLE001 — never fail the customer's booking API
+        await session.rollback()
     data = await booking_to_dict(session, booking)
-    # Kick off the driver simulator in DEMO_MODE (production path relies on
-    # driver-app status endpoints below to advance the lifecycle).
+    # Legacy demo-mode simulator — off by default in Phase A. Real dispatch
+    # is authoritative; the sim exists only for local demos when explicitly
+    # opted in via EXPRESS_DEMO_MODE=true (guarded here + inside tracking).
     if demo_mode_enabled():
         background.add_task(run_demo_simulation, booking.id)
     return data

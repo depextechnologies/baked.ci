@@ -40,6 +40,16 @@
   - To dispatch a fresh job + get a fresh tracking link, hit `POST /api/admin/drivers/drv_80fb10f9def94f95/dispatch-demo-job` with the Super Admin JWT — the response includes `id` and `share_token`.
 
 ## Notes
+- **SENDbakēd real dispatch (Phase A, 2026-02)**: real driver → real customer end-to-end.
+  - Driver → `POST /api/driver/me/online` bridges into `module_drivers` (linked via `linked_driver_id`)
+  - GPS pings → `POST /api/driver/me/location` (~8s on-job / ~30s idle) update both `drivers` and `module_drivers` + broadcast to customer's track WS on active bookings
+  - Customer booking → auto-dispatched via `dispatch_next_offer()` → status `offering`, offered to nearest real online driver with `last_seen_at < 60s`
+  - Driver WebSocket `/api/driver/ws?token=…` pushes `job_offer` events; `/me/offers/current` polls as fallback
+  - `POST /api/driver/me/offers/{id}/accept` atomic (single UPDATE .. WHERE guarantees one winner; 409 `already_taken` for losers)
+  - `POST /api/driver/me/offers/{id}/decline` → re-dispatches to next eligible driver
+  - Offer worker runs every 3s, auto-declines expired offers and re-dispatches
+  - `EXPRESS_DEMO_MODE=false` — no simulation. Live GPS only.
+  - Test drivers (idempotent): `dispatch.test@baked.dev` / `DispatchTest123!` (IN, approved, bike), `drv2@baked.dev` / `Pass123456!` (IN, approved, bike)
 - Legacy `/martbaked/sellers/portal/*` still works — auto-redirects to the resolved slug URL client-side.
 - **Driver email login** (2026-02): the redesigned `/driver/login` supports three paths:
   1. **Mobile Login** — phone + OTP (existing, dev_hint returned in response)

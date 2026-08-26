@@ -304,9 +304,22 @@ async def _on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("baked.startup realtime_init_failed err=%s — WS fan-out will use inproc fallback", e)
 
+    # ---- 5) SENDbakēd dispatch offer-expiry worker (Phase A) ---------------
+    try:
+        from modules.express.offer_worker import run_forever as _offer_forever
+        app.state.offer_worker_task = asyncio.create_task(_offer_forever(), name="express-offer-worker")
+        logger.info("baked.startup express offer worker started")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("baked.startup offer_worker_failed err=%s", e)
+
     logger.info("baked.startup done")
 
 
 @app.on_event("shutdown")
 async def _on_shutdown():
+    task = getattr(app.state, "offer_worker_task", None)
+    if task is not None:
+        task.cancel()
+        try: await task
+        except (asyncio.CancelledError, Exception): pass
     await engine.dispose()

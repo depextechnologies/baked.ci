@@ -35,6 +35,7 @@ import {
 import { DriverNavMap } from "./DriverNavMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
+import { useSendbakedDispatch } from "./useSendbakedDispatch";
 
 // Brand assets — served straight from customer_assets CDN (no runtime upload needed).
 const DRIVER_BG_URL     = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/8fsl36ag_Background.png";
@@ -1157,6 +1158,141 @@ const StepSubmitted = () => {
 /*  Dashboard                                                                  */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * SendbakedOfferSheet — matches Fixing_Prompt Screenshot 4.
+ * Rendered as a modal overlay while a real dispatch offer is outstanding.
+ * The countdown is driven from `offer.expires_at` (server-authoritative),
+ * and the whole component auto-dismisses when the parent hook clears `offer`.
+ *
+ * Distinct from the legacy DriverJob-based `IncomingRequestSheet` below,
+ * which powers the older synthetic offer flow. The two never render together
+ * because Phase A disables demo-mode dispatch, so no DriverJob offer arrives.
+ */
+const SendbakedOfferSheet = ({ offer, onAccept, onDecline }) => {
+  const [remain, setRemain] = useState(offer?.expires_in_seconds ?? 60);
+  const [busy, setBusy]     = useState(null); // 'accept' | 'decline' | null
+
+  useEffect(() => {
+    if (!offer?.expires_at) return undefined;
+    const tick = () => {
+      const secs = Math.max(0, Math.round((new Date(offer.expires_at).getTime() - Date.now()) / 1000));
+      setRemain(secs);
+    };
+    tick();
+    const t = setInterval(tick, 500);
+    return () => clearInterval(t);
+  }, [offer]);
+
+  // Best-effort audible + vibration cue (browsers may block autoplay outside
+  // of a user gesture — we swallow the rejection silently).
+  useEffect(() => {
+    if (!offer) return;
+    try {
+      const A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return;
+      const ctx = new A();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = 0.05;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => { try { osc.stop(); ctx.close(); } catch (e) { void e; } }, 400);
+    } catch (e) { void e; }
+    if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120, 60, 200]); } catch (e) { void e; } }
+  }, [offer?.booking_id]);
+
+  if (!offer) return null;
+  const mm = String(Math.floor(remain / 60)).padStart(2, "0");
+  const ss = String(remain % 60).padStart(2, "0");
+  const currency = offer.currency_symbol || (offer.currency === "INR" ? "₹" : (offer.currency || ""));
+  const doAccept  = async () => { setBusy("accept"); const r = await onAccept(); setBusy(null); if (!r?.ok) toast.error(r?.reason === "already_taken" ? "This request was taken by another driver." : "Could not accept."); };
+  const doDecline = async () => { setBusy("decline"); const r = await onDecline(); setBusy(null); if (!r?.ok) toast.error("Could not decline."); };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none" data-testid="incoming-request">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" />
+      <div className="relative w-full max-w-md rounded-t-3xl border border-white/10 bg-neutral-950 text-white p-5 pointer-events-auto"
+           style={{ boxShadow: "0 -20px 60px -20px rgba(255,138,30,.55)" }}>
+        <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="text-xl font-bold leading-tight">Incoming Delivery Request</div>
+            <div className="text-xs text-white/60 mt-0.5">
+              Accept within <span style={{ color: "#FF8A1E" }} className="font-bold text-sm">{mm}:{ss}</span>
+            </div>
+          </div>
+          <div className="px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase flex items-center gap-1"
+               style={{ background: "rgba(255,138,30,.15)", color: "#FF8A1E" }}>
+            ⚡ High Priority
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#FF8A1E" }}>PICKUP</div>
+            <div className="mt-1 text-sm font-bold leading-tight">{offer.pickup?.line1 || "Pickup"}</div>
+            <div className="text-[11px] text-white/60">{offer.pickup?.city}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-emerald-400">DROP OFF</div>
+            <div className="mt-1 text-sm font-bold leading-tight">{offer.receiver_name || "Customer"}</div>
+            <div className="text-[11px] text-white/60">{offer.drop?.line1}, {offer.drop?.city}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-white/[.03] border border-white/10 p-3 grid grid-cols-3 gap-3">
+          <div>
+            <div className="text-[10px] text-white/50">Distance</div>
+            <div className="text-sm font-bold">{offer.distance_km != null ? `${offer.distance_km} km` : "—"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-white/50">Earnings</div>
+            <div className="text-sm font-bold">{offer.earnings != null ? `${currency}${Number(offer.earnings).toFixed(0)}` : "—"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-white/50">Est. Time</div>
+            <div className="text-sm font-bold">{offer.duration_min ? `${offer.duration_min} min` : "—"}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-white/[.03] border border-white/10 p-3">
+            <div className="text-[10px] text-white/50">Delivery Type</div>
+            <div className="text-sm font-bold capitalize">{offer.booking_type} · {offer.vehicle_code}</div>
+          </div>
+          <div className="rounded-xl bg-white/[.03] border border-white/10 p-3">
+            <div className="text-[10px] text-white/50">Payment</div>
+            <div className="text-sm font-bold capitalize">{(offer.payment_method || "cod").toUpperCase()}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            data-testid="incoming-decline"
+            disabled={!!busy}
+            onClick={doDecline}
+            className="h-14 rounded-2xl border border-red-500/40 text-red-400 font-semibold hover:bg-red-500/10 disabled:opacity-60"
+          >
+            {busy === "decline" ? "…" : "✕ Reject"}
+            <div className="text-[10px] font-normal text-red-400/70 mt-0.5">Decline this request</div>
+          </button>
+          <button
+            data-testid="incoming-accept"
+            disabled={!!busy}
+            onClick={doAccept}
+            className="h-14 rounded-2xl font-bold text-black active:scale-[.98] disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #34d365, #16a34a)" }}
+          >
+            {busy === "accept" ? "…" : "✓ Accept"}
+            <div className="text-[10px] font-normal opacity-80 mt-0.5">Accept & start delivery</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DashboardPage = () => {
   const { driver, setDriver, logout } = useDriver();
   const nav = useNavigate();
@@ -1164,6 +1300,19 @@ const DashboardPage = () => {
   const [busy, setBusy] = useState(false);
   const { job: activeJob, refresh: refreshJob, setJob: setActiveJob } = useActiveJob(driver?.status === "approved" && driver?.is_online);
   const [reqBusy, setReqBusy] = useState(false);
+
+  // --- Phase A: SENDbakēd real-dispatch hook (GPS + WS + offer) ---
+  const dispatch = useSendbakedDispatch({
+    enabled: driver?.status === "approved" && !!driver?.is_online,
+    hasActiveJob: !!activeJob && activeJob.status !== "offered",
+    onJobAccepted: () => {
+      // The accepted booking is an ExpressBooking (customer send flow), not a
+      // legacy DriverJob. For Phase A we just show a toast + rely on the
+      // dashboard refresh; Phase B will route to a rich in-progress screen.
+      toast.success("Job accepted — head to pickup!");
+      refreshJob();
+    },
+  });
 
   // If there's an in-flight (non-offered) job, jump straight to the delivery screen.
   useEffect(() => {
@@ -1201,9 +1350,25 @@ const DashboardPage = () => {
       return;
     }
     setBusy(true);
+    // On the way UP: try to capture a first GPS fix so the backend has a
+    // location the moment dispatch queries it. Failure is fine — the hook's
+    // watchPosition takes over immediately after.
+    const capture = () => new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 30000 },
+      );
+    });
     try {
-      const { data } = await driverApi.post("/driver/me/online", { is_online: !driver.is_online });
+      const coords = driver.is_online ? {} : await capture();
+      const { data } = await driverApi.post("/driver/me/online",
+        { is_online: !driver.is_online, ...(coords.lat ? coords : {}) });
       setDriver({ ...driver, is_online: data.is_online });
+      if (!driver.is_online && !coords.lat) {
+        toast.message("Enable location so we can send you jobs nearby.");
+      }
     } catch (err) { toast.error(errMsg(err)); }
     finally { setBusy(false); }
   };
@@ -1215,6 +1380,11 @@ const DashboardPage = () => {
 
   return (
     <Phone>
+      <SendbakedOfferSheet
+        offer={dispatch.offer}
+        onAccept={dispatch.accept}
+        onDecline={dispatch.decline}
+      />
       <div className="px-6 pt-8 pb-24" data-testid="driver-dashboard">
         <div className="flex items-center justify-between">
           <div>
