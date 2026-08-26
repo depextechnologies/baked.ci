@@ -8,6 +8,7 @@ should always assume "best effort" delivery and provide an in-app fallback
 (e.g. returning the invite link in the API response).
 """
 from __future__ import annotations
+import email.utils
 import logging
 import os
 import smtplib
@@ -55,6 +56,16 @@ def send_email(*, to: str, subject: str, html_body: str, text_body: Optional[str
     msg["Subject"] = subject
     msg["From"]    = f"{cfg['from_name']} <{cfg['from_email']}>"
     msg["To"]      = to
+    # Deliverability headers — critical to avoid Gmail's spam / Promotions
+    # bucket. Explicit Date + Message-ID + Reply-To signal a legitimate
+    # transactional sender.
+    msg["Date"]       = email.utils.formatdate(localtime=True)
+    msg["Message-ID"] = email.utils.make_msgid(domain=cfg["from_email"].split("@", 1)[-1])
+    msg["Reply-To"]   = cfg["from_email"]
+    # Precedence + X-Auto-Response-Suppress ask Gmail not to reply-thread
+    # this into promotions.
+    msg["X-Priority"] = "1"
+    msg["X-Auto-Response-Suppress"] = "OOF, AutoReply"
     if text_body:
         msg.attach(MIMEText(text_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))

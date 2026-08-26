@@ -380,9 +380,11 @@ async def forgot_password(payload: ForgotPasswordIn, session: AsyncSession = Dep
         # 1. Deliver via SMTP. On any SMTP failure we STILL succeed the
         #    endpoint — the code is stored in DB and (in dev) returned via
         #    dev_hint so the driver isn't locked out by a stalled mailbox.
+        # 2. Subject is code-free on purpose — Gmail routes emails with a
+        #    6-digit number in the subject to Spam/Promotions.
         sent = await send_email_async(
             to=email,
-            subject=f"Your BAKĒD driver reset code: {code}",
+            subject="Reset your BAKĒD Driver password",
             text_body=_reset_email_text(code, OTP_TTL_MIN),
             html_body=_reset_email_html(code, OTP_TTL_MIN),
         )
