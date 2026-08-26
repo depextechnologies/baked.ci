@@ -25,14 +25,20 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useCall
 import axios from "axios";
 import { Routes, Route, useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useGoogleLogin } from "@react-oauth/google";
 import {
   Loader2, ChevronRight, ChevronLeft, Truck, Bike, Package, Wallet, Star, LogOut,
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
   Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark, MessageCircle,
+  Mail, Lock, Eye, EyeOff, Check,
 } from "lucide-react";
 import { DriverNavMap } from "./DriverNavMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
+
+// Brand assets — served straight from customer_assets CDN (no runtime upload needed).
+const DRIVER_BG_URL     = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/8fsl36ag_Background.png";
+const SENDBAKED_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/9a9i5naj_SENDbakedDark.jpeg";
 
 /* -------------------------------------------------------------------------- */
 /*  API + auth context                                                         */
@@ -203,18 +209,57 @@ const OnboardingPage = () => {
 /*  Login (phone) + OTP                                                        */
 /* -------------------------------------------------------------------------- */
 
-const LoginPage = () => {
-  const [country, setCountry] = useState("IN");
-  const [phone, setPhone]     = useState("");
-  const [busy, setBusy]       = useState(false);
-  const nav = useNavigate();
+/* -------------------------------------------------------------------------- */
+/*  Login — mockup-matched: full-bleed biker BG + bottom-sheet card             */
+/*  Modes: Mobile (phone → OTP) · Email (email + password) · Google · Apple    */
+/*  Ref: SENDbaked_Driver login mockup + Fixing_Prompt (2026-02).              */
+/* -------------------------------------------------------------------------- */
 
-  const submit = async (e) => {
+const AppleLogo = () => (
+  <svg width="18" height="20" viewBox="0 0 18 20" fill="currentColor" aria-hidden>
+    <path d="M14.5 10.6c0-2.6 2.1-3.9 2.2-4-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.05 1.8-.85 3.4-.85s2 .85 3.4.83c1.4-.03 2.3-1.24 3.1-2.44.7-1.05 1-1.55 1.5-2.75-.05-.02-2.8-1.07-2.8-4.25zM11.7 3.1c.7-.86 1.2-2.05 1.05-3.23-1 .05-2.24.68-2.97 1.53-.65.76-1.24 1.98-1.09 3.13 1.15.09 2.32-.58 3.01-1.43z"/>
+  </svg>
+);
+const GoogleLogo = () => (
+  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.1 13.5 17.5 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.6 3-2.4 5.5-5.1 7.2l7.8 6c4.6-4.3 7.1-10.5 7.1-17.5z"/>
+    <path fill="#FBBC05" d="M10.4 28.8c-.5-1.5-.8-3.1-.8-4.8s.3-3.3.8-4.8l-7.8-6C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8l7.8-6z"/>
+    <path fill="#34A853" d="M24 48c6.1 0 11.2-2 15-5.5l-7.8-6c-2.1 1.4-4.8 2.3-7.2 2.3-6.5 0-12-4-14-9.5l-7.8 6C6.5 42.6 14.6 48 24 48z"/>
+  </svg>
+);
+
+const LoginPage = () => {
+  const [tab, setTab]       = useState("mobile");   // "mobile" | "email"
+  const [country, setCountry] = useState(() => localStorage.getItem("baked_driver_country") || "IN");
+  const [phone, setPhone]     = useState("");
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [busy, setBusy]         = useState(false);
+  const nav = useNavigate();
+  const { setDriver } = useDriver();
+
+  const persistCountry = (c) => { setCountry(c); localStorage.setItem("baked_driver_country", c); };
+  const dialCode = country === "IN" ? "+91" : "+225";
+
+  const finishLogin = async ({ access_token, driver, next_step }) => {
+    localStorage.setItem("baked_driver_token", access_token);
+    // Remember-me controls localStorage lifetime hint. We can't change JWT ttl
+    // from the client, but we can drop the token from storage on tab close.
+    localStorage.setItem("baked_driver_remember", remember ? "1" : "0");
+    setDriver(driver);
+    if (driver?.status === "approved")          nav("/driver/dashboard");
+    else if (driver?.status === "pending_review") nav("/driver/kyc/submitted");
+    else                                          nav(`/driver/kyc/${next_step || "personal"}`);
+  };
+
+  const submitMobile = async (e) => {
     e.preventDefault();
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 7) return toast.error("Enter a valid phone number");
-    const dial = country === "IN" ? "+91" : "+225";
-    const e164 = `${dial}${digits}`;
+    const e164 = `${dialCode}${digits}`;
     setBusy(true);
     try {
       const { data } = await driverApi.post("/driver/auth/request-otp", { phone_e164: e164, country });
@@ -225,55 +270,287 @@ const LoginPage = () => {
     finally { setBusy(false); }
   };
 
+  const submitEmail = async (e) => {
+    e.preventDefault();
+    const em = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast.error("Enter a valid email");
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post("/driver/auth/email-login", { email: em, password });
+      await finishLogin(data);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        // Auto-register on first sign-in for a smoother flow (matches customer UX).
+        try {
+          const { data } = await driverApi.post("/driver/auth/email-register", { email: em, password, country });
+          toast.success("Account created — welcome to SENDbakēd!");
+          await finishLogin(data);
+        } catch (err2) { toast.error(errMsg(err2)); }
+      } else { toast.error(errMsg(err)); }
+    } finally { setBusy(false); }
+  };
+
+  const googleLogin = useGoogleLogin({
+    flow: "auth-code",
+    ux_mode: "popup",
+    onSuccess: async ({ code }) => {
+      setBusy(true);
+      try {
+        const { data } = await driverApi.post("/driver/auth/google/verify", { code, country });
+        await finishLogin(data);
+      } catch (err) { toast.error(errMsg(err)); }
+      finally { setBusy(false); }
+    },
+    onError: () => toast.error("Google sign-in was cancelled"),
+  });
+
+  const startGoogle = () => {
+    if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) return toast.error("Google Sign-In is not configured");
+    googleLogin();
+  };
+  const startApple = () => toast.info("Apple Sign-In coming soon");
+
   return (
-    <Phone>
-      <div className="min-h-screen flex flex-col px-6 pt-16 pb-10">
-        <div className="mb-10">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">SENDbakēd · Driver</div>
-          <h1 className="text-4xl font-bold mt-3">Welcome back</h1>
-          <p className="text-white/60 mt-2">Sign in with your registered mobile number.</p>
-        </div>
-        <form onSubmit={submit} className="space-y-5">
-          <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Country</div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { code: "IN", flag: "🇮🇳", label: "India" },
-                { code: "CI", flag: "🇨🇮", label: "Côte d'Ivoire" },
-              ].map((c) => (
-                <button key={c.code} type="button" onClick={() => setCountry(c.code)}
-                  data-testid={`driver-login-country-${c.code}`}
-                  className={`h-14 rounded-2xl border transition flex items-center justify-center gap-2
-                              ${country === c.code ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/5"}`}>
-                  <span className="text-lg">{c.flag}</span>
-                  <span className="text-sm">{c.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Mobile number</div>
-            <div className="flex items-stretch gap-3">
-              <div className="h-14 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center text-base">
-                {country === "IN" ? "+91" : "+225"}
-              </div>
-              <input
-                data-testid="driver-login-phone"
-                inputMode="numeric" autoFocus placeholder="10-digit mobile"
-                value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 h-14 rounded-2xl bg-white/5 border border-white/10 px-4 text-base outline-none focus:border-orange-500/60"
-              />
-            </div>
-          </div>
-          <PrimaryButton type="submit" busy={busy} data-testid="driver-login-submit">Continue <ChevronRight size={18} /></PrimaryButton>
-          <p className="text-[11px] text-white/40 text-center leading-relaxed">
-            By continuing you agree to the SENDbakēd Driver Partner Terms and privacy policy.
+    <div
+      className="min-h-screen w-full flex justify-center bg-black text-white relative overflow-hidden"
+      style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+    >
+      <div className="w-full max-w-[440px] min-h-screen relative flex flex-col" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+        {/* ---- Backdrop art (biker illustration) — right-aligned on wider phones */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${DRIVER_BG_URL})`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            backgroundPosition: "top right",
+          }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 pointer-events-none"
+             style={{ background: "linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.15) 45%, rgba(10,10,10,.92) 88%)" }}
+             aria-hidden />
+
+        {/* ---- Top brand + welcome copy */}
+        <div className="relative pt-16 px-6" data-testid="driver-login-hero">
+          <img
+            src={SENDBAKED_LOGO_URL}
+            alt="SENDbakēd"
+            className="h-9 w-auto object-contain"
+            style={{ mixBlendMode: "screen" }}
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <div className="text-[11px] tracking-[0.5em] text-white/85 mt-1 font-medium">D R I V E R</div>
+          <h1 className="text-4xl font-bold leading-tight mt-10">
+            Welcome<br />
+            <span style={{ color: "#FF8A1E" }}>Driver!</span>
+          </h1>
+          <p className="text-sm text-white/70 mt-3 max-w-[280px] leading-relaxed">
+            Login to your account and start delivering with us.
           </p>
-        </form>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* ---- Bottom-sheet login card */}
+        <div
+          className="relative mx-4 mb-4 rounded-3xl border border-white/10 p-5 backdrop-blur-xl"
+          style={{ background: "rgba(20, 20, 20, 0.85)" }}
+          data-testid="driver-login-card"
+        >
+          {/* Tab strip */}
+          <div className="grid grid-cols-2 relative">
+            {[
+              { key: "mobile", label: "Mobile Login", icon: PhoneIcon },
+              { key: "email",  label: "Email Login",  icon: Mail },
+            ].map(({ key, label, icon: I }) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  data-testid={`driver-login-tab-${key}`}
+                  className="relative h-11 flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                  style={{ color: active ? "#FF8A1E" : "rgba(255,255,255,.6)" }}
+                >
+                  <I size={16} />
+                  {label}
+                </button>
+              );
+            })}
+            {/* Underlines */}
+            <div className="col-span-2 grid grid-cols-2 mt-1">
+              <div className="h-0.5 rounded-full" style={{ background: tab === "mobile" ? "#FF8A1E" : "rgba(255,255,255,.15)" }} />
+              <div className="h-0.5 rounded-full" style={{ background: tab === "email"  ? "#FF8A1E" : "rgba(255,255,255,.15)" }} />
+            </div>
+          </div>
+
+          {/* Panel */}
+          {tab === "mobile" ? (
+            <form onSubmit={submitMobile} className="mt-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Mobile Number</div>
+                <div className="flex items-stretch gap-2 h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => persistCountry(country === "IN" ? "CI" : "IN")}
+                    data-testid="driver-login-country"
+                    className="px-4 flex items-center gap-2 border-r border-white/10 hover:bg-white/5"
+                    aria-label="Change country"
+                  >
+                    <PhoneIcon size={16} style={{ color: "#FF8A1E" }} />
+                    <span className="text-sm">{dialCode}</span>
+                  </button>
+                  <input
+                    data-testid="driver-login-phone"
+                    inputMode="numeric" autoFocus placeholder="Enter your mobile number"
+                    value={phone} onChange={(e) => setPhone(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                </div>
+              </div>
+              <RememberMe checked={remember} onChange={setRemember} />
+              <PrimaryOrangeButton busy={busy} type="submit" data-testid="driver-login-send-code">
+                Send Code
+              </PrimaryOrangeButton>
+              <OrDivider />
+              <SocialRow onGoogle={startGoogle} onApple={startApple} />
+              <SignUpFooter onClick={() => setTab("mobile")} />
+            </form>
+          ) : (
+            <form onSubmit={submitEmail} className="mt-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Email</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Mail size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-login-email"
+                    type="email" autoComplete="email" placeholder="you@example.com"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Password</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Lock size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-login-password"
+                    type={showPw ? "text" : "password"} autoComplete="current-password" placeholder="Min 8 characters"
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                  <button
+                    type="button" onClick={() => setShowPw(v => !v)}
+                    data-testid="driver-login-toggle-pw"
+                    className="px-4 flex items-center text-white/60 hover:text-white/90"
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <RememberMe checked={remember} onChange={setRemember} />
+              <PrimaryOrangeButton busy={busy} type="submit" data-testid="driver-login-email-submit">
+                Sign In
+              </PrimaryOrangeButton>
+              <OrDivider />
+              <SocialRow onGoogle={startGoogle} onApple={startApple} />
+              <SignUpFooter onClick={() => setTab("mobile")} />
+            </form>
+          )}
+        </div>
       </div>
-    </Phone>
+    </div>
   );
 };
+
+// ---- Reusable pieces for the login card ---------------------------------
+
+const RememberMe = ({ checked, onChange }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    data-testid="driver-login-remember"
+    className="flex items-center gap-2 text-sm text-white/80"
+  >
+    <span
+      className="w-5 h-5 rounded-md flex items-center justify-center border transition-colors"
+      style={{
+        borderColor: checked ? "#FF8A1E" : "rgba(255,255,255,.3)",
+        background: checked ? "#FF8A1E" : "transparent",
+      }}
+    >
+      {checked && <Check size={14} strokeWidth={3} style={{ color: "#0a0a0a" }} />}
+    </span>
+    Remember me
+  </button>
+);
+
+const PrimaryOrangeButton = ({ busy, children, ...rest }) => (
+  <button
+    disabled={busy}
+    className="w-full h-14 rounded-2xl text-base font-semibold flex items-center justify-center gap-2 transition-transform active:scale-[.98] disabled:opacity-60"
+    style={{
+      background: "linear-gradient(135deg, #FF9A2B, #FF7A00)",
+      color: "#0a0a0a",
+      boxShadow: "0 16px 40px -18px rgba(255,122,0,.55)",
+    }}
+    {...rest}
+  >
+    {busy ? <Loader2 size={18} className="animate-spin" /> : children}
+  </button>
+);
+
+const OrDivider = () => (
+  <div className="flex items-center gap-3 py-1">
+    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,.12)" }} />
+    <div className="text-[11px] uppercase tracking-widest text-white/50">OR</div>
+    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,.12)" }} />
+  </div>
+);
+
+const SocialRow = ({ onGoogle, onApple }) => (
+  <div className="grid grid-cols-2 gap-3">
+    <button
+      type="button" onClick={onGoogle}
+      data-testid="driver-login-google"
+      className="h-12 rounded-2xl border border-white/15 bg-transparent flex items-center justify-center gap-2 text-sm hover:bg-white/5 active:scale-[.98] transition"
+    >
+      <GoogleLogo /> Continue with Google
+    </button>
+    <button
+      type="button" onClick={onApple}
+      data-testid="driver-login-apple"
+      className="h-12 rounded-2xl border border-white/15 bg-transparent flex items-center justify-center gap-2 text-sm text-white hover:bg-white/5 active:scale-[.98] transition"
+    >
+      <AppleLogo /> Continue with Apple
+    </button>
+  </div>
+);
+
+const SignUpFooter = ({ onClick }) => (
+  <button
+    type="button" onClick={onClick}
+    data-testid="driver-login-signup"
+    className="w-full flex items-center justify-center gap-2 text-sm text-white/80 hover:text-white pt-1"
+  >
+    <span
+      className="w-6 h-6 rounded-full border flex items-center justify-center"
+      style={{ borderColor: "#FF8A1E", color: "#FF8A1E" }}
+      aria-hidden
+    >
+      <ShieldCheck size={12} />
+    </span>
+    New Driver? <span style={{ color: "#FF8A1E" }} className="font-semibold">Sign Up</span> <ChevronRight size={14} />
+  </button>
+);
 
 const OtpPage = () => {
   const [code, setCode]   = useState("");

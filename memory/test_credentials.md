@@ -41,6 +41,12 @@
 
 ## Notes
 - Legacy `/martbaked/sellers/portal/*` still works — auto-redirects to the resolved slug URL client-side.
+- **Driver email login** (2026-02): the redesigned `/driver/login` supports three paths:
+  1. **Mobile Login** — phone + OTP (existing, dev_hint returned in response)
+  2. **Email Login** — email + password; unknown email on first submit auto-registers the driver
+  3. **Continue with Google** — uses shared Emergent-managed Google OAuth (`GOOGLE_CLIENT_ID` env)
+  4. Continue with Apple — currently a "Coming soon" stub (Apple Services Key not provided yet)
+- Test email driver (idempotent): `test.driver@baked.dev` / `driverPass123!` — created 2026-02-26. Onboarding status, no phone attached (KYC will collect it).
 
 ## Seeded Driver Applications (for Admin queue QA)
 - `drv_seed_onb1` — Rahul Onboarding · IN · onboarding

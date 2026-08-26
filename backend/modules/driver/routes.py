@@ -37,8 +37,17 @@ from core.models import (
     DriverOtp, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
-from core.security import create_access_token, decode_token
+from core.security import create_access_token, decode_token, hash_password, verify_password
 from shared.admin.routes import get_current_admin
+
+# Google Sign-In for drivers — mirrors the customer flow in shared/auth/routes.py.
+import httpx
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+
+GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+GOOGLE_TOKEN_URL     = "https://oauth2.googleapis.com/token"
 
 
 OTP_TTL_MIN     = 10
@@ -156,6 +165,134 @@ async def verify_otp(payload: VerifyOtpIn, session: AsyncSession = Depends(get_s
         "driver": _driver_dict(d),
         "next_step": "dashboard" if d.status == "approved" else d.kyc_step,
     }
+
+
+def _login_response(d: Driver) -> dict:
+    tok = create_access_token(d.id, role=DRIVER_JWT_ROLE, extra={"module": "driver"})
+    return {
+        "access_token": tok,
+        "driver": _driver_dict(d),
+        "next_step": "dashboard" if d.status == "approved" else d.kyc_step,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Auth — email + password
+# ---------------------------------------------------------------------------
+
+class EmailRegisterIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email:    str = Field(..., min_length=6, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(..., min_length=8, max_length=200)
+    country:  str = Field(..., min_length=2, max_length=2)
+    name:     Optional[str] = Field(None, max_length=200)
+
+
+class EmailLoginIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email:    str = Field(..., min_length=6, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/auth/email-register")
+async def email_register(payload: EmailRegisterIn, session: AsyncSession = Depends(get_session)):
+    """Create a driver from email + password.
+
+    Idempotent-friendly: if the email already exists we return 409 so the client
+    can prompt the driver to log in instead of silently overwriting the password.
+    """
+    email = payload.email.strip().lower()
+    existing = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, {"code": "email_taken", "message": "This email already has a driver account. Please sign in."})
+    d = Driver(
+        email=email,
+        password_hash=hash_password(payload.password),
+        country=payload.country.upper(),
+        name=(payload.name or "").strip() or None,
+    )
+    session.add(d)
+    await session.commit()
+    await session.refresh(d)
+    return _login_response(d)
+
+
+@router.post("/auth/email-login")
+async def email_login(payload: EmailLoginIn, session: AsyncSession = Depends(get_session)):
+    email = payload.email.strip().lower()
+    d = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+    if not d or not d.password_hash or not verify_password(payload.password, d.password_hash):
+        raise HTTPException(401, {"code": "invalid_credentials", "message": "Invalid email or password."})
+    return _login_response(d)
+
+
+# ---------------------------------------------------------------------------
+# Auth — Google Sign-In
+# ---------------------------------------------------------------------------
+
+class GoogleVerifyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code:    str = Field(..., min_length=8, max_length=4096)
+    country: str = Field("IN", min_length=2, max_length=2)
+
+
+@router.post("/auth/google/verify")
+async def google_verify(payload: GoogleVerifyIn, session: AsyncSession = Depends(get_session)):
+    """Exchange a Google auth code → find/create a Driver by google_sub or email.
+
+    Mirrors the customer-side flow in shared/auth/routes.py but issues a
+    driver JWT so the client lands inside `/driver/*`.
+    """
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(400, {"code": "google_not_configured", "message": "Google Sign-In is not configured on this server."})
+
+    async with httpx.AsyncClient(timeout=10) as http:
+        r = await http.post(GOOGLE_TOKEN_URL, data={
+            "code": payload.code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": "postmessage",
+            "grant_type": "authorization_code",
+        })
+    if r.status_code != 200:
+        raise HTTPException(401, f"Google token exchange failed: {r.text}")
+    id_token_str = r.json().get("id_token")
+    if not id_token_str:
+        raise HTTPException(401, "No id_token returned by Google")
+    try:
+        info = google_id_token.verify_oauth2_token(id_token_str, google_requests.Request(), GOOGLE_CLIENT_ID)
+    except ValueError as exc:
+        raise HTTPException(401, f"Invalid Google credential: {exc}") from exc
+
+    sub = info.get("sub")
+    email = (info.get("email") or "").lower()
+    if not sub or not email or not info.get("email_verified"):
+        raise HTTPException(401, "Google account email is not verified")
+
+    d = (await session.execute(
+        select(Driver).where(Driver.google_sub == sub)
+    )).scalar_one_or_none()
+    if not d and email:
+        d = (await session.execute(
+            select(Driver).where(func.lower(Driver.email) == email)
+        )).scalar_one_or_none()
+        if d and not d.google_sub:
+            d.google_sub = sub  # link Google to an existing email-based driver
+    if not d:
+        d = Driver(
+            email=email,
+            google_sub=sub,
+            country=payload.country.upper(),
+            name=info.get("name") or None,
+        )
+        session.add(d)
+    await session.commit()
+    await session.refresh(d)
+    return _login_response(d)
 
 
 # ---------------------------------------------------------------------------

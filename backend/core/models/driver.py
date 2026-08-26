@@ -29,10 +29,14 @@ class Driver(Base, TimestampMixin):
     )
 
     id:            Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("drv"))
-    phone_e164:    Mapped[str] = mapped_column(String(24), nullable=False, unique=True)
+    phone_e164:    Mapped[Optional[str]] = mapped_column(String(24))
     country:       Mapped[str] = mapped_column(String(2), nullable=False)
     name:          Mapped[Optional[str]] = mapped_column(String(200))
     email:         Mapped[Optional[str]] = mapped_column(String(200))
+    # Email+password login (SENDbakēd Driver login screen — 2026-02).
+    password_hash: Mapped[Optional[str]] = mapped_column(Text)
+    # Google-linked drivers store the Google `sub` for stable lookup.
+    google_sub:    Mapped[Optional[str]] = mapped_column(String(64))
     status:        Mapped[str] = mapped_column(String(24), nullable=False, default="onboarding", server_default="onboarding")
     kyc_step:      Mapped[str] = mapped_column(String(32), nullable=False, default="personal",   server_default="personal")
 
