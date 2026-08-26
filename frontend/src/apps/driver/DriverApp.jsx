@@ -435,7 +435,18 @@ const LoginPage = () => {
                 </div>
               </div>
               <div>
-                <div className="text-sm font-semibold text-white mb-2">Password</div>
+                <div className="text-sm font-semibold text-white mb-2 flex items-center justify-between">
+                  <span>Password</span>
+                  <button
+                    type="button"
+                    onClick={() => nav("/driver/forgot-password")}
+                    data-testid="driver-login-forgot"
+                    className="text-xs font-medium hover:opacity-80"
+                    style={{ color: "#FF8A1E" }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
                   <div className="px-4 flex items-center border-r border-white/10">
                     <Lock size={16} style={{ color: "#FF8A1E" }} />
@@ -551,6 +562,173 @@ const SignUpFooter = ({ onClick }) => (
     New Driver? <span style={{ color: "#FF8A1E" }} className="font-semibold">Sign Up</span> <ChevronRight size={14} />
   </button>
 );
+
+/* -------------------------------------------------------------------------- */
+/*  Forgot Password — 3-step flow: email → OTP → new password → auto-login    */
+/* -------------------------------------------------------------------------- */
+
+const ForgotPasswordPage = () => {
+  const [step, setStep] = useState("email");   // "email" | "reset" | "done"
+  const [email, setEmail]       = useState("");
+  const [code, setCode]         = useState("");
+  const [newPw, setNewPw]       = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [busy, setBusy]         = useState(false);
+  const nav = useNavigate();
+  const { setDriver } = useDriver();
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setInterval(() => setResendIn(v => Math.max(0, v - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
+
+  const requestOtp = async (opts = {}) => {
+    const em = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast.error("Enter a valid email");
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post("/driver/auth/forgot-password", { email: em });
+      // Always show a positive message — don't leak whether the email is registered.
+      toast.success(opts.resend ? "New reset code sent" : "If that email is registered, we sent a reset code.");
+      if (data.dev_hint) toast.message(`Dev code: ${data.dev_hint}`);
+      setResendIn(30);
+      if (!opts.resend) setStep("reset");
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setBusy(false); }
+  };
+
+  const submitReset = async (e) => {
+    e.preventDefault();
+    if (code.length < 4) return toast.error("Enter the code from your email");
+    if (newPw.length < 8) return toast.error("Password must be at least 8 characters");
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post("/driver/auth/reset-password", {
+        email: email.trim().toLowerCase(), code, new_password: newPw,
+      });
+      localStorage.setItem("baked_driver_token", data.access_token);
+      setDriver(data.driver);
+      toast.success("Password reset — you're signed in!");
+      if (data.driver?.status === "approved") nav("/driver/dashboard");
+      else nav(`/driver/kyc/${data.next_step || "personal"}`);
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Phone>
+      <div className="min-h-screen flex flex-col px-6 pt-12 pb-8" data-testid="driver-forgot-page">
+        <button
+          onClick={() => (step === "email" ? nav("/driver/login") : setStep("email"))}
+          data-testid="driver-forgot-back"
+          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 -ml-2"
+          aria-label="Back"
+        >
+          <ChevronLeft size={20} />
+        </button>
+
+        <div className="mt-6">
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+          <h1 className="text-3xl font-bold mt-3">
+            {step === "email" ? <>Forgot your <span style={{ color: "#FF8A1E" }}>password?</span></> : <>Enter reset <span style={{ color: "#FF8A1E" }}>code</span></>}
+          </h1>
+          <p className="text-sm text-white/70 mt-3 max-w-[320px] leading-relaxed">
+            {step === "email"
+              ? "Enter the email tied to your driver account and we'll send a 6-digit reset code."
+              : <>We emailed a reset code to <span className="text-white font-semibold">{email}</span>. Enter it below along with your new password.</>}
+          </p>
+        </div>
+
+        <div className="mt-8 space-y-4">
+          {step === "email" ? (
+            <>
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Email</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-white/[.03] overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Mail size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-forgot-email"
+                    type="email" autoFocus autoComplete="email" placeholder="you@example.com"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                </div>
+              </div>
+              <PrimaryOrangeButton busy={busy} onClick={() => requestOtp()} data-testid="driver-forgot-send">
+                Send Reset Code
+              </PrimaryOrangeButton>
+              <button
+                type="button" onClick={() => nav("/driver/login")}
+                data-testid="driver-forgot-cancel"
+                className="w-full text-center text-sm text-white/60 hover:text-white/90 pt-1"
+              >
+                Back to sign in
+              </button>
+            </>
+          ) : (
+            <form onSubmit={submitReset} className="space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">6-digit code</div>
+                <input
+                  data-testid="driver-forgot-code"
+                  inputMode="numeric" autoFocus maxLength={8}
+                  placeholder="Paste or type the code"
+                  value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  className="w-full h-14 rounded-2xl bg-white/[.03] border border-white/15 px-4 text-base text-white outline-none tracking-[.6em] font-mono focus:border-orange-500/60"
+                />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">New password</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-white/[.03] overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Lock size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-forgot-newpw"
+                    type={showPw ? "text" : "password"} autoComplete="new-password" placeholder="Min 8 characters"
+                    value={newPw} onChange={(e) => setNewPw(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                  <button
+                    type="button" onClick={() => setShowPw(v => !v)}
+                    data-testid="driver-forgot-toggle-pw"
+                    className="px-4 flex items-center text-white/60 hover:text-white/90"
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <PrimaryOrangeButton busy={busy} type="submit" data-testid="driver-forgot-submit">
+                Reset Password & Sign In
+              </PrimaryOrangeButton>
+              <div className="flex items-center justify-center gap-2 pt-1 text-sm text-white/60">
+                Didn&apos;t get it?
+                {resendIn > 0 ? (
+                  <span className="text-white/50">Resend in {resendIn}s</span>
+                ) : (
+                  <button
+                    type="button" onClick={() => requestOtp({ resend: true })}
+                    data-testid="driver-forgot-resend"
+                    className="hover:opacity-80 font-semibold"
+                    style={{ color: "#FF8A1E" }}
+                  >
+                    Resend code
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </Phone>
+  );
+};
+
 
 const OtpPage = () => {
   const [code, setCode]   = useState("");
@@ -1695,6 +1873,7 @@ export const DriverApp = () => {
         <Route path=""              element={<Gate />} />
         <Route path="onboarding"    element={<OnboardingPage />} />
         <Route path="login"         element={<LoginPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="otp"           element={<OtpPage />} />
         <Route path="kyc/personal"  element={<NeedsKyc><StepPersonal /></NeedsKyc>} />
         <Route path="kyc/id"        element={<NeedsKyc><StepId /></NeedsKyc>} />

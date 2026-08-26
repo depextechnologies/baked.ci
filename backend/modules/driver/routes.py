@@ -296,6 +296,101 @@ async def google_verify(payload: GoogleVerifyIn, session: AsyncSession = Depends
 
 
 # ---------------------------------------------------------------------------
+# Auth — Forgot / Reset password (OTP via email)
+# ---------------------------------------------------------------------------
+
+class ForgotPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(..., min_length=6, max_length=200,
+                       pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class ResetPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email:        str = Field(..., min_length=6, max_length=200,
+                              pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    code:         str = Field(..., min_length=4, max_length=8)
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+
+@router.post("/auth/forgot-password")
+async def forgot_password(payload: ForgotPasswordIn, session: AsyncSession = Depends(get_session)):
+    """Issue a password-reset OTP for a driver by email.
+
+    To avoid exposing which emails are registered we always respond 200,
+    but we only actually persist an OTP row + return `dev_hint` when the
+    email maps to a real driver. In production `dev_hint` is always null
+    and the code is delivered via email (mocked in this build).
+    """
+    email = payload.email.strip().lower()
+    d = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+
+    code = f"{random.randint(0, 999_999):06d}"
+    dev_hint: Optional[str] = None
+    otp_id: Optional[str] = None
+    if d:
+        row = DriverOtp(
+            email=email, purpose="password_reset", code=code,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MIN),
+        )
+        session.add(row)
+        await session.commit()
+        otp_id = row.id
+        print(f"[driver.reset-otp] {email} → {code} (mocked email)")
+        if _dev_mode():
+            dev_hint = code
+
+    return {
+        "otp_id": otp_id,
+        "expires_in_seconds": OTP_TTL_MIN * 60,
+        "dev_hint": dev_hint,
+    }
+
+
+@router.post("/auth/reset-password")
+async def reset_password(payload: ResetPasswordIn, session: AsyncSession = Depends(get_session)):
+    """Verify a password-reset OTP and set a new password.
+
+    On success the driver is auto-signed-in so they don't need to type the
+    fresh password immediately after resetting it.
+    """
+    now = datetime.now(timezone.utc)
+    email = payload.email.strip().lower()
+
+    row = (await session.execute(
+        select(DriverOtp)
+        .where(func.lower(DriverOtp.email) == email,
+               DriverOtp.purpose == "password_reset",
+               DriverOtp.consumed_at.is_(None))
+        .order_by(DriverOtp.created_at.desc())
+    )).scalars().first()
+    if not row or row.expires_at < now:
+        raise HTTPException(400, {"code": "otp_expired", "message": "Code expired — request a new one."})
+    if row.attempts >= OTP_MAX_TRIES:
+        raise HTTPException(429, {"code": "too_many_attempts", "message": "Too many attempts. Request a new code."})
+    if row.code != payload.code:
+        row.attempts += 1
+        await session.commit()
+        raise HTTPException(400, {"code": "otp_invalid", "message": "Incorrect code. Try again."})
+
+    d = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+    if not d:
+        # Shouldn't happen — forgot-password only creates an OTP when the
+        # driver exists — but guard defensively.
+        raise HTTPException(404, {"code": "driver_not_found", "message": "Driver record not found."})
+
+    d.password_hash = hash_password(payload.new_password)
+    row.consumed_at = now
+    await session.commit()
+    await session.refresh(d)
+    return _login_response(d)
+
+
+# ---------------------------------------------------------------------------
 # Current driver
 # ---------------------------------------------------------------------------
 

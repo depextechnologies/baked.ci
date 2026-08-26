@@ -80,7 +80,9 @@ class DriverOtp(Base):
     )
 
     id:          Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("dotp"))
-    phone_e164:  Mapped[str] = mapped_column(String(24), nullable=False)
+    phone_e164:  Mapped[Optional[str]] = mapped_column(String(24))
+    email:       Mapped[Optional[str]] = mapped_column(String(200))
+    purpose:     Mapped[str] = mapped_column(String(32), nullable=False, default="login", server_default="login")
     code:        Mapped[str] = mapped_column(String(8),  nullable=False)
     expires_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempts:    Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
