@@ -35,6 +35,7 @@ import {
   User as UserIcon, Power as PowerIcon,
 } from "lucide-react";
 import { DriverNavMap } from "./DriverNavMap";
+import { DriverOnlineMap } from "./DriverOnlineMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
 import { useSendbakedDispatch } from "./useSendbakedDispatch";
@@ -1581,6 +1582,21 @@ const DashboardPage = () => {
         onDecline={dispatch.decline}
       />
       <DriverBottomNav />
+
+      {/* Online mode → full-bleed live map with "You are Online" chip (matches
+          Fixing_Prompt Screenshot 1). Offline mode → the availability card
+          view (Screenshot 2). The offer sheet + bottom nav render above both. */}
+      {online ? (
+        <div className="fixed inset-0" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
+          <DriverOnlineMap
+            driverCoords={dispatch.lastCoords || (driver?.current_lat && driver?.current_lng
+              ? { lat: Number(driver.current_lat), lng: Number(driver.current_lng) }
+              : null)}
+            onMenu={() => nav("/driver/profile")}
+            onNotifications={() => toast.message("No new notifications")}
+          />
+        </div>
+      ) : (
       <div className="px-6 pt-8 pb-24" data-testid="driver-dashboard">
         <div className="flex items-center justify-between">
           <div>
@@ -1691,6 +1707,7 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Slice 2 — incoming request overlay */}
       {activeJob && activeJob.status === "offered" && (
