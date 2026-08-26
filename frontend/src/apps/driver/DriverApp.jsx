@@ -1496,16 +1496,42 @@ const DashboardPage = () => {
   const [busy, setBusy] = useState(false);
   const { job: activeJob, refresh: refreshJob, setJob: setActiveJob } = useActiveJob(driver?.status === "approved" && driver?.is_online);
   const [reqBusy, setReqBusy] = useState(false);
+  const [activeExpressJob, setActiveExpressJob] = useState(null);
+
+  // Fetch any in-flight ExpressBooking on mount so the route map is restored
+  // after a page reload (mid-delivery). Cheap — one call, no polling.
+  useEffect(() => {
+    if (driver?.status !== "approved") return;
+    let cancelled = false;
+    driverApi.get("/driver/me/express-active").then(({ data }) => {
+      if (!cancelled && data?.booking) setActiveExpressJob(data.booking);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [driver?.status]);
+
+  // Adapt an ExpressBooking → the shape DriverNavMap needs.
+  // Uses booking.status to decide whether the route heads to pickup or dropoff.
+  const navJob = useMemo(() => {
+    if (!activeExpressJob) return null;
+    const st = activeExpressJob.status;
+    const isDropoffPhase = st === "picked_up" || st === "in_transit";
+    return {
+      id: activeExpressJob.id,
+      // DriverNavMap watches for "picked_up"/"arriving_dropoff" to route to dropoff.
+      status: isDropoffPhase ? "picked_up" : "arriving_pickup",
+      pickup:  { lat: Number(activeExpressJob.pickup?.latitude),  lng: Number(activeExpressJob.pickup?.longitude)  },
+      dropoff: { lat: Number(activeExpressJob.drop?.latitude   || activeExpressJob.dropoff?.latitude),
+                 lng: Number(activeExpressJob.drop?.longitude  || activeExpressJob.dropoff?.longitude) },
+    };
+  }, [activeExpressJob]);
 
   // --- Phase A: SENDbakēd real-dispatch hook (GPS + WS + offer) ---
   const dispatch = useSendbakedDispatch({
     enabled: driver?.status === "approved" && !!driver?.is_online,
     hasActiveJob: !!activeJob && activeJob.status !== "offered",
-    onJobAccepted: () => {
-      // The accepted booking is an ExpressBooking (customer send flow), not a
-      // legacy DriverJob. For Phase A we just show a toast + rely on the
-      // dashboard refresh; Phase B will route to a rich in-progress screen.
+    onJobAccepted: (booking) => {
       toast.success("Job accepted — head to pickup!");
+      setActiveExpressJob(booking);
       refreshJob();
     },
   });
@@ -1583,10 +1609,30 @@ const DashboardPage = () => {
       />
       <DriverBottomNav />
 
-      {/* Online mode → full-bleed live map with "You are Online" chip (matches
-          Fixing_Prompt Screenshot 1). Offline mode → the availability card
-          view (Screenshot 2). The offer sheet + bottom nav render above both. */}
-      {online ? (
+      {/* Priority: active job (route + pins) > online idle (single pin) > offline cards */}
+      {navJob ? (
+        <div className="fixed inset-0" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
+          <DriverNavMap
+            job={navJob}
+            className="absolute inset-0"
+            rounded={false}
+            onDriverPositionChange={() => { /* GPS is already pushed by useSendbakedDispatch */ }}
+          />
+          <div className="absolute top-0 left-0 right-0 pt-[max(env(safe-area-inset-top),12px)] px-4 flex items-center gap-3 pointer-events-none">
+            <div
+              className="pointer-events-auto flex-1 h-11 px-4 rounded-full bg-neutral-900/85 border border-white/10 backdrop-blur flex items-center justify-center gap-2 text-sm"
+              data-testid="driver-active-job-chip"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>
+                {navJob.status === "picked_up"
+                  ? <>Deliver to <span className="font-semibold" style={{ color: "#34d365" }}>drop-off</span></>
+                  : <>Head to <span className="font-semibold" style={{ color: "#FF8A1E" }}>pickup</span></>}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : online ? (
         <div className="fixed inset-0" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
           <DriverOnlineMap
             driverCoords={dispatch.lastCoords || (driver?.current_lat && driver?.current_lng

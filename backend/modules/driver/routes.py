@@ -757,6 +757,29 @@ async def current_offer(
     return {"offer": _offer_payload(booking)}
 
 
+@router.get("/me/express-active")
+async def express_active_booking(
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the driver's currently in-flight ExpressBooking (if any) so the
+    driver PWA can restore the route/map view after a reload. Returns
+    {"booking": null} when the driver has no active job.
+    """
+    from core.models import ExpressBooking, ModuleDriver
+    from modules.express.serializers import booking_to_dict
+    from sqlalchemy import select
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None or md.active_booking_id is None:
+        return {"booking": None}
+    booking = await session.get(ExpressBooking, md.active_booking_id)
+    if booking is None or booking.status in ("delivered", "cancelled"):
+        return {"booking": None}
+    return {"booking": await booking_to_dict(session, booking)}
+
+
 @router.post("/me/offers/{booking_id}/accept")
 async def accept_offer(
     booking_id: str,

@@ -257,6 +257,8 @@ export const DriverNavMap = ({
   driverPosition = null,      // customer-side fallback (server snapshot)
   onDriverPositionChange = null,  // driver-PWA callback — called on every GPS fix (unthrottled)
   connectionState = null,     // 'live' | 'reconnecting' | null — badge overlay
+  className = "h-56",         // override to "absolute inset-0" for full-bleed dashboard use
+  rounded = true,             // set false when embedded in a full-bleed surface
 }) => {
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
@@ -326,7 +328,7 @@ export const DriverNavMap = ({
   }
 
   return (
-    <div className="relative rounded-3xl border border-white/10 overflow-hidden h-56"
+    <div className={`overflow-hidden ${rounded ? "rounded-3xl border border-white/10" : ""} ${className.includes("absolute") || className.includes("fixed") ? "" : "relative"} ${className}`}
          data-testid="driver-job-map">
       <APIProvider apiKey={apiKey}>
         <Map
