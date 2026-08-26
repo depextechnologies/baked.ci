@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 55 — Social.docx Issue #7 (Google Maps address picker on customer checkout) FULLY VERIFIED end-to-end on desktop. Fresh customer created via OTP, cart seeded with 5 items (11 460 XOF > 3 000 min-order). On /checkout: (1) old testid `checkout-new-address-line1` is COMPLETELY GONE from the codebase (grep -rn returned zero matches in /app/frontend/src), (2) `[data-testid=checkout-add-address-btn]` opens the AddressSelector modal `[data-testid=address-selector]` instead of the old inline form, (3) Places autocomplete returned 5 real predictions for `Cocody` — `[data-testid=addr-pred-*]` rendered, (4) selecting a prediction navigates to Confirm step with `[data-testid=addr-map-preview]` (Google map + AdvancedMarker) and `[data-testid=addr-serviceable]` (Cocody hub ~within 15 km), (5) `[data-testid=addr-confirm-btn]` closes the modal, POSTs to /customers/me/addresses with full lat/lng/place_id/formatted_address, the new address appears in the delivery list with `[data-testid=checkout-address-pin-<id>]` reading `📍 5.36022, -3.96744`, and is auto-selected. Placed a COD order → 200, navigated to /orders/ord_fd980d25f3a948bb — order confirmed. Direct API verification: order.address (renamed from address_snapshot on GET) carries latitude/longitude/place_id/formatted_address exactly as picked. Backend pytest (3 tests) all pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /orders (response)", "issue": "Response includes `delivery_lat`/`delivery_lng` as null even though address_snapshot has them and the code sets Order.delivery_lat = address_snapshot.get('latitude'). Serializer may be filtering or column not being reloaded pre-serialize. address_snapshot itself carries lat/lng correctly, so downstream picker/dispatch is fine — but denormalized delivery_lat/lng column on the response is null. Low-priority."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_checkout_address_picker_iter55.py",
+    "/app/test_reports/pytest/iter55_results.xml"
+  ],
+  "action_items": [
+    "(Optional / low priority) Investigate why Order.delivery_lat / delivery_lng are null on the POST /orders response even though address_snapshot carries the coordinates — likely a row_to_dict / column-selection issue in modules/mart/orders.py. Not a blocker for Issue #7 since address_snapshot is the source of truth for dispatch."
+  ],
+  "critical_code_review_comments": [
+    "CheckoutPage.saveAddress correctly mirrors formatted_address into line1 when line1 is absent — matches AddressSelector.onConfirm defense — good defense-in-depth vs backend AddressPoint.line1 requirement.",
+    "CheckoutPage.jsx is a single 234-line file — clean and readable. No refactor needed.",
+    "AddressSelector renders in a portal-less absolute div (z-70) — works fine but consider a real portal for stacking reliability on nested modals."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_checkout_address_picker_iter55.py (new)"
+  ],
+  "success_rate": {"backend": "100% (3/3)", "frontend": "100% (all 8 acceptance points verified)"},
+  "test_credentials": "Fresh CI customer created inline via OTP (+225 / random 9-digit) — dev_code returned in /api/auth/otp/request response.",
+  "seed_data_creation": "None — every test provisions its own customer + cart via API.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Checkout address picker flow (Issue #7) is production-ready. For future tests hitting the picker: use the fetch-in-page pattern from this run (evaluate → OTP → cart) instead of the UI phone-login dialog — much faster. Google Places autocomplete IS live in preview (key AIzaSyAOrWTi0XMQ0Cxs7HQ4Vg5em68LBS-JOFY works). Confirm-step map preview renders (`[data-testid=addr-map-preview]`) and serviceability check against Cocody/Plateau/Marcory hubs works. Backend note: order response keys the snapshot as `address` (renamed from `address_snapshot` in orders.py:211) — don't grep for address_snapshot in the JSON response.",
+  "rca of the issue": "N/A — no bug to root-cause. Feature verification only. Every acceptance criterion from the review request was hit."
+}

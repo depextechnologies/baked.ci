@@ -37,13 +37,15 @@ from core.models.express import (
 from core.models.vendors import ModuleVendor, VendorDocument
 from core.models.partners import (
     APPLICATION_STATUSES, Partner, PartnerApplication, Warehouse,
-    WarehouseAisle, WarehouseBin, WarehouseRack, WarehouseShelf, WarehouseZone,
+    WarehouseAisle, WarehouseBin, WarehouseCategoryDefault, WarehouseRack,
+    WarehouseShelf, WarehouseZone,
     WAREHOUSE_STATUSES, WAREHOUSE_STATUS_OPERATIONAL, WAREHOUSE_STATUS_MANAGEABLE,
 )
 from core.models.partner_commerce import (
     PARTNER_ORDER_STATUSES, PARTNER_WALLET_TX_KINDS,
     PartnerOrder, PartnerOrderPick, PartnerProduct, PartnerWallet, PartnerWalletTxn,
 )
+from core.models.homepage import HomepageSection, HOMEPAGE_SECTION_TYPES
 from core.models.partner_staff import (
     PARTNER_STAFF_ROLES, PartnerStaff, PartnerStaffAuditLog,
     PartnerStaffStoreAssignment,
@@ -74,6 +76,7 @@ from core.models.suppliers import (
     Supplier, SupplierApplication, SupplierContact, SupplierDocument,
     SupplierSupplyLocation, SupplierCategoryInterest, SupplierBankInfo,
     SupplierReviewAudit, SupplierProduct, SupplierProductRequest,
+    SupplierWarehouseAssignment,
 )
 from core.models.purchase_orders import (
     PO_STATUSES, PO_ACTOR_KINDS,
@@ -139,6 +142,9 @@ __all__ = [
     "WarehouseRack",
     "WarehouseShelf",
     "WarehouseBin",
+    "WarehouseCategoryDefault",
+    "HomepageSection",
+    "HOMEPAGE_SECTION_TYPES",
     "PartnerProduct",
     "PartnerOrder",
     "PartnerOrderPick",
@@ -167,6 +173,7 @@ __all__ = [
     "Supplier", "SupplierApplication", "SupplierContact", "SupplierDocument",
     "SupplierSupplyLocation", "SupplierCategoryInterest", "SupplierBankInfo",
     "SupplierReviewAudit", "SupplierProduct", "SupplierProductRequest",
+    "SupplierWarehouseAssignment",
     "PO_STATUSES", "PO_ACTOR_KINDS",
     "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderReceipt",
     "PurchaseOrderReceiptLine", "PurchaseOrderAudit",

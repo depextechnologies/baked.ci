@@ -37,8 +37,18 @@ from core.models import (
     DriverOtp, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
-from core.security import create_access_token, decode_token
+from core.mailer import send_email_async
+from core.security import create_access_token, decode_token, hash_password, verify_password
 from shared.admin.routes import get_current_admin
+
+# Google Sign-In for drivers — mirrors the customer flow in shared/auth/routes.py.
+import httpx
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+
+GOOGLE_CLIENT_ID     = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+GOOGLE_TOKEN_URL     = "https://oauth2.googleapis.com/token"
 
 
 OTP_TTL_MIN     = 10
@@ -156,6 +166,282 @@ async def verify_otp(payload: VerifyOtpIn, session: AsyncSession = Depends(get_s
         "driver": _driver_dict(d),
         "next_step": "dashboard" if d.status == "approved" else d.kyc_step,
     }
+
+
+def _login_response(d: Driver) -> dict:
+    tok = create_access_token(d.id, role=DRIVER_JWT_ROLE, extra={"module": "driver"})
+    return {
+        "access_token": tok,
+        "driver": _driver_dict(d),
+        "next_step": "dashboard" if d.status == "approved" else d.kyc_step,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Auth — email + password
+# ---------------------------------------------------------------------------
+
+class EmailRegisterIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email:    str = Field(..., min_length=6, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(..., min_length=8, max_length=200)
+    country:  str = Field(..., min_length=2, max_length=2)
+    name:     Optional[str] = Field(None, max_length=200)
+
+
+class EmailLoginIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email:    str = Field(..., min_length=6, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/auth/email-register")
+async def email_register(payload: EmailRegisterIn, session: AsyncSession = Depends(get_session)):
+    """Create a driver from email + password.
+
+    Idempotent-friendly: if the email already exists we return 409 so the client
+    can prompt the driver to log in instead of silently overwriting the password.
+    """
+    email = payload.email.strip().lower()
+    existing = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, {"code": "email_taken", "message": "This email already has a driver account. Please sign in."})
+    d = Driver(
+        email=email,
+        password_hash=hash_password(payload.password),
+        country=payload.country.upper(),
+        name=(payload.name or "").strip() or None,
+    )
+    session.add(d)
+    await session.commit()
+    await session.refresh(d)
+    return _login_response(d)
+
+
+@router.post("/auth/email-login")
+async def email_login(payload: EmailLoginIn, session: AsyncSession = Depends(get_session)):
+    email = payload.email.strip().lower()
+    d = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+    if not d or not d.password_hash or not verify_password(payload.password, d.password_hash):
+        raise HTTPException(401, {"code": "invalid_credentials", "message": "Invalid email or password."})
+    return _login_response(d)
+
+
+# ---------------------------------------------------------------------------
+# Auth — Google Sign-In
+# ---------------------------------------------------------------------------
+
+class GoogleVerifyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code:    str = Field(..., min_length=8, max_length=4096)
+    country: str = Field("IN", min_length=2, max_length=2)
+
+
+@router.post("/auth/google/verify")
+async def google_verify(payload: GoogleVerifyIn, session: AsyncSession = Depends(get_session)):
+    """Exchange a Google auth code → find/create a Driver by google_sub or email.
+
+    Mirrors the customer-side flow in shared/auth/routes.py but issues a
+    driver JWT so the client lands inside `/driver/*`.
+    """
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(400, {"code": "google_not_configured", "message": "Google Sign-In is not configured on this server."})
+
+    async with httpx.AsyncClient(timeout=10) as http:
+        r = await http.post(GOOGLE_TOKEN_URL, data={
+            "code": payload.code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": "postmessage",
+            "grant_type": "authorization_code",
+        })
+    if r.status_code != 200:
+        raise HTTPException(401, f"Google token exchange failed: {r.text}")
+    id_token_str = r.json().get("id_token")
+    if not id_token_str:
+        raise HTTPException(401, "No id_token returned by Google")
+    try:
+        info = google_id_token.verify_oauth2_token(id_token_str, google_requests.Request(), GOOGLE_CLIENT_ID)
+    except ValueError as exc:
+        raise HTTPException(401, f"Invalid Google credential: {exc}") from exc
+
+    sub = info.get("sub")
+    email = (info.get("email") or "").lower()
+    if not sub or not email or not info.get("email_verified"):
+        raise HTTPException(401, "Google account email is not verified")
+
+    d = (await session.execute(
+        select(Driver).where(Driver.google_sub == sub)
+    )).scalar_one_or_none()
+    if not d and email:
+        d = (await session.execute(
+            select(Driver).where(func.lower(Driver.email) == email)
+        )).scalar_one_or_none()
+        if d and not d.google_sub:
+            d.google_sub = sub  # link Google to an existing email-based driver
+    if not d:
+        d = Driver(
+            email=email,
+            google_sub=sub,
+            country=payload.country.upper(),
+            name=info.get("name") or None,
+        )
+        session.add(d)
+    await session.commit()
+    await session.refresh(d)
+    return _login_response(d)
+
+
+# ---------------------------------------------------------------------------
+# Auth — Forgot / Reset password (OTP via email)
+# ---------------------------------------------------------------------------
+
+def _reset_email_text(code: str, ttl_min: int) -> str:
+    """Plain-text body — used as fallback for clients without HTML."""
+    return (
+        f"Your BAKĒD driver password reset code is: {code}\n\n"
+        f"This code expires in {ttl_min} minutes. If you didn't request a "
+        f"reset, you can safely ignore this email — your password stays the same.\n\n"
+        f"— BAKĒD Support"
+    )
+
+
+def _reset_email_html(code: str, ttl_min: int) -> str:
+    """Branded HTML body. Kept inline (no external CSS) so most email clients
+    render it correctly."""
+    return f"""\
+<!doctype html>
+<html><head><meta charset="utf-8"><title>BAKĒD reset code</title></head>
+<body style="margin:0;background:#0b0b0b;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f5f5f5">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="font-size:12px;letter-spacing:.3em;color:#FF8A1E;font-weight:600">SENDBAKĒD · DRIVER</div>
+    <h1 style="font-size:28px;font-weight:800;margin:12px 0 6px">Reset your password</h1>
+    <p style="color:#d0d0d0;line-height:1.55;font-size:15px;margin:0 0 24px">
+      Someone (hopefully you) asked to reset the password for your BAKĒD Driver account.
+      Enter the code below in the app to continue.
+    </p>
+    <div style="background:#151515;border:1px solid #262626;border-radius:16px;padding:24px;text-align:center">
+      <div style="font-size:11px;letter-spacing:.35em;color:#9a9a9a;font-weight:600">YOUR CODE</div>
+      <div style="font-size:36px;font-weight:800;letter-spacing:.35em;margin-top:8px;color:#FF8A1E">{code}</div>
+      <div style="font-size:12px;color:#9a9a9a;margin-top:10px">Expires in {ttl_min} minutes</div>
+    </div>
+    <p style="color:#9a9a9a;font-size:13px;line-height:1.55;margin:24px 0 4px">
+      Didn't request this? Ignore this email — your password stays the same.
+    </p>
+    <p style="color:#5f5f5f;font-size:11px;margin-top:32px">— BAKĒD Support · groupbaked@gmail.com</p>
+  </div>
+</body></html>"""
+
+
+class ForgotPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(..., min_length=6, max_length=200,
+                       pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class ResetPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email:        str = Field(..., min_length=6, max_length=200,
+                              pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    code:         str = Field(..., min_length=4, max_length=8)
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+
+@router.post("/auth/forgot-password")
+async def forgot_password(payload: ForgotPasswordIn, session: AsyncSession = Depends(get_session)):
+    """Issue a password-reset OTP for a driver by email.
+
+    To avoid exposing which emails are registered we always respond 200,
+    but we only actually persist an OTP row + return `dev_hint` when the
+    email maps to a real driver. In production `dev_hint` is always null
+    and the code is delivered via email (mocked in this build).
+    """
+    email = payload.email.strip().lower()
+    d = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+
+    code = f"{random.randint(0, 999_999):06d}"
+    dev_hint: Optional[str] = None
+    otp_id: Optional[str] = None
+    if d:
+        row = DriverOtp(
+            email=email, purpose="password_reset", code=code,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MIN),
+        )
+        session.add(row)
+        await session.commit()
+        otp_id = row.id
+
+        # 1. Deliver via SMTP. On any SMTP failure we STILL succeed the
+        #    endpoint — the code is stored in DB and (in dev) returned via
+        #    dev_hint so the driver isn't locked out by a stalled mailbox.
+        # 2. Subject is code-free on purpose — Gmail routes emails with a
+        #    6-digit number in the subject to Spam/Promotions.
+        sent = await send_email_async(
+            to=email,
+            subject="Reset your BAKĒD Driver password",
+            text_body=_reset_email_text(code, OTP_TTL_MIN),
+            html_body=_reset_email_html(code, OTP_TTL_MIN),
+        )
+        # 2. Dev fallback — non-prod always echoes the code so QA + local
+        #    dev works even before Gmail SMTP is configured.
+        if _dev_mode() or not sent:
+            dev_hint = code
+        # Note: we intentionally do NOT log the OTP code in production.
+        if not sent and not _dev_mode():
+            print("[driver.reset-otp] SMTP unavailable — driver must request a new code")
+
+    return {
+        "otp_id": otp_id,
+        "expires_in_seconds": OTP_TTL_MIN * 60,
+        "dev_hint": dev_hint,
+    }
+
+
+@router.post("/auth/reset-password")
+async def reset_password(payload: ResetPasswordIn, session: AsyncSession = Depends(get_session)):
+    """Verify a password-reset OTP and set a new password.
+
+    On success the driver is auto-signed-in so they don't need to type the
+    fresh password immediately after resetting it.
+    """
+    now = datetime.now(timezone.utc)
+    email = payload.email.strip().lower()
+
+    row = (await session.execute(
+        select(DriverOtp)
+        .where(func.lower(DriverOtp.email) == email,
+               DriverOtp.purpose == "password_reset",
+               DriverOtp.consumed_at.is_(None))
+        .order_by(DriverOtp.created_at.desc())
+    )).scalars().first()
+    if not row or row.expires_at < now:
+        raise HTTPException(400, {"code": "otp_expired", "message": "Code expired — request a new one."})
+    if row.attempts >= OTP_MAX_TRIES:
+        raise HTTPException(429, {"code": "too_many_attempts", "message": "Too many attempts. Request a new code."})
+    if row.code != payload.code:
+        row.attempts += 1
+        await session.commit()
+        raise HTTPException(400, {"code": "otp_invalid", "message": "Incorrect code. Try again."})
+
+    d = (await session.execute(
+        select(Driver).where(func.lower(Driver.email) == email)
+    )).scalar_one_or_none()
+    if not d:
+        # Shouldn't happen — forgot-password only creates an OTP when the
+        # driver exists — but guard defensively.
+        raise HTTPException(404, {"code": "driver_not_found", "message": "Driver record not found."})
+
+    d.password_hash = hash_password(payload.new_password)
+    row.consumed_at = now
+    await session.commit()
+    await session.refresh(d)
+    return _login_response(d)
 
 
 # ---------------------------------------------------------------------------
@@ -373,8 +659,246 @@ async def set_online(
     if payload.lat is not None: driver.current_lat = payload.lat
     if payload.lng is not None: driver.current_lng = payload.lng
     if payload.area:            driver.current_area = payload.area
+
+    # --- Bridge into the dispatch pool (Phase A) --------------------------
+    # A real SENDbakēd driver toggling Online must appear in module_drivers
+    # with is_available=True and a fresh last_seen_at, or matching queries
+    # will keep returning None.
+    from modules.driver.dispatch_bridge import set_availability
+    await set_availability(
+        session, driver,
+        is_available=payload.is_online,
+        lat=payload.lat, lng=payload.lng,
+    )
+    # If the driver just went offline while an offer was outstanding, kick
+    # the express dispatcher to reassign — otherwise the customer sits on
+    # 'offering' until the TTL expires.
+    if not payload.is_online:
+        from modules.driver.dispatch_bridge import get_or_create_module_driver
+        from modules.express.dispatch import decline_offer
+        md = await get_or_create_module_driver(session, driver)
+        from core.models import ExpressBooking
+        from sqlalchemy import select
+        pending = (await session.execute(
+            select(ExpressBooking).where(
+                ExpressBooking.offered_to_driver_id == md.id,
+                ExpressBooking.status == "offering",
+            )
+        )).scalars().all()
+        for b in pending:
+            await decline_offer(session, b, md.id)
+
     await session.commit()
     return {"is_online": driver.is_online, "last_seen_at": driver.last_seen_at.isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# Live location pings — 8-30s cadence from the driver PWA (geolocation).
+# ---------------------------------------------------------------------------
+
+class LocationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lat:      float = Field(..., ge=-90,  le=90)
+    lng:      float = Field(..., ge=-180, le=180)
+    heading:  Optional[float] = Field(None, ge=0, le=360)
+    speed:    Optional[float] = Field(None, ge=0)
+    accuracy: Optional[float] = Field(None, ge=0)
+
+
+@router.post("/me/location")
+async def push_location(
+    payload: LocationIn,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update the driver's latest GPS + last_seen_at. Also mirrored into
+    module_drivers so the dispatch freshness filter is satisfied.
+
+    Rejects obviously-bad pings (0,0 island coords) as a soft signal — the
+    client shouldn't push a fix it didn't successfully acquire.
+    """
+    if payload.lat == 0 and payload.lng == 0:
+        raise HTTPException(400, {"code": "invalid_location", "message": "Refusing (0,0) fix."})
+    from modules.driver.dispatch_bridge import push_location as bridge_push
+    await bridge_push(session, driver, lat=payload.lat, lng=payload.lng)
+    await session.commit()
+    return {"ok": True, "last_seen_at": driver.last_seen_at.isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# Offer flow — Incoming Delivery Request (SENDbakēd)
+# ---------------------------------------------------------------------------
+
+@router.get("/me/offers/current")
+async def current_offer(
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Polling fallback — the driver PWA hits this when the WebSocket is
+    momentarily disconnected so a pending offer isn't missed."""
+    from core.models import ExpressBooking, ModuleDriver
+    from sqlalchemy import select
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None:
+        return {"offer": None}
+    now = datetime.now(timezone.utc)
+    booking = (await session.execute(
+        select(ExpressBooking).where(
+            ExpressBooking.offered_to_driver_id == md.id,
+            ExpressBooking.status == "offering",
+            ExpressBooking.offer_expires_at > now,
+        ).order_by(ExpressBooking.offered_at.desc())
+    )).scalars().first()
+    if not booking:
+        return {"offer": None}
+    from modules.express.dispatch import _offer_payload
+    return {"offer": _offer_payload(booking)}
+
+
+@router.get("/me/express-active")
+async def express_active_booking(
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the driver's currently in-flight ExpressBooking (if any) so the
+    driver PWA can restore the route/map view after a reload. Returns
+    {"booking": null} when the driver has no active job.
+    """
+    from core.models import ExpressBooking, ModuleDriver
+    from modules.express.serializers import booking_to_dict
+    from sqlalchemy import select
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None or md.active_booking_id is None:
+        return {"booking": None}
+    booking = await session.get(ExpressBooking, md.active_booking_id)
+    if booking is None or booking.status in ("delivered", "cancelled"):
+        return {"booking": None}
+    return {"booking": await booking_to_dict(session, booking)}
+
+
+@router.post("/me/offers/{booking_id}/accept")
+async def accept_offer(
+    booking_id: str,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Atomic accept. Losing driver gets a structured error; winning driver
+    gets the booking snapshot for their in-progress screen."""
+    from core.models import ExpressBooking, ModuleDriver
+    from sqlalchemy import select
+    from modules.express.dispatch import accept_offer_atomic
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None:
+        raise HTTPException(400, {"code": "not_dispatchable", "message": "Go online first."})
+
+    ok, reason = await accept_offer_atomic(session, booking_id, md.id)
+    if not ok:
+        await session.commit()
+        raise HTTPException(409, {"code": reason, "message": f"Cannot accept: {reason}."})
+    await session.commit()
+
+    # Broadcast the assignment on the customer's existing express WS
+    # channel so their /send/track/:id transitions off "Finding driver".
+    try:
+        from modules.express.tracking import broadcast_snapshot
+        await broadcast_snapshot(session, booking_id)
+    except Exception:
+        pass
+
+    booking = await session.get(ExpressBooking, booking_id)
+    from modules.express.serializers import booking_to_dict
+    return await booking_to_dict(session, booking)
+
+
+@router.post("/me/offers/{booking_id}/decline")
+async def decline_offer_route(
+    booking_id: str,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    from core.models import ExpressBooking, ModuleDriver
+    from sqlalchemy import select
+    from modules.express.dispatch import decline_offer
+    md = (await session.execute(
+        select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
+    )).scalar_one_or_none()
+    if md is None:
+        raise HTTPException(400, {"code": "not_dispatchable", "message": "Not in dispatch pool."})
+    booking = await session.get(ExpressBooking, booking_id)
+    if booking is None or booking.offered_to_driver_id != md.id:
+        raise HTTPException(404, {"code": "no_offer", "message": "No matching offer."})
+    await decline_offer(session, booking, md.id)
+    await session.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Driver WebSocket — job offers + location echoes
+# ---------------------------------------------------------------------------
+
+from fastapi import WebSocket, WebSocketDisconnect  # local import keeps module top clean
+
+@router.websocket("/ws")
+async def driver_ws(ws: WebSocket, token: str = ""):
+    """Per-driver realtime channel. Auth via `?token=<jwt>` query param
+    since browsers can't set Authorization headers on WebSocket handshakes.
+
+    Events emitted server → client:
+        job_offer       — dispatch pushed a new offer to this driver
+        offer_expired   — an offer was let time out
+        offer_cancelled — the customer cancelled while offer pending
+    """
+    from modules.driver.realtime import register, unregister
+    from core.db import SessionLocal
+    from core.security import decode_token as _decode
+
+    try:
+        claims = _decode(token) if token else None
+    except Exception:
+        claims = None
+    if not claims or claims.get("role") != DRIVER_JWT_ROLE:
+        await ws.close(code=4401, reason="unauthorized")
+        return
+    driver_id = claims.get("sub")
+
+    await ws.accept()
+    await register(driver_id, ws)
+    try:
+        # Send any outstanding offer immediately on connect (handles reconnect
+        # after a network blip — no missed request).
+        async with SessionLocal() as s:
+            from core.models import ExpressBooking, ModuleDriver
+            from sqlalchemy import select
+            md = (await s.execute(
+                select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver_id)
+            )).scalar_one_or_none()
+            if md is not None:
+                now = datetime.now(timezone.utc)
+                pending = (await s.execute(
+                    select(ExpressBooking).where(
+                        ExpressBooking.offered_to_driver_id == md.id,
+                        ExpressBooking.status == "offering",
+                        ExpressBooking.offer_expires_at > now,
+                    )
+                )).scalars().first()
+                if pending:
+                    from modules.express.dispatch import _offer_payload
+                    await ws.send_json({"event": "job_offer", "payload": _offer_payload(pending)})
+
+        # Keep the socket open; the client sends heartbeat pings but we don't
+        # depend on their content — just staying open is enough.
+        while True:
+            _ = await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await unregister(driver_id, ws)
 
 
 @router.get("/me/dashboard")

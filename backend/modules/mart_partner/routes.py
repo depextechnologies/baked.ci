@@ -1144,6 +1144,75 @@ from core.models import (
 
 # ---------------------------------------------------------------- helpers ---
 
+async def _batch_primary_locations(session: AsyncSession, partner_product_ids: list[str]) -> dict[str, dict]:
+    """Return `{partner_product_id: {label, zone, aisle, rack, shelf, bin, quantity_at_location}}`
+    for every SKU that has at least one PartnerProductLocation.
+
+    Prefers `is_primary=true`; falls back to the first assignment when no
+    primary is set. Batched to avoid N+1 fetches (Social.docx §8).
+    """
+    if not partner_product_ids:
+        return {}
+    from core.models import (
+        PartnerProductLocation, WarehouseBin, WarehouseShelf, WarehouseRack,
+        WarehouseAisle, WarehouseZone,
+    )
+    ids = list(set([i for i in partner_product_ids if i]))
+    if not ids:
+        return {}
+    locs = (await session.execute(
+        select(PartnerProductLocation).where(PartnerProductLocation.partner_product_id.in_(ids))
+    )).scalars().all()
+    if not locs:
+        return {}
+
+    # Prefer primary; fall back to any single assignment.
+    best: dict[str, "PartnerProductLocation"] = {}
+    for loc in locs:
+        cur = best.get(loc.partner_product_id)
+        if loc.is_primary or cur is None:
+            best[loc.partner_product_id] = loc
+
+    bin_ids = list({loc.bin_id for loc in best.values()})
+    bins = {b.id: b for b in (await session.execute(select(WarehouseBin).where(WarehouseBin.id.in_(bin_ids)))).scalars().all()}
+    shelf_ids = list({b.shelf_id for b in bins.values()})
+    shelves = {s.id: s for s in (await session.execute(select(WarehouseShelf).where(WarehouseShelf.id.in_(shelf_ids)))).scalars().all()} if shelf_ids else {}
+    rack_ids = list({s.rack_id for s in shelves.values()})
+    racks = {r.id: r for r in (await session.execute(select(WarehouseRack).where(WarehouseRack.id.in_(rack_ids)))).scalars().all()} if rack_ids else {}
+    aisle_ids = list({r.aisle_id for r in racks.values()})
+    aisles = {a.id: a for a in (await session.execute(select(WarehouseAisle).where(WarehouseAisle.id.in_(aisle_ids)))).scalars().all()} if aisle_ids else {}
+    zone_ids = list({a.zone_id for a in aisles.values()})
+    zones = {z.id: z for z in (await session.execute(select(WarehouseZone).where(WarehouseZone.id.in_(zone_ids)))).scalars().all()} if zone_ids else {}
+
+    out: dict[str, dict] = {}
+    for ppid, loc in best.items():
+        b = bins.get(loc.bin_id)
+        if not b:
+            continue
+        s = shelves.get(b.shelf_id)
+        r = racks.get(s.rack_id) if s else None
+        a = aisles.get(r.aisle_id) if r else None
+        z = zones.get(a.zone_id) if a else None
+        label = " · ".join(filter(None, [
+            f"Zone {z.code}"  if z else None,
+            f"Aisle {a.code}" if a else None,
+            f"Rack {r.code}"  if r else None,
+            f"Shelf {s.code}" if s else None,
+            f"Bin {b.code}"   if b else None,
+        ]))
+        out[ppid] = {
+            "label": label,
+            "zone":  {"id": z.id, "code": z.code, "name": z.name} if z else None,
+            "aisle": {"id": a.id, "code": a.code, "name": a.name} if a else None,
+            "rack":  {"id": r.id, "code": r.code, "name": r.name} if r else None,
+            "shelf": {"id": s.id, "code": s.code, "name": s.name} if s else None,
+            "bin":   {"id": b.id, "code": b.code, "name": b.name},
+            "is_primary": loc.is_primary,
+            "quantity_at_location": loc.quantity_at_location,
+        }
+    return out
+
+
 def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = None) -> dict:
     """Merge partner-owned fields with master fallbacks (for source=master)."""
     if row.source == "master" and master is not None:
@@ -1258,10 +1327,14 @@ async def list_partner_products(
     rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
     masters = await _load_masters(session, [r.master_product_id for r in rows if r.master_product_id])
 
+    # Preload primary bin locations for every SKU on this page (Social.docx §4).
+    location_paths = await _batch_primary_locations(session, [r.id for r in rows])
+
     items = []
     for r in rows:
         m = masters.get(r.master_product_id) if r.master_product_id else None
         d = _partner_product_dict(r, m)
+        d["primary_location"] = location_paths.get(r.id)
         if q:
             hay = " ".join([str(d.get(k) or "") for k in ("name", "brand", "sku_code")]).lower()
             if q.lower() not in hay:
@@ -1283,11 +1356,17 @@ async def list_partner_products(
 async def search_master_catalog(
     q: Optional[str] = None,
     category: Optional[str] = None,
+    subcategory: Optional[str] = None,
     limit: int = Query(30, ge=1, le=100),
     partner: Partner = Depends(get_current_partner),
     session: AsyncSession = Depends(get_session),
 ):
-    """Search the shared MART master catalog scoped to the partner's country."""
+    """Search the shared MART master catalog scoped to the partner's country.
+
+    Filters: free-text `q`, `category` slug, and `subcategory` slug. All three
+    can combine — the search dialog on the Darkstore side uses them together
+    so ops can narrow 1000s of SKUs down to a handful of matches (Social.docx #2).
+    """
     stmt = (
         select(MartProduct)
         .where(MartProduct.country == partner.country, MartProduct.module == partner.module)
@@ -1298,6 +1377,8 @@ async def search_master_catalog(
         stmt = stmt.where((MartProduct.name.ilike(like)) | (MartProduct.brand.ilike(like)))
     if category:
         stmt = stmt.where(MartProduct.category_slug == category)
+    if subcategory:
+        stmt = stmt.where(MartProduct.subcategory_slug == subcategory)
 
     rows = (await session.execute(stmt.limit(limit))).scalars().all()
 
@@ -1314,6 +1395,7 @@ async def search_master_catalog(
             {
                 "id": r.id, "name": r.name, "brand": r.brand, "unit": r.unit,
                 "image": r.image, "category_slug": r.category_slug,
+                "subcategory_slug": r.subcategory_slug,
                 "price": float(r.price), "currency": r.currency,
                 "currency_symbol": r.currency_symbol,
                 "already_linked": r.id in linked_ids,
@@ -1453,7 +1535,9 @@ _ORDER_TRANSITIONS = {
 }
 
 
-def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) -> dict:
+def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem],
+                pick_locations: Optional[dict[str, dict]] = None) -> dict:
+    pick_locations = pick_locations or {}
     return {
         "id": po.id,
         "order_id": order.id,
@@ -1478,6 +1562,9 @@ def _order_dict(po: PartnerOrder, order: CustomerOrder, items: list[OrderItem]) 
                 "id": it.id, "name": it.name, "brand": it.brand, "unit": it.unit,
                 "image": it.image, "price": float(it.price), "quantity": it.quantity,
                 "line_total": float(it.line_total),
+                # Social.docx §8 — pick location per line item
+                "partner_product_id": it.partner_product_id,
+                "pick_location": pick_locations.get(it.partner_product_id) if it.partner_product_id else None,
             } for it in items
         ],
         "accepted_at":    po.accepted_at.isoformat() if po.accepted_at else None,
@@ -1525,12 +1612,16 @@ async def list_partner_orders(
     ).scalars().all():
         items_by_po.setdefault(it.partner_order_id, []).append(it)
 
+    # Batch-load primary bin locations across every line in every order.
+    all_ppids = list({it.partner_product_id for lst in items_by_po.values() for it in lst if it.partner_product_id})
+    pick_locations = await _batch_primary_locations(session, all_ppids)
+
     out = []
     for po in pos:
         o = orders.get(po.order_id)
         if not o:
             continue
-        out.append(_order_dict(po, o, items_by_po.get(po.id, [])))
+        out.append(_order_dict(po, o, items_by_po.get(po.id, []), pick_locations=pick_locations))
 
     # Status buckets for the tab UI
     bucket_rows = (await session.execute(
@@ -1557,7 +1648,10 @@ async def get_partner_order(
     items = (await session.execute(
         select(OrderItem).where(OrderItem.partner_order_id == po.id)
     )).scalars().all()
-    return _order_dict(po, order, list(items))
+    pick_locations = await _batch_primary_locations(
+        session, [it.partner_product_id for it in items if it.partner_product_id]
+    )
+    return _order_dict(po, order, list(items), pick_locations=pick_locations)
 
 
 class OrderStatusIn(BaseModel):
@@ -1632,7 +1726,10 @@ async def update_partner_order_status(
     items = (await session.execute(
         select(OrderItem).where(OrderItem.partner_order_id == po.id)
     )).scalars().all()
-    return _order_dict(po, order, list(items))
+    pick_locations = await _batch_primary_locations(
+        session, [it.partner_product_id for it in items if it.partner_product_id]
+    )
+    return _order_dict(po, order, list(items), pick_locations=pick_locations)
 
 
 # ============================================================================
@@ -1901,3 +1998,269 @@ async def seed_demo_orders(
 
     await session.commit()
     return {"created": len(created), "order_numbers": created}
+
+
+# ===========================================================================
+# Social.docx Issue #1 — Admin approval flow for Darkstore-authored products.
+#
+# Bug: A partner (Darkstore) creates a *custom* PartnerProduct via
+# `POST /partner/products/custom` — it lands `approval_status="pending"`,
+# `is_active=False`. Historically nothing then promoted it to the shared
+# Master Catalog (`mart_products`), so even after an operator "approved"
+# it in the partner catalogue, it stayed invisible to every OTHER Darkstore
+# under `/partner/master-catalog?q=`. That's the exact symptom reported in
+# Fixing_Prompt.docx §1.
+#
+# The three endpoints below close the loop:
+#   - GET  /admin/mart-partner/partner-products?status=pending
+#   - POST /admin/mart-partner/partner-products/{id}/approve   ← materialises MartProduct
+#   - POST /admin/mart-partner/partner-products/{id}/reject
+# ===========================================================================
+
+class AdminApproveOverrideIn(BaseModel):
+    """Optional overrides an admin can apply while approving a custom
+    product — the frontend can pass a cleaned-up name or a chosen currency
+    for the master row. Everything else is copied from the partner draft."""
+    model_config = ConfigDict(extra="forbid")
+    name:       Optional[str] = None
+    brand:      Optional[str] = None
+    category_slug:    Optional[str] = None
+    subcategory_slug: Optional[str] = None
+    master_price:     Optional[float] = None
+    currency:   Optional[str] = None
+    unit:       Optional[str] = None
+    image:      Optional[str] = None
+    description:Optional[str] = None
+
+
+class AdminRejectPartnerProductIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    notes: str = Field(..., min_length=3,
+                       description="Reason returned to the Darkstore so they can revise")
+
+
+def _partner_product_admin_dict(row, partner: Optional[Partner] = None,
+                                 warehouse: Optional[Warehouse] = None) -> dict:
+    """Enriched dict for the review UI — includes owning partner + warehouse."""
+    return {
+        "id": row.id, "name": row.name, "brand": row.brand, "unit": row.unit,
+        "image": row.image, "category_slug": row.category_slug,
+        "subcategory_slug": row.subcategory_slug, "description": row.description,
+        "sku_code": row.sku_code, "partner_price": float(row.partner_price or 0),
+        "currency": row.currency, "stock_qty": row.stock_qty,
+        "approval_status": row.approval_status, "is_active": row.is_active,
+        "submitted_at": row.submitted_at.isoformat() if row.submitted_at else None,
+        "review_notes": getattr(row, "review_notes", None),
+        "master_product_id": row.master_product_id,
+        "partner": None if not partner else {
+            "id": partner.id, "business_name": partner.business_name, "country": partner.country,
+        },
+        "warehouse": None if not warehouse else {
+            "id": warehouse.id, "code": warehouse.code, "city": warehouse.city,
+        },
+    }
+
+
+@admin_router.get("/partner-products")
+async def admin_list_partner_products(
+    status: str = Query("pending", pattern="^(pending|approved|rejected|all)$"),
+    country: Optional[str] = None,
+    q: Optional[str] = Query(None, description="Search on product name/brand"),
+    limit: int = Query(50, ge=1, le=200),
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Ops queue of Darkstore-authored custom products. Filters mirror the
+    supplier product-request review UI so the operator experience is
+    consistent across the two review surfaces."""
+    stmt = (select(PartnerProduct, Partner)
+            .join(Partner, Partner.id == PartnerProduct.partner_id)
+            .where(PartnerProduct.source == "custom")
+            .order_by(PartnerProduct.submitted_at.desc().nulls_last(),
+                      PartnerProduct.created_at.desc()))
+    if status != "all":
+        stmt = stmt.where(PartnerProduct.approval_status == status)
+    if country:
+        stmt = stmt.where(Partner.country == country.upper())
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where((PartnerProduct.name.ilike(like)) | (PartnerProduct.brand.ilike(like)))
+    rows = (await session.execute(stmt.limit(limit))).all()
+
+    # Bucket counts across ALL rows (unfiltered by q/country) — matches how
+    # the supplier product-request UI renders its tab pills.
+    bucket_stmt = (select(PartnerProduct.approval_status, func.count(PartnerProduct.id))
+                   .where(PartnerProduct.source == "custom")
+                   .group_by(PartnerProduct.approval_status))
+    buckets = {"pending": 0, "approved": 0, "rejected": 0}
+    for s, c in (await session.execute(bucket_stmt)).all():
+        if s in buckets: buckets[s] = c
+
+    return {
+        "items": [_partner_product_admin_dict(pp, p) for (pp, p) in rows],
+        "buckets": buckets,
+    }
+
+
+@admin_router.post("/partner-products/{product_id}/approve")
+async def admin_approve_partner_product(
+    product_id: str,
+    payload: AdminApproveOverrideIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Approve a Darkstore-authored custom product AND promote it into the
+    shared MART master catalogue.
+
+    Order of operations (all in one transaction):
+      1. Load PartnerProduct + owning Partner (400 if not custom, 409 if not pending).
+      2. Create a MartProduct with country=partner.country, module="mart", using
+         payload overrides if provided otherwise the partner's own values.
+      3. Rewire the PartnerProduct to point at the new MartProduct (become a
+         linked, not custom, row so future edits happen on the private layer).
+      4. Flip approval_status → approved, is_active → True.
+      5. Notify the partner via in-app inbox.
+    """
+    pp = await session.get(PartnerProduct, product_id)
+    if not pp:
+        raise HTTPException(404, {"code": "not_found", "message": "Product not found"})
+    if pp.source != "custom":
+        raise HTTPException(400, {"code": "not_custom",
+                                  "message": "Only custom partner products need approval"})
+    if pp.approval_status != "pending":
+        raise HTTPException(409, {"code": "already_reviewed",
+                                  "message": f"Cannot approve a product currently '{pp.approval_status}'"})
+
+    partner = await session.get(Partner, pp.partner_id)
+    if not partner:
+        raise HTTPException(400, {"code": "orphan", "message": "Product has no owning partner"})
+
+    name  = (payload.name  or pp.name  or "").strip()
+    brand = (payload.brand or pp.brand or "").strip() or None
+    if not name:
+        raise HTTPException(400, {"code": "name_required", "message": "Approved product must have a name"})
+
+    # Master catalogue has a unique (name, country, module) constraint. If a
+    # duplicate exists we link to it rather than raise — that's the correct
+    # ops action ("this looks like an existing master, use it").
+    from sqlalchemy.exc import IntegrityError
+    master_price = float(payload.master_price if payload.master_price is not None else (pp.partner_price or 0))
+    currency = (payload.currency or pp.currency or "").strip() or None
+    if not currency:
+        raise HTTPException(400, {"code": "currency_required", "message": "Currency required for master row"})
+
+    existing = (await session.execute(
+        select(MartProduct).where(
+            MartProduct.name == name,
+            MartProduct.country == partner.country,
+            MartProduct.module == (partner.module or "mart"),
+        )
+    )).scalars().first()
+
+    if existing:
+        mp = existing
+    else:
+        mp = MartProduct(
+            name=name,
+            country=partner.country,
+            module=partner.module or "mart",
+            brand=brand,
+            category_slug=(payload.category_slug or pp.category_slug),
+            subcategory_slug=(payload.subcategory_slug or pp.subcategory_slug),
+            unit=(payload.unit or pp.unit),
+            price=master_price,
+            currency=currency,
+            image=(payload.image or pp.image),
+            description=(payload.description or pp.description),
+            status="active",
+        )
+        session.add(mp)
+        try:
+            await session.flush()
+        except IntegrityError:
+            # Race: another admin approved a same-name product between our
+            # SELECT and INSERT. Re-fetch and reuse.
+            await session.rollback()
+            mp = (await session.execute(
+                select(MartProduct).where(
+                    MartProduct.name == name,
+                    MartProduct.country == partner.country,
+                    MartProduct.module == (partner.module or "mart"),
+                )
+            )).scalars().first()
+            # Re-load the partner product too since rollback wiped the session state.
+            pp = await session.get(PartnerProduct, product_id)
+            partner = await session.get(Partner, pp.partner_id)
+            if not mp:
+                raise HTTPException(500, {"code": "materialise_failed",
+                                          "message": "Could not materialise master row"})
+
+    # Rewire the partner row into linked-to-master mode + approve it.
+    pp.source = "master"
+    pp.master_product_id = mp.id
+    pp.approval_status = "approved"
+    pp.is_active = True
+    pp.review_notes = None
+
+    # In-app notification back to the partner.
+    try:
+        from shared.notifications.routes import notify as inapp_notify
+        await inapp_notify(
+            session,
+            recipient_kind="partner_owner", recipient_id=partner.id,
+            kind="partner_product_approved",
+            title=f"'{name}' approved",
+            body="Your product is now live in the Master Catalog and visible to your store.",
+            link=f"/partner-portal/{(partner.module or 'mart')}/inventory",
+            entity_kind="partner_product", entity_id=pp.id,
+            actor_label=admin.email,
+        )
+    except Exception:
+        # Notification failures should never block approval — logged upstream.
+        pass
+
+    await session.commit()
+    await session.refresh(pp)
+    return _partner_product_admin_dict(pp, partner)
+
+
+@admin_router.post("/partner-products/{product_id}/reject")
+async def admin_reject_partner_product(
+    product_id: str,
+    payload: AdminRejectPartnerProductIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    pp = await session.get(PartnerProduct, product_id)
+    if not pp:
+        raise HTTPException(404, {"code": "not_found", "message": "Product not found"})
+    if pp.source != "custom":
+        raise HTTPException(400, {"code": "not_custom",
+                                  "message": "Only custom partner products can be rejected here"})
+    if pp.approval_status != "pending":
+        raise HTTPException(409, {"code": "already_reviewed",
+                                  "message": f"Cannot reject a product currently '{pp.approval_status}'"})
+
+    pp.approval_status = "rejected"
+    pp.review_notes    = payload.notes
+    pp.is_active       = False
+
+    partner = await session.get(Partner, pp.partner_id)
+    try:
+        from shared.notifications.routes import notify as inapp_notify
+        await inapp_notify(
+            session,
+            recipient_kind="partner_owner", recipient_id=pp.partner_id,
+            kind="partner_product_rejected",
+            title=f"'{pp.name}' needs changes",
+            body=payload.notes,
+            link=f"/partner-portal/{(partner.module or 'mart') if partner else 'mart'}/inventory",
+            entity_kind="partner_product", entity_id=pp.id,
+            actor_label=admin.email,
+        )
+    except Exception:
+        pass
+
+    await session.commit()
+    return _partner_product_admin_dict(pp, partner)
+

@@ -11,6 +11,7 @@ export const NAV = {
   searchInput: "top-nav-search-input",
   offers: "top-nav-offers",
   orders: "top-nav-orders",
+  aiAssistant: "top-nav-ai-assistant",
   account: "top-nav-account",
   cartButton: "top-nav-cart-button",
   cartCount: "top-nav-cart-count",

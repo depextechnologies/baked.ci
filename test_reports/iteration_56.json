@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 56 — Frontend-only validation of the hamburger + Sheet drawers added to MobileHeader (customer PWA) and TopNav (desktop-small fallback). All 9 review-request checks passed: mobile header layout fits at 390px with all 5 testids visible in a single row, the right-side Sheet drawer opens with all 6 quick-nav items + India/CI country cards + FR/EN language pills + theme toggle rendering human-readable labels (no `nav.*` keys leaked), route-change auto-close verified for categories/orders/addresses/wallet, country switch (m-drawer-country-IN) closes the drawer immediately, language and theme toggles keep the drawer open. Desktop 1280 shows no hamburger and search Enter navigates to /products?search=bread. Small-desktop 600px correctly hides country/offers/orders/account/language/theme and shows [data-testid=topnav-hamburger]; the topnav-drawer opens with mirrored structure and auto-closes on route change. MobileShell bottom-tabs still render (Home/Categories/Cart/Profile).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mobile drawer (Sheet)", "issues": ["Radix Dialog a11y warning in console: 'Missing Description or aria-describedby={undefined} for {DialogContent}'. Non-blocking but should add a SheetDescription (visually hidden ok) inside both m-header-drawer and topnav-drawer to satisfy Radix a11y contract."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional a11y polish: add a visually-hidden SheetDescription (or aria-describedby) to both m-header-drawer and topnav-drawer SheetContent to silence Radix Dialog console warning."
+  ],
+  "critical_code_review_comments": [
+    "MobileHeader.jsx uses helper tOr() with fallback strings ensuring i18n key never leaks — good. TopNav drawer nav items rely on raw t() without the tOr() fallback (e.g. `t(locale,'nav.offers')`); if the offers/orders/categories key is ever missing for a locale, the raw key would leak. Consider using the same tOr() helper in TopNav for consistency.",
+    "Both drawers duplicate ~80 lines of Auth block + quick-nav + country switcher + footer language/theme. Extract a shared <AppDrawer/> component to reduce DRY-violation (Sheet contents currently duplicated across MobileHeader.jsx and TopNav.jsx).",
+    "TopNav.jsx is 346 lines — approaching the 700-line threshold but still fine. Extracting the drawer would drop it further.",
+    "Country card testid families differ intentionally (m-drawer-country-* vs drawer-country-* vs country-select-*) — documented in the review note; consumers must be aware."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "N/A — no auth required for menu tests. /orders correctly shows sign-in gate when tapped unauthenticated (out of scope per request).",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 56 verified Social.docx Issue #12 hamburger drawers end-to-end on mobile 390x800, desktop 1280x800, and small-desktop 600x800. All testids from the spec resolve and auto-close-on-route-change works via the useEffect watching location.pathname+search. Only a minor Radix a11y console warning remains (missing SheetDescription/aria-describedby). No functional regressions observed on MobileShell bottom tabs or desktop TopNav search.",
+  "rca of the issue": "N/A — feature works as designed."
+}

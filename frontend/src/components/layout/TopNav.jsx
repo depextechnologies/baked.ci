@@ -1,12 +1,12 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { BakedLogo } from "./BakedLogo";
 import { useAuth, useApp, useCart } from "../../contexts/BakedContexts";
 import { NAV } from "../../constants/testIds";
 import { formatMoney, t } from "../../lib/i18n";
-import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, LogOut, MapPin, Loader2 } from "lucide-react";
+import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, MapPin, Loader2, Menu, X, Sparkles, ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Button } from "../ui/button";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/sheet";
 import { AddressPill } from "../address/AddressPill";
 import { toast } from "sonner";
 
@@ -25,7 +25,14 @@ export const TopNav = () => {
   const { country, countries, setCountryCode, detectCountryByLocation, theme, toggleTheme, language, setLanguage } = useApp();
   const { cart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
   const [detecting, setDetecting] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  // Social.docx §12 — auto-close the mobile drawer whenever the route changes
+  // (e.g. tapping "Orders" inside the drawer navigates away — the drawer
+  // must not linger on the new page).
+  React.useEffect(() => { setDrawerOpen(false); }, [location.pathname, location.search]);
 
   const locale = language ? `${language}-${country?.code || "CI"}` : (country?.locale || "en");
 
@@ -44,13 +51,15 @@ export const TopNav = () => {
   return (
     <>
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="baked-container flex items-center gap-4 py-3">
-          <Link to="/" data-testid={NAV.logo} className="shrink-0 mr-2">
+        <div className="baked-container flex items-center gap-2 md:gap-4 py-3">
+          <Link to="/" data-testid={NAV.logo} className="shrink-0 mr-1 md:mr-2">
             <BakedLogo size="md" />
           </Link>
 
-          {/* Delivery address — opens the Address Selector */}
-          <AddressPill variant="desktop" testid={NAV.deliveryAddress} />
+          {/* Delivery address — desktop only; below lg users open the picker from checkout / mobile shell */}
+          <div className="hidden lg:block flex-shrink min-w-0">
+            <AddressPill variant="desktop" testid={NAV.deliveryAddress} />
+          </div>
 
           {/* Country selector — determines currency, language, and available services (NOT delivery) */}
           <Popover>
@@ -96,8 +105,8 @@ export const TopNav = () => {
             </PopoverContent>
           </Popover>
 
-          {/* Search */}
-          <div className="flex-1 max-w-[560px]">
+          {/* Search — full input on desktop, icon-only on mobile */}
+          <div className="hidden md:block flex-1 max-w-[560px]">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <input
@@ -112,87 +121,227 @@ export const TopNav = () => {
               />
             </div>
           </div>
-
-          {/* Right actions */}
-          <button data-testid={NAV.offers} className="hidden lg:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast" onClick={() => navigate("/products?sort=price_asc")}>
-            <Tag size={20} />
-            <span className="text-[11px] mt-0.5">{t(locale, "nav.offers")}</span>
+          {/* Mobile: search chevron that jumps to /products */}
+          <button
+            data-testid={`${NAV.searchInput}-mobile`}
+            onClick={() => navigate("/products")}
+            className="md:hidden ml-auto w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast"
+            aria-label={t(locale, "nav.search_placeholder")}
+          >
+            <Search size={18} />
           </button>
-          <button data-testid={NAV.orders} className="hidden lg:flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
-            <Package size={20} />
-            <span className="text-[11px] mt-0.5">{t(locale, "nav.orders")}</span>
+
+          {/* Right actions — quick pill buttons; everything below lg is in the drawer.
+              Offers & Orders removed per user request (routes still exist). */}
+          <button data-testid={NAV.aiAssistant} onClick={() => navigate("/ai-assistant")}
+                  className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+                  title="AI Assistant" aria-label="AI Assistant">
+            <Sparkles size={18} style={{ color: "#77BC1F" }} />
           </button>
 
           {customer ? (
-            <button data-testid={NAV.account} onClick={() => navigate("/profile")} className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast">
-              {customer.picture ? (
-                <img src={customer.picture} alt="me" className="w-6 h-6 rounded-full object-cover" />
-              ) : (
-                <User size={20} />
-              )}
-              <span className="text-[11px] mt-0.5 max-w-[80px] truncate">{customer.name || customer.phone || t(locale, "nav.account")}</span>
+            <button data-testid={NAV.account} onClick={() => navigate("/profile")}
+                    className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+                    title={customer.name || customer.phone || t(locale, "nav.account")}
+                    aria-label={t(locale, "nav.account")}>
+              {customer.picture
+                ? <img src={customer.picture} alt="" className="w-6 h-6 rounded-full object-cover" />
+                : <User size={18} />}
             </button>
           ) : (
             <button
               data-testid="auth-open-login-btn"
               onClick={() => openLogin("/profile")}
-              className="flex flex-col items-center px-2 py-1 hover:opacity-80 motion-fast"
+              className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
+              title={t(locale, "nav.login")} aria-label={t(locale, "nav.login")}
             >
-              <User size={20} />
-              <span className="text-[11px] mt-0.5">{t(locale, "nav.login")}</span>
+              <User size={18} />
             </button>
           )}
 
-          {/* Cart */}
+          {/* Cart — always visible */}
           <button
             data-testid={NAV.cartButton}
             onClick={() => navigate("/cart")}
-            className="relative baked-btn px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2"
+            className="relative baked-btn px-2 md:px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2 shrink-0"
           >
             <ShoppingCart size={18} style={{ color: "#77BC1F" }} />
-            <span data-testid={NAV.cartCount} className="absolute -top-1 -left-1 text-[10px] bg-[hsl(var(--mart))] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            <span data-testid={NAV.cartCount} className="absolute -top-1.5 -right-1.5 text-[10px] bg-[hsl(var(--mart))] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none">
               {cart.item_count || 0}
             </span>
-            <span data-testid={NAV.cartTotal} className="text-sm font-semibold">
+            <span data-testid={NAV.cartTotal} className="hidden lg:inline text-sm font-semibold whitespace-nowrap">
               {formatMoney(cart.subtotal || 0, country?.currency, country?.currency_symbol)}
             </span>
           </button>
 
-          {/* Language switcher — FR / EN, no flag */}
-          <div
-            data-testid="top-nav-language-switcher"
-            className="baked-btn overflow-hidden border border-border flex items-stretch text-xs font-semibold"
-            role="group"
-            aria-label="Language"
-          >
-            <button
-              data-testid="top-nav-language-fr"
-              onClick={() => setLanguage("fr")}
-              className={`px-3 py-2 motion-fast ${language === "fr" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}
-              aria-pressed={language === "fr"}
-            >
-              FR
-            </button>
-            <div className="w-px bg-border" />
-            <button
-              data-testid="top-nav-language-en"
-              onClick={() => setLanguage("en")}
-              className={`px-3 py-2 motion-fast ${language === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:text-foreground"}`}
-              aria-pressed={language === "en"}
-            >
-              EN
-            </button>
-          </div>
+          {/* Language switcher — dropdown, desktop only */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                data-testid="top-nav-language-switcher"
+                className="hidden lg:flex items-center gap-1 h-10 px-3 rounded-full border border-border text-xs font-semibold hover:bg-secondary motion-fast shrink-0"
+                aria-label="Language"
+              >
+                {language === "fr" ? "FR" : "EN"} <ChevronDown size={12} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-40 p-1">
+              <button
+                data-testid="top-nav-language-fr"
+                onClick={() => setLanguage("fr")}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "fr" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
+              >
+                FR — Français
+              </button>
+              <button
+                data-testid="top-nav-language-en"
+                onClick={() => setLanguage("en")}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "en" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
+              >
+                EN — English
+              </button>
+            </PopoverContent>
+          </Popover>
 
-          {/* Theme toggle */}
+          {/* Theme toggle — desktop only */}
           <button
             data-testid={NAV.themeToggle}
             onClick={toggleTheme}
-            className="baked-btn w-10 h-10 flex items-center justify-center bg-secondary hover:bg-secondary/80 motion-fast"
+            className="hidden lg:flex baked-btn w-10 h-10 items-center justify-center bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
             aria-label="Toggle theme"
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+
+          {/* Hamburger — opens the side drawer (visible below lg since language/theme sit there) */}
+          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+            <SheetTrigger asChild>
+              <button
+                data-testid="topnav-hamburger"
+                className="lg:hidden w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast shrink-0"
+                aria-label="Open menu"
+              >
+                <Menu size={20} />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[86vw] max-w-[380px] p-0 flex flex-col" data-testid="topnav-drawer">
+              <SheetHeader className="p-5 border-b border-border">
+                <SheetTitle className="flex items-center gap-3">
+                  <BakedLogo size="sm" />
+                  <span className="text-sm text-muted-foreground">{country?.name || "BAKĒD"}</span>
+                </SheetTitle>
+                <SheetDescription className="sr-only">Main menu — navigation, account, country, language and theme</SheetDescription>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto">
+                {/* Auth block */}
+                <div className="p-4 border-b border-border">
+                  {customer ? (
+                    <button
+                      data-testid="drawer-profile"
+                      onClick={() => navigate("/profile")}
+                      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary motion-fast"
+                    >
+                      {customer.picture ? (
+                        <img src={customer.picture} alt="me" className="w-11 h-11 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center"><User size={20} /></div>
+                      )}
+                      <div className="text-left">
+                        <div className="text-sm font-semibold">{customer.name || t(locale, "nav.account")}</div>
+                        <div className="text-[11px] text-muted-foreground">{customer.phone}</div>
+                      </div>
+                    </button>
+                  ) : (
+                    <button
+                      data-testid="drawer-login"
+                      onClick={() => openLogin("/profile")}
+                      className="w-full h-11 baked-btn font-semibold bg-primary text-primary-foreground"
+                    >
+                      {t(locale, "nav.login")}
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick nav */}
+                <nav className="p-2">
+                  {[
+                    { icon: MapPin,       label: t(locale, "nav.categories") || "Categories",   to: "/categories",             testid: "drawer-categories" },
+                    { icon: Sparkles,     label: "AI Assistant",                                 to: "/ai-assistant",           testid: "drawer-ai-assistant" },
+                    { icon: Tag,          label: t(locale, "nav.offers"),                        to: "/products?sort=price_asc", testid: "drawer-offers" },
+                    { icon: Package,      label: t(locale, "nav.orders"),                        to: "/orders",                 testid: "drawer-orders" },
+                  ].map(({ icon: Icon, label, to, testid }) => (
+                    <button
+                      key={testid}
+                      data-testid={testid}
+                      onClick={() => navigate(to)}
+                      className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-secondary motion-fast text-left"
+                    >
+                      <Icon size={18} style={{ color: "#77BC1F" }} />
+                      <span className="text-sm font-medium">{label}</span>
+                    </button>
+                  ))}
+                </nav>
+
+                <div className="h-px bg-border mx-4 my-2" />
+
+                {/* Country switcher inside the drawer */}
+                <div className="p-4">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Country</div>
+                  <div className="grid gap-1.5">
+                    {countries.map((c) => (
+                      <button
+                        key={c.code}
+                        data-testid={`drawer-country-${c.code}`}
+                        onClick={() => { setCountryCode(c.code); setDrawerOpen(false); }}
+                        className={`flex items-center gap-3 px-3 py-2 baked-btn text-left ${country?.code === c.code ? "bg-secondary" : "hover:bg-secondary"}`}
+                      >
+                        <span className="text-xl">{c.flag}</span>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{c.name}</div>
+                          <div className="text-[11px] text-muted-foreground">{c.currency} · {c.locale}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer: language + theme */}
+              <div className="p-4 border-t border-border flex items-center gap-3">
+                <div className="baked-btn overflow-hidden border border-border flex items-stretch text-xs font-semibold" role="group" aria-label="Language">
+                  <button
+                    data-testid="drawer-language-fr"
+                    onClick={() => setLanguage("fr")}
+                    className={`px-3 py-2 motion-fast ${language === "fr" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+                  >FR</button>
+                  <div className="w-px bg-border" />
+                  <button
+                    data-testid="drawer-language-en"
+                    onClick={() => setLanguage("en")}
+                    className={`px-3 py-2 motion-fast ${language === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
+                  >EN</button>
+                </div>
+                <button
+                  data-testid="drawer-theme-toggle"
+                  onClick={toggleTheme}
+                  className="ml-auto w-10 h-10 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast"
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+                {customer && (
+                  <button
+                    data-testid="drawer-logout"
+                    onClick={() => { logout(); setDrawerOpen(false); }}
+                    className="text-xs px-2 py-1 rounded-lg text-rose-400"
+                  >
+                    <X size={14} className="inline" /> Sign out
+                  </button>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </>

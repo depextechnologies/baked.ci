@@ -30,7 +30,7 @@ class ExpressBooking(Base, TimestampMixin):
         UniqueConstraint("ref", name="uq_express_bookings_ref"),
         CheckConstraint("booking_type IN ('parcel','movers')", name="ck_express_bookings_booking_type"),
         CheckConstraint(
-            "status IN ('searching','driver_assigned','arriving','picked_up','in_transit',"
+            "status IN ('searching','offering','driver_assigned','arriving','picked_up','in_transit',"
             "'delivered','cancelled','confirmed')",
             name="ck_express_bookings_status",
         ),
@@ -92,6 +92,13 @@ class ExpressBooking(Base, TimestampMixin):
     driver_location_lng: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
     eta_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     delivered_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    # --- server-authoritative offer / dispatch fields (0032) ---
+    offered_to_driver_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("module_drivers.id", ondelete="SET NULL"), nullable=True,
+    )
+    offered_at:           Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    offer_expires_at:     Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    declined_driver_ids:  Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
 
     # --- movers-only (nullable) ---
     move_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -159,6 +166,13 @@ class ModuleDriver(Base, AuditMixin):
     rating: Mapped[float] = mapped_column(Numeric(2, 1), nullable=False, default=4.8)
     photo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Bridge back to the SENDbakēd Driver record (0032). NULL for legacy seed
+    # rows; set for real drivers going through /driver/me/online.
+    linked_driver_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("drivers.id", ondelete="SET NULL"), nullable=True
+    )
+    # Freshness for dispatch filter (0032). Updated on every location ping.
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     # use_alter: module_drivers <-> express_bookings is a mutual FK reference
     # (booking.driver_id -> driver, driver.active_booking_id -> booking); this
     # constraint is emitted as a separate ALTER TABLE after both tables exist.

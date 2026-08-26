@@ -121,12 +121,12 @@ class TestSubmitNotification:
         assert latency_ms < 3000, f"submit endpoint too slow: {latency_ms:.0f}ms"
 
         # Wait for log line
-        pattern = rf"mailer\.no_op to={re.escape(DELTA_EMAIL)}.*\[BAKED\] New PO {re.escape(po_code)}"
+        pattern = rf"mailer\.no_op to={re.escape(DELTA_EMAIL)}.*\[BAKĒD\] New PO {re.escape(po_code)}"
         line = _wait_for_log(pattern, timeout=6)
         assert line is not None, f"missing submit mailer line for {po_code}"
         # Explicit assertions on recipient + subject shape
         assert f"to={DELTA_EMAIL}" in line
-        assert f"[BAKED] New PO {po_code}" in line
+        assert f"[BAKĒD] New PO {po_code}" in line
         assert "Partner Alpha Store" in line  # partner business_name
         # Recipient MUST NOT be the partner email
         assert PARTNER_EMAIL not in line
@@ -155,7 +155,7 @@ class TestAcknowledgeNotification:
         pattern = rf"mailer\.no_op to={re.escape(PARTNER_EMAIL)}.*PO {re.escape(po_code)} acknowledged by DEMO Delta"
         line = _wait_for_log(pattern, timeout=6)
         assert line is not None, f"missing ack mailer line for {po_code}"
-        assert f"[BAKED] PO {po_code} acknowledged by " in line
+        assert f"[BAKĒD] PO {po_code} acknowledged by " in line
 
 
 # ---------------------------------------------------------------------------

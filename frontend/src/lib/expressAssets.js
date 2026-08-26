@@ -5,7 +5,7 @@
  *  module identifier `express` is intentionally preserved.)
  */
 export const EXPRESS_ASSETS = {
-  wordmark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/9avasnni_EXPRESSbaked.png",
+  wordmark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/odl93m8h_SENDbaked.jpeg",
   bike:     "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/kkvj338q_Bike_baked.png",
   threeW:   "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/xarw2ocr_3W-baked.png",
   truck:    "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/ftc2sme4_Truck_baked.png",

@@ -3,6 +3,38 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-27) — SENDbakēd Driver Trip Flow + Light Mode
+- ✅ **Driver Trip Flow (2026-02-27)** — Uber-style trip lifecycle per `Fixing_Prompt.docx`:
+  - New `DriverTripSheet.jsx` with `SlideToConfirm` for each of the 4 backend transitions (`driver_assigned→arriving→picked_up→in_transit→delivered`). Slide-to-confirm requires a real drag ≥80% — a tap deliberately bounces back.
+  - `openNativeNavigation()` opens `google.navigation:` (Android) / `maps://?daddr=` (iOS) with an automatic web fallback to `https://www.google.com/maps/dir/?api=1&destination=…&travelmode=driving`.
+  - Dynamic turn-by-turn instruction card at the top uses live `google.maps.DirectionsService` steps — no hard-coded values.
+  - Old 4-button `JobProgressBar` deleted; `driver-active-job-chip` replaced by `trip-status-pill`.
+  - Trip auto-restores on reload via `/api/driver/me/express-active`.
+  - Backend `POST /api/express/bookings/{id}/driver-status` untouched (7/7 pytest green in iter63).
+- ✅ **Driver PWA Theme Toggle** — new `useDriverTheme.js` mirrors customer's `.dark` class toggle. Preference persists via `localStorage.baked_driver_theme`. Toggle lives on `/driver/profile` at `data-testid='driver-theme-toggle'`.
+- ✅ **Light Mode Fix — SENDbakēd Home** — all hard-coded `#111111 / #2a2a2a / text-white / #fff` values in `ExpressHome.jsx` (top bar, map hero, pickup search, Send Now cards, service cards, trust banner, GPS button) migrated to Tailwind semantic tokens (`bg-card / bg-background / border-border / text-foreground / text-muted-foreground`) so both light and dark modes render correctly.
+- ✅ **Testing** — iter63 (7/7 backend + partial frontend) + iter64 (100% frontend after SlideToConfirm remount fix via `key={cfg.slideTestId}` + `xRef`).
+
+## Prior (2026-02-24) — Homepage CMS Phase C
+- ✅ **Homepage CMS Phase C — Visual Polish (2026-02-24)** — full rewrite of `/app/frontend/src/pages/ConfigHomepage.jsx` to premium dark-first design matching Baked Mart.pdf + HomeLook.png + Inventory_Prompt.txt.
+  - Hero: full-bleed image with dark overlay, headline, MARTbakēd chip, primary green CTA + optional secondary CTA, right-side delivery info panel bound to `country` config (Delivery in ETA, min order, delivery fee, free-over threshold, "Popular near you").
+  - Module switcher: 6 coloured tiles (MART green `#77BC1F`, FOOD orange `#F97316`, SHOP cyan `#06B6D4`, SEND yellow `#FCC44C`, AUTO red `#EF4444`, IMMO purple `#A855F7`) with icon plate, taglines, hover glow, deep-links to `/`, `/food`, `/shop`, `/express`, `/auto`, `/immo`.
+  - Category grid: rich tiles with image support + hover lift; falls back to Store icon on missing image.
+  - Promotional banner: full-bleed image with gradient overlay, badge, headline, CTA.
+  - Banner trio: 3-across dark cards with images + eyebrow + label + subtitle + arrow hover reveal.
+  - Product carousel: horizontal snap-scroll with prev/next `ChevronLeft/Right` buttons that scroll 80% of container width, keyboard/mouse friendly.
+  - Brand carousel: greyscale-until-hover logo strip.
+  - App promotion: two-column dark-green gradient with QR + Play/App Store buttons (styled with tagline eyebrow).
+  - CTA strip: green gradient with radial glow.
+  - **Trust strip**: persistent 4-tile row (fast delivery / range / prices / returns) always rendered at page tail — admin cannot accidentally hide the reassurance messaging.
+  - `compactMoney()` helper strips trailing `.00` on whole-value currency amounts for cleaner delivery-panel presentation.
+  - Every interactive element carries a `data-testid` (`hp-*`).
+  - **Testing**: `testing_agent_v3_fork` iteration_61.json — 9/9 backend pytest (`/app/backend/tests/test_homepage_cms.py` covers Phase B upload roundtrip + Phase C public feed + admin CRUD + auth-gates) + full Playwright E2E on desktop 1440x900 + mobile 390x844. Zero console errors. Country switch CI → IN verified.
+- ✅ **Homepage CMS Phase B (2026-02-24)** — image uploads via Emergent Object Storage.
+  - Admin: `POST /api/admin/homepage-sections/uploads` — 8 MB size cap, image-type validated, returns relative `/api/homepage/uploads/{key}` URL.
+  - Public serve: `GET /api/homepage/uploads/{key:path}` — content-type preserved.
+  - Frontend: `ImageField` inside `AdminHomepageManagement.jsx` — upload button with progress state, preview render, clear button.
+
 ## Tech Stack (v1)
 - Frontend: React (CRA) + Tailwind + shadcn/ui + Framer + React Router + sonner + Poppins
 - Backend: FastAPI + Motor (MongoDB) + emergentintegrations + JWT
@@ -231,9 +263,38 @@ Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) wi
    - `BakedLogo` `lg` size bumped 64 → 85 px.
    - `Footer` link builder now handles absolute URLs (`https://…`) as `<a target="_blank">`, and `Delivery Partner` now points to the SENDbakēd driver PWA URL.
 
+- ✅ **Social.docx Phase 4 (2026-02) — Issues #10 + #11**
+   - **#10 India vehicle catalogue seeded** — new migration `0025_send_india_vehicles.py` inserts 3 SENDbaked vehicles (`bike`, `three_wheeler` "Mini 3 Wheeler", `truck`) for `country='IN'` mirroring the CI seed shape. Prices in INR (₹79 / ₹199 / ₹1,499). Deterministic IDs (`exv_in_<code>`) + `ON CONFLICT DO NOTHING` — idempotent. Verified via `GET /api/express/vehicles?country=IN` → 3 rows.
+   - **#11 SENDbaked branding sweep** — user-facing "EXPRESS" → "SEND" everywhere:
+     - `lib/modules.js` — `express` entry now `label: "SEND", suffix: "baked"` (internal `code: 'express'` preserved for schema/API stability).
+     - `pages/express/ExpressHome.jsx` — both `<BrandedModuleLabel label="EXPRESS">` sites now pass `"SEND"`.
+     - `components/layout/BakedLogo.jsx` — express fallback `altBrand` reads `SENDbaked` (no macron).
+     - `lib/expressAssets.js` — wordmark URL swapped from `EXPRESSbaked.png` to `SENDbaked.jpeg`.
+   - Non-goals honoured: no schema rename (`express_vehicles` stays), no API-path rename (`/api/express/*` stays), no touching the `express` code identifier anywhere in backend or frontend routing.
+
    - **Kept intact**: header, wizard progress stepper, Continue footer, all backend calls, dispatch + WebSocket tracking flow.
    - **Verified**: Step 1, 3, 5 desktop screenshots at 1440×900 show the persistent map + branded assets; light theme continues to adapt via `hsl(var(--border/card/muted))`.
+- ✅ **Social.docx Issue #1 (2026-02) — Darkstore custom-product approval chain (backend)**
+   - **Root cause diagnosed**: Darkstore-side `POST /partner/products/custom` created `PartnerProduct` rows with `approval_status='pending', is_active=False, source='custom'`. No admin endpoint ever promoted these into the shared `mart_products` table, so even after ops "approved" (by flipping DB rows) the row stayed invisible on every Darkstore's `/partner/master-catalog?q=`.
+   - **Fix — three new admin endpoints on `mart_partner.admin_router`**:
+     - `GET /api/admin/mart-partner/partner-products?status=pending|approved|rejected|all&country=&q=&limit=` — review queue with buckets + enriched partner/warehouse info.
+     - `POST /api/admin/mart-partner/partner-products/{id}/approve` — creates a new `MartProduct` (country=partner.country, module=partner.module, name/brand/unit/category/currency copied or overridden via payload), then rewires the `PartnerProduct` to `source='master'`, `master_product_id=<new>`, `approval_status='approved'`, `is_active=True`. Also duplicate-safe: if a MartProduct with the same `(name, country, module)` already exists it links to it instead. In-app notification to the partner.
+     - `POST /api/admin/mart-partner/partner-products/{id}/reject` — with required notes, sends the notification back to the partner.
+   - Idempotency: re-approving returns 400 `not_custom` because after promotion the source flips to `master` (correct — approval is one-shot).
+   - **Verified end-to-end**: seeded a `pending` custom row, called approve → response shows `master_product_id`, DB shows a fresh `mart_products` row in `CI`/`mart`/`active`, buckets update, re-approve blocked.
+   - **Non-goals honoured**: no schema change, no rename of internal identifiers, no bypass of the approval gate, no data duplication (single MartProduct per `(name, country, module)`).
+   - **Follow-up (next task)**: build the admin UI page `/admin/mart-partner-approvals` (list + approve/reject + optional payload overrides) — mirror pattern of `AdminSupplierProductRequests.jsx`.
+
 - **P1**: Real SMS OTP (Twilio Verify or Africa's Talking) — swap `OTP_PROVIDER` env
+- ✅ **Social.docx Issue #1 admin UI (2026-02) — `/admin/mart-partner-approvals`**
+   - New page `/app/frontend/src/pages/admin/AdminMartPartnerApprovals.jsx` — mirrors `AdminSupplierProductRequests.jsx` pattern. Pending / Approved / Rejected / All tabs with bucket counts, country filter (CI · IN), name/brand search, one-row-per-request table.
+   - Review drawer shows the read-only proposed values (brand, unit, category, partner price, stock, description) + a modeless action bar with **Approve & promote** (green) and **Reject** (red).
+   - Approve mode reveals overridable fields (name, brand, category slug, subcategory, master price, currency, unit, image URL) pre-filled from the partner's proposal. Currency required.
+   - Reject mode requires ≥3-char notes that surface to the partner via in-app inbox.
+   - Route registered at `/admin/mart-partner-approvals`; sidebar entry added under Platform Governance with the `ClipboardCheck` icon → **Darkstore Approvals**.
+   - Tested end-to-end: seeded 2 pending rows → API returns them in the listing → route + sidebar link + lint all clean.
+   - All `data-testid` attributes namespaced `mpa-*` for future testing agent runs.
+
 - **P2**: FOOD / SHOP / EXPRESS / AUTO / IMMO business modules
 - **P2**: Partner Portal, Driver Portal
 - **P2**: Notifications engine, Analytics, Search (OpenSearch), Media (MinIO)

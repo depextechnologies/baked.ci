@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import {
   Building2, CheckCircle2, X, AlertTriangle, Search, ExternalLink,
   FileText, MapPin, User2, Landmark, Tags, ShieldCheck, PauseCircle, PlayCircle,
+  Warehouse as WarehouseIcon, Star,
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
@@ -277,6 +278,11 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
                     </DetailCard>
                   )}
 
+                  {/* Warehouse assignments — Social.docx §9 */}
+                  {(detail.supplier?.status === "approved" || detail.supplier?.status === "suspended") && (
+                    <SupplierWarehousesCard supplierId={detail.supplier.id} />
+                  )}
+
                   {/* Audit trail */}
                   <DetailCard title="Audit trail" icon={ShieldCheck}>
                     {(detail.audit_trail || []).length === 0 && <div className="text-xs text-muted-foreground">No actions yet.</div>}
@@ -361,5 +367,122 @@ const Row = ({ label, value }) => (
     <span className="text-right font-medium">{value ?? "—"}</span>
   </div>
 );
+
+// Social.docx §9 — Warehouse assignments for a supplier
+const SupplierWarehousesCard = ({ supplierId }) => {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setBusy(true);
+    try {
+      const { data } = await adminApi.get(`/admin/modules/mart/suppliers/${supplierId}/warehouses`);
+      setData(data);
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [supplierId]);
+
+  const assign = async (warehouse_id, is_primary) => {
+    try {
+      await adminApi.post(`/admin/modules/mart/suppliers/${supplierId}/warehouses`, {
+        warehouse_id, is_primary,
+      });
+      toast.success(is_primary ? "Assigned as primary" : "Assigned");
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const unassign = async (warehouse_id, code) => {
+    if (!window.confirm(`Unassign ${code}?`)) return;
+    try {
+      await adminApi.delete(`/admin/modules/mart/suppliers/${supplierId}/warehouses/${warehouse_id}`);
+      toast.success("Unassigned");
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const setPrimary = async (warehouse_id) => assign(warehouse_id, true);
+
+  return (
+    <DetailCard title="Warehouse assignments" icon={WarehouseIcon}>
+      <p className="text-[11px] text-muted-foreground mb-3">
+        Bind this supplier to specific darkstores or fulfilment centres. Only assigned
+        warehouses will see this supplier in their replenishment flows.
+      </p>
+      {busy && !data ? (
+        <div className="text-xs text-muted-foreground">Loading…</div>
+      ) : (
+        <>
+          <div data-testid="supplier-assignments-list">
+            {(data?.assignments || []).length === 0 ? (
+              <div className="text-xs text-muted-foreground italic py-2" data-testid="supplier-assignments-empty">
+                No warehouses assigned yet.
+              </div>
+            ) : (
+              (data.assignments).map(a => (
+                <div key={a.id}
+                     className="flex items-center gap-2 py-2 text-xs"
+                     style={{ borderBottom: "1px solid var(--border, rgba(148,163,184,.15))" }}
+                     data-testid={`supplier-assignment-${a.warehouse_id}`}>
+                  <WarehouseIcon size={12} style={{ color: a.is_primary ? "#77BC1F" : "var(--muted-foreground)" }} />
+                  <span className="font-mono">{a.warehouse?.code}</span>
+                  <span className="text-muted-foreground">{a.warehouse?.name}</span>
+                  {a.is_primary && (
+                    <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center gap-1"
+                          style={{ background: "rgba(119,188,31,.15)", color: "#77BC1F" }}>
+                      <Star size={10} /> Primary
+                    </span>
+                  )}
+                  <div className="ml-auto flex gap-1">
+                    {!a.is_primary && (
+                      <button onClick={() => setPrimary(a.warehouse_id)}
+                              className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                              style={{ color: "#77BC1F", border: "1px solid rgba(119,188,31,.4)" }}
+                              data-testid={`supplier-assignment-primary-${a.warehouse_id}`}>
+                        Make primary
+                      </button>
+                    )}
+                    <button onClick={() => unassign(a.warehouse_id, a.warehouse?.code)}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                            style={{ color: "#FF4C52", border: "1px solid rgba(255,76,82,.4)" }}
+                            data-testid={`supplier-assignment-remove-${a.warehouse_id}`}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add form */}
+          {(() => {
+            const unassigned = (data?.eligible || []).filter(w => !w.is_assigned);
+            return unassigned.length > 0 ? (
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="text-[10px] uppercase tracking-widest mb-2 text-muted-foreground">
+                  Add warehouse
+                </div>
+                <div className="space-y-1">
+                  {unassigned.map(w => (
+                    <div key={w.id} className="flex items-center gap-2 py-1.5 text-xs"
+                         data-testid={`supplier-eligible-${w.id}`}>
+                      <span className="font-mono">{w.code}</span>
+                      <span className="text-muted-foreground flex-1">{w.name}</span>
+                      <button onClick={() => assign(w.id, false)}
+                              className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                              style={{ background: "rgba(148,163,184,.15)", color: "var(--foreground, inherit)" }}
+                              data-testid={`supplier-eligible-assign-${w.id}`}>
+                        Assign
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+        </>
+      )}
+    </DetailCard>
+  );
+};
 
 export default AdminSupplierApplications;

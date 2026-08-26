@@ -32,15 +32,23 @@ export const ProductCard = ({ product }) => {
       onClick={() => navigate(`/products/${product.id}`)}
       className="baked-card bg-card border border-border overflow-hidden group cursor-pointer motion-normal hover:border-[#77BC1F]/50 hover:shadow-[0_0_0_1px_#77BC1F22] flex flex-col"
     >
-      <div className="relative aspect-square bg-secondary/40">
-        <img src={product.image} alt={product.name} className="w-full h-full object-cover motion-normal group-hover:scale-105" loading="lazy" />
+      {/* Global product image container — fixed 1:1 aspect for every product regardless of source dimensions.
+          Cropped center-center via object-fit:cover. Do NOT add product-specific overrides here. */}
+      <div className="product-image-container relative w-full bg-secondary/40 overflow-hidden" style={{ aspectRatio: "1 / 1" }}>
+        <img
+          src={product.image}
+          alt={product.name}
+          loading="lazy"
+          className="product-image block w-full h-full motion-normal group-hover:scale-105"
+          style={{ objectFit: "cover", objectPosition: "center center" }}
+        />
         {product.badge && (
           <div className="absolute top-2 left-2 badge-off">{product.badge}</div>
         )}
       </div>
       <div className="p-3 flex flex-col gap-1 flex-1">
         <div className="text-sm font-semibold leading-tight line-clamp-2 min-h-[2.5rem]">{product.name}</div>
-        <div className="text-[11px] text-muted-foreground">{product.unit}</div>
+        <div className="text-[11px] text-muted-foreground min-h-[1rem]">{product.unit}</div>
         <div className="flex items-center justify-between mt-2">
           <div>
             <div className="text-sm font-bold">{formatMoney(product.price, product.currency, product.currency_symbol)}</div>
@@ -52,10 +60,11 @@ export const ProductCard = ({ product }) => {
             <button
               data-testid={PRODUCT.addBtn(product.id)}
               onClick={handleAdd}
-              className="baked-btn px-3 py-1.5 text-xs font-bold motion-fast"
+              aria-label={`Add ${product.name} to cart`}
+              className="w-9 h-9 rounded-lg flex items-center justify-center motion-fast active:scale-95 shrink-0"
               style={{ backgroundColor: moduleGreen, color: "#0a1200" }}
             >
-              + Add
+              <Plus size={18} strokeWidth={3} />
             </button>
           ) : (
             <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: moduleGreen }}>

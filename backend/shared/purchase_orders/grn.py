@@ -125,7 +125,7 @@ def build_grn_pdf(payload: Dict[str, Any]) -> bytes:
     kind_label = "Consolidated GRN" if payload["kind"] == "consolidated" else f"Receipt GRN · #{payload.get('receipt', {}).get('sequence', 1)}"
     header = Table(
         [[
-            Paragraph("<b>BAKED</b> · MARTbaked", ParagraphStyle("Brand", parent=body, textColor=BRAND_GREEN, fontSize=12, fontName=_UNICODE_FONT_BOLD)),
+            Paragraph("<b>BAKĒD</b> · MARTbakēd", ParagraphStyle("Brand", parent=body, textColor=BRAND_GREEN, fontSize=12, fontName=_UNICODE_FONT_BOLD)),
             Paragraph(f"<para align='right'><b>{kind_label}</b><br/><font color='#64748B' size='8'>{payload['grn_reference']}</font></para>", body),
         ]],
         colWidths=[95 * mm, 87 * mm],
@@ -492,5 +492,5 @@ def assemble_payload(
             "sequence": seq,
         },
         "lines": line_payloads,
-        "footer_note": "BAKED Platform · MARTbaked · Auto-generated GRN · Not a tax invoice",
+        "footer_note": "BAKĒD Platform · MARTbakēd · Auto-generated GRN · Not a tax invoice",
     }

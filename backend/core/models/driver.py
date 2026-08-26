@@ -29,10 +29,14 @@ class Driver(Base, TimestampMixin):
     )
 
     id:            Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("drv"))
-    phone_e164:    Mapped[str] = mapped_column(String(24), nullable=False, unique=True)
+    phone_e164:    Mapped[Optional[str]] = mapped_column(String(24))
     country:       Mapped[str] = mapped_column(String(2), nullable=False)
     name:          Mapped[Optional[str]] = mapped_column(String(200))
     email:         Mapped[Optional[str]] = mapped_column(String(200))
+    # Email+password login (SENDbakēd Driver login screen — 2026-02).
+    password_hash: Mapped[Optional[str]] = mapped_column(Text)
+    # Google-linked drivers store the Google `sub` for stable lookup.
+    google_sub:    Mapped[Optional[str]] = mapped_column(String(64))
     status:        Mapped[str] = mapped_column(String(24), nullable=False, default="onboarding", server_default="onboarding")
     kyc_step:      Mapped[str] = mapped_column(String(32), nullable=False, default="personal",   server_default="personal")
 
@@ -76,7 +80,9 @@ class DriverOtp(Base):
     )
 
     id:          Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("dotp"))
-    phone_e164:  Mapped[str] = mapped_column(String(24), nullable=False)
+    phone_e164:  Mapped[Optional[str]] = mapped_column(String(24))
+    email:       Mapped[Optional[str]] = mapped_column(String(200))
+    purpose:     Mapped[str] = mapped_column(String(32), nullable=False, default="login", server_default="login")
     code:        Mapped[str] = mapped_column(String(8),  nullable=False)
     expires_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempts:    Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

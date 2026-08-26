@@ -212,6 +212,77 @@ export const WarehousePage = () => {
           ))}
         </div>
       </section>
+
+      <CategoryDefaultsSection warehouseId={warehouse.id} zones={tree?.zones || []} />
     </div>
+  );
+};
+
+/* -------- Social.docx §4 — Category → default Zone mapping table --------- */
+
+const CategoryDefaultsSection = ({ warehouseId, zones }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await partnerApi.get(`/partner/inventory/warehouse/${warehouseId}/category-defaults`);
+      setItems(data.items || []);
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [warehouseId]);
+
+  const setZone = async (slug, zoneId) => {
+    setSaving(slug);
+    try {
+      await partnerApi.put(`/partner/inventory/warehouse/${warehouseId}/category-defaults`, {
+        category_slug: slug, zone_id: zoneId || null, aisle_id: null,
+      });
+      toast.success(zoneId ? "Zone assigned" : "Cleared");
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setSaving(null); }
+  };
+
+  return (
+    <section className="mt-10" data-testid="category-defaults-section">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="ph-h3" style={{ color: "var(--ph-fg)" }}>Category → Zone defaults</h2>
+      </div>
+      <p className="text-xs mb-4" style={{ color: "var(--ph-fg-subtle)" }}>
+        When ops assign a bin to a SKU, the bin picker will default to bins under the category&apos;s suggested zone.
+      </p>
+      <div className="rounded-2xl overflow-hidden" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
+        {loading ? (
+          <div className="p-6 text-sm" style={{ color: "var(--ph-fg-subtle)" }}>Loading…</div>
+        ) : items.length === 0 ? (
+          <div className="p-6 text-sm" style={{ color: "var(--ph-fg-muted)" }}>No categories available in your country yet.</div>
+        ) : items.map(row => (
+          <div key={row.category_slug}
+               className="flex items-center gap-3 py-3 px-4"
+               style={{ borderBottom: "1px solid var(--ph-border)" }}
+               data-testid={`cat-default-row-${row.category_slug}`}>
+            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
+                  style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>Category</span>
+            <div className="flex-1">
+              <div className="text-sm" style={{ color: "var(--ph-fg)" }}>{row.category_name}</div>
+              <div className="font-mono text-xs" style={{ color: "var(--ph-fg-subtle)" }}>{row.category_slug}</div>
+            </div>
+            <select value={row.mapping?.zone_id || ""}
+                    onChange={e => setZone(row.category_slug, e.target.value)}
+                    disabled={saving === row.category_slug || zones.length === 0}
+                    className="px-3 h-9 rounded-lg text-sm w-56" style={fieldStyle}
+                    data-testid={`cat-default-select-${row.category_slug}`}>
+              <option value="">{zones.length === 0 ? "Add a zone first" : "— Unmapped —"}</option>
+              {zones.map(z => (
+                <option key={z.id} value={z.id}>{z.code} · {z.name}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 };

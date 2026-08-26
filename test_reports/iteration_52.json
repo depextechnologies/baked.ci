@@ -1,0 +1,30 @@
+{
+  "summary": "Social.docx Issue #9 (Supplier↔Warehouse assignments) verified end-to-end. Backend pytest 8/8 pass — GET returns {supplier,assignments,eligible} with is_assigned booleans; POST is idempotent (re-POST updates the row, doesn't 409); is_primary=true demotes other primaries; DELETE returns 204 and 404 on missing rows; cross-country POST returns 400 {code:'cross_country_denied'} (verified by temporarily seeding an LR warehouse); audit trail rows written as warehouse_assigned/warehouse_unassigned. Frontend Admin Supplier Applications drawer (/admin/modules/mart/suppliers → Approved bucket → Review on 'DEMO Delta Beverages CI') renders the 'Warehouse assignments' card above 'Audit trail' with all required data-testids working: empty state, eligible-assign, assignment row, make-primary, remove. Full assign → make-primary → assign 2nd wh → promote 2nd (auto-demotes 1st, confirmed via audit trail 'warehouse_assigned … primary=True') → remove both → empty state — all worked. Regression: Approve/Reject/Suspend actions untouched; drawer content intact.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_supplier_warehouses.py",
+    "/app/test_reports/pytest/supplier_warehouses.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "admin_assign_supplier_warehouse: Idempotent POST returns 201 even when updating an existing row — arguably should be 200 for update semantics, but the spec explicitly asks for idempotency without 409 so this is acceptable.",
+    "SupplierReviewAudit rows for warehouse_assigned/unassigned intentionally leave from_status/to_status NULL (only 'action' + 'notes' encoded). Consumers should be aware — the AdminSupplierApplications drawer currently renders those correctly (no arrow shown when from_status is missing).",
+    "The 'Make primary' button demotes existing primaries via a silent UPDATE (no separate audit action for the demotion). If auditability of demotion matters, consider writing a second audit row when a demotion occurs. Not a blocker.",
+    "The DELETE unassign endpoint does NOT re-elect a new primary when the removed row was the primary — supplier can end up with 0 primaries. Backend tests do not cover this edge case; UI shows no warning. Consider whether one-primary auto-election on delete is desired."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_supplier_warehouses.py (new)"
+  ],
+  "success_rate": { "backend": "100% (8/8)", "frontend": "100% for Issue #9 UI flow" },
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ — Admin path /admin/login. Supplier under test: sup_demo_delta_seed (DEMO Delta Beverages CI, app code MART-SUP-2026-00001).",
+  "seed_data_creation": "Backend cross-country test seeds+deletes a temporary warehouse id 'wh_test_xco' (country=LR) via raw SQL each run (fully cleaned up).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend contract locked by /app/backend/tests/test_supplier_warehouses.py (8 tests). Admin console path is /admin/modules/mart/suppliers (default tab is 'Submitted' — click 'Approved (N)' bucket to reveal Delta). Cross-country test seeds a temporary LR warehouse via DATABASE_URL because only CI warehouses exist in this env. If retesting one-primary via UI, note the 'Primary' badge is CSS text-transform:uppercase so inner_text returns 'PRIMARY' — use case-insensitive match. Consider whether unassigning the primary should auto-elect a new primary (currently doesn't).",
+  "rca of the issue": "N/A — feature works as designed. Idempotent POST correctly avoids 409, one-primary invariant maintained on assign (but not on delete), and audit rows are written with the migration-relaxed CHECK constraint."
+}

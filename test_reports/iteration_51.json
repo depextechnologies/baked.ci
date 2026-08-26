@@ -1,0 +1,39 @@
+{
+  "summary": "Social.docx Issue #8 verified end-to-end. Backend pytest 3/3 pass — /api/partner/orders (list + detail) enrich items[] with pick_location + partner_product_id; /api/partner/picker/orders/{po_id} enriches lines[] with pick_location AND sorts by walking order (Bin B01 → B02 → unassigned last). Frontend Orders page shows accent-warm (rgb 252,196,76) MapPin pill for Banane B01 & Baguette B02 and grey 'No pick location — assign one under Products' fallback for Lait Frais; Picker page shows the accent-warm bordered pill (1px solid var(--ph-accent-warm)) per line, correctly ordered.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Picker openOrder / complete navigation",
+        "issue": "PickerPage.jsx uses hard-coded /partner-portal/picker/${id} (line 141) and /partner-portal/picker (line 135) without the module slug. When the user clicks a queue item from /partner-portal/martbaked/picker, they are pushed to /partner-portal/picker/{id} which renders 'Unknown module'. Pre-existing routing bug — not part of Issue #8 but blocks the natural QA path. Direct URL /partner-portal/martbaked/picker/{po_id} works (verified). Fix: use useParams module slug or navigate relatively (e.g. nav(id) / nav('.')).",
+        "affected_selectors": ["[data-testid=\"picker-queue-item-<po_id>\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pick_location_orders_picker.py",
+    "/app/test_reports/pytest/pick_location.xml"
+  ],
+  "action_items": [
+    "(Pre-existing, out of scope for Issue #8, but nice-to-have) Fix PickerPage.jsx nav('/partner-portal/picker/${id}') to include the module slug (moduleSlug from route params) so clicking a queue item from the sidebar doesn't hit 'Unknown module'.",
+    "(Minor copy diff) Review request says the picker fallback should read 'No pick location', UI actually renders 'No pick location — check with your team'. Not a functional issue — testid picker-line-location-none-<id> is correct and the message is arguably clearer for packers. Leave as-is unless the exact string is required."
+  ],
+  "critical_code_review_comments": [
+    "_batch_primary_locations correctly batches all bin/shelf/rack/aisle/zone lookups in 5 IN-queries — no N+1 regression. Good.",
+    "picker_routes._pick_dict still does an N+1 session.get(MartProduct, product_id) inside the line loop to pull sku_code/ean_upc (line 108). Batching this would improve tablet load latency for big orders. Not a blocker.",
+    "PickerPage.jsx hard-codes /partner-portal/picker paths without module slug (lines 135, 141) — pre-existing routing bug surfaced during QA of Issue #8.",
+    "Walking-order sort key falls back to empty strings for missing codes — this is fine since (0, ...) tuples always sort before (1, ...). Behaviour verified with three lines (B01, B02, null)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pick_location_orders_picker.py (new — 3 tests)"
+  ],
+  "success_rate": { "backend": "100% (3/3)", "frontend": "100% for Issue #8 UI (Orders page + Picker detail all render correctly)" },
+  "test_credentials": "partner-alpha-store@test.example / Alpha1234!Beta — MARTbakēd module. Seed order po_1ba921c2d4474d27 (ORD-PICKLOC-001) currently in 'packing' status with items Banane (B01), Baguette (B02), Lait (no bin).",
+  "seed_data_creation": "None. Used pre-seeded order po_1ba921c2d4474d27.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend contract locked by /app/backend/tests/test_pick_location_orders_picker.py — 3 tests: list, detail (structured sub-objects + labels), and picker (walking-order sort). To test the picker UI, either click through queue (needs the openOrder routing fix) OR go directly to /partner-portal/martbaked/picker/{po_id} (works today). Full status transition new→accepted→packing→ready→handed_off→completed was NOT re-run this iteration — the seed order is already at packing and moving it further would remove it from active buckets (see agent note). If needed, seed a fresh order via SQL first.",
+  "rca of the issue": "N/A — feature works as designed. The only observed defect (Picker queue-item click → 'Unknown module') is a pre-existing routing bug in PickerPage.jsx (nav uses absolute paths without the module slug) and is orthogonal to Issue #8."
+}

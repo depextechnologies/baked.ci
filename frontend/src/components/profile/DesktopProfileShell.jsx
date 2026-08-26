@@ -8,7 +8,7 @@ const NAV = [
   { to: "/wallet", label: "Wallet", icon: Wallet2 },
   { to: "/profile/activities", label: "Activities", icon: ClipboardList },
   { to: "/profile/addresses", label: "Addresses", icon: MapPin },
-  { to: "/profile/rewards", label: "baked Rewards", icon: Gift },
+  { to: "/profile/rewards", label: "BAKĒD Rewards", icon: Gift },
   { to: "/profile/refer", label: "Refer & Earn", icon: Users2 },
   { to: "/profile/help", label: "Help & Support", icon: LifeBuoy },
   { to: "/profile/settings", label: "Settings", icon: Settings2 },

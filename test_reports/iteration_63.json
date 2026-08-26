@@ -1,0 +1,56 @@
+{
+  "summary": "Iter63 — Backend (7/7 pytest green): /api/express/bookings/{id}/driver-status enforces 401 no-token, 401 bogus-token, 403 wrong-driver; full 4-stage state machine driver_assigned→arriving→picked_up→in_transit→delivered walks cleanly with valid driver JWT; invalid transition (picked_up→delivered) returns 400; /api/driver/me/express-active restores the booking after reload and returns null once delivered. Frontend (mobile 390×844): DriverTripSheet renders with trip-status-pill 'On Trip · Pick up', trip-instruction-card, trip-bottom-sheet, trip-navigate-btn, all 4 call/chat buttons (trip-pickup-call/chat, trip-dropoff-call/chat), the metric strip (trip-metric-distance/eta/earnings) and the slide-arrive-pickup track+thumb. First slide (driver_assigned→arriving) advances state; short tap on the thumb correctly does NOT advance. Navigate deep link opens https://www.google.com/maps/dir/?api=1&destination=12.9716,77.5946&travelmode=driving in a new tab. Reload persistence works — DriverTripSheet remounts at the correct stage. Driver theme toggle (data-testid='driver-theme-toggle') flips html.dark and persists to localStorage.baked_driver_theme across reload. /express customer home renders cleanly in both light (white bg, dark text) and dark modes. HOWEVER — a critical UI-state bug prevents slides 2/3/4 from ever firing on the same session (see below).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DriverTripSheet → SlideToConfirm",
+        "issue": "SlideToConfirm retains its internal `confirming`/`confirmed` React state across stage transitions. Because the parent renders <SlideToConfirm ...> at the same React position with only prop changes (label/testid/color/onConfirm) and no `key`, React reuses the same instance. After the first successful confirm, `confirming` stays true and `onDown` becomes a no-op — so slide-start-dropoff, slide-arrive-dropoff and slide-deliver are visually 'Confirmed' on mount and their thumbs are dead. Verified end-to-end: after slide-arrive-pickup advances the booking to `arriving`, dragging slide-start-dropoff-thumb 95% of the track produces no request and DB status stays at `arriving`.",
+        "selector": "[data-testid='slide-start-dropoff-thumb'] (and downstream slide-arrive-dropoff-thumb / slide-deliver-thumb)",
+        "priority": "CRITICAL",
+        "fix_hint": "Add `key={cfg.slideTestId}` to the <SlideToConfirm> render in DriverTripSheet.jsx (~line 667) so it remounts per stage, OR reset the internal state via useEffect when `testid`/`label` changes."
+      },
+      {
+        "component": "DriverTripSheet.trip-instruction-card",
+        "issue": "trip-navigate-btn is rendered only inside the `driver_assigned` and `picked_up` branches of the instruction card. The `arriving` and `in_transit` branches render only the icon+heading+subheading with no Navigate button. If Navigate is expected on every stage per the review request, add the button to those two branches too.",
+        "selector": "[data-testid='trip-navigate-btn']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Driver Trip Flow — subsequent slide gestures",
+        "issue": "Because of the SlideToConfirm state-retention bug above, driver_assigned→arriving works but arriving→picked_up→in_transit→delivered CANNOT be completed through the UI in a single session. Reload between each stage as a workaround (a full remount resets the SlideToConfirm), but that is not the intended UX.",
+        "affected_selectors": ["[data-testid='slide-start-dropoff-thumb']", "[data-testid='slide-arrive-dropoff-thumb']", "[data-testid='slide-deliver-thumb']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_driver_trip_flow_iter63.py",
+    "/app/backend/tests/seed_trip_flow.py",
+    "/app/test_reports/pytest/iter63_trip_flow.xml"
+  ],
+  "action_items": [
+    "Fix SlideToConfirm state retention: add key={cfg.slideTestId} (or a useEffect reset) so slides 2/3/4 actually fire.",
+    "Decide whether trip-navigate-btn should also render in the `arriving` and `in_transit` stages of trip-instruction-card, and if so, add it (mirror the picked_up branch).",
+    "Consider clearing SlideToConfirm's confirming/confirmed flags when props change to future-proof against key-less usage."
+  ],
+  "critical_code_review_comments": [
+    "DriverTripSheet.jsx SlideToConfirm reuses component instance across stages — must remount per stage (see fix above). This is the root cause of the multi-stage regression.",
+    "Auth in /api/express/bookings/{id}/driver-status returns 401 for wrong-driver-with-no-ModuleDriver bridge (looks like 'not_your_booking' should be 403 but the code path only produces 403 when the ModuleDriver row exists). Consider unifying to a single 403 with structured code so the client can render a consistent 'not_your_booking' toast.",
+    "DriverTripSheet's `useTurnByTurn` skips when window.google.maps is not present — but there's no visible loading state on distance/ETA in that case (shows '—'). Optional: add a subtle 'Calculating…' placeholder for clarity.",
+    "SlideToConfirm's `onUp` reads `x` from closure at drag-start time — works today because onMove setState triggers a re-render before onUp, but could race under heavy load. Consider tracking x in a ref alongside setState."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_driver_trip_flow_iter63.py",
+    "/app/backend/tests/seed_trip_flow.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "~85% — first slide + navigate + reload + theme + light/dark home all pass; slides 2/3/4 blocked by component-state bug"},
+  "test_credentials": "Driver OTP +919990001234 (IN). Seed driver id=drv_193032f19d2b45e9 (promoted to approved via seed_trip_flow.py). Fresh booking exp_trip_test_seed created + linked to module_driver drv_md_trip_test.",
+  "seed_data_creation": "seed_trip_flow.py idempotently (a) promotes the OTP driver to approved+online, (b) creates customer cus_trip_test_seed, (c) creates ModuleDriver drv_md_trip_test linked to the driver, (d) creates ExpressBooking exp_trip_test_seed in status=driver_assigned assigned to that ModuleDriver and sets module_drivers.active_booking_id. Safe to re-run — resets booking status back to driver_assigned.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To reproduce: run `DATABASE_URL=... python /app/backend/tests/seed_trip_flow.py` then load /driver/dashboard with the OTP-issued driver JWT in localStorage.baked_driver_token. Slide the arrive-pickup thumb to ≥80% — booking advances to arriving in DB. Try to slide the start-dropoff thumb — nothing happens because SlideToConfirm's `confirming` state is still true from stage 1. Pytest suite `test_driver_trip_flow_iter63.py` covers the state machine at API level and is fully green (7/7).",
+  "rca of the issue": "SlideToConfirm has module-local useState for `x`, `confirming`, `confirmed`. On stage advance, DriverTripSheet re-renders the SAME <SlideToConfirm> element at the SAME React position with only prop changes — no `key` prop. React reconciliation reuses the same component instance, so `confirming=true` and `confirmed=true` set at the end of stage-1 confirm persist into stage-2. The `if (disabled || confirming) return;` guard in onDown then blocks all subsequent gestures. Mitigation: add `key={cfg.slideTestId}` to force a remount per stage."
+}

@@ -25,14 +25,26 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useCall
 import axios from "axios";
 import { Routes, Route, useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useGoogleLogin } from "@react-oauth/google";
 import {
   Loader2, ChevronRight, ChevronLeft, Truck, Bike, Package, Wallet, Star, LogOut,
   Phone as PhoneIcon, ShieldCheck, IdCard, ScanLine, User, Upload, CheckCircle2, Clock, MapPin,
   Camera, Car, X, Navigation, ArrowRight, TrendingUp, ArrowUpRight, Landmark, MessageCircle,
+  Mail, Lock, Eye, EyeOff, Check,
+  Home as HomeIcon, Wallet as WalletIcon, ClipboardList as ClipboardIcon,
+  User as UserIcon, Power as PowerIcon,
 } from "lucide-react";
 import { DriverNavMap } from "./DriverNavMap";
+import { DriverOnlineMap } from "./DriverOnlineMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
+import { useSendbakedDispatch } from "./useSendbakedDispatch";
+import { DriverTripSheet } from "./DriverTripSheet";
+import { useDriverTheme } from "./useDriverTheme";
+
+// Brand assets — served straight from customer_assets CDN (no runtime upload needed).
+const DRIVER_BG_URL     = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/8fsl36ag_Background.png";
+const SENDBAKED_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/9a9i5naj_SENDbakedDark.jpeg";
 
 /* -------------------------------------------------------------------------- */
 /*  API + auth context                                                         */
@@ -86,9 +98,11 @@ const DriverProvider = ({ children }) => {
 /* -------------------------------------------------------------------------- */
 
 const Phone = ({ children }) => (
-  // Mobile-first phone frame — everything under /driver renders in this shell
-  <div className="min-h-screen w-full flex justify-center bg-black text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-    <div className="w-full max-w-[440px] min-h-screen bg-black relative overflow-x-hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
+  // Mobile-first phone frame — everything under /driver renders in this shell.
+  // Uses semantic tokens so the shell automatically flips between the
+  // pure-black dark theme and a clean white light theme via useDriverTheme.
+  <div className="min-h-screen w-full flex justify-center bg-background text-foreground" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="w-full max-w-[440px] min-h-screen bg-background relative overflow-x-hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
       {children}
     </div>
   </div>
@@ -97,16 +111,16 @@ const Phone = ({ children }) => (
 const Header = ({ title, back, right }) => {
   const nav = useNavigate();
   return (
-    <div className="sticky top-0 z-30 flex items-center justify-between px-5 h-14 bg-black/80 backdrop-blur-lg" data-testid="driver-header">
+    <div className="sticky top-0 z-30 flex items-center justify-between px-5 h-14 bg-background/80 backdrop-blur-lg border-b border-border" data-testid="driver-header">
       <button
         onClick={back || (() => nav(-1))}
-        className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5"
+        className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-accent"
         data-testid="driver-back"
         aria-label="Back"
       >
         <ChevronLeft size={20} />
       </button>
-      <div className="text-sm font-medium tracking-wide">{title}</div>
+      <div className="text-sm font-medium tracking-wide text-foreground">{title}</div>
       <div className="w-9 h-9 flex items-center justify-center">{right}</div>
     </div>
   );
@@ -125,7 +139,7 @@ const PrimaryButton = ({ children, disabled, busy, className = "", ...rest }) =>
 );
 
 const GlassCard = ({ children, className = "" }) => (
-  <div className={`rounded-3xl p-5 border border-white/10 bg-white/[0.04] backdrop-blur-xl ${className}`}>{children}</div>
+  <div className={`rounded-3xl p-5 border border-border bg-card/60 backdrop-blur-xl ${className}`}>{children}</div>
 );
 
 const TextField = ({ label, testid, ...rest }) => (
@@ -203,18 +217,57 @@ const OnboardingPage = () => {
 /*  Login (phone) + OTP                                                        */
 /* -------------------------------------------------------------------------- */
 
-const LoginPage = () => {
-  const [country, setCountry] = useState("IN");
-  const [phone, setPhone]     = useState("");
-  const [busy, setBusy]       = useState(false);
-  const nav = useNavigate();
+/* -------------------------------------------------------------------------- */
+/*  Login — mockup-matched: full-bleed biker BG + bottom-sheet card             */
+/*  Modes: Mobile (phone → OTP) · Email (email + password) · Google · Apple    */
+/*  Ref: SENDbaked_Driver login mockup + Fixing_Prompt (2026-02).              */
+/* -------------------------------------------------------------------------- */
 
-  const submit = async (e) => {
+const AppleLogo = () => (
+  <svg width="18" height="20" viewBox="0 0 18 20" fill="currentColor" aria-hidden>
+    <path d="M14.5 10.6c0-2.6 2.1-3.9 2.2-4-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.05 1.8-.85 3.4-.85s2 .85 3.4.83c1.4-.03 2.3-1.24 3.1-2.44.7-1.05 1-1.55 1.5-2.75-.05-.02-2.8-1.07-2.8-4.25zM11.7 3.1c.7-.86 1.2-2.05 1.05-3.23-1 .05-2.24.68-2.97 1.53-.65.76-1.24 1.98-1.09 3.13 1.15.09 2.32-.58 3.01-1.43z"/>
+  </svg>
+);
+const GoogleLogo = () => (
+  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.1 13.5 17.5 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.6 3-2.4 5.5-5.1 7.2l7.8 6c4.6-4.3 7.1-10.5 7.1-17.5z"/>
+    <path fill="#FBBC05" d="M10.4 28.8c-.5-1.5-.8-3.1-.8-4.8s.3-3.3.8-4.8l-7.8-6C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8l7.8-6z"/>
+    <path fill="#34A853" d="M24 48c6.1 0 11.2-2 15-5.5l-7.8-6c-2.1 1.4-4.8 2.3-7.2 2.3-6.5 0-12-4-14-9.5l-7.8 6C6.5 42.6 14.6 48 24 48z"/>
+  </svg>
+);
+
+const LoginPage = () => {
+  const [tab, setTab]       = useState("mobile");   // "mobile" | "email"
+  const [country, setCountry] = useState(() => localStorage.getItem("baked_driver_country") || "IN");
+  const [phone, setPhone]     = useState("");
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [busy, setBusy]         = useState(false);
+  const nav = useNavigate();
+  const { setDriver } = useDriver();
+
+  const persistCountry = (c) => { setCountry(c); localStorage.setItem("baked_driver_country", c); };
+  const dialCode = country === "IN" ? "+91" : "+225";
+
+  const finishLogin = async ({ access_token, driver, next_step }) => {
+    localStorage.setItem("baked_driver_token", access_token);
+    // Remember-me controls localStorage lifetime hint. We can't change JWT ttl
+    // from the client, but we can drop the token from storage on tab close.
+    localStorage.setItem("baked_driver_remember", remember ? "1" : "0");
+    setDriver(driver);
+    if (driver?.status === "approved")          nav("/driver/dashboard");
+    else if (driver?.status === "pending_review") nav("/driver/kyc/submitted");
+    else                                          nav(`/driver/kyc/${next_step || "personal"}`);
+  };
+
+  const submitMobile = async (e) => {
     e.preventDefault();
     const digits = phone.replace(/\D/g, "");
     if (digits.length < 7) return toast.error("Enter a valid phone number");
-    const dial = country === "IN" ? "+91" : "+225";
-    const e164 = `${dial}${digits}`;
+    const e164 = `${dialCode}${digits}`;
     setBusy(true);
     try {
       const { data } = await driverApi.post("/driver/auth/request-otp", { phone_e164: e164, country });
@@ -225,55 +278,465 @@ const LoginPage = () => {
     finally { setBusy(false); }
   };
 
+  const submitEmail = async (e) => {
+    e.preventDefault();
+    const em = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast.error("Enter a valid email");
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post("/driver/auth/email-login", { email: em, password });
+      await finishLogin(data);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        // Auto-register on first sign-in for a smoother flow (matches customer UX).
+        try {
+          const { data } = await driverApi.post("/driver/auth/email-register", { email: em, password, country });
+          toast.success("Account created — welcome to SENDbakēd!");
+          await finishLogin(data);
+        } catch (err2) { toast.error(errMsg(err2)); }
+      } else { toast.error(errMsg(err)); }
+    } finally { setBusy(false); }
+  };
+
+  const googleLogin = useGoogleLogin({
+    flow: "auth-code",
+    ux_mode: "popup",
+    onSuccess: async ({ code }) => {
+      setBusy(true);
+      try {
+        const { data } = await driverApi.post("/driver/auth/google/verify", { code, country });
+        await finishLogin(data);
+      } catch (err) { toast.error(errMsg(err)); }
+      finally { setBusy(false); }
+    },
+    onError: () => toast.error("Google sign-in was cancelled"),
+  });
+
+  const startGoogle = () => {
+    if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) return toast.error("Google Sign-In is not configured");
+    googleLogin();
+  };
+  const startApple = () => toast.info("Apple Sign-In coming soon");
+
+  return (
+    <div
+      className="min-h-screen w-full flex justify-center bg-black text-white relative overflow-hidden"
+      style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+    >
+      <div className="w-full max-w-[440px] min-h-screen relative flex flex-col" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
+        {/* ---- Backdrop art (biker illustration) — right-aligned on wider phones */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${DRIVER_BG_URL})`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+            backgroundPosition: "top right",
+          }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 pointer-events-none"
+             style={{ background: "linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.15) 45%, rgba(10,10,10,.92) 88%)" }}
+             aria-hidden />
+
+        {/* ---- Top brand + welcome copy */}
+        <div className="relative pt-16 px-6" data-testid="driver-login-hero">
+          <img
+            src={SENDBAKED_LOGO_URL}
+            alt="SENDbakēd"
+            className="h-9 w-auto object-contain"
+            style={{ mixBlendMode: "screen" }}
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <div className="text-[11px] tracking-[0.5em] text-white/85 mt-1 font-medium">D R I V E R</div>
+          <h1 className="text-4xl font-bold leading-tight mt-10">
+            Welcome<br />
+            <span style={{ color: "#FF8A1E" }}>Driver!</span>
+          </h1>
+          <p className="text-sm text-white/70 mt-3 max-w-[280px] leading-relaxed">
+            Login to your account and start delivering with us.
+          </p>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* ---- Bottom-sheet login card */}
+        <div
+          className="relative mx-4 mb-4 rounded-3xl border border-white/10 p-5 backdrop-blur-xl"
+          style={{ background: "rgba(20, 20, 20, 0.85)" }}
+          data-testid="driver-login-card"
+        >
+          {/* Tab strip */}
+          <div className="grid grid-cols-2 relative">
+            {[
+              { key: "mobile", label: "Mobile Login", icon: PhoneIcon },
+              { key: "email",  label: "Email Login",  icon: Mail },
+            ].map(({ key, label, icon: I }) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  data-testid={`driver-login-tab-${key}`}
+                  className="relative h-11 flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                  style={{ color: active ? "#FF8A1E" : "rgba(255,255,255,.6)" }}
+                >
+                  <I size={16} />
+                  {label}
+                </button>
+              );
+            })}
+            {/* Underlines */}
+            <div className="col-span-2 grid grid-cols-2 mt-1">
+              <div className="h-0.5 rounded-full" style={{ background: tab === "mobile" ? "#FF8A1E" : "rgba(255,255,255,.15)" }} />
+              <div className="h-0.5 rounded-full" style={{ background: tab === "email"  ? "#FF8A1E" : "rgba(255,255,255,.15)" }} />
+            </div>
+          </div>
+
+          {/* Panel */}
+          {tab === "mobile" ? (
+            <form onSubmit={submitMobile} className="mt-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Mobile Number</div>
+                <div className="flex items-stretch gap-2 h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => persistCountry(country === "IN" ? "CI" : "IN")}
+                    data-testid="driver-login-country"
+                    className="px-4 flex items-center gap-2 border-r border-white/10 hover:bg-white/5"
+                    aria-label="Change country"
+                  >
+                    <PhoneIcon size={16} style={{ color: "#FF8A1E" }} />
+                    <span className="text-sm">{dialCode}</span>
+                  </button>
+                  <input
+                    data-testid="driver-login-phone"
+                    inputMode="numeric" autoFocus placeholder="Enter your mobile number"
+                    value={phone} onChange={(e) => setPhone(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                </div>
+              </div>
+              <RememberMe checked={remember} onChange={setRemember} />
+              <PrimaryOrangeButton busy={busy} type="submit" data-testid="driver-login-send-code">
+                Send Code
+              </PrimaryOrangeButton>
+              <OrDivider />
+              <SocialRow onGoogle={startGoogle} onApple={startApple} />
+              <SignUpFooter onClick={() => setTab("mobile")} />
+            </form>
+          ) : (
+            <form onSubmit={submitEmail} className="mt-5 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Email</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Mail size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-login-email"
+                    type="email" autoComplete="email" placeholder="you@example.com"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white mb-2 flex items-center justify-between">
+                  <span>Password</span>
+                  <button
+                    type="button"
+                    onClick={() => nav("/driver/forgot-password")}
+                    data-testid="driver-login-forgot"
+                    className="text-xs font-medium hover:opacity-80"
+                    style={{ color: "#FF8A1E" }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-transparent overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Lock size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-login-password"
+                    type={showPw ? "text" : "password"} autoComplete="current-password" placeholder="Min 8 characters"
+                    value={password} onChange={(e) => setPassword(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                  <button
+                    type="button" onClick={() => setShowPw(v => !v)}
+                    data-testid="driver-login-toggle-pw"
+                    className="px-4 flex items-center text-white/60 hover:text-white/90"
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <RememberMe checked={remember} onChange={setRemember} />
+              <PrimaryOrangeButton busy={busy} type="submit" data-testid="driver-login-email-submit">
+                Sign In
+              </PrimaryOrangeButton>
+              <OrDivider />
+              <SocialRow onGoogle={startGoogle} onApple={startApple} />
+              <SignUpFooter onClick={() => setTab("mobile")} />
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---- Reusable pieces for the login card ---------------------------------
+
+const RememberMe = ({ checked, onChange }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    data-testid="driver-login-remember"
+    className="flex items-center gap-2 text-sm text-white/80"
+  >
+    <span
+      className="w-5 h-5 rounded-md flex items-center justify-center border transition-colors"
+      style={{
+        borderColor: checked ? "#FF8A1E" : "rgba(255,255,255,.3)",
+        background: checked ? "#FF8A1E" : "transparent",
+      }}
+    >
+      {checked && <Check size={14} strokeWidth={3} style={{ color: "#0a0a0a" }} />}
+    </span>
+    Remember me
+  </button>
+);
+
+const PrimaryOrangeButton = ({ busy, children, ...rest }) => (
+  <button
+    disabled={busy}
+    className="w-full h-14 rounded-2xl text-base font-semibold flex items-center justify-center gap-2 transition-transform active:scale-[.98] disabled:opacity-60"
+    style={{
+      background: "linear-gradient(135deg, #FF9A2B, #FF7A00)",
+      color: "#0a0a0a",
+      boxShadow: "0 16px 40px -18px rgba(255,122,0,.55)",
+    }}
+    {...rest}
+  >
+    {busy ? <Loader2 size={18} className="animate-spin" /> : children}
+  </button>
+);
+
+const OrDivider = () => (
+  <div className="flex items-center gap-3 py-1">
+    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,.12)" }} />
+    <div className="text-[11px] uppercase tracking-widest text-white/50">OR</div>
+    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,.12)" }} />
+  </div>
+);
+
+const SocialRow = ({ onGoogle, onApple }) => (
+  <div className="grid grid-cols-2 gap-3">
+    <button
+      type="button" onClick={onGoogle}
+      data-testid="driver-login-google"
+      className="h-12 rounded-2xl border border-white/15 bg-transparent flex items-center justify-center gap-2 text-sm hover:bg-white/5 active:scale-[.98] transition"
+    >
+      <GoogleLogo /> Continue with Google
+    </button>
+    <button
+      type="button" onClick={onApple}
+      data-testid="driver-login-apple"
+      className="h-12 rounded-2xl border border-white/15 bg-transparent flex items-center justify-center gap-2 text-sm text-white hover:bg-white/5 active:scale-[.98] transition"
+    >
+      <AppleLogo /> Continue with Apple
+    </button>
+  </div>
+);
+
+const SignUpFooter = ({ onClick }) => (
+  <button
+    type="button" onClick={onClick}
+    data-testid="driver-login-signup"
+    className="w-full flex items-center justify-center gap-2 text-sm text-white/80 hover:text-white pt-1"
+  >
+    <span
+      className="w-6 h-6 rounded-full border flex items-center justify-center"
+      style={{ borderColor: "#FF8A1E", color: "#FF8A1E" }}
+      aria-hidden
+    >
+      <ShieldCheck size={12} />
+    </span>
+    New Driver? <span style={{ color: "#FF8A1E" }} className="font-semibold">Sign Up</span> <ChevronRight size={14} />
+  </button>
+);
+
+/* -------------------------------------------------------------------------- */
+/*  Forgot Password — 3-step flow: email → OTP → new password → auto-login    */
+/* -------------------------------------------------------------------------- */
+
+const ForgotPasswordPage = () => {
+  const [step, setStep] = useState("email");   // "email" | "reset" | "done"
+  const [email, setEmail]       = useState("");
+  const [code, setCode]         = useState("");
+  const [newPw, setNewPw]       = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [busy, setBusy]         = useState(false);
+  const nav = useNavigate();
+  const { setDriver } = useDriver();
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setInterval(() => setResendIn(v => Math.max(0, v - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
+
+  const requestOtp = async (opts = {}) => {
+    const em = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast.error("Enter a valid email");
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post("/driver/auth/forgot-password", { email: em });
+      // Always show a positive message — don't leak whether the email is registered.
+      toast.success(opts.resend ? "New reset code sent" : "If that email is registered, we sent a reset code.");
+      if (data.dev_hint) toast.message(`Dev code: ${data.dev_hint}`);
+      setResendIn(30);
+      if (!opts.resend) setStep("reset");
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setBusy(false); }
+  };
+
+  const submitReset = async (e) => {
+    e.preventDefault();
+    if (code.length < 4) return toast.error("Enter the code from your email");
+    if (newPw.length < 8) return toast.error("Password must be at least 8 characters");
+    setBusy(true);
+    try {
+      const { data } = await driverApi.post("/driver/auth/reset-password", {
+        email: email.trim().toLowerCase(), code, new_password: newPw,
+      });
+      localStorage.setItem("baked_driver_token", data.access_token);
+      setDriver(data.driver);
+      toast.success("Password reset — you're signed in!");
+      if (data.driver?.status === "approved") nav("/driver/dashboard");
+      else nav(`/driver/kyc/${data.next_step || "personal"}`);
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setBusy(false); }
+  };
+
   return (
     <Phone>
-      <div className="min-h-screen flex flex-col px-6 pt-16 pb-10">
-        <div className="mb-10">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">SENDbakēd · Driver</div>
-          <h1 className="text-4xl font-bold mt-3">Welcome back</h1>
-          <p className="text-white/60 mt-2">Sign in with your registered mobile number.</p>
-        </div>
-        <form onSubmit={submit} className="space-y-5">
-          <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Country</div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { code: "IN", flag: "🇮🇳", label: "India" },
-                { code: "CI", flag: "🇨🇮", label: "Côte d'Ivoire" },
-              ].map((c) => (
-                <button key={c.code} type="button" onClick={() => setCountry(c.code)}
-                  data-testid={`driver-login-country-${c.code}`}
-                  className={`h-14 rounded-2xl border transition flex items-center justify-center gap-2
-                              ${country === c.code ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/5"}`}>
-                  <span className="text-lg">{c.flag}</span>
-                  <span className="text-sm">{c.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Mobile number</div>
-            <div className="flex items-stretch gap-3">
-              <div className="h-14 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center text-base">
-                {country === "IN" ? "+91" : "+225"}
-              </div>
-              <input
-                data-testid="driver-login-phone"
-                inputMode="numeric" autoFocus placeholder="10-digit mobile"
-                value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 h-14 rounded-2xl bg-white/5 border border-white/10 px-4 text-base outline-none focus:border-orange-500/60"
-              />
-            </div>
-          </div>
-          <PrimaryButton type="submit" busy={busy} data-testid="driver-login-submit">Continue <ChevronRight size={18} /></PrimaryButton>
-          <p className="text-[11px] text-white/40 text-center leading-relaxed">
-            By continuing you agree to the SENDbakēd Driver Partner Terms and privacy policy.
+      <div className="min-h-screen flex flex-col px-6 pt-12 pb-8" data-testid="driver-forgot-page">
+        <button
+          onClick={() => (step === "email" ? nav("/driver/login") : setStep("email"))}
+          data-testid="driver-forgot-back"
+          className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 -ml-2"
+          aria-label="Back"
+        >
+          <ChevronLeft size={20} />
+        </button>
+
+        <div className="mt-6">
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+          <h1 className="text-3xl font-bold mt-3">
+            {step === "email" ? <>Forgot your <span style={{ color: "#FF8A1E" }}>password?</span></> : <>Enter reset <span style={{ color: "#FF8A1E" }}>code</span></>}
+          </h1>
+          <p className="text-sm text-white/70 mt-3 max-w-[320px] leading-relaxed">
+            {step === "email"
+              ? "Enter the email tied to your driver account and we'll send a 6-digit reset code."
+              : <>We emailed a reset code to <span className="text-white font-semibold">{email}</span>. Enter it below along with your new password.</>}
           </p>
-        </form>
+        </div>
+
+        <div className="mt-8 space-y-4">
+          {step === "email" ? (
+            <>
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">Email</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-white/[.03] overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Mail size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-forgot-email"
+                    type="email" autoFocus autoComplete="email" placeholder="you@example.com"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                </div>
+              </div>
+              <PrimaryOrangeButton busy={busy} onClick={() => requestOtp()} data-testid="driver-forgot-send">
+                Send Reset Code
+              </PrimaryOrangeButton>
+              <button
+                type="button" onClick={() => nav("/driver/login")}
+                data-testid="driver-forgot-cancel"
+                className="w-full text-center text-sm text-white/60 hover:text-white/90 pt-1"
+              >
+                Back to sign in
+              </button>
+            </>
+          ) : (
+            <form onSubmit={submitReset} className="space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">6-digit code</div>
+                <input
+                  data-testid="driver-forgot-code"
+                  inputMode="numeric" autoFocus maxLength={8}
+                  placeholder="Paste or type the code"
+                  value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  className="w-full h-14 rounded-2xl bg-white/[.03] border border-white/15 px-4 text-base text-white outline-none tracking-[.6em] font-mono focus:border-orange-500/60"
+                />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white mb-2">New password</div>
+                <div className="flex items-stretch h-14 rounded-2xl border border-white/15 bg-white/[.03] overflow-hidden">
+                  <div className="px-4 flex items-center border-r border-white/10">
+                    <Lock size={16} style={{ color: "#FF8A1E" }} />
+                  </div>
+                  <input
+                    data-testid="driver-forgot-newpw"
+                    type={showPw ? "text" : "password"} autoComplete="new-password" placeholder="Min 8 characters"
+                    value={newPw} onChange={(e) => setNewPw(e.target.value)}
+                    className="flex-1 h-full bg-transparent px-3 text-base text-white outline-none placeholder-white/40"
+                  />
+                  <button
+                    type="button" onClick={() => setShowPw(v => !v)}
+                    data-testid="driver-forgot-toggle-pw"
+                    className="px-4 flex items-center text-white/60 hover:text-white/90"
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <PrimaryOrangeButton busy={busy} type="submit" data-testid="driver-forgot-submit">
+                Reset Password & Sign In
+              </PrimaryOrangeButton>
+              <div className="flex items-center justify-center gap-2 pt-1 text-sm text-white/60">
+                Didn&apos;t get it?
+                {resendIn > 0 ? (
+                  <span className="text-white/50">Resend in {resendIn}s</span>
+                ) : (
+                  <button
+                    type="button" onClick={() => requestOtp({ resend: true })}
+                    data-testid="driver-forgot-resend"
+                    className="hover:opacity-80 font-semibold"
+                    style={{ color: "#FF8A1E" }}
+                  >
+                    Resend code
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </Phone>
   );
 };
+
 
 const OtpPage = () => {
   const [code, setCode]   = useState("");
@@ -698,9 +1161,359 @@ const StepSubmitted = () => {
   );
 };
 
+/**
+ * DriverBottomNav — floating pill nav matching Fixing_Prompt Screenshot 1.
+ * Layout: [Home] [Earnings] [POWER (online toggle)] [Orders] [Profile]
+ * The center button is deliberately larger and colour-coded to the current
+ * online state. It's the primary CTA on this surface.
+ */
+const DriverBottomNav = () => {
+  const { driver, setDriver } = useDriver();
+  const nav = useNavigate();
+  const loc = useLocation();
+  const [toggling, setToggling] = useState(false);
+  const online = !!driver?.is_online;
+  const isApproved = driver?.status === "approved";
+
+  const toggleOnline = async () => {
+    if (!isApproved) { toast.error("Approved drivers only."); return; }
+    setToggling(true);
+    const capture = () => new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 30000 },
+      );
+    });
+    try {
+      const coords = online ? {} : await capture();
+      const { data } = await driverApi.post("/driver/me/online",
+        { is_online: !online, ...(coords.lat ? coords : {}) });
+      setDriver({ ...driver, is_online: data.is_online });
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setToggling(false); }
+  };
+
+  const items = [
+    { key: "home",     label: "Home",     to: "/driver/dashboard", icon: HomeIcon,     testid: "driver-nav-home" },
+    { key: "earnings", label: "Earnings", to: "/driver/wallet",    icon: WalletIcon,   testid: "driver-nav-earnings" },
+    { key: "orders",   label: "Orders",   to: "/driver/orders",    icon: ClipboardIcon,testid: "driver-nav-orders" },
+    { key: "profile",  label: "Profile",  to: "/driver/profile",   icon: UserIcon,     testid: "driver-nav-profile" },
+  ];
+  const activeKey =
+    loc.pathname.includes("/driver/wallet")   ? "earnings" :
+    loc.pathname.includes("/driver/orders")   ? "orders"   :
+    loc.pathname.includes("/driver/profile")  ? "profile"  : "home";
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-[max(env(safe-area-inset-bottom),8px)] pointer-events-none">
+      <div
+        className="pointer-events-auto flex items-center gap-1 rounded-full border border-border bg-card/95 backdrop-blur-md px-2 py-2 shadow-2xl"
+        data-testid="driver-bottom-nav"
+      >
+        {items.slice(0, 2).map((it) => (
+          <NavPill key={it.key} item={it} active={activeKey === it.key} onClick={() => nav(it.to)} />
+        ))}
+
+        {/* Center POWER button — larger and coloured to online state */}
+        <button
+          onClick={toggleOnline}
+          disabled={toggling}
+          data-testid="driver-nav-power"
+          aria-label={online ? "Go offline" : "Go online"}
+          className="mx-1 relative w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
+          style={{
+            background: online
+              ? "linear-gradient(135deg,#22c55e,#16a34a)"
+              : "linear-gradient(135deg,hsl(var(--muted)),hsl(var(--secondary)))",
+            boxShadow: online ? "0 0 0 4px rgba(34,197,94,.22), 0 10px 25px -10px #16a34a" : "none",
+            color: online ? "#0a0a0a" : "hsl(var(--foreground))",
+          }}
+        >
+          {toggling
+            ? <Loader2 size={22} className="animate-spin" />
+            : <PowerIcon size={22} strokeWidth={2.4} />}
+          {online && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-card" />
+          )}
+        </button>
+
+        {items.slice(2).map((it) => (
+          <NavPill key={it.key} item={it} active={activeKey === it.key} onClick={() => nav(it.to)} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const NavPill = ({ item, active, onClick }) => {
+  const Icon = item.icon;
+  return (
+    <button
+      onClick={onClick}
+      data-testid={item.testid}
+      className={`w-14 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-colors ${active ? "" : "text-muted-foreground hover:text-foreground"}`}
+      style={active ? { color: "#FF8A1E" } : undefined}
+    >
+      <Icon size={18} />
+      <span className="text-[9px] font-semibold">{item.label}</span>
+    </button>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Placeholder screens (Orders + Profile) — routed from the bottom nav.       */
+/* -------------------------------------------------------------------------- */
+
+const ComingSoonScreen = ({ title, tagline, icon: Icon = Clock }) => {
+  const nav = useNavigate();
+  return (
+    <Phone>
+      <DriverBottomNav />
+      <div className="px-6 pt-10 pb-32 min-h-screen">
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+        <h1 className="text-3xl font-bold mt-2">{title}</h1>
+        <p className="text-sm text-white/60 mt-2 max-w-[300px]">{tagline}</p>
+        <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
+          <div
+            className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
+            style={{ background: "rgba(255,138,30,.15)", color: "#FF8A1E" }}
+          >
+            <Icon size={22} />
+          </div>
+          <div className="text-lg font-semibold mt-4">Coming next</div>
+          <div className="text-xs text-white/50 mt-1.5 leading-relaxed">
+            We&apos;re polishing this screen. Real deliveries still work — head back to your dashboard to take jobs.
+          </div>
+          <button
+            data-testid="coming-soon-back"
+            onClick={() => nav("/driver/dashboard")}
+            className="mt-6 w-full h-11 rounded-xl text-sm font-semibold"
+            style={{ background: "linear-gradient(135deg,#FF9A2B,#FF7A00)", color: "#0a0a0a" }}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </Phone>
+  );
+};
+
+const DriverProfilePage = () => {
+  const { driver, logout } = useDriver();
+  const nav = useNavigate();
+  const { theme, toggle: toggleTheme } = useDriverTheme();
+  return (
+    <Phone>
+      <DriverBottomNav />
+      <div className="px-6 pt-10 pb-32 min-h-screen" data-testid="driver-profile">
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+        <h1 className="text-3xl font-bold mt-2 text-foreground">Profile</h1>
+        <div className="mt-6 rounded-3xl border border-border bg-card p-5 flex items-center gap-4">
+          {driver?.photo_url ? (
+            <img src={driver.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover" />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-secondary grid place-items-center text-foreground"><User size={22} /></div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-lg font-bold truncate text-foreground">{driver?.name || "Driver"}</div>
+            <div className="text-xs text-muted-foreground truncate">{driver?.email || driver?.phone_e164}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Status · {driver?.status?.replaceAll("_"," ")}</div>
+          </div>
+        </div>
+
+        {/* Theme toggle */}
+        <button
+          data-testid="driver-theme-toggle"
+          onClick={toggleTheme}
+          className="mt-4 w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-border bg-card hover:bg-accent"
+        >
+          <span
+            className="w-9 h-9 rounded-xl grid place-items-center"
+            style={{ background: theme === "dark" ? "rgba(255,138,30,.15)" : "rgba(59,130,246,.15)",
+                     color:      theme === "dark" ? "#FF8A1E" : "#3b82f6" }}
+          >
+            {theme === "dark" ? "🌙" : "☀️"}
+          </span>
+          <div className="flex-1 text-left">
+            <div className="text-sm font-medium text-foreground">Appearance</div>
+            <div className="text-[11px] text-muted-foreground capitalize">{theme} mode · tap to switch</div>
+          </div>
+          <div className={`w-11 h-6 rounded-full flex items-center transition-all ${theme === "dark" ? "bg-foreground/80 justify-end" : "bg-muted justify-start"} p-0.5`}>
+            <span className="w-5 h-5 rounded-full bg-background shadow" />
+          </div>
+        </button>
+
+        <div className="mt-4 grid gap-2">
+          {[
+            { icon: Wallet,       label: "Wallet & payouts", to: "/driver/wallet",   testid: "profile-nav-wallet" },
+            { icon: IdCard,       label: "KYC documents",    to: `/driver/kyc/${driver?.kyc_step || "personal"}`, testid: "profile-nav-kyc" },
+            { icon: ShieldCheck,  label: "Support",          to: "/help",            testid: "profile-nav-support" },
+          ].map((row) => (
+            <button
+              key={row.label}
+              data-testid={row.testid}
+              onClick={() => nav(row.to)}
+              className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-border bg-card hover:bg-accent"
+            >
+              <row.icon size={18} style={{ color: "#FF8A1E" }} />
+              <span className="text-sm font-medium flex-1 text-left text-foreground">{row.label}</span>
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+
+        <button
+          data-testid="profile-logout"
+          onClick={() => { logout(); nav("/driver/login"); }}
+          className="mt-6 w-full h-12 rounded-2xl text-sm font-semibold text-red-500 border border-red-500/30 hover:bg-red-500/10"
+        >
+          <LogOut size={14} className="inline mr-2" /> Sign out
+        </button>
+      </div>
+    </Phone>
+  );
+};
+
 /* -------------------------------------------------------------------------- */
 /*  Dashboard                                                                  */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * SendbakedOfferSheet — matches Fixing_Prompt Screenshot 4.
+ * Rendered as a modal overlay while a real dispatch offer is outstanding.
+ * The countdown is driven from `offer.expires_at` (server-authoritative),
+ * and the whole component auto-dismisses when the parent hook clears `offer`.
+ *
+ * Distinct from the legacy DriverJob-based `IncomingRequestSheet` below,
+ * which powers the older synthetic offer flow. The two never render together
+ * because Phase A disables demo-mode dispatch, so no DriverJob offer arrives.
+ */
+const SendbakedOfferSheet = ({ offer, onAccept, onDecline }) => {
+  const [remain, setRemain] = useState(offer?.expires_in_seconds ?? 60);
+  const [busy, setBusy]     = useState(null); // 'accept' | 'decline' | null
+
+  useEffect(() => {
+    if (!offer?.expires_at) return undefined;
+    const tick = () => {
+      const secs = Math.max(0, Math.round((new Date(offer.expires_at).getTime() - Date.now()) / 1000));
+      setRemain(secs);
+    };
+    tick();
+    const t = setInterval(tick, 500);
+    return () => clearInterval(t);
+  }, [offer]);
+
+  // Best-effort audible + vibration cue (browsers may block autoplay outside
+  // of a user gesture — we swallow the rejection silently).
+  useEffect(() => {
+    if (!offer) return;
+    try {
+      const A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return;
+      const ctx = new A();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = 0.05;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => { try { osc.stop(); ctx.close(); } catch (e) { void e; } }, 400);
+    } catch (e) { void e; }
+    if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120, 60, 200]); } catch (e) { void e; } }
+  }, [offer?.booking_id]);
+
+  if (!offer) return null;
+  const mm = String(Math.floor(remain / 60)).padStart(2, "0");
+  const ss = String(remain % 60).padStart(2, "0");
+  const currency = offer.currency_symbol || (offer.currency === "INR" ? "₹" : (offer.currency || ""));
+  const doAccept  = async () => { setBusy("accept"); const r = await onAccept(); setBusy(null); if (!r?.ok) toast.error(r?.reason === "already_taken" ? "This request was taken by another driver." : "Could not accept."); };
+  const doDecline = async () => { setBusy("decline"); const r = await onDecline(); setBusy(null); if (!r?.ok) toast.error("Could not decline."); };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none" data-testid="incoming-request">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" />
+      <div className="relative w-full max-w-md rounded-t-3xl border border-white/10 bg-neutral-950 text-white p-5 pointer-events-auto"
+           style={{ boxShadow: "0 -20px 60px -20px rgba(255,138,30,.55)" }}>
+        <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="text-xl font-bold leading-tight">Incoming Delivery Request</div>
+            <div className="text-xs text-white/60 mt-0.5">
+              Accept within <span style={{ color: "#FF8A1E" }} className="font-bold text-sm">{mm}:{ss}</span>
+            </div>
+          </div>
+          <div className="px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase flex items-center gap-1"
+               style={{ background: "rgba(255,138,30,.15)", color: "#FF8A1E" }}>
+            ⚡ High Priority
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#FF8A1E" }}>PICKUP</div>
+            <div className="mt-1 text-sm font-bold leading-tight">{offer.pickup?.line1 || "Pickup"}</div>
+            <div className="text-[11px] text-white/60">{offer.pickup?.city}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-emerald-400">DROP OFF</div>
+            <div className="mt-1 text-sm font-bold leading-tight">{offer.receiver_name || "Customer"}</div>
+            <div className="text-[11px] text-white/60">{offer.drop?.line1}, {offer.drop?.city}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-white/[.03] border border-white/10 p-3 grid grid-cols-3 gap-3">
+          <div>
+            <div className="text-[10px] text-white/50">Distance</div>
+            <div className="text-sm font-bold">{offer.distance_km != null ? `${offer.distance_km} km` : "—"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-white/50">Earnings</div>
+            <div className="text-sm font-bold">{offer.earnings != null ? `${currency}${Number(offer.earnings).toFixed(0)}` : "—"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-white/50">Est. Time</div>
+            <div className="text-sm font-bold">{offer.duration_min ? `${offer.duration_min} min` : "—"}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-white/[.03] border border-white/10 p-3">
+            <div className="text-[10px] text-white/50">Delivery Type</div>
+            <div className="text-sm font-bold capitalize">{offer.booking_type} · {offer.vehicle_code}</div>
+          </div>
+          <div className="rounded-xl bg-white/[.03] border border-white/10 p-3">
+            <div className="text-[10px] text-white/50">Payment</div>
+            <div className="text-sm font-bold capitalize">{(offer.payment_method || "cod").toUpperCase()}</div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            data-testid="incoming-decline"
+            disabled={!!busy}
+            onClick={doDecline}
+            className="h-14 rounded-2xl border border-red-500/40 text-red-400 font-semibold hover:bg-red-500/10 disabled:opacity-60"
+          >
+            {busy === "decline" ? "…" : "✕ Reject"}
+            <div className="text-[10px] font-normal text-red-400/70 mt-0.5">Decline this request</div>
+          </button>
+          <button
+            data-testid="incoming-accept"
+            disabled={!!busy}
+            onClick={doAccept}
+            className="h-14 rounded-2xl font-bold text-black active:scale-[.98] disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #34d365, #16a34a)" }}
+          >
+            {busy === "accept" ? "…" : "✓ Accept"}
+            <div className="text-[10px] font-normal opacity-80 mt-0.5">Accept & start delivery</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const DashboardPage = () => {
   const { driver, setDriver, logout } = useDriver();
@@ -709,6 +1522,45 @@ const DashboardPage = () => {
   const [busy, setBusy] = useState(false);
   const { job: activeJob, refresh: refreshJob, setJob: setActiveJob } = useActiveJob(driver?.status === "approved" && driver?.is_online);
   const [reqBusy, setReqBusy] = useState(false);
+  const [activeExpressJob, setActiveExpressJob] = useState(null);
+
+  // Fetch any in-flight ExpressBooking on mount so the route map is restored
+  // after a page reload (mid-delivery). Cheap — one call, no polling.
+  useEffect(() => {
+    if (driver?.status !== "approved") return;
+    let cancelled = false;
+    driverApi.get("/driver/me/express-active").then(({ data }) => {
+      if (!cancelled && data?.booking) setActiveExpressJob(data.booking);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [driver?.status]);
+
+  // Adapt an ExpressBooking → the shape DriverNavMap needs.
+  // Uses booking.status to decide whether the route heads to pickup or dropoff.
+  const navJob = useMemo(() => {
+    if (!activeExpressJob) return null;
+    const st = activeExpressJob.status;
+    const isDropoffPhase = st === "picked_up" || st === "in_transit";
+    return {
+      id: activeExpressJob.id,
+      // DriverNavMap watches for "picked_up"/"arriving_dropoff" to route to dropoff.
+      status: isDropoffPhase ? "picked_up" : "arriving_pickup",
+      pickup:  { lat: Number(activeExpressJob.pickup?.latitude),  lng: Number(activeExpressJob.pickup?.longitude)  },
+      dropoff: { lat: Number(activeExpressJob.drop?.latitude   || activeExpressJob.dropoff?.latitude),
+                 lng: Number(activeExpressJob.drop?.longitude  || activeExpressJob.dropoff?.longitude) },
+    };
+  }, [activeExpressJob]);
+
+  // --- Phase A: SENDbakēd real-dispatch hook (GPS + WS + offer) ---
+  const dispatch = useSendbakedDispatch({
+    enabled: driver?.status === "approved" && !!driver?.is_online,
+    hasActiveJob: !!activeJob && activeJob.status !== "offered",
+    onJobAccepted: (booking) => {
+      toast.success("Job accepted — head to pickup!");
+      setActiveExpressJob(booking);
+      refreshJob();
+    },
+  });
 
   // If there's an in-flight (non-offered) job, jump straight to the delivery screen.
   useEffect(() => {
@@ -746,9 +1598,25 @@ const DashboardPage = () => {
       return;
     }
     setBusy(true);
+    // On the way UP: try to capture a first GPS fix so the backend has a
+    // location the moment dispatch queries it. Failure is fine — the hook's
+    // watchPosition takes over immediately after.
+    const capture = () => new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 30000 },
+      );
+    });
     try {
-      const { data } = await driverApi.post("/driver/me/online", { is_online: !driver.is_online });
+      const coords = driver.is_online ? {} : await capture();
+      const { data } = await driverApi.post("/driver/me/online",
+        { is_online: !driver.is_online, ...(coords.lat ? coords : {}) });
       setDriver({ ...driver, is_online: data.is_online });
+      if (!driver.is_online && !coords.lat) {
+        toast.message("Enable location so we can send you jobs nearby.");
+      }
     } catch (err) { toast.error(errMsg(err)); }
     finally { setBusy(false); }
   };
@@ -760,6 +1628,44 @@ const DashboardPage = () => {
 
   return (
     <Phone>
+      <SendbakedOfferSheet
+        offer={dispatch.offer}
+        onAccept={dispatch.accept}
+        onDecline={dispatch.decline}
+      />
+      <DriverBottomNav />
+
+      {/* Priority: active job (route + pins) > online idle (single pin) > offline cards */}
+      {navJob ? (
+        <div className="fixed inset-0 bg-background" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
+          <DriverNavMap
+            job={navJob}
+            className="absolute inset-0"
+            rounded={false}
+            chromeless
+            onDriverPositionChange={() => { /* GPS is already pushed by useSendbakedDispatch */ }}
+          />
+          <DriverTripSheet
+            booking={activeExpressJob}
+            driverLoc={dispatch.lastCoords}
+            apiBase={API_BASE}
+            token={typeof window !== "undefined" ? localStorage.getItem("baked_driver_token") : ""}
+            onAdvanced={(updated) => setActiveExpressJob(updated)}
+            onDelivered={() => { setActiveExpressJob(null); refreshJob(); nav("/driver/job/success"); }}
+            onOpenChat={() => toast.message("In-app chat opens after Slice 3 payments — call is enabled now.")}
+          />
+        </div>
+      ) : online ? (
+        <div className="fixed inset-0" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
+          <DriverOnlineMap
+            driverCoords={dispatch.lastCoords || (driver?.current_lat && driver?.current_lng
+              ? { lat: Number(driver.current_lat), lng: Number(driver.current_lng) }
+              : null)}
+            onMenu={() => nav("/driver/profile")}
+            onNotifications={() => toast.message("No new notifications")}
+          />
+        </div>
+      ) : (
       <div className="px-6 pt-8 pb-24" data-testid="driver-dashboard">
         <div className="flex items-center justify-between">
           <div>
@@ -870,6 +1776,7 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Slice 2 — incoming request overlay */}
       {activeJob && activeJob.status === "offered" && (
@@ -1194,6 +2101,7 @@ const WalletPage = () => {
 
   if (!summary) return (
     <Phone><Header title="Wallet" back={() => nav("/driver/dashboard")} />
+      <DriverBottomNav />
       <div className="h-64 grid place-items-center"><Loader2 className="animate-spin" size={22} /></div>
     </Phone>
   );
@@ -1205,6 +2113,7 @@ const WalletPage = () => {
   return (
     <Phone>
       <Header title="Wallet" back={() => nav("/driver/dashboard")} />
+      <DriverBottomNav />
       <div className="px-6 pt-4 pb-28" data-testid="driver-wallet-page">
         {/* Balance hero */}
         <div className="rounded-[28px] p-6 mt-2 relative overflow-hidden"
@@ -1389,14 +2298,31 @@ const NeedsAuth = ({ children }) => {
   return children;
 };
 
+/**
+ * Guard for /driver/kyc/* routes — Social.docx §6.
+ * Approved drivers should NEVER be looped back into KYC pages via bookmarks,
+ * stale links, or hitting the back button after approval. Bounce them
+ * straight to the dashboard.
+ */
+const NeedsKyc = ({ children }) => {
+  const { driver, loading } = useDriver();
+  if (loading) return <Phone><div className="h-screen grid place-items-center"><Loader2 className="animate-spin" size={22} /></div></Phone>;
+  if (!driver) return <Navigate to="/driver/login" replace />;
+  if (driver.status === "approved") return <Navigate to="/driver/dashboard" replace />;
+  return children;
+};
+
 export const DriverApp = () => {
+  const { theme } = useDriverTheme();
   useEffect(() => {
     const prev = document.title;
     document.title = "SENDbakēd Driver";
-    // Force dark theme + status bar hint for the phone
-    document.documentElement.style.background = "#000";
-    return () => { document.title = prev; document.documentElement.style.background = ""; };
+    return () => { document.title = prev; };
   }, []);
+  // NOTE: `useDriverTheme` toggles the .dark class on <html>, and the
+  // Phone shell reads bg-background — so the driver PWA now supports
+  // both light and dark modes with a single toggle (see Profile page).
+  void theme; // consumed via CSS var cascade — nothing to do here directly.
 
   return (
     <DriverProvider>
@@ -1404,19 +2330,22 @@ export const DriverApp = () => {
         <Route path=""              element={<Gate />} />
         <Route path="onboarding"    element={<OnboardingPage />} />
         <Route path="login"         element={<LoginPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="otp"           element={<OtpPage />} />
-        <Route path="kyc/personal"  element={<NeedsAuth><StepPersonal /></NeedsAuth>} />
-        <Route path="kyc/id"        element={<NeedsAuth><StepId /></NeedsAuth>} />
-        <Route path="kyc/licence"   element={<NeedsAuth><StepLicence /></NeedsAuth>} />
-        <Route path="kyc/selfie"    element={<NeedsAuth><StepSelfie /></NeedsAuth>} />
-        <Route path="kyc/vehicle"   element={<NeedsAuth><StepVehicle /></NeedsAuth>} />
-        <Route path="kyc/bank"      element={<NeedsAuth><StepBank /></NeedsAuth>} />
-        <Route path="kyc/emergency" element={<NeedsAuth><StepEmergency /></NeedsAuth>} />
-        <Route path="kyc/submitted" element={<NeedsAuth><StepSubmitted /></NeedsAuth>} />
+        <Route path="kyc/personal"  element={<NeedsKyc><StepPersonal /></NeedsKyc>} />
+        <Route path="kyc/id"        element={<NeedsKyc><StepId /></NeedsKyc>} />
+        <Route path="kyc/licence"   element={<NeedsKyc><StepLicence /></NeedsKyc>} />
+        <Route path="kyc/selfie"    element={<NeedsKyc><StepSelfie /></NeedsKyc>} />
+        <Route path="kyc/vehicle"   element={<NeedsKyc><StepVehicle /></NeedsKyc>} />
+        <Route path="kyc/bank"      element={<NeedsKyc><StepBank /></NeedsKyc>} />
+        <Route path="kyc/emergency" element={<NeedsKyc><StepEmergency /></NeedsKyc>} />
+        <Route path="kyc/submitted" element={<NeedsKyc><StepSubmitted /></NeedsKyc>} />
         <Route path="dashboard"     element={<NeedsAuth><DashboardPage /></NeedsAuth>} />
         <Route path="job/live"      element={<NeedsAuth><JobPage /></NeedsAuth>} />
         <Route path="job/success"   element={<NeedsAuth><JobSuccessPage /></NeedsAuth>} />
         <Route path="wallet"        element={<NeedsAuth><WalletPage /></NeedsAuth>} />
+        <Route path="orders"        element={<NeedsAuth><ComingSoonScreen title="Orders" tagline="Your job history & active deliveries land here soon." icon={ClipboardIcon} /></NeedsAuth>} />
+        <Route path="profile"       element={<NeedsAuth><DriverProfilePage /></NeedsAuth>} />
         <Route path="*"             element={<Navigate to="/driver" replace />} />
       </Routes>
     </DriverProvider>

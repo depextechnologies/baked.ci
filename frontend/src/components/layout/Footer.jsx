@@ -3,124 +3,137 @@ import { Link } from "react-router-dom";
 import { BakedLogo } from "./BakedLogo";
 
 /**
- * Global site footer — content structure per Fixing_Prompt.docx (2026-07-29).
+ * Site footer — 4-section structure per user spec (Issue #14 rework).
+ *   Section 1 — BRAND: logo + Google Play + Apple App Store buttons
+ *   Section 2 — USEFUL LINKS: About us · FAQs · Blogs/News · Career
+ *   Section 3 — OPPORTUNITIES: Partner with Baked · Sell on Baked · Delivery Partner · Invest with us
+ *   Section 4 — SUPPORT: Help Center · Contact Us · Terms & Conditions · Privacy Policy
  *
- * Removed: platform description + "Platform" column + "Available in" column.
- * Added:   "Useful Links" (2 sub-columns) and "Opportunities" column.
- * Kept:    "Support" column (per user's follow-up instruction).
- *
- * Styling, layout, and premium black theme are unchanged — this is a pure
- * navigation/content update. Every link is a real <Link> to its own route so
- * dedicated landing pages can be filled in without touching the footer again.
+ * Requirement: keep all existing correct URLs / routes for these pages.
  */
 
 const LinkList = ({ items }) => (
-  <ul className="text-xs text-muted-foreground space-y-2">
-    {items.map(([label, to]) => {
-      // External links (absolute URLs) render as regular <a> so they route
-      // to real domains — react-router's <Link to="https://…" /> would
-      // treat the href as a client-side path and 404.
-      const isExternal = /^https?:\/\//i.test(to);
-      const testId = `footer-link-${to.replace(/^https?:\/\//i, "").replace(/^\//, "").replace(/\W+/g, "-")}`;
-      return (
-        <li key={to}>
-          {isExternal ? (
-            <a
-              href={to}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid={testId}
-              className="hover:text-foreground motion-fast"
-            >
-              {label}
-            </a>
-          ) : (
-            <Link
-              to={to}
-              data-testid={testId}
-              className="hover:text-foreground motion-fast"
-            >
-              {label}
-            </Link>
-          )}
-        </li>
-      );
-    })}
+  <ul className="text-xs text-muted-foreground space-y-2.5">
+    {items.map(([label, to]) => (
+      <li key={to}>
+        <Link
+          to={to}
+          data-testid={`footer-link-${to.replace(/^\//, "").replace(/\W+/g, "-")}`}
+          className="hover:text-foreground motion-fast"
+        >
+          {label}
+        </Link>
+      </li>
+    ))}
   </ul>
 );
 
-// Useful Links · Column 1 — Partners & Sellers
-const PARTNERS_SELLERS = [
-  ["SHOPbakēd Seller",  "/shop/seller"],
-  ["FOODbakēd Partner", "/food/partner"],
-  ["MARTbakēd Partner", "/partner-portal/martbaked/login"],
-  ["MARTbakēd Seller",  "/mart/seller"],
-  ["AUTObakēd Partner", "/auto/partner"],
-  ["AUTObakēd Seller",  "/auto/seller"],
+// SECTION 2 — Useful links
+const USEFUL_LINKS = [
+  ["About us",   "/about"],
+  ["FAQs",       "/help"],
+  ["Blogs/News", "/blog"],
+  ["Career",     "/careers"],
 ];
 
-// Useful Links · Column 2 — Business & Resources
-const BUSINESS_RESOURCES = [
-  ["IMMObakēd Partner", "/immo/partner"],
-  ["IMMObakēd Agent",   "/immo/agent"],
-  ["IMMObakēd Broker",  "/immo/broker"],
-  ["Blog",              "/blog"],
-  ["News",              "/news"],
-  ["Careers",           "/careers"],
-  ["Help Center",       "/help"],
-];
-
-// Opportunities — per Fixing_Prompt.docx (Partner Hub 2026-02):
-// five canonical partner entry points. "Partner with BAKĒD" opens the new
-// /partner hub with four opportunity cards; "Sell on BAKĒD" jumps directly
-// to the seller landing at /Sell-on-baked.
+// SECTION 3 — Opportunities
 const OPPORTUNITIES = [
-  ["Partner with BAKĒD",       "/partner"],
-  ["Sell on BAKĒD",            "/Sell-on-baked"],
-  ["Franchise Opportunities",  "/franchise"],
-  ["Delivery Partner",         "https://baked-platform.preview.emergentagent.com/driver"],
-  ["Merchant Registration",    "/merchant-registration"],
+  ["Partner with Baked", "/partner"],
+  ["Sell on Baked",      "/Sell-on-baked"],
+  ["Delivery Partner",   "/driver"],
+  ["Invest with us",     "/invest"],
 ];
 
-// Support — kept as-is per user's request. Existing routes preserved.
+// SECTION 4 — Support
 const SUPPORT = [
-  ["Help Center", "/help"],
-  ["Contact us", "/contact"],
-  ["Terms",      "/terms"],
-  ["Privacy",    "/privacy"],
+  ["Help Center",         "/help"],
+  ["Contact Us",          "/contact"],
+  ["Terms & Conditions",  "/terms"],
+  ["Privacy Policy",      "/privacy"],
 ];
+
+// Google Play badge — official svg-ish rendering
+const GooglePlayBadge = () => (
+  <a
+    href="https://play.google.com/store"
+    target="_blank"
+    rel="noopener noreferrer"
+    data-testid="footer-store-google-play"
+    aria-label="Get it on Google Play"
+    className="inline-flex items-center gap-2 h-11 px-3 rounded-lg bg-black text-white border border-white/20 hover:bg-black/80 motion-fast"
+  >
+    <svg width="18" height="20" viewBox="0 0 40 44" aria-hidden="true">
+      <path fill="#EA4335" d="M22.3 21L3.8 2.6C4.4 2.2 5.1 2 5.9 2L28 15.1z" />
+      <path fill="#FBBC04" d="M28 15.1L38.4 21c1 .5 1 2 0 2.5L28 29.4l-5.7-8.4z" />
+      <path fill="#34A853" d="M22.3 21L28 29.4 5.9 42.5c-.8 0-1.5-.2-2.1-.6z" />
+      <path fill="#4285F4" d="M3.8 2.6L22.3 21 3.8 39.4C3 39 2.5 38 2.5 37V5c0-1 .5-2 1.3-2.4z" />
+    </svg>
+    <div className="leading-tight text-left">
+      <div className="text-[9px] uppercase tracking-widest">Get it on</div>
+      <div className="text-sm font-semibold -mt-0.5">Google Play</div>
+    </div>
+  </a>
+);
+
+// Apple App Store badge
+const AppStoreBadge = () => (
+  <a
+    href="https://www.apple.com/app-store/"
+    target="_blank"
+    rel="noopener noreferrer"
+    data-testid="footer-store-app-store"
+    aria-label="Download on the App Store"
+    className="inline-flex items-center gap-2 h-11 px-3 rounded-lg bg-black text-white border border-white/20 hover:bg-black/80 motion-fast"
+  >
+    <svg width="18" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+    </svg>
+    <div className="leading-tight text-left">
+      <div className="text-[9px] uppercase tracking-widest">Download on the</div>
+      <div className="text-sm font-semibold -mt-0.5">App Store</div>
+    </div>
+  </a>
+);
+
+const SectionTitle = ({ children }) => (
+  <div className="text-sm font-semibold mb-4">{children}</div>
+);
 
 export const Footer = () => (
-  <footer className="mt-16 border-t border-border">
-    <div className="baked-container py-10 grid gap-8 md:grid-cols-5">
-      {/* Brand column — logo only, no description (per spec) */}
+  <footer className="mt-16 border-t border-border" data-testid="site-footer">
+    <div className="baked-container py-12 grid gap-10 md:grid-cols-4">
+      {/* SECTION 1 — Brand */}
       <div>
         <BakedLogo size="md" />
-      </div>
-
-      {/* Useful Links — two sub-columns per spec */}
-      <div className="md:col-span-2">
-        <div className="text-sm font-semibold mb-3">Useful Links</div>
-        <div className="grid grid-cols-2 gap-6">
-          <LinkList items={PARTNERS_SELLERS} />
-          <LinkList items={BUSINESS_RESOURCES} />
+        <div className="mt-6 flex flex-col gap-3" data-testid="footer-store-badges">
+          <GooglePlayBadge />
+          <AppStoreBadge />
         </div>
       </div>
 
-      {/* Opportunities — replaces "Available in" */}
+      {/* SECTION 2 — Useful links */}
       <div>
-        <div className="text-sm font-semibold mb-3">Opportunities</div>
+        <SectionTitle>Useful links</SectionTitle>
+        <LinkList items={USEFUL_LINKS} />
+      </div>
+
+      {/* SECTION 3 — Opportunities */}
+      <div>
+        <SectionTitle>Opportunities</SectionTitle>
         <LinkList items={OPPORTUNITIES} />
       </div>
 
-      {/* Support — unchanged */}
+      {/* SECTION 4 — Support */}
       <div>
-        <div className="text-sm font-semibold mb-3">Support</div>
+        <SectionTitle>Support</SectionTitle>
         <LinkList items={SUPPORT} />
       </div>
     </div>
-    <div className="border-t border-border/60 py-4 text-center text-[11px] text-muted-foreground">
-      © 2026 BAKĒD. Built for Africa, ready for the world.
+
+    <div className="border-t border-border/60">
+      <div className="baked-container py-4 text-[11px] text-muted-foreground text-center" data-testid="footer-copyright">
+        © {new Date().getFullYear()} BAKĒD. All rights reserved.
+      </div>
     </div>
   </footer>
 );

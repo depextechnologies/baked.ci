@@ -38,6 +38,7 @@ from core.models import (
     Supplier, SupplierApplication, SupplierBankInfo,
     SupplierCategoryInterest, SupplierContact, SupplierDocument,
     SupplierReviewAudit, SupplierSupplyLocation,
+    SupplierWarehouseAssignment, Warehouse,
     SUPPLIER_BUSINESS_TYPES, SUPPLIER_CONTACT_RELATIONS,
     SUPPLIER_DOCUMENT_TYPES,
 )
@@ -884,3 +885,166 @@ async def admin_unsuspend_supplier(
     ))
     await session.commit()
     return _supplier_dict(supplier)
+
+
+# ===========================================================================
+# Social.docx §9 — Supplier ↔ Warehouse (Darkstore / FC) assignment
+# ===========================================================================
+
+
+class WarehouseAssignmentIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    warehouse_id: str
+    is_primary: bool = False
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+def _wh_assignment_dict(row: SupplierWarehouseAssignment, wh: Warehouse) -> dict:
+    return {
+        "id": row.id,
+        "supplier_id": row.supplier_id,
+        "warehouse_id": row.warehouse_id,
+        "is_primary": row.is_primary,
+        "notes": row.notes,
+        "warehouse": {
+            "id": wh.id, "code": wh.code, "name": wh.name,
+            "city": wh.city, "country": wh.country, "status": wh.status,
+        } if wh else None,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+@admin_router.get("/{sid}/warehouses")
+async def admin_list_supplier_warehouses(
+    sid: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Return every warehouse currently assigned to this supplier, plus a
+    catalogue of eligible warehouses (same country + module=mart, active)
+    that the admin can pick from."""
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    # Assigned rows joined to warehouse metadata.
+    assigns = (await session.execute(
+        select(SupplierWarehouseAssignment, Warehouse)
+        .join(Warehouse, Warehouse.id == SupplierWarehouseAssignment.warehouse_id)
+        .where(SupplierWarehouseAssignment.supplier_id == sid)
+        .order_by(SupplierWarehouseAssignment.is_primary.desc(),
+                  SupplierWarehouseAssignment.created_at.asc())
+    )).all()
+
+    # Eligible catalogue — same country, active, not already assigned.
+    assigned_ids = {a.warehouse_id for a, _ in assigns}
+    eligible = (await session.execute(
+        select(Warehouse).where(
+            Warehouse.country == supplier.country,
+            Warehouse.is_active == True,  # noqa: E712
+        ).order_by(Warehouse.code)
+    )).scalars().all()
+
+    return {
+        "supplier": {
+            "id": supplier.id, "business_name": supplier.business_name,
+            "code": supplier.code, "country": supplier.country, "status": supplier.status,
+        },
+        "assignments": [_wh_assignment_dict(a, w) for a, w in assigns],
+        "eligible": [
+            {"id": w.id, "code": w.code, "name": w.name, "city": w.city,
+             "status": w.status, "is_assigned": w.id in assigned_ids}
+            for w in eligible
+        ],
+    }
+
+
+@admin_router.post("/{sid}/warehouses", status_code=201)
+async def admin_assign_supplier_warehouse(
+    sid: str, payload: WarehouseAssignmentIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Assign a warehouse to the supplier. `is_primary=true` demotes any
+    existing primary in the same country to non-primary (only one primary
+    per supplier)."""
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    wh = await session.get(Warehouse, payload.warehouse_id)
+    if not wh:
+        raise HTTPException(404, "Warehouse not found")
+    if wh.country != supplier.country:
+        raise HTTPException(400, {
+            "code": "cross_country_denied",
+            "message": "Supplier and warehouse must be in the same country.",
+        })
+
+    # Idempotency — if the row already exists, PATCH-style update instead of 409.
+    existing = (await session.execute(
+        select(SupplierWarehouseAssignment).where(
+            SupplierWarehouseAssignment.supplier_id == sid,
+            SupplierWarehouseAssignment.warehouse_id == payload.warehouse_id,
+        )
+    )).scalar_one_or_none()
+
+    if payload.is_primary:
+        # Demote current primary(ies) — one primary per supplier.
+        others = (await session.execute(
+            select(SupplierWarehouseAssignment).where(
+                SupplierWarehouseAssignment.supplier_id == sid,
+                SupplierWarehouseAssignment.is_primary == True,  # noqa: E712
+            )
+        )).scalars().all()
+        for o in others:
+            if not existing or o.id != existing.id:
+                o.is_primary = False
+
+    if existing:
+        existing.is_primary = payload.is_primary
+        existing.notes = payload.notes
+        row = existing
+    else:
+        row = SupplierWarehouseAssignment(
+            supplier_id=sid,
+            warehouse_id=payload.warehouse_id,
+            is_primary=payload.is_primary,
+            notes=payload.notes,
+            assigned_by_admin_id=admin.id,
+        )
+        session.add(row)
+
+    session.add(SupplierReviewAudit(
+        supplier_id=sid, actor_admin_id=admin.id,
+        action="warehouse_assigned",
+        notes=f"warehouse={wh.code} primary={payload.is_primary}",
+    ))
+    await session.commit()
+    await session.refresh(row)
+    return _wh_assignment_dict(row, wh)
+
+
+@admin_router.delete("/{sid}/warehouses/{warehouse_id}", status_code=204)
+async def admin_unassign_supplier_warehouse(
+    sid: str, warehouse_id: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    row = (await session.execute(
+        select(SupplierWarehouseAssignment).where(
+            SupplierWarehouseAssignment.supplier_id == sid,
+            SupplierWarehouseAssignment.warehouse_id == warehouse_id,
+        )
+    )).scalar_one_or_none()
+    if not row:
+        raise HTTPException(404, "Assignment not found")
+    wh = await session.get(Warehouse, warehouse_id)
+    await session.delete(row)
+    session.add(SupplierReviewAudit(
+        supplier_id=sid, actor_admin_id=admin.id,
+        action="warehouse_unassigned",
+        notes=f"warehouse={wh.code if wh else warehouse_id}",
+    ))
+    await session.commit()
+

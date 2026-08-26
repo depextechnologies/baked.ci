@@ -141,7 +141,7 @@ async def ensure_draft_invoice_for(session: AsyncSession, po_id: str) -> Optiona
 
     session.add(SupplierInvoiceAudit(
         invoice_id=inv.id, action="auto_draft", to_status="draft",
-        actor_kind="system", actor_label="MARTbaked auto-draft",
+        actor_kind="system", actor_label="MARTbakēd auto-draft",
         notes=f"Auto-generated from received PO {po.po_code}",
     ))
     # Alert supplier that a draft is waiting for their submission
@@ -154,7 +154,7 @@ async def ensure_draft_invoice_for(session: AsyncSession, po_id: str) -> Optiona
         body=f"PO {po.po_code} fully received — upload your invoice PDF and submit for approval.",
         link="/martbaked/sellers/portal/invoices",
         entity_kind="supplier_invoice", entity_id=inv.id,
-        actor_label="MARTbaked",
+        actor_label="MARTbakēd",
     )
     return inv
 

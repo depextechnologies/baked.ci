@@ -122,7 +122,7 @@ export const MobileProfile = () => {
           <Row testid="m-prof-nav-wallet" icon={Wallet2} label="Wallet" sub={`${country?.currency_symbol || country?.currency || ""} 0.00 · Coming soon`} onClick={() => nav("/wallet")} tone="#1D9BF0" />
           <Row testid="m-prof-nav-activities" icon={ClipboardList} label="Activities" sub="Orders, deliveries, property & vehicle inquiries" onClick={() => nav("/profile/activities")} tone="#A659FF" />
           <Row testid="m-prof-nav-addresses" icon={MapPin} label="Addresses" sub={`${stats.addresses} saved · Used across all baked services`} onClick={() => nav("/profile/addresses")} tone="#77BC1F" />
-          <Row testid="m-prof-nav-rewards" icon={Gift} label="baked Rewards" sub={`${points} points available`} onClick={() => nav("/profile/rewards")} tone="#FCC44C" />
+          <Row testid="m-prof-nav-rewards" icon={Gift} label="BAKĒD Rewards" sub={`${points} points available`} onClick={() => nav("/profile/rewards")} tone="#FCC44C" />
           <Row testid="m-prof-nav-refer" icon={Users2} label="Refer & Earn" sub="Invite friends, both earn rewards" onClick={() => nav("/profile/refer")} tone="#FF4C52" />
           <Row testid="m-prof-nav-help" icon={LifeBuoy} label="Help & Support" sub={stats.tickets_open ? `${stats.tickets_open} open tickets` : "We're here 24/7"} onClick={() => nav("/profile/help")} tone="#1D9BF0" />
           <Row testid="m-prof-nav-settings" icon={Settings2} label="Settings" sub="Notifications, language, region, privacy" onClick={() => nav("/profile/settings")} tone="#8b8b8b" />
