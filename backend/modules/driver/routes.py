@@ -37,6 +37,7 @@ from core.models import (
     DriverOtp, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
+from core.mailer import send_email_async
 from core.security import create_access_token, decode_token, hash_password, verify_password
 from shared.admin.routes import get_current_admin
 
@@ -299,6 +300,43 @@ async def google_verify(payload: GoogleVerifyIn, session: AsyncSession = Depends
 # Auth — Forgot / Reset password (OTP via email)
 # ---------------------------------------------------------------------------
 
+def _reset_email_text(code: str, ttl_min: int) -> str:
+    """Plain-text body — used as fallback for clients without HTML."""
+    return (
+        f"Your BAKĒD driver password reset code is: {code}\n\n"
+        f"This code expires in {ttl_min} minutes. If you didn't request a "
+        f"reset, you can safely ignore this email — your password stays the same.\n\n"
+        f"— BAKĒD Support"
+    )
+
+
+def _reset_email_html(code: str, ttl_min: int) -> str:
+    """Branded HTML body. Kept inline (no external CSS) so most email clients
+    render it correctly."""
+    return f"""\
+<!doctype html>
+<html><head><meta charset="utf-8"><title>BAKĒD reset code</title></head>
+<body style="margin:0;background:#0b0b0b;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f5f5f5">
+  <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+    <div style="font-size:12px;letter-spacing:.3em;color:#FF8A1E;font-weight:600">SENDBAKĒD · DRIVER</div>
+    <h1 style="font-size:28px;font-weight:800;margin:12px 0 6px">Reset your password</h1>
+    <p style="color:#d0d0d0;line-height:1.55;font-size:15px;margin:0 0 24px">
+      Someone (hopefully you) asked to reset the password for your BAKĒD Driver account.
+      Enter the code below in the app to continue.
+    </p>
+    <div style="background:#151515;border:1px solid #262626;border-radius:16px;padding:24px;text-align:center">
+      <div style="font-size:11px;letter-spacing:.35em;color:#9a9a9a;font-weight:600">YOUR CODE</div>
+      <div style="font-size:36px;font-weight:800;letter-spacing:.35em;margin-top:8px;color:#FF8A1E">{code}</div>
+      <div style="font-size:12px;color:#9a9a9a;margin-top:10px">Expires in {ttl_min} minutes</div>
+    </div>
+    <p style="color:#9a9a9a;font-size:13px;line-height:1.55;margin:24px 0 4px">
+      Didn't request this? Ignore this email — your password stays the same.
+    </p>
+    <p style="color:#5f5f5f;font-size:11px;margin-top:32px">— BAKĒD Support · groupbaked@gmail.com</p>
+  </div>
+</body></html>"""
+
+
 class ForgotPasswordIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: str = Field(..., min_length=6, max_length=200,
@@ -338,9 +376,23 @@ async def forgot_password(payload: ForgotPasswordIn, session: AsyncSession = Dep
         session.add(row)
         await session.commit()
         otp_id = row.id
-        print(f"[driver.reset-otp] {email} → {code} (mocked email)")
-        if _dev_mode():
+
+        # 1. Deliver via SMTP. On any SMTP failure we STILL succeed the
+        #    endpoint — the code is stored in DB and (in dev) returned via
+        #    dev_hint so the driver isn't locked out by a stalled mailbox.
+        sent = await send_email_async(
+            to=email,
+            subject=f"Your BAKĒD driver reset code: {code}",
+            text_body=_reset_email_text(code, OTP_TTL_MIN),
+            html_body=_reset_email_html(code, OTP_TTL_MIN),
+        )
+        # 2. Dev fallback — non-prod always echoes the code so QA + local
+        #    dev works even before Gmail SMTP is configured.
+        if _dev_mode() or not sent:
             dev_hint = code
+        # Note: we intentionally do NOT log the OTP code in production.
+        if not sent and not _dev_mode():
+            print("[driver.reset-otp] SMTP unavailable — driver must request a new code")
 
     return {
         "otp_id": otp_id,

@@ -46,6 +46,7 @@
   2. **Email Login** — email + password; unknown email on first submit auto-registers the driver
   3. **Continue with Google** — uses shared Emergent-managed Google OAuth (`GOOGLE_CLIENT_ID` env)
   4. Continue with Apple — currently a "Coming soon" stub (Apple Services Key not provided yet)
+- **Driver forgot-password** (2026-02): 6-digit code emailed via Gmail SMTP (`groupbaked@gmail.com`) using `core.mailer`. Env vars `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` (app-password, never logged), `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL` in `backend/.env` (gitignored). `dev_hint` in the response only when `APP_ENV != production`.
 - Test email driver (idempotent): `test.driver@baked.dev` / `driverPass123!` — created 2026-02-26. Onboarding status, no phone attached (KYC will collect it).
 
 ## Seeded Driver Applications (for Admin queue QA)

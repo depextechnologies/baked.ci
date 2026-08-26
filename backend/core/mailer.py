@@ -23,12 +23,14 @@ def _cfg() -> Optional[dict]:
     host = os.environ.get("SMTP_HOST")
     if not host:
         return None
+    # Accept both SMTP_USER (legacy) and SMTP_USERNAME (Gmail convention).
+    user = os.environ.get("SMTP_USER") or os.environ.get("SMTP_USERNAME")
     return {
         "host": host,
         "port": int(os.environ.get("SMTP_PORT", "587")),
-        "user": os.environ.get("SMTP_USER"),
+        "user": user,
         "password": os.environ.get("SMTP_PASSWORD"),
-        "from_email": os.environ.get("SMTP_FROM_EMAIL", "no-reply@baked.ci"),
+        "from_email": os.environ.get("SMTP_FROM_EMAIL", user or "no-reply@baked.ci"),
         "from_name": os.environ.get("SMTP_FROM_NAME", "BAKĒD"),
         "use_tls": (os.environ.get("SMTP_USE_TLS", "true").lower() == "true"),
     }
@@ -46,7 +48,7 @@ def send_email(*, to: str, subject: str, html_body: str, text_body: Optional[str
     """
     cfg = _cfg()
     if not cfg:
-        logger.info("mailer.no_op to=%s subject=%r (SMTP not configured)", to, subject)
+        logger.info("mailer.no_op to=%s (SMTP not configured)", to)
         return False
 
     msg = MIMEMultipart("alternative")
@@ -72,10 +74,12 @@ def send_email(*, to: str, subject: str, html_body: str, text_body: Optional[str
                 if cfg["user"]:
                     s.login(cfg["user"], cfg["password"] or "")
                 s.send_message(msg)
-        logger.info("mailer.sent to=%s subject=%r", to, subject)
+        logger.info("mailer.sent to=%s backend=smtp", to)
         return True
     except Exception as e:  # noqa: BLE001
-        logger.exception("mailer.failed to=%s subject=%r err=%s", to, subject, e)
+        # Log the exception class only — never the subject (may contain OTPs
+        # or other secrets) and never the SMTP password.
+        logger.warning("mailer.failed to=%s err=%s", to, e.__class__.__name__)
         return False
 
 
