@@ -8,7 +8,7 @@ from __future__ import annotations
 import secrets
 from typing import Optional, List
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -528,7 +528,9 @@ class DriverStatusIn(BaseModel):
 
 @router.post("/bookings/{booking_id}/driver-status")
 async def driver_advance_status(
-    booking_id: str, payload: DriverStatusIn, session: AsyncSession = Depends(get_session)
+    booking_id: str, payload: DriverStatusIn,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
 ):
     from modules.express.tracking import transition_status
     from modules.express.dispatch import release_driver
@@ -536,6 +538,32 @@ async def driver_advance_status(
     booking = await session.get(ExpressBooking, booking_id)
     if not booking:
         raise HTTPException(404, "Booking not found")
+
+    # Auth: caller must be the driver assigned to this booking. Accepts the
+    # SENDbakēd driver JWT (role='driver') and matches via ModuleDriver.
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            from core.security import decode_token
+            from core.models import ModuleDriver
+            from sqlalchemy import select
+            claims = decode_token(auth.split(" ", 1)[1])
+            if claims and claims.get("role") == "driver":
+                md = (await session.execute(
+                    select(ModuleDriver).where(ModuleDriver.linked_driver_id == claims["sub"])
+                )).scalar_one_or_none()
+                if md is None or booking.driver_id != md.id:
+                    raise HTTPException(403, {"code": "not_your_booking",
+                                              "message": "You are not the driver for this booking."})
+            else:
+                raise HTTPException(401, "Driver JWT required")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(401, "Invalid driver credentials")
+    else:
+        raise HTTPException(401, "Driver JWT required")
+
     curr = booking.status
     allowed = ALLOWED_TRANSITIONS.get(curr, set())
     if payload.status not in allowed:

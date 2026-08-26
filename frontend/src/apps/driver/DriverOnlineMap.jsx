@@ -15,6 +15,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
 import { Menu, Bell, ChevronDown, Locate, ShieldCheck, Navigation as NavIcon } from "lucide-react";
+import { useDriverTheme } from "./useDriverTheme";
 
 const MAP_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 // NOTE: no `mapId` — inline `styles` require the legacy map style path.
@@ -36,6 +37,19 @@ const DARK_STYLES = [
   { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#122217" }] },
   { featureType: "transit", elementType: "geometry", stylers: [{ color: "#1f1f1f" }] },
   { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#333" }] },
+];
+
+// Clean light-mode Google Maps style — high-contrast so pickup/drop pins and
+// the driver marker stay visible on white surfaces.
+const LIGHT_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#f6f6f6" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#3a3a3a" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#f0f0f0" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#ffcf6b" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#cfe7ff" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#d7ecc8" }] },
 ];
 
 const FALLBACK_CENTER = { lat: 28.6139, lng: 77.209 }; // New Delhi (matches CI driver default too)
@@ -69,6 +83,7 @@ export const DriverOnlineMap = ({
   chipLabel = "You are Online",
   hasUnread = false,
 }) => {
+  const { theme } = useDriverTheme();
   const [recenterKey, setRecenterKey] = useState(0);      // bump to force pan back to driver
   const [safetyOpen, setSafetyOpen] = useState(false);
   const lastCoordsRef = useRef(driverCoords);
@@ -85,14 +100,16 @@ export const DriverOnlineMap = ({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const mapStyles = theme === "light" ? LIGHT_STYLES : DARK_STYLES;
+
   return (
-    <div className="absolute inset-0 bg-black" data-testid="driver-online-map">
+    <div className="absolute inset-0 bg-background" data-testid="driver-online-map">
       {MAP_KEY ? (
         <APIProvider apiKey={MAP_KEY}>
           <Map
             defaultCenter={center}
             defaultZoom={15}
-            styles={DARK_STYLES}
+            styles={mapStyles}
             gestureHandling="greedy"
             disableDefaultUI
             clickableIcons={false}
@@ -112,7 +129,7 @@ export const DriverOnlineMap = ({
           </div>
         </APIProvider>
       ) : (
-        <div className="w-full h-full grid place-items-center text-white/50 text-sm px-6 text-center">
+        <div className="w-full h-full grid place-items-center text-muted-foreground text-sm px-6 text-center">
           Add REACT_APP_GOOGLE_MAPS_API_KEY to render the live map.
         </div>
       )}
@@ -123,23 +140,23 @@ export const DriverOnlineMap = ({
           onClick={onMenu}
           data-testid="driver-map-menu"
           aria-label="Menu"
-          className="w-11 h-11 rounded-full bg-neutral-900/85 border border-white/10 backdrop-blur grid place-items-center"
+          className="w-11 h-11 rounded-full bg-card/90 border border-border backdrop-blur grid place-items-center text-foreground"
         >
           <Menu size={18} />
         </button>
         <div
-          className="flex-1 h-11 px-4 rounded-full bg-neutral-900/85 border border-white/10 backdrop-blur flex items-center justify-center gap-2 text-sm"
+          className="flex-1 h-11 px-4 rounded-full bg-card/90 border border-border backdrop-blur flex items-center justify-center gap-2 text-sm text-foreground"
           data-testid="driver-map-online-chip"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>You are <span className="font-semibold" style={{ color: "#34d365" }}>Online</span></span>
+          <span>You are <span className="font-semibold" style={{ color: "#22c55e" }}>Online</span></span>
           <ChevronDown size={14} className="opacity-60" />
         </div>
         <button
           onClick={onNotifications}
           data-testid="driver-map-bell"
           aria-label="Notifications"
-          className="relative w-11 h-11 rounded-full bg-neutral-900/85 border border-white/10 backdrop-blur grid place-items-center"
+          className="relative w-11 h-11 rounded-full bg-card/90 border border-border backdrop-blur grid place-items-center text-foreground"
         >
           <Bell size={18} />
           {hasUnread && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500" />}
@@ -158,7 +175,7 @@ export const DriverOnlineMap = ({
             onClick={onClick}
             data-testid={test}
             aria-label={label}
-            className="pointer-events-auto w-11 h-11 rounded-full bg-neutral-900/85 border border-white/10 backdrop-blur grid place-items-center hover:bg-neutral-800"
+            className="pointer-events-auto w-11 h-11 rounded-full bg-card/90 border border-border backdrop-blur grid place-items-center hover:bg-accent text-foreground"
           >
             <Icon size={18} />
           </button>
@@ -167,20 +184,20 @@ export const DriverOnlineMap = ({
 
       {safetyOpen && (
         <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm grid place-items-center px-6"
+          className="absolute inset-0 bg-background/60 backdrop-blur-sm grid place-items-center px-6"
           onClick={() => setSafetyOpen(false)}
           data-testid="driver-map-safety-sheet"
         >
           <div
-            className="w-full max-w-sm rounded-3xl border border-white/10 bg-neutral-950 p-6 text-center"
+            className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 text-center"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 mx-auto rounded-2xl grid place-items-center"
                  style={{ background: "rgba(255,138,30,.15)", color: "#FF8A1E" }}>
               <ShieldCheck size={22} />
             </div>
-            <div className="text-lg font-bold mt-3">Driver Safety</div>
-            <div className="text-xs text-white/60 mt-1.5 leading-relaxed">
+            <div className="text-lg font-bold mt-3 text-foreground">Driver Safety</div>
+            <div className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
               Emergency SOS is coming with Phase C. For now, tap-and-hold your phone&apos;s side button to
               trigger your device&apos;s built-in emergency contact.
             </div>

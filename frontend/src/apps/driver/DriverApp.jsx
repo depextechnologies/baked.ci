@@ -39,6 +39,8 @@ import { DriverOnlineMap } from "./DriverOnlineMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
 import { useSendbakedDispatch } from "./useSendbakedDispatch";
+import { DriverTripSheet } from "./DriverTripSheet";
+import { useDriverTheme } from "./useDriverTheme";
 
 // Brand assets — served straight from customer_assets CDN (no runtime upload needed).
 const DRIVER_BG_URL     = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/8fsl36ag_Background.png";
@@ -96,9 +98,11 @@ const DriverProvider = ({ children }) => {
 /* -------------------------------------------------------------------------- */
 
 const Phone = ({ children }) => (
-  // Mobile-first phone frame — everything under /driver renders in this shell
-  <div className="min-h-screen w-full flex justify-center bg-black text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-    <div className="w-full max-w-[440px] min-h-screen bg-black relative overflow-x-hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
+  // Mobile-first phone frame — everything under /driver renders in this shell.
+  // Uses semantic tokens so the shell automatically flips between the
+  // pure-black dark theme and a clean white light theme via useDriverTheme.
+  <div className="min-h-screen w-full flex justify-center bg-background text-foreground" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="w-full max-w-[440px] min-h-screen bg-background relative overflow-x-hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
       {children}
     </div>
   </div>
@@ -107,16 +111,16 @@ const Phone = ({ children }) => (
 const Header = ({ title, back, right }) => {
   const nav = useNavigate();
   return (
-    <div className="sticky top-0 z-30 flex items-center justify-between px-5 h-14 bg-black/80 backdrop-blur-lg" data-testid="driver-header">
+    <div className="sticky top-0 z-30 flex items-center justify-between px-5 h-14 bg-background/80 backdrop-blur-lg border-b border-border" data-testid="driver-header">
       <button
         onClick={back || (() => nav(-1))}
-        className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5"
+        className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-accent"
         data-testid="driver-back"
         aria-label="Back"
       >
         <ChevronLeft size={20} />
       </button>
-      <div className="text-sm font-medium tracking-wide">{title}</div>
+      <div className="text-sm font-medium tracking-wide text-foreground">{title}</div>
       <div className="w-9 h-9 flex items-center justify-center">{right}</div>
     </div>
   );
@@ -135,7 +139,7 @@ const PrimaryButton = ({ children, disabled, busy, className = "", ...rest }) =>
 );
 
 const GlassCard = ({ children, className = "" }) => (
-  <div className={`rounded-3xl p-5 border border-white/10 bg-white/[0.04] backdrop-blur-xl ${className}`}>{children}</div>
+  <div className={`rounded-3xl p-5 border border-border bg-card/60 backdrop-blur-xl ${className}`}>{children}</div>
 );
 
 const TextField = ({ label, testid, ...rest }) => (
@@ -1205,8 +1209,7 @@ const DriverBottomNav = () => {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-[max(env(safe-area-inset-bottom),8px)] pointer-events-none">
       <div
-        className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/10 bg-neutral-950/90 backdrop-blur-md px-2 py-2 shadow-2xl"
-        style={{ boxShadow: "0 20px 45px -20px rgba(0,0,0,.9)" }}
+        className="pointer-events-auto flex items-center gap-1 rounded-full border border-border bg-card/95 backdrop-blur-md px-2 py-2 shadow-2xl"
         data-testid="driver-bottom-nav"
       >
         {items.slice(0, 2).map((it) => (
@@ -1222,17 +1225,17 @@ const DriverBottomNav = () => {
           className="mx-1 relative w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
           style={{
             background: online
-              ? "linear-gradient(135deg,#FF9A2B,#FF7A00)"
-              : "linear-gradient(135deg,#3b3b3b,#1a1a1a)",
-            boxShadow: online ? "0 0 0 4px rgba(255,138,30,.18), 0 10px 25px -10px #FF7A00" : "none",
-            color: online ? "#0a0a0a" : "rgba(255,255,255,.85)",
+              ? "linear-gradient(135deg,#22c55e,#16a34a)"
+              : "linear-gradient(135deg,hsl(var(--muted)),hsl(var(--secondary)))",
+            boxShadow: online ? "0 0 0 4px rgba(34,197,94,.22), 0 10px 25px -10px #16a34a" : "none",
+            color: online ? "#0a0a0a" : "hsl(var(--foreground))",
           }}
         >
           {toggling
             ? <Loader2 size={22} className="animate-spin" />
             : <PowerIcon size={22} strokeWidth={2.4} />}
           {online && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-neutral-950" />
+            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-card" />
           )}
         </button>
 
@@ -1250,8 +1253,8 @@ const NavPill = ({ item, active, onClick }) => {
     <button
       onClick={onClick}
       data-testid={item.testid}
-      className="w-14 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-colors"
-      style={{ color: active ? "#FF8A1E" : "rgba(255,255,255,.55)" }}
+      className={`w-14 h-12 rounded-full flex flex-col items-center justify-center gap-0.5 transition-colors ${active ? "" : "text-muted-foreground hover:text-foreground"}`}
+      style={active ? { color: "#FF8A1E" } : undefined}
     >
       <Icon size={18} />
       <span className="text-[9px] font-semibold">{item.label}</span>
@@ -1300,24 +1303,47 @@ const ComingSoonScreen = ({ title, tagline, icon: Icon = Clock }) => {
 const DriverProfilePage = () => {
   const { driver, logout } = useDriver();
   const nav = useNavigate();
+  const { theme, toggle: toggleTheme } = useDriverTheme();
   return (
     <Phone>
       <DriverBottomNav />
       <div className="px-6 pt-10 pb-32 min-h-screen" data-testid="driver-profile">
         <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
-        <h1 className="text-3xl font-bold mt-2">Profile</h1>
-        <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 flex items-center gap-4">
+        <h1 className="text-3xl font-bold mt-2 text-foreground">Profile</h1>
+        <div className="mt-6 rounded-3xl border border-border bg-card p-5 flex items-center gap-4">
           {driver?.photo_url ? (
             <img src={driver.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover" />
           ) : (
-            <div className="w-16 h-16 rounded-2xl bg-white/10 grid place-items-center"><User size={22} /></div>
+            <div className="w-16 h-16 rounded-2xl bg-secondary grid place-items-center text-foreground"><User size={22} /></div>
           )}
           <div className="min-w-0 flex-1">
-            <div className="text-lg font-bold truncate">{driver?.name || "Driver"}</div>
-            <div className="text-xs text-white/60 truncate">{driver?.email || driver?.phone_e164}</div>
-            <div className="text-[10px] uppercase tracking-widest text-white/40 mt-1">Status · {driver?.status?.replaceAll("_"," ")}</div>
+            <div className="text-lg font-bold truncate text-foreground">{driver?.name || "Driver"}</div>
+            <div className="text-xs text-muted-foreground truncate">{driver?.email || driver?.phone_e164}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Status · {driver?.status?.replaceAll("_"," ")}</div>
           </div>
         </div>
+
+        {/* Theme toggle */}
+        <button
+          data-testid="driver-theme-toggle"
+          onClick={toggleTheme}
+          className="mt-4 w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-border bg-card hover:bg-accent"
+        >
+          <span
+            className="w-9 h-9 rounded-xl grid place-items-center"
+            style={{ background: theme === "dark" ? "rgba(255,138,30,.15)" : "rgba(59,130,246,.15)",
+                     color:      theme === "dark" ? "#FF8A1E" : "#3b82f6" }}
+          >
+            {theme === "dark" ? "🌙" : "☀️"}
+          </span>
+          <div className="flex-1 text-left">
+            <div className="text-sm font-medium text-foreground">Appearance</div>
+            <div className="text-[11px] text-muted-foreground capitalize">{theme} mode · tap to switch</div>
+          </div>
+          <div className={`w-11 h-6 rounded-full flex items-center transition-all ${theme === "dark" ? "bg-foreground/80 justify-end" : "bg-muted justify-start"} p-0.5`}>
+            <span className="w-5 h-5 rounded-full bg-background shadow" />
+          </div>
+        </button>
 
         <div className="mt-4 grid gap-2">
           {[
@@ -1329,11 +1355,11 @@ const DriverProfilePage = () => {
               key={row.label}
               data-testid={row.testid}
               onClick={() => nav(row.to)}
-              className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+              className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-border bg-card hover:bg-accent"
             >
               <row.icon size={18} style={{ color: "#FF8A1E" }} />
-              <span className="text-sm font-medium flex-1 text-left">{row.label}</span>
-              <ChevronRight size={16} className="text-white/40" />
+              <span className="text-sm font-medium flex-1 text-left text-foreground">{row.label}</span>
+              <ChevronRight size={16} className="text-muted-foreground" />
             </button>
           ))}
         </div>
@@ -1341,7 +1367,7 @@ const DriverProfilePage = () => {
         <button
           data-testid="profile-logout"
           onClick={() => { logout(); nav("/driver/login"); }}
-          className="mt-6 w-full h-12 rounded-2xl text-sm font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10"
+          className="mt-6 w-full h-12 rounded-2xl text-sm font-semibold text-red-500 border border-red-500/30 hover:bg-red-500/10"
         >
           <LogOut size={14} className="inline mr-2" /> Sign out
         </button>
@@ -1611,26 +1637,23 @@ const DashboardPage = () => {
 
       {/* Priority: active job (route + pins) > online idle (single pin) > offline cards */}
       {navJob ? (
-        <div className="fixed inset-0" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
+        <div className="fixed inset-0 bg-background" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
           <DriverNavMap
             job={navJob}
             className="absolute inset-0"
             rounded={false}
+            chromeless
             onDriverPositionChange={() => { /* GPS is already pushed by useSendbakedDispatch */ }}
           />
-          <div className="absolute top-0 left-0 right-0 pt-[max(env(safe-area-inset-top),12px)] px-4 flex items-center gap-3 pointer-events-none">
-            <div
-              className="pointer-events-auto flex-1 h-11 px-4 rounded-full bg-neutral-900/85 border border-white/10 backdrop-blur flex items-center justify-center gap-2 text-sm"
-              data-testid="driver-active-job-chip"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>
-                {navJob.status === "picked_up"
-                  ? <>Deliver to <span className="font-semibold" style={{ color: "#34d365" }}>drop-off</span></>
-                  : <>Head to <span className="font-semibold" style={{ color: "#FF8A1E" }}>pickup</span></>}
-              </span>
-            </div>
-          </div>
+          <DriverTripSheet
+            booking={activeExpressJob}
+            driverLoc={dispatch.lastCoords}
+            apiBase={API_BASE}
+            token={typeof window !== "undefined" ? localStorage.getItem("baked_driver_token") : ""}
+            onAdvanced={(updated) => setActiveExpressJob(updated)}
+            onDelivered={() => { setActiveExpressJob(null); refreshJob(); nav("/driver/job/success"); }}
+            onOpenChat={() => toast.message("In-app chat opens after Slice 3 payments — call is enabled now.")}
+          />
         </div>
       ) : online ? (
         <div className="fixed inset-0" data-testid="driver-dashboard" style={{ paddingBottom: 88 }}>
@@ -2290,13 +2313,16 @@ const NeedsKyc = ({ children }) => {
 };
 
 export const DriverApp = () => {
+  const { theme } = useDriverTheme();
   useEffect(() => {
     const prev = document.title;
     document.title = "SENDbakēd Driver";
-    // Force dark theme + status bar hint for the phone
-    document.documentElement.style.background = "#000";
-    return () => { document.title = prev; document.documentElement.style.background = ""; };
+    return () => { document.title = prev; };
   }, []);
+  // NOTE: `useDriverTheme` toggles the .dark class on <html>, and the
+  // Phone shell reads bg-background — so the driver PWA now supports
+  // both light and dark modes with a single toggle (see Profile page).
+  void theme; // consumed via CSS var cascade — nothing to do here directly.
 
   return (
     <DriverProvider>

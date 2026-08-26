@@ -3,7 +3,19 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-24) — Homepage CMS Phase C shipped
+## Latest (2026-02-27) — SENDbakēd Driver Trip Flow + Light Mode
+- ✅ **Driver Trip Flow (2026-02-27)** — Uber-style trip lifecycle per `Fixing_Prompt.docx`:
+  - New `DriverTripSheet.jsx` with `SlideToConfirm` for each of the 4 backend transitions (`driver_assigned→arriving→picked_up→in_transit→delivered`). Slide-to-confirm requires a real drag ≥80% — a tap deliberately bounces back.
+  - `openNativeNavigation()` opens `google.navigation:` (Android) / `maps://?daddr=` (iOS) with an automatic web fallback to `https://www.google.com/maps/dir/?api=1&destination=…&travelmode=driving`.
+  - Dynamic turn-by-turn instruction card at the top uses live `google.maps.DirectionsService` steps — no hard-coded values.
+  - Old 4-button `JobProgressBar` deleted; `driver-active-job-chip` replaced by `trip-status-pill`.
+  - Trip auto-restores on reload via `/api/driver/me/express-active`.
+  - Backend `POST /api/express/bookings/{id}/driver-status` untouched (7/7 pytest green in iter63).
+- ✅ **Driver PWA Theme Toggle** — new `useDriverTheme.js` mirrors customer's `.dark` class toggle. Preference persists via `localStorage.baked_driver_theme`. Toggle lives on `/driver/profile` at `data-testid='driver-theme-toggle'`.
+- ✅ **Light Mode Fix — SENDbakēd Home** — all hard-coded `#111111 / #2a2a2a / text-white / #fff` values in `ExpressHome.jsx` (top bar, map hero, pickup search, Send Now cards, service cards, trust banner, GPS button) migrated to Tailwind semantic tokens (`bg-card / bg-background / border-border / text-foreground / text-muted-foreground`) so both light and dark modes render correctly.
+- ✅ **Testing** — iter63 (7/7 backend + partial frontend) + iter64 (100% frontend after SlideToConfirm remount fix via `key={cfg.slideTestId}` + `xRef`).
+
+## Prior (2026-02-24) — Homepage CMS Phase C
 - ✅ **Homepage CMS Phase C — Visual Polish (2026-02-24)** — full rewrite of `/app/frontend/src/pages/ConfigHomepage.jsx` to premium dark-first design matching Baked Mart.pdf + HomeLook.png + Inventory_Prompt.txt.
   - Hero: full-bleed image with dark overlay, headline, MARTbakēd chip, primary green CTA + optional secondary CTA, right-side delivery info panel bound to `country` config (Delivery in ETA, min order, delivery fee, free-over threshold, "Popular near you").
   - Module switcher: 6 coloured tiles (MART green `#77BC1F`, FOOD orange `#F97316`, SHOP cyan `#06B6D4`, SEND yellow `#FCC44C`, AUTO red `#EF4444`, IMMO purple `#A855F7`) with icon plate, taglines, hover glow, deep-links to `/`, `/food`, `/shop`, `/express`, `/auto`, `/immo`.

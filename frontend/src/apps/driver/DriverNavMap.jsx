@@ -21,6 +21,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
 import { Navigation, MapPin, Route as RouteIcon, Clock, ExternalLink, Loader2, Wifi, WifiOff } from "lucide-react";
+import { useDriverTheme } from "./useDriverTheme";
 
 const ORANGE = "#FF7A00";
 const AMBER  = "#FFB454";
@@ -259,8 +260,16 @@ export const DriverNavMap = ({
   connectionState = null,     // 'live' | 'reconnecting' | null — badge overlay
   className = "h-56",         // override to "absolute inset-0" for full-bleed dashboard use
   rounded = true,             // set false when embedded in a full-bleed surface
+  chromeless = false,         // when true, don't render top chips / bottom pill — the
+                              // parent (e.g. DriverTripSheet) is drawing its own chrome.
 }) => {
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  const { theme } = useDriverTheme();
+  // Two mapIds — one calibrated for the SENDbakēd dark palette and one for
+  // the light theme (Google's Cloud Console default light works well). We
+  // key the <Map> off theme so it fully remounts on toggle, dropping the
+  // old canvas cleanly rather than trying to restyle inline.
+  const mapId = theme === "light" ? "baked-driver-nav-light" : "baked-driver-nav";
 
   const goingTo = useMemo(() => {
     const dropStages = new Set(["picked_up", "arriving_dropoff"]);
@@ -332,10 +341,11 @@ export const DriverNavMap = ({
          data-testid="driver-job-map">
       <APIProvider apiKey={apiKey}>
         <Map
+          key={mapId /* remount on theme change so styles cleanly swap */}
           style={{ width: "100%", height: "100%" }}
           defaultCenter={smoothPos || pickup}
           defaultZoom={13}
-          mapId="baked-driver-nav"
+          mapId={mapId}
           gestureHandling="greedy"
           disableDefaultUI
         >
@@ -358,25 +368,26 @@ export const DriverNavMap = ({
       </APIProvider>
 
       {/* Distance + ETA + open-in-google chips */}
+      {!chromeless && (
       <div className="absolute top-3 left-3 right-3 flex items-center gap-2 flex-wrap pointer-events-none">
         {distance == null ? (
-          <div className="pointer-events-auto flex items-center gap-1.5 bg-black/70 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10"
+          <div className="pointer-events-auto flex items-center gap-1.5 bg-card/85 backdrop-blur-md rounded-full px-3 py-1.5 border border-border"
                data-testid="driver-map-loading">
             <Loader2 size={12} className="animate-spin text-orange-500" />
-            <span className="text-[10px] font-bold text-white/80">Fetching route…</span>
+            <span className="text-[10px] font-bold text-foreground/80">Fetching route…</span>
           </div>
         ) : (
           <>
-            <div className="pointer-events-auto flex items-center gap-1.5 bg-black/70 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10"
+            <div className="pointer-events-auto flex items-center gap-1.5 bg-card/85 backdrop-blur-md rounded-full px-3 py-1.5 border border-border"
                  data-testid="driver-map-distance">
               <RouteIcon size={12} color={ORANGE} />
-              <span className="text-[10px] font-bold text-white">{distance.toFixed(1)} km</span>
+              <span className="text-[10px] font-bold text-foreground">{distance.toFixed(1)} km</span>
             </div>
             {duration != null && (
-              <div className="pointer-events-auto flex items-center gap-1.5 bg-black/70 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10"
+              <div className="pointer-events-auto flex items-center gap-1.5 bg-card/85 backdrop-blur-md rounded-full px-3 py-1.5 border border-border"
                    data-testid="driver-map-eta">
                 <Clock size={12} color={ORANGE} />
-                <span className="text-[10px] font-bold text-white">{duration} min</span>
+                <span className="text-[10px] font-bold text-foreground">{duration} min</span>
               </div>
             )}
           </>
@@ -389,7 +400,7 @@ export const DriverNavMap = ({
                data-testid={`send-track-conn-${connectionState}`}>
             {connectionState === "live" ? <Wifi size={12} className="text-emerald-400" />
                                         : <WifiOff size={12} className="text-amber-400" />}
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/90">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/90">
               {connectionState === "live" ? "Live" : "Reconnecting"}
             </span>
           </div>
@@ -401,16 +412,19 @@ export const DriverNavMap = ({
           <span className="text-[10px] font-bold text-black">Navigate</span>
         </button>
       </div>
+      )}
 
       {/* Going-to label */}
+      {!chromeless && (
       <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
-        <div className="inline-flex items-center gap-2 bg-black/70 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10">
+        <div className="inline-flex items-center gap-2 bg-card/85 backdrop-blur-md rounded-full px-3 py-1.5 border border-border">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: goingTo === "dropoff" ? AMBER : ORANGE }} />
-          <span className="text-[10px] font-medium text-white/90 uppercase tracking-widest">
+          <span className="text-[10px] font-medium text-foreground/90 uppercase tracking-widest">
             {goingTo === "dropoff" ? "To drop-off" : "To pickup"}
           </span>
         </div>
       </div>
+      )}
     </div>
   );
 };
