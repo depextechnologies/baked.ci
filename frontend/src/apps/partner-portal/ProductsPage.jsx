@@ -650,9 +650,293 @@ const LocationModal = ({ open, onClose, product, onSaved }) => {
   );
 };
 
+/* --------------------- Bulk SKU → single-bin assignment ------------------- */
+
+/**
+ * BulkLocationModal — reuses the warehouse tree but with N products applied
+ * to ONE picked bin. Backend endpoint is `/partner/inventory/locations/bulk`
+ * which validates the cascade per-product and returns a per-row verdict, so
+ * a mixed batch (Fresh Fruits + Dairy) still surfaces individual errors
+ * without failing the whole request.
+ *
+ * Tree filter rule: if every selected product shares the same category
+ * (and same subcategory), we filter Aisles/Racks the same way the single
+ * LocationModal does. If the selection mixes cascades, we ONLY show
+ * untagged Aisles/Racks (so nothing is auto-hidden that the manager can
+ * legitimately place all N SKUs into).
+ */
+const BulkLocationModal = ({ products, onClose, onDone }) => {
+  const { warehouse } = usePartner();
+  const [tree, setTree] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selBin, setSelBin] = useState(null);
+  const [qty, setQty] = useState("0");
+  const [isPrimary, setIsPrimary] = useState(true);
+  const [expandedIds, setExpandedIds] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (!warehouse) return;
+    partnerApi.get(`/partner/warehouse/${warehouse.id}/tree`)
+      .then(({ data }) => setTree(data))
+      .finally(() => setLoading(false));
+  }, [warehouse]);
+
+  const cascade = React.useMemo(() => {
+    if (!products.length) return { commonCat: null, commonSub: null, mixed: false };
+    const cats = new Set(products.map(p => p.category_slug || null));
+    const subs = new Set(products.map(p => p.subcategory_slug || null));
+    return {
+      commonCat: cats.size === 1 ? [...cats][0] : null,
+      commonSub: subs.size === 1 ? [...subs][0] : null,
+      mixed:     cats.size > 1 || subs.size > 1,
+    };
+  }, [products]);
+
+  const filteredTree = React.useMemo(() => {
+    if (!tree) return tree;
+    const { commonCat, commonSub, mixed } = cascade;
+    const filterRack = (r) => {
+      if (mixed) return (r.category_slug || r.subcategory_slug) ? null : r;
+      if (r.category_slug    && commonCat && r.category_slug    !== commonCat) return null;
+      if (r.subcategory_slug && commonSub && r.subcategory_slug !== commonSub) return null;
+      return r;
+    };
+    const filterAisle = (a) => {
+      if (mixed && (a.category_slug || a.subcategory_slug)) return null;
+      if (a.category_slug    && commonCat && a.category_slug    !== commonCat) return null;
+      if (a.subcategory_slug && commonSub && a.subcategory_slug !== commonSub) return null;
+      return { ...a, children: (a.children || []).map(filterRack).filter(Boolean) };
+    };
+    return {
+      ...tree,
+      zones: tree.zones.map(z => ({ ...z, children: (z.children || []).map(filterAisle).filter(Boolean) })),
+    };
+  }, [tree, cascade]);
+
+  const toggle = (id) => setExpandedIds(m => ({ ...m, [id]: !m[id] }));
+
+  const renderNode = (node, level, ancestors) => {
+    const hasChildren = (node.children || []).length > 0;
+    const isBin = level === "bin";
+    const expanded = !!expandedIds[node.id];
+    const nextLevel = { zone: "aisle", aisle: "rack", rack: "shelf", shelf: "bin", bin: null }[level];
+    const path = { ...ancestors, [level]: node };
+    const levels = ["zone", "aisle", "rack", "shelf", "bin"];
+    const labels = ["Zone", "Aisle", "Rack", "Shelf", "Bin"];
+    const label = levels.map((L, i) => path[L] ? `${labels[i]} ${path[L].code}` : null)
+                        .filter(Boolean).join(" · ");
+    const pathObj = { ...path, label };
+    const selected = isBin && selBin?.bin?.id === node.id;
+    return (
+      <div key={node.id} data-testid={`bulk-tree-${level}-${node.code}`}>
+        <div className="flex items-center gap-2 py-1.5 text-sm" style={{ paddingLeft: levels.indexOf(level) * 16 }}>
+          {hasChildren || isBin ? (
+            <button onClick={() => isBin ? setSelBin(pathObj) : toggle(node.id)}
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5"
+                    style={{ color: "var(--ph-fg-subtle)" }}>
+              {isBin ? <MapPin size={12} style={{ color: selected ? "var(--ph-accent-warm)" : undefined }} />
+                     : <ChevronRight size={14} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />}
+            </button>
+          ) : <div className="w-6" />}
+          <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>{level}</span>
+          <span className="font-mono text-xs" style={{ color: "var(--ph-fg)" }}>{node.code}</span>
+          <span className="text-xs" style={{ color: "var(--ph-fg-muted)" }}>{node.name}</span>
+          {isBin && (
+            <button onClick={() => setSelBin(pathObj)}
+                    className="ml-auto text-[10px] uppercase tracking-widest px-2 py-1 rounded"
+                    style={{
+                      background: selected ? "var(--ph-accent-warm)" : "transparent",
+                      color:      selected ? "#0a0a0f" : "var(--ph-accent-warm)",
+                      border:     "1px solid var(--ph-accent-warm)",
+                    }}
+                    data-testid={`bulk-bin-select-${node.code}`}>
+              {selected ? "Selected" : "Pick"}
+            </button>
+          )}
+        </div>
+        {expanded && nextLevel && (node.children || []).map(c => renderNode(c, nextLevel, path))}
+      </div>
+    );
+  };
+
+  const submit = async () => {
+    if (!selBin?.bin?.id) return toast.error("Pick a bin first");
+    setBusy(true);
+    try {
+      const { data } = await partnerApi.post(`/partner/inventory/locations-bulk`, {
+        partner_product_ids: products.map(p => p.id),
+        bin_id:               selBin.bin.id,
+        quantity_at_location: Number(qty) || 0,
+        is_primary:           isPrimary,
+      });
+      setResult(data);
+      if (data.failed === 0) {
+        toast.success(`${data.assigned} SKU${data.assigned === 1 ? "" : "s"} placed at ${data.bin_path?.label || selBin.label}`);
+        onDone?.(data);
+      } else if (data.assigned === 0) {
+        toast.error(`All ${data.requested} SKUs failed. See details below.`);
+      } else {
+        toast.warning(`${data.assigned} placed · ${data.failed} failed — see details below.`);
+      }
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6"
+         style={{ background: "rgba(6,8,14,.7)", backdropFilter: "blur(6px)" }}
+         onClick={onClose} data-testid="bulk-location-modal">
+      <div className="w-full max-w-3xl rounded-2xl overflow-hidden"
+           style={{ background: "var(--ph-bg)", border: "1px solid var(--ph-border-strong)" }}
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5" style={{ borderBottom: "1px solid var(--ph-border)" }}>
+          <div>
+            <div className="ph-eyebrow">Bulk-assign location</div>
+            <h2 className="ph-h3 mt-1" style={{ color: "var(--ph-fg)" }}>
+              Placing {products.length} SKU{products.length === 1 ? "" : "s"}
+            </h2>
+            <p className="text-xs mt-1" style={{ color: "var(--ph-fg-subtle)" }}>
+              Pick <b>one bin</b> and we&apos;ll assign every selected product there — perfect for first-time store setup.
+            </p>
+            {cascade.mixed ? (
+              <div className="mt-2 text-[11px] px-2 py-1 rounded inline-block"
+                   style={{ background: "rgba(252,196,76,.14)", color: "#FCC44C" }}
+                   data-testid="bulk-mixed-warning">
+                Selection spans multiple categories — only untagged Aisles/Racks are shown.
+              </div>
+            ) : (cascade.commonCat || cascade.commonSub) ? (
+              <div className="flex items-center gap-2 mt-2" data-testid="bulk-cascade-chips">
+                {cascade.commonCat && (
+                  <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                        style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+                    {cascade.commonCat}
+                  </span>
+                )}
+                {cascade.commonSub && (
+                  <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                        style={{ background: "rgba(96,165,250,.15)", color: "#60a5fa" }}>
+                    {cascade.commonSub}
+                  </span>
+                )}
+                <span className="text-[10px]" style={{ color: "var(--ph-fg-subtle)" }}>
+                  Tree filtered to matching Aisles / Racks.
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <button onClick={onClose} data-testid="bulk-modal-close"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border)" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 max-h-[70vh] overflow-y-auto space-y-6">
+          <div className="flex flex-wrap gap-1.5" data-testid="bulk-selected-chips">
+            {products.slice(0, 20).map(p => (
+              <span key={p.id} className="text-[11px] px-2 py-1 rounded"
+                    style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)", color: "var(--ph-fg)" }}>
+                {p.name}
+              </span>
+            ))}
+            {products.length > 20 && (
+              <span className="text-[11px] px-2 py-1 rounded"
+                    style={{ background: "var(--ph-card)", color: "var(--ph-fg-subtle)", border: "1px solid var(--ph-border)" }}>
+                +{products.length - 20} more
+              </span>
+            )}
+          </div>
+
+          <section>
+            <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--ph-fg-subtle)" }}>
+              Warehouse tree
+            </div>
+            {loading ? (
+              <p className="text-sm" style={{ color: "var(--ph-fg-subtle)" }}>Loading…</p>
+            ) : !filteredTree || filteredTree.zones.length === 0 ? (
+              <div className="p-4 rounded-xl text-sm" style={{ background: "var(--ph-card)", color: "var(--ph-fg-muted)" }}>
+                {tree && tree.zones.length > 0
+                  ? "No Aisles or Racks match your selection. Try picking fewer categories at once, or tag an Aisle with the matching category."
+                  : "No zones yet. Set up your warehouse first under Warehouse → Storage hierarchy."}
+              </div>
+            ) : (
+              <div className="rounded-xl p-2" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }} data-testid="bulk-location-tree">
+                {filteredTree.zones.map(z => renderNode(z, "zone", {}))}
+              </div>
+            )}
+          </section>
+
+          {selBin && !result && (
+            <section className="p-4 rounded-xl" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-accent-warm)" }}>
+              <div className="text-xs uppercase tracking-widest mb-3" style={{ color: "var(--ph-accent-warm)" }}>
+                Assign {products.length} SKU{products.length === 1 ? "" : "s"} to {selBin.label}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>
+                  Qty per SKU at this location
+                  <input value={qty} onChange={e => setQty(e.target.value)} type="number" min="0"
+                         className={FIELD + " mt-1"} style={fieldStyle} data-testid="bulk-qty-input" />
+                </label>
+                <label className="text-xs flex items-center gap-2" style={{ color: "var(--ph-fg-subtle)" }}>
+                  <input type="checkbox" checked={isPrimary} onChange={e => setIsPrimary(e.target.checked)}
+                         data-testid="bulk-primary-checkbox" />
+                  Mark as primary pick location for each SKU
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setSelBin(null)} className="px-4 h-10 rounded-lg text-sm"
+                        style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>
+                <button disabled={busy} onClick={submit} className="px-4 h-10 rounded-lg text-sm font-medium"
+                        style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }}
+                        data-testid="bulk-assign-submit">
+                  {busy ? "Saving…" : `Place ${products.length} SKU${products.length === 1 ? "" : "s"} here`}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {result && (
+            <section className="p-4 rounded-xl" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}
+                     data-testid="bulk-result-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-xs uppercase tracking-widest" style={{ color: "var(--ph-accent-warm)" }}>Result</div>
+                  <div className="text-sm mt-1" style={{ color: "var(--ph-fg)" }}>
+                    <b style={{ color: "#77BC1F" }}>{result.assigned}</b> placed · <b style={{ color: "#FF4C52" }}>{result.failed}</b> failed
+                  </div>
+                </div>
+                <button onClick={onClose} className="px-3 h-9 rounded-lg text-xs font-medium"
+                        style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }}
+                        data-testid="bulk-result-done">Done</button>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {result.results.map((r) => (
+                  <div key={r.partner_product_id} className="flex items-center gap-2 py-1.5 text-xs"
+                       style={{ borderBottom: "1px solid var(--ph-border)" }}
+                       data-testid={`bulk-result-${r.partner_product_id}`}>
+                    <span className="w-2 h-2 rounded-full"
+                          style={{ background: r.status === "ok" ? "#77BC1F" : "#FF4C52" }} />
+                    <span className="font-mono" style={{ color: "var(--ph-fg-muted)" }}>{r.sku_code || r.partner_product_id}</span>
+                    <span className="ml-auto" style={{ color: r.status === "ok" ? "#77BC1F" : "#FF4C52" }}>
+                      {r.status === "ok" ? "Placed" : (r.message || r.code)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* -------------------------- Editable product row -------------------------- */
 
-const ProductRow = ({ p, onChange }) => {
+const ProductRow = ({ p, onChange, selected = false, onToggleSelect = null }) => {
   const [editing, setEditing] = useState(false);
   const [price, setPrice] = useState(String(p.partner_price));
   const [stock, setStock] = useState(String(p.stock_qty));
@@ -686,8 +970,19 @@ const ProductRow = ({ p, onChange }) => {
 
   return (
     <div className="flex items-center gap-3 py-3 px-4"
-         style={{ borderBottom: "1px solid var(--ph-border)" }}
+         style={{ borderBottom: "1px solid var(--ph-border)",
+                  background: selected ? "var(--ph-warm-soft)" : undefined }}
          data-testid={`product-row-${p.id}`}>
+      {onToggleSelect && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(p.id)}
+          data-testid={`product-select-${p.id}`}
+          aria-label={`Select ${p.name}`}
+          className="w-4 h-4 accent-orange-500 shrink-0"
+        />
+      )}
       <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0"
            style={{ background: "var(--ph-bg-elevated)" }}>
         {p.image
@@ -800,6 +1095,19 @@ export const ProductsPage = () => {
   const [subs, setSubs]     = useState([]);
   const [catSel, setCatSel] = useState("");
   const [subSel, setSubSel] = useState("");
+  // Ops Bulk Assign (2026-02-27) — multi-select state. Set of PartnerProduct ids
+  // that survive filter changes so a manager can filter → tick → filter → tick
+  // → assign in one pass. Keeping a Set (not an array) so add/remove are O(1)
+  // and the "select all visible" toggle stays snappy on 200-row pages.
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [showBulk, setShowBulk] = useState(false);
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const load = async () => {
     const params = new URLSearchParams();
@@ -874,6 +1182,39 @@ export const ProductsPage = () => {
       </div>
 
       <div className="mt-4 rounded-2xl overflow-hidden" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
+        {/* Select-all-visible header — appears only when there's ≥ 1 row */}
+        {filtered.length > 0 && (() => {
+          const allVisibleSelected = filtered.every(p => selectedIds.has(p.id));
+          return (
+            <div className="flex items-center gap-3 py-2 px-4 text-xs"
+                 style={{ borderBottom: "1px solid var(--ph-border)", color: "var(--ph-fg-subtle)" }}>
+              <input
+                type="checkbox"
+                data-testid="products-select-all"
+                aria-label={allVisibleSelected ? "Deselect all visible" : "Select all visible"}
+                checked={allVisibleSelected}
+                onChange={() => setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (allVisibleSelected) filtered.forEach(p => next.delete(p.id));
+                  else                    filtered.forEach(p => next.add(p.id));
+                  return next;
+                })}
+                className="w-4 h-4 accent-orange-500"
+              />
+              <span>
+                {selectedIds.size > 0
+                  ? <><b style={{ color: "var(--ph-fg)" }}>{selectedIds.size}</b> selected</>
+                  : "Select multiple to bulk-assign a bin"}
+              </span>
+              {selectedIds.size > 0 && (
+                <button onClick={() => setSelectedIds(new Set())}
+                        className="ml-auto text-[11px] hover:underline"
+                        data-testid="products-clear-selection">Clear</button>
+              )}
+            </div>
+          );
+        })()}
+
         {filtered.length === 0
           ? (
             <div className="p-10 text-center">
@@ -883,9 +1224,69 @@ export const ProductsPage = () => {
               </p>
             </div>
           )
-          : filtered.map(p => <ProductRow key={p.id} p={p} onChange={load} />)
+          : filtered.map(p => (
+              <ProductRow
+                key={p.id}
+                p={p}
+                onChange={load}
+                selected={selectedIds.has(p.id)}
+                onToggleSelect={toggleSelect}
+              />
+            ))
         }
       </div>
+
+      {/* Floating bulk-assign action bar — sticks to bottom-centre while ≥ 1 SKU is picked */}
+      {selectedIds.size > 0 && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-2xl shadow-2xl px-4 py-3"
+          style={{ background: "var(--ph-card)", border: "1px solid var(--ph-accent-warm)",
+                   boxShadow: "0 22px 48px -18px rgba(0,0,0,.6)" }}
+          data-testid="products-bulk-action-bar"
+        >
+          <span className="text-sm" style={{ color: "var(--ph-fg)" }}>
+            <b>{selectedIds.size}</b> SKU{selectedIds.size === 1 ? "" : "s"} ready to place
+          </span>
+          <button
+            onClick={() => setShowBulk(true)}
+            className="px-4 h-9 rounded-lg text-sm font-semibold flex items-center gap-1.5"
+            style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }}
+            data-testid="products-bulk-assign-btn"
+          >
+            <MapPin size={14} /> Assign to bin
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="px-3 h-9 rounded-lg text-xs"
+            style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border)" }}
+            data-testid="products-bulk-clear"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {showBulk && (
+        <BulkLocationModal
+          products={filtered.filter(p => selectedIds.has(p.id))}
+          onClose={() => setShowBulk(false)}
+          onDone={(result) => {
+            setShowBulk(false);
+            // Only clear the SKUs that actually got placed — failed ones
+            // stay ticked so the manager can retry them on another bin.
+            if (result?.results?.length) {
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                result.results.forEach(r => { if (r.status === "ok") next.delete(r.partner_product_id); });
+                return next;
+              });
+            } else {
+              setSelectedIds(new Set());
+            }
+            load();
+          }}
+        />
+      )}
 
       <AddProductModal open={showAdd} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); load(); }} />
     </div>
