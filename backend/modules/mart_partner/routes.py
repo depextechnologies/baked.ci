@@ -1371,6 +1371,7 @@ def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = N
         "brand": brand,
         "unit": unit,
         "image": image,
+        "images": list(getattr(row, "images", None) or []),
         "category_slug": cat,
         "subcategory_slug": sub,
         "sku_code": row.sku_code,
@@ -1651,6 +1652,119 @@ async def delete_partner_product(
         raise HTTPException(status_code=404, detail="Product not found")
     await session.delete(row)
     await session.commit()
+
+
+# ============================================================================
+#                    Supplier Image Manager (2026-02-28)
+# ============================================================================
+# Backend for the /partner/products image gallery UI. Suppliers can upload
+# new images, reorder them, set a primary and remove obsolete ones. The
+# authoritative order is stored in PartnerProduct.images[], and index 0 is
+# mirrored into the legacy `image` column so pre-existing readers still work.
+
+from fastapi import UploadFile, File
+from core.providers import object_storage as _object_storage
+
+_MAX_IMAGE_BYTES = 6 * 1024 * 1024   # 6 MB per upload
+_ALLOWED_MIME    = {"image/jpeg", "image/png", "image/webp"}
+_MAX_IMAGES      = 8
+
+
+def _sync_primary(row: PartnerProduct) -> None:
+    """Keep `image` in sync with images[0] so legacy render paths still work."""
+    row.image = row.images[0] if row.images else None
+
+
+@partner_router.post("/products/{product_id}/images/upload",
+                     dependencies=[Depends(require_role("owner", "manager"))])
+async def upload_partner_product_image(
+    product_id: str,
+    file: UploadFile = File(...),
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerProduct, product_id)
+    if not row or row.partner_id != partner.id:
+        raise HTTPException(404, "Product not found")
+
+    if (file.content_type or "").lower() not in _ALLOWED_MIME:
+        raise HTTPException(415, {"code": "unsupported_media_type",
+            "message": f"Only {', '.join(sorted(_ALLOWED_MIME))} accepted (got {file.content_type})."})
+
+    content = await file.read()
+    if len(content) > _MAX_IMAGE_BYTES:
+        raise HTTPException(413, {"code": "file_too_large",
+            "message": f"File exceeds {_MAX_IMAGE_BYTES // (1024*1024)} MB limit."})
+
+    current = list(row.images or [])
+    if len(current) >= _MAX_IMAGES:
+        raise HTTPException(400, {"code": "too_many_images",
+            "message": f"Max {_MAX_IMAGES} images per SKU. Remove one before adding a new one."})
+
+    ext = (file.filename or "img").rsplit(".", 1)[-1].lower() or "jpg"
+    ts  = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    key = f"{_object_storage.APP_NAME}/partner/{partner.id}/product/{product_id}/{ts}.{ext}"
+    try:
+        _object_storage.put_object(key, content, file.content_type or "image/jpeg")
+    except Exception as e:
+        raise HTTPException(502, f"Upload failed: {e}")
+
+    url = f"/api/partner/uploads/{key}"
+    current.append(url)
+    row.images = current
+    _sync_primary(row)
+    await session.commit()
+    await session.refresh(row)
+    master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
+    return _partner_product_dict(row, master)
+
+
+class ImagesReorderIn(BaseModel):
+    """Full-list update: the payload IS the authoritative post-op order.
+    Use this to reorder, remove, or set primary in a single round trip."""
+    model_config = ConfigDict(extra="forbid")
+    image_urls: list[str] = Field(..., min_length=0, max_length=_MAX_IMAGES)
+
+
+@partner_router.patch("/products/{product_id}/images",
+                      dependencies=[Depends(require_role("owner", "manager"))])
+async def reorder_partner_product_images(
+    product_id: str,
+    payload: ImagesReorderIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerProduct, product_id)
+    if not row or row.partner_id != partner.id:
+        raise HTTPException(404, "Product not found")
+
+    # Guard: only images that were ALREADY in the gallery can be reordered
+    # or dropped. This prevents a client from injecting arbitrary URLs
+    # through this endpoint (uploads must go through /images/upload).
+    existing = set(row.images or [])
+    for u in payload.image_urls:
+        if u not in existing:
+            raise HTTPException(400, {"code": "unknown_image",
+                "message": f"Image '{u}' isn't in this product's current gallery."})
+
+    row.images = list(payload.image_urls)
+    _sync_primary(row)
+    await session.commit()
+    await session.refresh(row)
+    master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
+    return _partner_product_dict(row, master)
+
+
+@partner_router.get("/uploads/{key:path}")
+async def partner_upload_serve(key: str):
+    """Proxy a previously-uploaded partner asset. Prefixed with
+    `/api/partner/uploads/` so the frontend can just <img src>."""
+    from fastapi.responses import Response
+    try:
+        content, ct = _object_storage.get_object(key)
+    except Exception:
+        raise HTTPException(404, "Upload not found")
+    return Response(content=content, media_type=ct)
 
 
 # ============================================================================

@@ -4,9 +4,9 @@
  * fully custom SKU. Extracted to its own file so PartnerPortalApp.jsx
  * stays under the Emergent visual-edits Babel plugin's ceiling.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Package, Plus, Search, Link2, X, MapPin, ChevronRight } from "lucide-react";
+import { Package, Plus, Search, Link2, X, MapPin, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, Trash2, Star, Upload as UploadIcon, Loader2 } from "lucide-react";
 import { partnerApi, usePartner } from "./PartnerPortalApp";
 
 const fieldStyle = { background: "var(--ph-card)", color: "var(--ph-fg)", border: "1px solid var(--ph-border-strong)" };
@@ -934,6 +934,215 @@ const BulkLocationModal = ({ products, onClose, onDone }) => {
   );
 };
 
+/* --------------------- Supplier image manager modal ---------------------- */
+
+/**
+ * ImageManagerModal — supplier gallery editor for a single PartnerProduct.
+ * Backed by POST /partner/products/{id}/images/upload + PATCH …/images.
+ *
+ * UX contract:
+ *   • Grid of thumbnails; the first one is treated as the primary and shows
+ *     a star badge. Any thumbnail can be promoted with the "Set primary"
+ *     button (which just moves it to index 0 via a reorder call).
+ *   • ↑/↓ arrows nudge the ordering — simpler + more accessible than DnD.
+ *   • Trash removes from the gallery (does NOT purge from object storage —
+ *     that's a future cleanup job outside the supplier's mental model).
+ *   • Upload accepts JPG/PNG/WebP up to 6 MB, max 8 images. Backend rejects
+ *     mismatches so the frontend hint is best-effort.
+ *
+ * The parent `onSaved` refetch is fired after every network mutation so
+ * cascading state (badge count, thumbnail preview) stays in sync.
+ */
+const ImageManagerModal = ({ open, onClose, product, onSaved }) => {
+  const [images, setImages] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    setImages(product?.images || []);
+  }, [product?.id, product?.images]);
+
+  if (!open) return null;
+
+  const apiBase = process.env.REACT_APP_BACKEND_URL;
+  const absUrl = (u) => u?.startsWith("/api/") ? `${apiBase}${u}` : u;
+
+  const persist = async (nextList) => {
+    setBusy(true);
+    try {
+      const { data } = await partnerApi.patch(
+        `/partner/products/${product.id}/images`,
+        { image_urls: nextList },
+      );
+      setImages(data.images || []);
+      onSaved?.();
+      return true;
+    } catch (e) {
+      toast.error(errMsg(e));
+      return false;
+    } finally { setBusy(false); }
+  };
+
+  const move = (idx, dir) => {
+    const target = idx + dir;
+    if (target < 0 || target >= images.length) return;
+    const next = [...images];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    persist(next);
+  };
+  const remove = (idx) => {
+    if (!window.confirm("Remove this image from the gallery?")) return;
+    persist(images.filter((_, i) => i !== idx));
+  };
+  const setPrimary = (idx) => {
+    if (idx === 0) return;
+    const next = [images[idx], ...images.filter((_, i) => i !== idx)];
+    persist(next);
+  };
+
+  const onUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return toast.error("Only JPG, PNG or WebP images accepted.");
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      return toast.error("Image must be ≤ 6 MB.");
+    }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await partnerApi.post(
+        `/partner/products/${product.id}/images/upload`, fd,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      setImages(data.images || []);
+      onSaved?.();
+      toast.success("Image added");
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setUploading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6"
+         style={{ background: "rgba(6,8,14,.7)", backdropFilter: "blur(6px)" }}
+         onClick={onClose} data-testid="image-manager-modal">
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden"
+           style={{ background: "var(--ph-bg)", border: "1px solid var(--ph-border-strong)" }}
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5" style={{ borderBottom: "1px solid var(--ph-border)" }}>
+          <div>
+            <div className="ph-eyebrow">Product images</div>
+            <h2 className="ph-h3 mt-1" style={{ color: "var(--ph-fg)" }}>{product?.name}</h2>
+            <p className="text-xs mt-1" style={{ color: "var(--ph-fg-subtle)" }}>
+              Add up to 8 images (JPG · PNG · WebP · ≤ 6 MB). The first image is used as the primary thumbnail.
+            </p>
+          </div>
+          <button onClick={onClose} data-testid="image-manager-close"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border)" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5">
+          {images.length === 0 ? (
+            <div className="p-8 text-center rounded-xl border border-dashed"
+                 style={{ borderColor: "var(--ph-border-strong)", background: "var(--ph-card)" }}
+                 data-testid="image-manager-empty">
+              <ImageIcon size={26} style={{ color: "var(--ph-fg-subtle)", margin: "0 auto" }} />
+              <p className="text-sm mt-3" style={{ color: "var(--ph-fg-muted)" }}>
+                No images yet. Upload one to start.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" data-testid="image-manager-grid">
+              {images.map((src, idx) => (
+                <div key={src} className="rounded-xl overflow-hidden border"
+                     style={{ borderColor: idx === 0 ? "var(--ph-accent-warm)" : "var(--ph-border)" }}
+                     data-testid={`image-tile-${idx}`}>
+                  <div className="relative aspect-square bg-black/20">
+                    <img src={absUrl(src)} alt={`${product?.name} ${idx + 1}`}
+                         className="w-full h-full object-cover" loading="lazy" />
+                    {idx === 0 && (
+                      <span className="absolute top-2 left-2 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center gap-1"
+                            style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }}>
+                        <Star size={9} fill="#0a0a0f" /> Primary
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between px-2 py-1.5"
+                       style={{ background: "var(--ph-card)" }}>
+                    <div className="flex items-center gap-1">
+                      <button disabled={busy || idx === 0}
+                              onClick={() => move(idx, -1)}
+                              data-testid={`image-tile-${idx}-up`}
+                              title="Move up"
+                              className="w-7 h-7 rounded flex items-center justify-center disabled:opacity-30"
+                              style={{ color: "var(--ph-fg-muted)" }}>
+                        <ArrowUp size={12} />
+                      </button>
+                      <button disabled={busy || idx === images.length - 1}
+                              onClick={() => move(idx, 1)}
+                              data-testid={`image-tile-${idx}-down`}
+                              title="Move down"
+                              className="w-7 h-7 rounded flex items-center justify-center disabled:opacity-30"
+                              style={{ color: "var(--ph-fg-muted)" }}>
+                        <ArrowDown size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {idx > 0 && (
+                        <button disabled={busy}
+                                onClick={() => setPrimary(idx)}
+                                data-testid={`image-tile-${idx}-primary`}
+                                className="text-[10px] uppercase tracking-widest px-2 h-7 rounded"
+                                style={{ color: "var(--ph-accent-warm)", border: "1px solid var(--ph-accent-warm)" }}>
+                          Set primary
+                        </button>
+                      )}
+                      <button disabled={busy}
+                              onClick={() => remove(idx)}
+                              data-testid={`image-tile-${idx}-remove`}
+                              title="Remove"
+                              className="w-7 h-7 rounded flex items-center justify-center text-rose-400 hover:bg-rose-500/10">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp"
+                 className="hidden" onChange={onUpload}
+                 data-testid="image-manager-file-input" />
+
+          <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
+            <div className="text-xs" style={{ color: "var(--ph-fg-subtle)" }}>
+              {images.length} / 8 image{images.length === 1 ? "" : "s"}
+            </div>
+            <button
+              disabled={uploading || busy || images.length >= 8}
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="image-manager-upload-btn"
+              className="px-4 h-10 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+              style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }}
+            >
+              {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading…</>
+                         : <><UploadIcon size={14} /> Add image</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* -------------------------- Editable product row -------------------------- */
 
 const ProductRow = ({ p, onChange, selected = false, onToggleSelect = null }) => {
@@ -941,6 +1150,7 @@ const ProductRow = ({ p, onChange, selected = false, onToggleSelect = null }) =>
   const [price, setPrice] = useState(String(p.partner_price));
   const [stock, setStock] = useState(String(p.stock_qty));
   const [showLocation, setShowLocation] = useState(false);
+  const [showImages, setShowImages] = useState(false);
   const lowStock = p.stock_qty <= p.low_stock_threshold;
 
   const save = async () => {
@@ -1060,6 +1270,18 @@ const ProductRow = ({ p, onChange, selected = false, onToggleSelect = null }) =>
                   data-testid={`row-location-${p.id}`}>
             <MapPin size={12} /> Location
           </button>
+          <button onClick={() => setShowImages(true)} className="px-2 h-8 text-xs rounded flex items-center gap-1"
+                  style={{ color: "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)" }}
+                  data-testid={`row-images-${p.id}`}
+                  title="Manage gallery">
+            <ImageIcon size={12} /> Images
+            {(p.images?.length || 0) > 0 && (
+              <span className="text-[10px] font-bold px-1 rounded"
+                    style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+                {p.images.length}
+              </span>
+            )}
+          </button>
           <button onClick={toggleActive} className="px-2 h-8 text-xs rounded"
                   style={{ color: p.is_active ? "var(--ph-fg-muted)" : "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)" }}
                   data-testid={`row-toggle-${p.id}`}>{p.is_active ? "Hide" : "Show"}</button>
@@ -1071,6 +1293,12 @@ const ProductRow = ({ p, onChange, selected = false, onToggleSelect = null }) =>
       <LocationModal
         open={showLocation}
         onClose={() => setShowLocation(false)}
+        product={p}
+        onSaved={onChange}
+      />
+      <ImageManagerModal
+        open={showImages}
+        onClose={() => setShowImages(false)}
         product={p}
         onSaved={onChange}
       />
