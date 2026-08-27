@@ -78,6 +78,14 @@ class PartnerProduct(Base, TimestampMixin):
     # and mirrored into `image` for legacy readers. Nullable list default =
     # [] so pre-migration products keep working.
     images: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    # Phase 3 (2026-02-28) — image gallery review queue.
+    # `none`     : no images or nothing pending
+    # `pending`  : supplier changed images, awaiting admin approval
+    # `approved` : admin OK'd → mirrored to MartProduct.images (if linked)
+    # `rejected` : admin declined, `images_review_note` explains why
+    images_review_status: Mapped[str] = mapped_column(String(20), nullable=False,
+                                                       default="none", server_default="none")
+    images_review_note:   Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
     category_slug: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     subcategory_slug: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

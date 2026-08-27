@@ -1372,6 +1372,8 @@ def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = N
         "unit": unit,
         "image": image,
         "images": list(getattr(row, "images", None) or []),
+        "images_review_status": getattr(row, "images_review_status", "none"),
+        "images_review_note":   getattr(row, "images_review_note", None),
         "category_slug": cat,
         "subcategory_slug": sub,
         "sku_code": row.sku_code,
@@ -1675,6 +1677,18 @@ def _sync_primary(row: PartnerProduct) -> None:
     row.image = row.images[0] if row.images else None
 
 
+def _flag_pending_review(row: PartnerProduct) -> None:
+    """Phase 3 — mark this product's gallery as awaiting admin approval.
+
+    Only linked products (master_product_id set) enter the review queue;
+    unlinked customs are covered by their `approval_status` flow. If the
+    gallery becomes empty we skip pending → nothing new to review.
+    """
+    if row.master_product_id and (row.images or []):
+        row.images_review_status = "pending"
+        row.images_review_note   = None
+
+
 @partner_router.post("/products/{product_id}/images/upload",
                      dependencies=[Depends(require_role("owner", "manager"))])
 async def upload_partner_product_image(
@@ -1713,6 +1727,7 @@ async def upload_partner_product_image(
     current.append(url)
     row.images = current
     _sync_primary(row)
+    _flag_pending_review(row)
     await session.commit()
     await session.refresh(row)
     master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
@@ -1749,6 +1764,7 @@ async def reorder_partner_product_images(
 
     row.images = list(payload.image_urls)
     _sync_primary(row)
+    _flag_pending_review(row)
     await session.commit()
     await session.refresh(row)
     master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
@@ -2511,4 +2527,157 @@ async def admin_reject_partner_product(
 
     await session.commit()
     return _partner_product_admin_dict(pp, partner)
+
+
+# ============================================================================
+#            Phase 3 (2026-02-28) — Supplier Image Review Queue
+# ============================================================================
+# Suppliers can upload/reorder images freely from the partner portal (Phase 2)
+# but public visibility on the customer PDP requires admin sign-off. This
+# section adds the queue + approve/reject endpoints that mirror the images to
+# the master MartProduct once approved.
+
+
+@admin_router.get("/partner-products/pending-images")
+async def admin_list_pending_image_reviews(
+    country: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    """List PartnerProduct rows whose gallery is awaiting admin sign-off."""
+    stmt = (select(PartnerProduct)
+            .where(PartnerProduct.images_review_status == "pending")
+            .order_by(PartnerProduct.updated_at.desc())
+            .limit(limit).offset(offset))
+    rows = (await session.execute(stmt)).scalars().all()
+    # Preload the master products (side-by-side compare) + partners.
+    master_ids  = [r.master_product_id for r in rows if r.master_product_id]
+    partner_ids = list({r.partner_id for r in rows})
+    masters = (await session.execute(
+        select(MartProduct).where(MartProduct.id.in_(master_ids)) if master_ids else select(MartProduct).where(sa.false())
+    )).scalars().all() if master_ids else []
+    m_by_id = {m.id: m for m in masters}
+    parts = (await session.execute(
+        select(Partner).where(Partner.id.in_(partner_ids)) if partner_ids else select(Partner).where(sa.false())
+    )).scalars().all() if partner_ids else []
+    p_by_id = {p.id: p for p in parts}
+
+    items = []
+    for r in rows:
+        m = m_by_id.get(r.master_product_id) if r.master_product_id else None
+        p = p_by_id.get(r.partner_id)
+        if country and p and p.country != country:
+            continue
+        items.append({
+            "partner_product_id": r.id,
+            "master_product_id":  r.master_product_id,
+            "partner_id":         r.partner_id,
+            "partner_name":       p.business_name if p else None,
+            "country":            p.country if p else None,
+            "name":               (m.name if m else r.name),
+            "sku_code":           r.sku_code,
+            "master_images":      list(getattr(m, "images", None) or ([m.image] if (m and m.image) else [])) if m else [],
+            "partner_images":     list(r.images or []),
+            "images_review_status": r.images_review_status,
+            "updated_at":         r.updated_at.isoformat() if r.updated_at else None,
+        })
+    return {"items": items, "total": len(items)}
+
+
+import sqlalchemy as sa  # noqa: E402 — used above
+
+
+class ImageReviewNoteIn(BaseModel):
+    note: Optional[str] = Field(None, max_length=2000)
+
+
+@admin_router.post("/partner-products/{product_id}/images/approve")
+async def admin_approve_partner_images(
+    product_id: str,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Approve a supplier's pending gallery — mirror its images onto the
+    linked MartProduct so the public PDP surfaces the new set immediately."""
+    pp = await session.get(PartnerProduct, product_id)
+    if not pp: raise HTTPException(404, "Product not found")
+    if pp.images_review_status != "pending":
+        raise HTTPException(409, {"code": "not_pending",
+            "message": f"Gallery is currently '{pp.images_review_status}'"})
+    if not pp.master_product_id:
+        raise HTTPException(400, {"code": "not_linked",
+            "message": "Product is not linked to a master — approve the product first."})
+
+    mp = await session.get(MartProduct, pp.master_product_id)
+    if not mp: raise HTTPException(400, {"code": "master_missing",
+                                          "message": "Linked master product no longer exists"})
+
+    # Copy authoritative order + primary sync.
+    new_images = list(pp.images or [])
+    mp.images = new_images
+    mp.image  = new_images[0] if new_images else mp.image
+    pp.images_review_status = "approved"
+    pp.images_review_note   = None
+    await session.commit()
+
+    partner = await session.get(Partner, pp.partner_id)
+    try:
+        from shared.notifications.routes import notify as inapp_notify
+        await inapp_notify(
+            session,
+            recipient_kind="partner_owner", recipient_id=pp.partner_id,
+            kind="partner_product_images_approved",
+            title=f"Gallery approved for '{mp.name}'",
+            body=f"{len(new_images)} image{'s' if len(new_images) != 1 else ''} now live on the customer product page.",
+            link=f"/partner-portal/{(partner.module or 'mart') if partner else 'mart'}/products",
+            entity_kind="partner_product", entity_id=pp.id,
+            actor_label=admin.email,
+        )
+    except Exception:
+        pass
+    return {"partner_product_id": pp.id, "master_product_id": mp.id,
+            "master_images": list(mp.images), "status": pp.images_review_status}
+
+
+@admin_router.post("/partner-products/{product_id}/images/reject")
+async def admin_reject_partner_images(
+    product_id: str,
+    payload: ImageReviewNoteIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Reject the supplier's pending gallery. The images stay on the
+    PartnerProduct (for the supplier to see + replace) but they're NOT
+    mirrored to the master, so the public PDP is unchanged."""
+    pp = await session.get(PartnerProduct, product_id)
+    if not pp: raise HTTPException(404, "Product not found")
+    if pp.images_review_status != "pending":
+        raise HTTPException(409, {"code": "not_pending",
+            "message": f"Gallery is currently '{pp.images_review_status}'"})
+    if not (payload.note and payload.note.strip()):
+        raise HTTPException(400, {"code": "note_required",
+            "message": "Provide a short reason so the supplier knows what to fix."})
+
+    pp.images_review_status = "rejected"
+    pp.images_review_note   = payload.note.strip()
+    await session.commit()
+
+    partner = await session.get(Partner, pp.partner_id)
+    try:
+        from shared.notifications.routes import notify as inapp_notify
+        await inapp_notify(
+            session,
+            recipient_kind="partner_owner", recipient_id=pp.partner_id,
+            kind="partner_product_images_rejected",
+            title=f"Gallery changes need review",
+            body=payload.note.strip(),
+            link=f"/partner-portal/{(partner.module or 'mart') if partner else 'mart'}/products",
+            entity_kind="partner_product", entity_id=pp.id,
+            actor_label=admin.email,
+        )
+    except Exception:
+        pass
+    return {"partner_product_id": pp.id, "status": pp.images_review_status,
+            "note": pp.images_review_note}
 

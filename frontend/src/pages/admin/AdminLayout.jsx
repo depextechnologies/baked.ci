@@ -28,6 +28,7 @@ const GOVERNANCE = [
   { to: "/admin/driver-applications", icon: Bike, label: "Driver Applications" },
   { to: "/admin/homepage-management", icon: HomeIcon2, label: "Homepage" },
   { to: "/admin/mart-partner-approvals", icon: ClipboardCheck, label: "Darkstore Approvals" },
+  { to: "/admin/partner-image-reviews",  icon: ClipboardCheck, label: "Partner Image Reviews" },
   { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
   { to: "/admin/api-management", icon: Plug, label: "API Management" },

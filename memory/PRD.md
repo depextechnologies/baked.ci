@@ -3,7 +3,18 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Supplier Image Manager (Phase 2)
+## Latest (2026-02-28) — Supplier Gallery → Customer PDP Sync (Phase 3)
+- ✅ **Approval queue for supplier images (2026-02-28)** — Phase 3 of the Fixing_Prompt.docx v4 spec:
+  - **Schema**: new `images_review_status` (none|pending|approved|rejected) + `images_review_note` on `partner_products` (migration `0036_partner_images_review`). Supplier upload/reorder now auto-flips status to `pending` when the product is linked to a MartProduct.
+  - **Backend admin endpoints** (under `/admin/mart-partner/`):
+    - `GET /partner-products/pending-images` — queue with side-by-side master vs. supplier images + partner + country.
+    - `POST /partner-products/{id}/images/approve` — mirrors `partner.images → master.images` (and primary sync) so the public PDP updates instantly. Fires in-app notification to partner owner.
+    - `POST /partner-products/{id}/images/reject` — requires a note; supplier gets the message in-app.
+  - **Admin UI**: new page `/admin/partner-image-reviews` with side-by-side compare + reject-with-note modal. Sidebar link added.
+  - **Supplier UI**: Images button on ProductRow now shows a `PENDING` (amber) or `REJECTED` (red) chip so suppliers can see review state at a glance; the rejection note is shown as a tooltip.
+  - **Testing**: iter69 — 6/6 backend pytest green (`/app/backend/tests/test_partner_images_review.py`) + smoke-tested admin queue UI end-to-end.
+
+## Prior (2026-02-28) — Supplier Image Manager (Phase 2)
 - ✅ **Supplier gallery editor (2026-02-28)** — Phase 2 of the Fixing_Prompt.docx v4 spec:
   - **Schema**: nullable JSONB `images` array on `partner_products` (migration `0035_partner_images_jsonb`). `images[0]` is mirrored into the legacy `image` column so existing readers keep working.
   - **Backend**: `POST /partner/products/{id}/images/upload` (multipart, 6 MB cap, JPG/PNG/WebP, max 8) writes to Emergent Object Storage under `mart-partner/product/{id}/…`. `PATCH /partner/products/{id}/images` (reorder / remove / set primary — payload is the authoritative post-op list). `GET /partner/uploads/{key:path}` proxies the asset. Ownership + role guards enforced.

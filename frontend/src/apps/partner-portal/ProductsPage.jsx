@@ -1271,15 +1271,26 @@ const ProductRow = ({ p, onChange, selected = false, onToggleSelect = null }) =>
             <MapPin size={12} /> Location
           </button>
           <button onClick={() => setShowImages(true)} className="px-2 h-8 text-xs rounded flex items-center gap-1"
-                  style={{ color: "var(--ph-accent-warm)", border: "1px solid var(--ph-border-strong)" }}
+                  style={{ color: p.images_review_status === "rejected" ? "#FF4C52" : "var(--ph-accent-warm)",
+                           border: `1px solid ${p.images_review_status === "rejected" ? "#FF4C52" : "var(--ph-border-strong)"}` }}
                   data-testid={`row-images-${p.id}`}
-                  title="Manage gallery">
+                  title={p.images_review_note || "Manage gallery"}>
             <ImageIcon size={12} /> Images
             {(p.images?.length || 0) > 0 && (
               <span className="text-[10px] font-bold px-1 rounded"
                     style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
                 {p.images.length}
               </span>
+            )}
+            {p.images_review_status === "pending" && (
+              <span className="text-[9px] uppercase tracking-widest px-1 rounded"
+                    style={{ background: "rgba(252,196,76,.2)", color: "#FCC44C" }}
+                    data-testid={`row-images-pending-${p.id}`}>Pending</span>
+            )}
+            {p.images_review_status === "rejected" && (
+              <span className="text-[9px] uppercase tracking-widest px-1 rounded"
+                    style={{ background: "rgba(255,76,82,.2)", color: "#FF4C52" }}
+                    data-testid={`row-images-rejected-${p.id}`}>Rejected</span>
             )}
           </button>
           <button onClick={toggleActive} className="px-2 h-8 text-xs rounded"
