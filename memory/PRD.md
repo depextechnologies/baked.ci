@@ -3,7 +3,15 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Aisle → Rack Auto-Suggest
+## Latest (2026-02-28) — PDP Gallery + Zoom + Dynamic Product Details
+- ✅ **Customer PDP overhaul (2026-02-28)** — Phase 1 of the Fixing_Prompt.docx v4 spec:
+  - **Schema**: new nullable JSONB `details` column on `mart_products` (migration `0034_mart_product_details_jsonb`). Holds well-known keys (fssai, allergens, shelf_life, taste_profile, ingredients, nutrition{}, marketer, seller_fssai, return_policy, …) plus arbitrary supplier-authored key/value pairs. Backward-compatible.
+  - **New `ProductGallery`**: multi-thumb strip + desktop side-by-side zoom pane with cursor spotlight + mobile-first fullscreen lightbox with prev/next + dot indicators.
+  - **New `ProductDetails`**: dynamic expandable block that only renders non-empty fields. Well-known keys map to labels ("Allergen Information", "Country of Origin", "FSSAI License"…); nutrition sub-table renders as a two-column grid; custom supplier keys fall through into "More info". Works in light + dark.
+  - **Regression-safe**: existing `PRODUCT.detailImg` testid preserved as `sr-only` for legacy tests; products without `details` or `images[]` continue rendering with just the primary image + description.
+  - **Testing**: end-to-end verified via screenshots (desktop gallery + zoom + expanded details + mobile lightbox + light mode). No new pytest — data flow is a simple JSONB round-trip through the existing `row_to_dict` serializer.
+
+## Prior (2026-02-28) — Aisle → Rack Auto-Suggest
 - ✅ **Aisle → Rack cascade suggest (2026-02-28)** — extended the Category Auto-Suggest pattern one level deeper. When adding a Rack under a tagged Aisle, the AddChildRow now:
   - **Pre-fills the Category** and locks it (parent Aisle is authoritative, backend rejects mismatches anyway).
   - **Pre-fills the Subcategory** from the parent Aisle's `subcategory_slug` and renders a blue dashed `✨ Suggested sub · <slug>` hint chip — click to clear and pick a different one (e.g. Aisle=`fresh-fruits` overall but Rack=`citrus` specifically).

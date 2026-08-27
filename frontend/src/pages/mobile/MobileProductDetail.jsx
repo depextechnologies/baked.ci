@@ -8,6 +8,8 @@ import { QuantityStepper } from "../../components/mobile/QuantityStepper";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Share2, Heart, ShoppingCart, Zap, Leaf, HandHeart, Truck, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { ProductGallery } from "../../components/mart/ProductGallery";
+import { ProductDetails } from "../../components/mart/ProductDetails";
 
 const BADGES = [
   { icon: Leaf, label: "Farm fresh" },
@@ -53,15 +55,15 @@ export const MobileProductDetail = () => {
 
   return (
     <div className="pb-32">
-      {/* Floating header (image behind) */}
+      {/* Floating header (image gallery behind) */}
       <div className="relative">
-        <div className="aspect-square bg-secondary/40 relative overflow-hidden">
-          {product.image && <img src={product.image} alt={product.name} className="w-full h-full object-contain" />}
+        <div className="relative">
+          <ProductGallery image={product.image} images={product.images} name={product.name} />
           {off > 0 && (
-            <div className="absolute top-3 left-3 baked-chip px-3 py-1 text-xs font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>{off}% OFF</div>
+            <div className="absolute top-3 left-3 z-10 baked-chip px-3 py-1 text-xs font-bold text-black pointer-events-none" style={{ backgroundColor: "#77BC1F" }}>{off}% OFF</div>
           )}
         </div>
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
           <button data-testid="m-pd-back" onClick={() => nav(-1)} className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
             <ArrowLeft size={16} />
           </button>
@@ -110,6 +112,11 @@ export const MobileProductDetail = () => {
           )}
         </div>
       )}
+
+      {/* Full product details — dynamic, only renders non-empty fields */}
+      <div className="px-4">
+        <ProductDetails product={product} />
+      </div>
 
       {/* Quantity selector card */}
       <div className="px-4 mt-5">

@@ -113,6 +113,14 @@ class MartProduct(Base, AuditMixin):
     tax_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True)
     storage_requirement: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     temperature_class: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Fixing_Prompt (2026-02-28) — Flexible product-information system.
+    # JSONB dict that can hold any of the mandatory keys (fssai, allergens,
+    # shelf_life, taste_profile, disclaimer, customer_care, country_of_origin,
+    # manufacturer_address, marketer_name, marketer_address, seller_fssai,
+    # return_policy, serve_size, ingredients, nutrition{...}) OR arbitrary
+    # supplier-authored key/value pairs. The customer PDP only renders
+    # non-empty keys, so schema-less growth is safe.
+    details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
 
 
 class MartOffer(Base):
