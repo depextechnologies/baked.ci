@@ -87,7 +87,7 @@ const CategoryChips = ({ node }) => {
   );
 };
 
-const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle, editing, onAddClick, hasChildLevel, onExpand, expanded, country, parentCategory }) => {
+const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle, editing, onAddClick, hasChildLevel, onExpand, expanded, country, parentCategory, parentSubcategory }) => {
   const [name, setName] = useState(node.name);
   const [code, setCode] = useState(node.code);
   const [cat, setCat] = useState(node.category_slug || "");
@@ -172,19 +172,24 @@ const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle
   );
 };
 
-const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, country, parentCategory }) => {
+const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, country, parentCategory, parentSubcategory }) => {
   const [nCode, setNCode] = useState("");
   const [nName, setNName] = useState("");
-  // Category Auto-Suggest (2026-02-28): when adding an Aisle under a Zone
-  // that has a suggested category (from WarehouseCategoryDefault), pre-fill
-  // it so ops doesn't have to hunt in the dropdown. The suggestion still
-  // renders as a dismissible chip so it's obvious it's a hint, not a lock.
+  // Auto-suggest chain:
+  //   • Aisle-under-Zone → pre-fill category from Zone default (via tree).
+  //   • Rack-under-Aisle → pre-fill category AND subcategory from the parent
+  //     Aisle's tags. Category stays locked (parent's cat is authoritative;
+  //     backend rejects mismatches anyway). Subcategory renders as a
+  //     dismissible ✨ hint chip so ops can override for a more specific rack.
   const zoneSuggested = childLevel === "aisle" ? (node.suggested_category_slug || "") : "";
-  const rackInherited = childLevel === "rack" ? (parentCategory || "") : "";
-  const initialCat = zoneSuggested || rackInherited;
+  const rackInheritedCat = childLevel === "rack" ? (parentCategory    || "") : "";
+  const rackInheritedSub = childLevel === "rack" ? (parentSubcategory || "") : "";
+  const initialCat = zoneSuggested || rackInheritedCat;
+  const initialSub = rackInheritedSub;
   const [cat, setCat] = useState(initialCat);
-  const [sub, setSub] = useState("");
-  const [suggestionActive, setSuggestionActive] = useState(!!zoneSuggested);
+  const [sub, setSub] = useState(initialSub);
+  const [catSuggestionActive, setCatSuggestionActive] = useState(!!zoneSuggested);
+  const [subSuggestionActive, setSubSuggestionActive] = useState(!!rackInheritedSub);
   const supportsCascade = childLevel === "aisle" || childLevel === "rack";
   const inherited = childLevel === "rack" ? (parentCategory || null) : null;
 
@@ -209,17 +214,20 @@ const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, c
       <input placeholder="Code (A, 1, R3)" value={nCode} onChange={e => setNCode(e.target.value)} className="px-2 h-8 rounded text-sm font-mono w-32" style={fieldStyle} autoFocus />
       <input placeholder="Name" value={nName} onChange={e => setNName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} className="px-2 h-8 rounded text-sm flex-1 min-w-[160px]" style={fieldStyle} />
       {supportsCascade && (
-        <CategoryFields country={country} cat={cat} setCat={(v) => { setCat(v); if (suggestionActive && v !== zoneSuggested) setSuggestionActive(false); }} sub={sub} setSub={setSub}
+        <CategoryFields country={country} cat={cat}
+                        setCat={(v) => { setCat(v); if (catSuggestionActive && v !== zoneSuggested) setCatSuggestionActive(false); }}
+                        sub={sub}
+                        setSub={(v) => { setSub(v); if (subSuggestionActive && v !== rackInheritedSub) setSubSuggestionActive(false); }}
                         inheritedCategory={inherited}
                         testidPrefix={`node-add-${childLevel}-${node.code}`} />
       )}
-      {/* Auto-suggest chip — only visible on Aisle-under-Zone with a resolved
-          default. Clicking dismisses the hint (also cleared when the user
-          picks a different category from the dropdown). */}
-      {zoneSuggested && suggestionActive && (
+      {/* Auto-suggest chips — Aisle-under-Zone: dismissible category hint from
+          Zone default. Rack-under-Aisle: subcategory hint inherited from the
+          parent Aisle (category is locked by CategoryFields, so no chip). */}
+      {zoneSuggested && catSuggestionActive && (
         <button
           type="button"
-          onClick={() => setSuggestionActive(false)}
+          onClick={() => setCatSuggestionActive(false)}
           data-testid={`node-add-${childLevel}-${node.code}-suggestion-chip`}
           className="text-[10px] uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1"
           style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)",
@@ -229,21 +237,36 @@ const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, c
           <span>✨ Suggested · {zoneSuggested}</span>
         </button>
       )}
+      {rackInheritedSub && subSuggestionActive && (
+        <button
+          type="button"
+          onClick={() => { setSub(""); setSubSuggestionActive(false); }}
+          data-testid={`node-add-${childLevel}-${node.code}-sub-suggestion-chip`}
+          className="text-[10px] uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1"
+          style={{ background: "rgba(96,165,250,.15)", color: "#60a5fa",
+                   border: "1px dashed #60a5fa" }}
+          title="Inherited from parent Aisle — click to clear and pick a different subcategory"
+        >
+          <span>✨ Suggested sub · {rackInheritedSub}</span>
+        </button>
+      )}
       <button onClick={submit} className="text-xs px-3 h-8 rounded" style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }} data-testid={`node-add-child-save-${node.id}`}>Add</button>
       <button onClick={onCancel} className="text-xs px-2 h-8" style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>
     </div>
   );
 };
 
-const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0, country, parentCategory = null }) => {
+const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0, country, parentCategory = null, parentSubcategory = null }) => {
   const [expanded, setExpanded] = useState(depth < 2);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const meta = { ...LEVEL_LABELS[level] };
   const childLevel = meta.child;
-  // Children inherit this node's category when this node is an Aisle so
-  // the "child Rack" picker starts pre-filled with the correct category.
-  const childInheritedCat = level === "aisle" ? (node.category_slug || null) : null;
+  // Children inherit this node's cascade tags when this node is an Aisle so
+  // the "child Rack" picker starts pre-filled with the parent Aisle's
+  // Category AND Subcategory (2026-02-28 auto-suggest expansion).
+  const childInheritedCat = level === "aisle" ? (node.category_slug    || null) : null;
+  const childInheritedSub = level === "aisle" ? (node.subcategory_slug || null) : null;
 
   return (
     <div className="ml-1" data-testid={`node-${level}-${node.code}`}>
@@ -254,13 +277,16 @@ const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0, country,
         onAddClick={() => { setAdding(true); setExpanded(true); }}
         country={country}
         parentCategory={parentCategory}
+        parentSubcategory={parentSubcategory}
       />
       {expanded && childLevel && (
         <div>
           {(node.children || []).map((c) =>
             React.createElement(HierarchyNode, {
               key: c.id, node: c, level: childLevel, warehouseId, onChange, depth: depth + 1,
-              country, parentCategory: childInheritedCat,
+              country,
+              parentCategory:    childInheritedCat,
+              parentSubcategory: childInheritedSub,
             })
           )}
           {adding && (
@@ -270,6 +296,7 @@ const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0, country,
               onCancel={() => setAdding(false)}
               country={country}
               parentCategory={childInheritedCat}
+              parentSubcategory={childInheritedSub}
             />
           )}
         </div>
