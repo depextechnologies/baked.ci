@@ -394,6 +394,31 @@ const LocationModal = ({ open, onClose, product, onSaved }) => {
   };
   useEffect(() => { if (open) load(); /* eslint-disable-next-line */ }, [open, product?.id]);
 
+  // Fixing_Prompt (2026-02-27) — filter tree by product's category cascade.
+  // Untagged Aisles/Racks stay visible for back-compat; tagged ones must
+  // match the product's category (and subcategory if the product has one).
+  const filteredTree = React.useMemo(() => {
+    if (!tree || !product) return tree;
+    const prodCat = product.category_slug || null;
+    const prodSub = product.subcategory_slug || null;
+    const filterRack = (r) => {
+      if (r.category_slug && prodCat && r.category_slug !== prodCat) return null;
+      if (r.subcategory_slug && prodSub && r.subcategory_slug !== prodSub) return null;
+      return r;
+    };
+    const filterAisle = (a) => {
+      if (a.category_slug && prodCat && a.category_slug !== prodCat) return null;
+      if (a.subcategory_slug && prodSub && a.subcategory_slug !== prodSub) return null;
+      return { ...a, children: (a.children || []).map(filterRack).filter(Boolean) };
+    };
+    return {
+      ...tree,
+      zones: tree.zones.map(z => ({
+        ...z, children: (z.children || []).map(filterAisle).filter(Boolean),
+      })),
+    };
+  }, [tree, product]);
+
   // Reset selection when modal closes
   useEffect(() => {
     if (!open) { setSelBin(null); setQty("0"); setIsPrimary(true); setExpandedIds({}); }
@@ -505,6 +530,25 @@ const LocationModal = ({ open, onClose, product, onSaved }) => {
             <p className="text-xs mt-1" style={{ color: "var(--ph-fg-subtle)" }}>
               Assign one or more bins so pickers know where to grab this SKU.
             </p>
+            {(product?.category_slug || product?.subcategory_slug) && (
+              <div className="flex items-center gap-2 mt-2" data-testid="location-cascade-chips">
+                {product?.category_slug && (
+                  <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                        style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+                    {product.category_slug}
+                  </span>
+                )}
+                {product?.subcategory_slug && (
+                  <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                        style={{ background: "rgba(96,165,250,.15)", color: "#60a5fa" }}>
+                    {product.subcategory_slug}
+                  </span>
+                )}
+                <span className="text-[10px]" style={{ color: "var(--ph-fg-subtle)" }}>
+                  Tree filtered to matching Aisles / Racks.
+                </span>
+              </div>
+            )}
           </div>
           <button onClick={onClose} data-testid="location-modal-close"
                   className="w-10 h-10 rounded-lg flex items-center justify-center"
@@ -558,13 +602,15 @@ const LocationModal = ({ open, onClose, product, onSaved }) => {
             </div>
             {loading ? (
               <p className="text-sm" style={{ color: "var(--ph-fg-subtle)" }}>Loading…</p>
-            ) : !tree || tree.zones.length === 0 ? (
+            ) : !filteredTree || filteredTree.zones.length === 0 ? (
               <div className="p-4 rounded-xl text-sm" style={{ background: "var(--ph-card)", color: "var(--ph-fg-muted)" }}>
-                No zones yet. Set up your warehouse first under Warehouse → Storage hierarchy.
+                {tree && tree.zones.length > 0
+                  ? "No Aisles or Racks match this product's category. Tag an Aisle/Rack with the matching Category → Subcategory under Warehouse → Storage hierarchy."
+                  : "No zones yet. Set up your warehouse first under Warehouse → Storage hierarchy."}
               </div>
             ) : (
               <div className="rounded-xl p-2" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }} data-testid="location-tree">
-                {tree.zones.map(z => renderNode(z, "zone", {}))}
+                {filteredTree.zones.map(z => renderNode(z, "zone", {}))}
               </div>
             )}
           </section>
@@ -740,17 +786,43 @@ const ProductRow = ({ p, onChange }) => {
 /* ----------------------------- Main page --------------------------------- */
 
 export const ProductsPage = () => {
+  const { partner } = usePartner();
+  const country = partner?.country || "CI";
   const [state, setState] = useState({ items: [], total: 0, live: 0 });
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  // Fixing_Prompt (2026-02-27) — cascading catalog filters. When the
+  // admin picks a category, only its subcategories show; picking a
+  // subcategory further narrows the products list. Empty selection =
+  // "All Categories" / "All Subcategories".
+  const [cats, setCats]     = useState([]);
+  const [subs, setSubs]     = useState([]);
+  const [catSel, setCatSel] = useState("");
+  const [subSel, setSubSel] = useState("");
 
   const load = async () => {
-    const { data } = await partnerApi.get("/partner/products");
+    const params = new URLSearchParams();
+    if (catSel) params.set("category", catSel);
+    if (subSel) params.set("subcategory", subSel);
+    const suffix = params.toString();
+    const { data } = await partnerApi.get(`/partner/products${suffix ? `?${suffix}` : ""}`);
     setState(data);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [catSel, subSel]);
+
+  // Categories bootstrap + subcategory cascade on category change.
+  useEffect(() => {
+    partnerApi.get(`/mart/categories?country=${country}`).then(r => setCats(r.data || [])).catch(() => setCats([]));
+  }, [country]);
+  useEffect(() => {
+    if (!catSel) { setSubs([]); setSubSel(""); return; }
+    partnerApi.get(`/mart/subcategories?country=${country}&category=${encodeURIComponent(catSel)}`)
+      .then(r => setSubs(r.data || []))
+      .catch(() => setSubs([]));
+    setSubSel(""); // reset when parent changes
+  }, [catSel, country]);
 
   const filtered = useMemo(() => {
     if (!q) return state.items;
@@ -780,12 +852,25 @@ export const ProductsPage = () => {
         ))}
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
-        <div className="relative flex-1">
+      {/* Search + cascading filters row */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-[1fr_220px_220px] gap-3">
+        <div className="relative">
           <Search size={14} style={{ color: "var(--ph-fg-subtle)", position: "absolute", left: 12, top: 13 }} />
           <input placeholder="Search your catalog" value={q} onChange={e => setQ(e.target.value)}
                  className={FIELD + " pl-9"} style={fieldStyle} data-testid="products-search-input" />
         </div>
+        <select value={catSel} onChange={e => setCatSel(e.target.value)}
+                className={FIELD} style={fieldStyle} data-testid="products-category-filter">
+          <option value="">All Categories</option>
+          {cats.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+        </select>
+        <select value={subSel} onChange={e => setSubSel(e.target.value)}
+                disabled={!catSel}
+                className={FIELD} style={{ ...fieldStyle, opacity: catSel ? 1 : 0.55 }}
+                data-testid="products-subcategory-filter">
+          <option value="">All Subcategories</option>
+          {subs.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+        </select>
       </div>
 
       <div className="mt-4 rounded-2xl overflow-hidden" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>

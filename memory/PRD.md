@@ -3,7 +3,16 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-27) — SENDbakēd Driver Trip Flow + Light Mode
+## Latest (2026-02-27) — Darkstore Category → Subcategory → Product → Storage Cascade
+- ✅ **Darkstore storage cascade (2026-02-27)** — per `Fixing_Prompt.docx` v3:
+  - Migration `0033_warehouse_category_cascade` adds nullable `category_slug` + `subcategory_slug` columns (with indexes) to `warehouse_aisles` + `warehouse_racks`.
+  - Backend `_validate_category_cascade()` (country-scoped) enforces: (i) subcategory requires category, (ii) unknown category/subcategory rejected, (iii) subcategory must belong to category (JOIN MartSubcategory→MartCategory via `category_id`), (iv) Rack.category must equal parent Aisle.category when Aisle is tagged.
+  - `list_partner_products` now accepts `?category=` + `?subcategory=` query params.
+  - `assign_location` enforces the cascade at bin-assignment time — a Mango can't be pinned to a Dairy rack. Untagged Aisles/Racks accept any product for back-compat.
+  - **Frontend**: `ProductsPage` has cascading Category + Subcategory filters above the list. `WarehouseEditor` renders CategoryFields on every Aisle/Rack add/edit row; Rack rows inherit and lock the parent Aisle's category. `LocationModal` shows the product's cascade chips at the top and filters the warehouse tree to only matching Aisles/Racks.
+  - **Testing**: iter66 — 15/15 pytest green + 3/3 frontend UI flows green. Test suite lives at `/app/backend/tests/test_warehouse_cascade.py`.
+
+## Prior (2026-02-27) — SENDbakēd Driver Trip Flow + Light Mode
 - ✅ **Driver Trip Flow (2026-02-27)** — Uber-style trip lifecycle per `Fixing_Prompt.docx`:
   - New `DriverTripSheet.jsx` with `SlideToConfirm` for each of the 4 backend transitions (`driver_assigned→arriving→picked_up→in_transit→delivered`). Slide-to-confirm requires a real drag ≥80% — a tap deliberately bounces back.
   - `openNativeNavigation()` opens `google.navigation:` (Android) / `maps://?daddr=` (iOS) with an automatic web fallback to `https://www.google.com/maps/dir/?api=1&destination=…&travelmode=driving`.

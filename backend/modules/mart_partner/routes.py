@@ -933,6 +933,10 @@ class NodeIn(BaseModel):
     code: str = Field(..., min_length=1, max_length=40)
     name: str = Field(..., min_length=1, max_length=200)
     sort_order: int = 0
+    # Fixing_Prompt (2026-02-27) — Aisle/Rack cascade tags.
+    # Ignored for Zone/Shelf/Bin. Subcategory requires category.
+    category_slug: Optional[str] = None
+    subcategory_slug: Optional[str] = None
 
 
 class NodeUpdateIn(BaseModel):
@@ -940,6 +944,8 @@ class NodeUpdateIn(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+    category_slug: Optional[str] = None
+    subcategory_slug: Optional[str] = None
 
 
 async def _assert_owns_warehouse(session: AsyncSession, partner: Partner, warehouse_id: str) -> Warehouse:
@@ -960,10 +966,78 @@ async def _assert_owns_warehouse(session: AsyncSession, partner: Partner, wareho
 
 
 def _node_dict(row, level: str) -> dict:
-    return {
+    d = {
         "id": row.id, "level": level, "code": row.code, "name": row.name,
         "sort_order": row.sort_order, "is_active": row.is_active,
     }
+    # Aisle/Rack only — expose the category cascade tags so the storage
+    # hierarchy editor and the location modal can filter correctly.
+    if level in ("aisle", "rack"):
+        d["category_slug"]    = getattr(row, "category_slug", None)
+        d["subcategory_slug"] = getattr(row, "subcategory_slug", None)
+    return d
+
+
+async def _validate_category_cascade(
+    session: AsyncSession, *,
+    country: str,
+    category_slug: Optional[str], subcategory_slug: Optional[str],
+    parent_row=None, parent_level: Optional[str] = None,
+) -> None:
+    """Enforce the Category → Subcategory → Product cascade at write time.
+
+    - Subcategory without category → 400.
+    - Category must exist in mart_categories (scoped by country — the
+      slug is unique per country, not globally).
+    - Subcategory must exist AND belong to the given category (joined
+      via MartSubcategory.category_id → MartCategory.slug because
+      MartSubcategory does not carry the slug denormalised).
+    - When creating/editing a Rack under an Aisle whose category is
+      tagged, the Rack's category must equal the Aisle's category.
+    """
+    from core.models import MartCategory, MartSubcategory
+    if subcategory_slug and not category_slug:
+        raise HTTPException(status_code=400,
+                            detail="Subcategory requires a category.")
+    cat_row = None
+    if category_slug:
+        cat_row = (await session.execute(
+            select(MartCategory).where(
+                MartCategory.slug == category_slug,
+                MartCategory.country == country,
+            )
+        )).scalar_one_or_none()
+        if cat_row is None:
+            raise HTTPException(status_code=400,
+                                detail=f"Unknown category '{category_slug}'.")
+    if subcategory_slug:
+        # Join subcategory → its parent category so we can compare the
+        # PARENT slug (MartSubcategory has category_id, not category_slug).
+        joined = (await session.execute(
+            select(MartSubcategory, MartCategory)
+            .join(MartCategory, MartSubcategory.category_id == MartCategory.id)
+            .where(
+                MartSubcategory.slug == subcategory_slug,
+                MartSubcategory.country == country,
+            )
+        )).first()
+        if joined is None:
+            raise HTTPException(status_code=400,
+                                detail=f"Unknown subcategory '{subcategory_slug}'.")
+        _sub_row, parent_cat = joined
+        if parent_cat.slug != category_slug:
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_cascade",
+                "message": f"Subcategory '{subcategory_slug}' does not belong to '{category_slug}'.",
+            })
+    # Rack under Aisle — category must match Aisle when Aisle is tagged.
+    if parent_level == "aisle" and parent_row is not None:
+        aisle_cat = getattr(parent_row, "category_slug", None)
+        if aisle_cat and category_slug and aisle_cat != category_slug:
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_cascade",
+                "message": f"Rack category '{category_slug}' must match its parent Aisle '{aisle_cat}'.",
+            })
 
 
 @partner_router.get("/warehouse/{warehouse_id}/tree")
@@ -1058,16 +1132,33 @@ async def create_node(
     Model, parent_col = LEVEL_MODEL[payload.level]
 
     # Verify parent belongs to this partner's warehouse (defense in depth).
+    parent = None
+    parent_level = None
     if payload.level == "zone":
         if payload.parent_id != warehouse_id:
             raise HTTPException(status_code=400, detail="Zone parent must be the warehouse id")
     else:
-        ParentModel = LEVEL_MODEL[{"aisle":"zone","rack":"aisle","shelf":"rack","bin":"shelf"}[payload.level]][0]
+        parent_level = {"aisle":"zone","rack":"aisle","shelf":"rack","bin":"shelf"}[payload.level]
+        ParentModel = LEVEL_MODEL[parent_level][0]
         parent = await session.get(ParentModel, payload.parent_id)
         if not parent:
             raise HTTPException(status_code=404, detail="Parent node not found")
 
-    row = Model(**{parent_col: payload.parent_id, "code": payload.code, "name": payload.name, "sort_order": payload.sort_order})
+    # Fixing_Prompt (2026-02-27): validate Aisle/Rack category cascade.
+    row_kwargs = {parent_col: payload.parent_id, "code": payload.code, "name": payload.name, "sort_order": payload.sort_order}
+    if payload.level in ("aisle", "rack"):
+        await _validate_category_cascade(
+            session,
+            country=partner.country,
+            category_slug=payload.category_slug,
+            subcategory_slug=payload.subcategory_slug,
+            parent_row=parent if parent_level == "aisle" else None,
+            parent_level=parent_level,
+        )
+        row_kwargs["category_slug"]    = payload.category_slug
+        row_kwargs["subcategory_slug"] = payload.subcategory_slug
+
+    row = Model(**row_kwargs)
     session.add(row)
     try:
         await session.commit()
@@ -1092,7 +1183,25 @@ async def update_node(
     row = await session.get(Model, node_id)
     if not row:
         raise HTTPException(status_code=404, detail="Node not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    payload_data = payload.model_dump(exclude_unset=True)
+    if level in ("aisle", "rack") and ("category_slug" in payload_data or "subcategory_slug" in payload_data):
+        # Blend current + patched values, then validate.
+        new_cat = payload_data.get("category_slug",    getattr(row, "category_slug",    None))
+        new_sub = payload_data.get("subcategory_slug", getattr(row, "subcategory_slug", None))
+        parent_row = None
+        if level == "rack":
+            parent_row = await session.get(WarehouseAisle, row.aisle_id)
+        await _validate_category_cascade(
+            session,
+            country=partner.country,
+            category_slug=new_cat, subcategory_slug=new_sub,
+            parent_row=parent_row, parent_level="aisle" if level == "rack" else None,
+        )
+    if level not in ("aisle", "rack"):
+        # Strip cascade fields for levels that don't carry them.
+        payload_data.pop("category_slug", None)
+        payload_data.pop("subcategory_slug", None)
+    for k, v in payload_data.items():
         setattr(row, k, v)
     try:
         await session.commit()
@@ -1316,6 +1425,8 @@ class ProductUpdateIn(BaseModel):
 async def list_partner_products(
     q: Optional[str] = None,
     active: Optional[bool] = None,
+    category: Optional[str] = None,
+    subcategory: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     partner: Partner = Depends(get_current_partner),
@@ -1324,6 +1435,10 @@ async def list_partner_products(
     stmt = select(PartnerProduct).where(PartnerProduct.partner_id == partner.id).order_by(PartnerProduct.created_at.desc())
     if active is not None:
         stmt = stmt.where(PartnerProduct.is_active == active)
+    if category:
+        stmt = stmt.where(PartnerProduct.category_slug == category)
+    if subcategory:
+        stmt = stmt.where(PartnerProduct.subcategory_slug == subcategory)
     rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
     masters = await _load_masters(session, [r.master_product_id for r in rows if r.master_product_id])
 

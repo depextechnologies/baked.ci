@@ -10,7 +10,9 @@ import { partnerApi, usePartner } from "./PartnerPortalApp";
 const fieldStyle = { background: "var(--ph-card)", color: "var(--ph-fg)", border: "1px solid var(--ph-border-strong)" };
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;
-  return Array.isArray(d) ? d.map(x => x?.msg).filter(Boolean).join(" · ") : (d || e?.message || "Something went wrong");
+  if (Array.isArray(d)) return d.map(x => x?.msg).filter(Boolean).join(" · ");
+  if (d && typeof d === "object" && d.message) return d.message;
+  return d || e?.message || "Something went wrong";
 };
 
 const LEVEL_LABELS = {
@@ -21,12 +23,90 @@ const LEVEL_LABELS = {
   bin:   { label: "Bin",   child: null },
 };
 
-const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle, editing, onAddClick, hasChildLevel, onExpand, expanded }) => {
+/**
+ * CategoryFields — cascading Category → Subcategory pickers used for
+ * Aisle + Rack create/edit rows. Fetches categories on mount and reloads
+ * subcategories whenever the selected category changes. Resets the
+ * subcategory when the category is cleared (or replaced).
+ *
+ * When rendered inside a Rack row, `inheritedCategory` locks the category
+ * picker to the parent Aisle's category so operators can't accidentally
+ * introduce an inconsistent branch (backend still validates as a safety
+ * net — see mart_partner/routes.py :_validate_category_cascade).
+ */
+const CategoryFields = ({ country, cat, setCat, sub, setSub, inheritedCategory = null, testidPrefix = "cascade" }) => {
+  const [cats, setCats] = useState([]);
+  const [subs, setSubs] = useState([]);
+  useEffect(() => {
+    partnerApi.get(`/mart/categories?country=${country}`).then(r => setCats(r.data || [])).catch(() => setCats([]));
+  }, [country]);
+  useEffect(() => {
+    if (!cat) { setSubs([]); return; }
+    partnerApi.get(`/mart/subcategories?country=${country}&category=${encodeURIComponent(cat)}`)
+      .then(r => setSubs(r.data || []))
+      .catch(() => setSubs([]));
+  }, [cat, country]);
+  return (
+    <>
+      <select value={cat} onChange={e => { setCat(e.target.value); setSub(""); }}
+              disabled={!!inheritedCategory}
+              className="px-2 h-8 rounded text-sm w-40" style={fieldStyle}
+              data-testid={`${testidPrefix}-category`}>
+        <option value="">— Category —</option>
+        {cats.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+      </select>
+      <select value={sub} onChange={e => setSub(e.target.value)}
+              disabled={!cat}
+              className="px-2 h-8 rounded text-sm w-40"
+              style={{ ...fieldStyle, opacity: cat ? 1 : 0.55 }}
+              data-testid={`${testidPrefix}-subcategory`}>
+        <option value="">— Subcategory —</option>
+        {subs.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+      </select>
+    </>
+  );
+};
+
+const CategoryChips = ({ node }) => {
+  if (!node?.category_slug && !node?.subcategory_slug) return null;
+  return (
+    <span className="flex items-center gap-1 ml-2">
+      {node.category_slug && (
+        <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+              style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)" }}>
+          {node.category_slug}
+        </span>
+      )}
+      {node.subcategory_slug && (
+        <span className="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(96,165,250,.15)", color: "#60a5fa" }}>
+          {node.subcategory_slug}
+        </span>
+      )}
+    </span>
+  );
+};
+
+const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle, editing, onAddClick, hasChildLevel, onExpand, expanded, country, parentCategory }) => {
   const [name, setName] = useState(node.name);
   const [code, setCode] = useState(node.code);
+  const [cat, setCat] = useState(node.category_slug || "");
+  const [sub, setSub] = useState(node.subcategory_slug || "");
+  const supportsCascade = level === "aisle" || level === "rack";
+  const inherited = level === "rack" ? (parentCategory || null) : null;
+  useEffect(() => {
+    if (level === "rack" && parentCategory && cat !== parentCategory) setCat(parentCategory);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentCategory]);
+
   const save = async () => {
     try {
-      await partnerApi.patch(`/partner/warehouse/${warehouseId}/nodes/${level}/${node.id}`, { code, name });
+      const body = { code, name };
+      if (supportsCascade) {
+        body.category_slug    = cat || null;
+        body.subcategory_slug = sub || null;
+      }
+      await partnerApi.patch(`/partner/warehouse/${warehouseId}/nodes/${level}/${node.id}`, body);
       toast.success("Updated");
       onEditToggle(false);
       onChange();
@@ -41,7 +121,7 @@ const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle
     } catch (e) { toast.error(errMsg(e)); }
   };
   return (
-    <div className="flex items-center gap-2 py-2 group"
+    <div className="flex items-center gap-2 py-2 group flex-wrap"
          style={{ borderBottom: "1px solid var(--ph-border)", paddingLeft: depth * 20 }}>
       {hasChildLevel ? (
         <button onClick={onExpand} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5" style={{ color: "var(--ph-fg-subtle)" }}>
@@ -53,15 +133,20 @@ const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle
       {editing ? (
         <>
           <input value={code} onChange={e => setCode(e.target.value)} className="px-2 h-8 rounded text-sm font-mono w-24" style={fieldStyle} />
-          <input value={name} onChange={e => setName(e.target.value)} className="px-2 h-8 rounded text-sm flex-1" style={fieldStyle} />
+          <input value={name} onChange={e => setName(e.target.value)} className="px-2 h-8 rounded text-sm flex-1 min-w-[160px]" style={fieldStyle} />
+          {supportsCascade && (
+            <CategoryFields country={country} cat={cat} setCat={setCat} sub={sub} setSub={setSub}
+                            inheritedCategory={inherited} testidPrefix={`node-edit-${node.code}`} />
+          )}
           <button onClick={save} className="text-xs px-2 h-8 rounded" style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }} data-testid={`node-save-${node.id}`}>Save</button>
-          <button onClick={() => { onEditToggle(false); setName(node.name); setCode(node.code); }} className="text-xs px-2 h-8" style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>
+          <button onClick={() => { onEditToggle(false); setName(node.name); setCode(node.code); setCat(node.category_slug || ""); setSub(node.subcategory_slug || ""); }} className="text-xs px-2 h-8" style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>
         </>
       ) : (
         <>
           <span className="font-mono text-xs" style={{ color: "var(--ph-fg)" }}>{node.code}</span>
-          <span className="text-sm flex-1" style={{ color: "var(--ph-fg-muted)" }}>{node.name}</span>
-          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+          <span className="text-sm" style={{ color: "var(--ph-fg-muted)" }}>{node.name}</span>
+          {supportsCascade && <CategoryChips node={node} />}
+          <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
             <button onClick={() => onEditToggle(true)} className="text-xs px-2 h-7 rounded" style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border-strong)" }} data-testid={`node-edit-${node.id}`}>Edit</button>
             <button onClick={remove} className="text-xs px-2 h-7 rounded text-rose-400" style={{ border: "1px solid var(--ph-border-strong)" }} data-testid={`node-delete-${node.id}`}>Delete</button>
             {hasChildLevel && (
@@ -76,35 +161,54 @@ const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle
   );
 };
 
-const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel }) => {
+const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, country, parentCategory }) => {
   const [nCode, setNCode] = useState("");
   const [nName, setNName] = useState("");
+  const [cat, setCat] = useState(childLevel === "rack" ? (parentCategory || "") : "");
+  const [sub, setSub] = useState("");
+  const supportsCascade = childLevel === "aisle" || childLevel === "rack";
+  const inherited = childLevel === "rack" ? (parentCategory || null) : null;
+
   const submit = async () => {
     if (!nCode.trim() || !nName.trim()) return toast.error("Code and name required");
     try {
-      await partnerApi.post(`/partner/warehouse/${warehouseId}/nodes`, {
-        level: childLevel, parent_id: node.id, code: nCode.trim(), name: nName.trim(),
-      });
+      const body = {
+        level: childLevel, parent_id: node.id,
+        code: nCode.trim(), name: nName.trim(),
+      };
+      if (supportsCascade) {
+        body.category_slug    = cat || null;
+        body.subcategory_slug = sub || null;
+      }
+      await partnerApi.post(`/partner/warehouse/${warehouseId}/nodes`, body);
       toast.success(`${LEVEL_LABELS[childLevel].label} added`);
       onDone();
     } catch (e) { toast.error(errMsg(e)); }
   };
   return (
-    <div className="flex items-center gap-2 py-2" style={{ paddingLeft: (depth + 1) * 20 + 32 }}>
+    <div className="flex items-center gap-2 py-2 flex-wrap" style={{ paddingLeft: (depth + 1) * 20 + 32 }}>
       <input placeholder="Code (A, 1, R3)" value={nCode} onChange={e => setNCode(e.target.value)} className="px-2 h-8 rounded text-sm font-mono w-32" style={fieldStyle} autoFocus />
-      <input placeholder="Name" value={nName} onChange={e => setNName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} className="px-2 h-8 rounded text-sm flex-1" style={fieldStyle} />
+      <input placeholder="Name" value={nName} onChange={e => setNName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} className="px-2 h-8 rounded text-sm flex-1 min-w-[160px]" style={fieldStyle} />
+      {supportsCascade && (
+        <CategoryFields country={country} cat={cat} setCat={setCat} sub={sub} setSub={setSub}
+                        inheritedCategory={inherited}
+                        testidPrefix={`node-add-${childLevel}-${node.code}`} />
+      )}
       <button onClick={submit} className="text-xs px-3 h-8 rounded" style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }} data-testid={`node-add-child-save-${node.id}`}>Add</button>
       <button onClick={onCancel} className="text-xs px-2 h-8" style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>
     </div>
   );
 };
 
-const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0 }) => {
+const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0, country, parentCategory = null }) => {
   const [expanded, setExpanded] = useState(depth < 2);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const meta = { ...LEVEL_LABELS[level] };
   const childLevel = meta.child;
+  // Children inherit this node's category when this node is an Aisle so
+  // the "child Rack" picker starts pre-filled with the correct category.
+  const childInheritedCat = level === "aisle" ? (node.category_slug || null) : null;
 
   return (
     <div className="ml-1" data-testid={`node-${level}-${node.code}`}>
@@ -113,12 +217,15 @@ const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0 }) => {
         editing={editing} onEditToggle={setEditing}
         hasChildLevel={!!childLevel} expanded={expanded} onExpand={() => setExpanded(v => !v)}
         onAddClick={() => { setAdding(true); setExpanded(true); }}
+        country={country}
+        parentCategory={parentCategory}
       />
       {expanded && childLevel && (
         <div>
           {(node.children || []).map((c) =>
             React.createElement(HierarchyNode, {
               key: c.id, node: c, level: childLevel, warehouseId, onChange, depth: depth + 1,
+              country, parentCategory: childInheritedCat,
             })
           )}
           {adding && (
@@ -126,6 +233,8 @@ const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0 }) => {
               node={node} childLevel={childLevel} warehouseId={warehouseId} depth={depth}
               onDone={() => { setAdding(false); onChange(); }}
               onCancel={() => setAdding(false)}
+              country={country}
+              parentCategory={childInheritedCat}
             />
           )}
         </div>
@@ -135,7 +244,8 @@ const HierarchyNode = ({ node, level, warehouseId, onChange, depth = 0 }) => {
 };
 
 export const WarehousePage = () => {
-  const { warehouse } = usePartner();
+  const { warehouse, partner } = usePartner();
+  const country = partner?.country || "CI";
   const [tree, setTree] = useState(null);
   const [addingZone, setAddingZone] = useState(false);
   const [zCode, setZCode] = useState("");
@@ -188,7 +298,8 @@ export const WarehousePage = () => {
           )}
         </div>
         <p className="text-xs mb-4" style={{ color: "var(--ph-fg-subtle)" }}>
-          Zone → Aisle → Rack → Shelf → Bin. Add only the levels you actually use — small stores can stop at Zones.
+          Zone → Aisle → Rack → Shelf → Bin. Aisles & Racks can be tagged with a Category + Subcategory —
+          product location assignments then verify the cascade so ops can&apos;t misplace SKUs.
         </p>
 
         <div className="rounded-2xl overflow-hidden" style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border)" }}>
@@ -208,7 +319,7 @@ export const WarehousePage = () => {
             </div>
           )}
           {tree && tree.zones.map(z => (
-            <HierarchyNode key={z.id} node={z} level="zone" warehouseId={warehouse.id} onChange={load} />
+            <HierarchyNode key={z.id} node={z} level="zone" warehouseId={warehouse.id} onChange={load} country={country} />
           ))}
         </div>
       </section>

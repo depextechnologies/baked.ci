@@ -423,6 +423,24 @@ async def assign_location(
     if not (zone and (await _assert_owns_warehouse(session, partner, zone.warehouse_id))):
         raise HTTPException(403, "Bin does not belong to your warehouse")
 
+    # Fixing_Prompt (2026-02-27) — enforce the Category/Subcategory cascade
+    # at assignment time so a "Mango Kent" (Fresh Fruits) cannot be pinned
+    # to a Rack tagged "Dairy > Milk". Only enforced when the Aisle/Rack
+    # actually carries the tag — untagged Aisles/Racks accept any product
+    # for back-compat with pre-cascade darkstores.
+    prod_cat = getattr(prod, "category_slug",    None)
+    prod_sub = getattr(prod, "subcategory_slug", None)
+    for parent, level in ((rack, "Rack"), (aisle, "Aisle")):
+        if parent is None: continue
+        p_cat = getattr(parent, "category_slug",    None)
+        p_sub = getattr(parent, "subcategory_slug", None)
+        if p_cat and prod_cat and p_cat != prod_cat:
+            raise HTTPException(400, {"code": "invalid_cascade",
+                "message": f"Product category '{prod_cat}' does not match {level} '{parent.code}' category '{p_cat}'."})
+        if p_sub and prod_sub and p_sub != prod_sub:
+            raise HTTPException(400, {"code": "invalid_cascade",
+                "message": f"Product subcategory '{prod_sub}' does not match {level} '{parent.code}' subcategory '{p_sub}'."})
+
     # If is_primary, clear existing primaries for this SKU
     if payload.is_primary:
         existing_primaries = (await session.execute(

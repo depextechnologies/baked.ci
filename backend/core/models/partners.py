@@ -276,6 +276,8 @@ class WarehouseAisle(Base, TimestampMixin):
     __table_args__ = (
         UniqueConstraint("zone_id", "code", name="uq_wh_aisle_code"),
         Index("ix_wh_aisles_zone_id", "zone_id"),
+        Index("ix_wh_aisles_category", "category_slug"),
+        Index("ix_wh_aisles_subcategory", "subcategory_slug"),
     )
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wa"))
     zone_id: Mapped[str] = mapped_column(String, ForeignKey("warehouse_zones.id"), nullable=False)
@@ -283,6 +285,10 @@ class WarehouseAisle(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    # Fixing_Prompt (2026-02-27): Aisle-level category/subcategory tagging so
+    # the storage tree becomes contextually filterable in ops UI.
+    category_slug:    Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    subcategory_slug: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
 
 
 class WarehouseRack(Base, TimestampMixin):
@@ -290,6 +296,8 @@ class WarehouseRack(Base, TimestampMixin):
     __table_args__ = (
         UniqueConstraint("aisle_id", "code", name="uq_wh_rack_code"),
         Index("ix_wh_racks_aisle_id", "aisle_id"),
+        Index("ix_wh_racks_category", "category_slug"),
+        Index("ix_wh_racks_subcategory", "subcategory_slug"),
     )
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("wr"))
     aisle_id: Mapped[str] = mapped_column(String, ForeignKey("warehouse_aisles.id"), nullable=False)
@@ -297,6 +305,11 @@ class WarehouseRack(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     sort_order: Mapped[int] = mapped_column(default=0, server_default="0")
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    # Same cascade as Aisle. Typically inherits from the parent Aisle at
+    # write time, but stored explicitly so a Rack can carry a more specific
+    # subcategory (e.g. Aisle=Beverages, Rack=Soft Drinks vs Rack=Juices).
+    category_slug:    Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    subcategory_slug: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
 
 
 class WarehouseShelf(Base, TimestampMixin):
