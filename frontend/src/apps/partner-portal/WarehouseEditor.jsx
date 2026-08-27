@@ -146,6 +146,17 @@ const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle
           <span className="font-mono text-xs" style={{ color: "var(--ph-fg)" }}>{node.code}</span>
           <span className="text-sm" style={{ color: "var(--ph-fg-muted)" }}>{node.name}</span>
           {supportsCascade && <CategoryChips node={node} />}
+          {level === "zone" && node.suggested_category_slug && (
+            <span
+              data-testid={`zone-default-chip-${node.code}`}
+              title="Default category for new Aisles under this Zone"
+              className="ml-2 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+              style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)",
+                       border: "1px dashed var(--ph-accent-warm)" }}
+            >
+              default · {node.suggested_category_slug}
+            </span>
+          )}
           <div className="ml-auto opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
             <button onClick={() => onEditToggle(true)} className="text-xs px-2 h-7 rounded" style={{ color: "var(--ph-fg-muted)", border: "1px solid var(--ph-border-strong)" }} data-testid={`node-edit-${node.id}`}>Edit</button>
             <button onClick={remove} className="text-xs px-2 h-7 rounded text-rose-400" style={{ border: "1px solid var(--ph-border-strong)" }} data-testid={`node-delete-${node.id}`}>Delete</button>
@@ -164,8 +175,16 @@ const NodeRow = ({ node, level, meta, warehouseId, onChange, depth, onEditToggle
 const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, country, parentCategory }) => {
   const [nCode, setNCode] = useState("");
   const [nName, setNName] = useState("");
-  const [cat, setCat] = useState(childLevel === "rack" ? (parentCategory || "") : "");
+  // Category Auto-Suggest (2026-02-28): when adding an Aisle under a Zone
+  // that has a suggested category (from WarehouseCategoryDefault), pre-fill
+  // it so ops doesn't have to hunt in the dropdown. The suggestion still
+  // renders as a dismissible chip so it's obvious it's a hint, not a lock.
+  const zoneSuggested = childLevel === "aisle" ? (node.suggested_category_slug || "") : "";
+  const rackInherited = childLevel === "rack" ? (parentCategory || "") : "";
+  const initialCat = zoneSuggested || rackInherited;
+  const [cat, setCat] = useState(initialCat);
   const [sub, setSub] = useState("");
+  const [suggestionActive, setSuggestionActive] = useState(!!zoneSuggested);
   const supportsCascade = childLevel === "aisle" || childLevel === "rack";
   const inherited = childLevel === "rack" ? (parentCategory || null) : null;
 
@@ -190,9 +209,25 @@ const AddChildRow = ({ node, childLevel, warehouseId, depth, onDone, onCancel, c
       <input placeholder="Code (A, 1, R3)" value={nCode} onChange={e => setNCode(e.target.value)} className="px-2 h-8 rounded text-sm font-mono w-32" style={fieldStyle} autoFocus />
       <input placeholder="Name" value={nName} onChange={e => setNName(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} className="px-2 h-8 rounded text-sm flex-1 min-w-[160px]" style={fieldStyle} />
       {supportsCascade && (
-        <CategoryFields country={country} cat={cat} setCat={setCat} sub={sub} setSub={setSub}
+        <CategoryFields country={country} cat={cat} setCat={(v) => { setCat(v); if (suggestionActive && v !== zoneSuggested) setSuggestionActive(false); }} sub={sub} setSub={setSub}
                         inheritedCategory={inherited}
                         testidPrefix={`node-add-${childLevel}-${node.code}`} />
+      )}
+      {/* Auto-suggest chip — only visible on Aisle-under-Zone with a resolved
+          default. Clicking dismisses the hint (also cleared when the user
+          picks a different category from the dropdown). */}
+      {zoneSuggested && suggestionActive && (
+        <button
+          type="button"
+          onClick={() => setSuggestionActive(false)}
+          data-testid={`node-add-${childLevel}-${node.code}-suggestion-chip`}
+          className="text-[10px] uppercase tracking-widest px-2 py-1 rounded flex items-center gap-1"
+          style={{ background: "var(--ph-warm-soft)", color: "var(--ph-accent-warm)",
+                   border: "1px dashed var(--ph-accent-warm)" }}
+          title="Suggested from your Category defaults — click to dismiss"
+        >
+          <span>✨ Suggested · {zoneSuggested}</span>
+        </button>
       )}
       <button onClick={submit} className="text-xs px-3 h-8 rounded" style={{ background: "var(--ph-accent-warm)", color: "#0a0a0f" }} data-testid={`node-add-child-save-${node.id}`}>Add</button>
       <button onClick={onCancel} className="text-xs px-2 h-8" style={{ color: "var(--ph-fg-muted)" }}>Cancel</button>

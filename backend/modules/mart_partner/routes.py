@@ -1111,6 +1111,25 @@ async def warehouse_tree(
     for z in zone_nodes:
         z["children"] = by_zone.get(z["id"], [])
 
+    # Category Auto-Suggest (2026-02-28) — surface the category that the
+    # partner mapped to each Zone via the "Category defaults" section, so
+    # the Aisle create form can pre-fill it as a suggestion. Only assign
+    # when EXACTLY ONE default targets a given zone — otherwise we'd have
+    # to pick one arbitrarily, which is worse than showing nothing.
+    from core.models import WarehouseCategoryDefault
+    defaults = (await session.execute(
+        select(WarehouseCategoryDefault).where(
+            WarehouseCategoryDefault.warehouse_id == wh.id,
+            WarehouseCategoryDefault.zone_id.is_not(None),
+        )
+    )).scalars().all()
+    by_zone_defaults: dict[str, list[str]] = {}
+    for d in defaults:
+        by_zone_defaults.setdefault(d.zone_id, []).append(d.category_slug)
+    for z in zone_nodes:
+        cats = by_zone_defaults.get(z["id"], [])
+        z["suggested_category_slug"] = cats[0] if len(cats) == 1 else None
+
     return {
         "warehouse": _warehouse_dict(wh),
         "zones": zone_nodes,

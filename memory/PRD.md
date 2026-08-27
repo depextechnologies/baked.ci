@@ -3,7 +3,12 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Ops Bulk SKU → Bin Assignment
+## Latest (2026-02-28) — Category Auto-Suggest for New Aisles
+- ✅ **Zone → Aisle auto-suggest (2026-02-28)** — `GET /api/partner/warehouse/{wh}/tree` now enriches each Zone node with `suggested_category_slug`, derived from `WarehouseCategoryDefault` for that (warehouse, zone). Returned only when exactly one default targets the zone (ambiguity → null).
+  - **Frontend**: Zone rows in the Storage hierarchy render a dashed `default · <slug>` chip when a default exists. Clicking "+ Aisle" opens an AddChildRow with the Category dropdown **pre-filled** to the Zone default plus a dismissible `✨ Suggested · <slug>` chip so ops can accept in one click.
+  - **Testing**: iter68 — 5/5 backend pytest green (`/app/backend/tests/test_zone_category_suggestion.py`), full 28/28 green across cascade + bulk + suggestion suites, plus verified UI end-to-end with a screenshot showing chip + pre-fill.
+
+## Prior (2026-02-28) — Ops Bulk SKU → Bin Assignment
 - ✅ **Bulk Assign (2026-02-28)** — new `POST /api/partner/inventory/locations-bulk` accepts N `partner_product_ids` + one `bin_id` + `is_primary/quantity`, returns a per-product verdict (`status='ok'|'error'` with codes `not_found` / `invalid_cascade` / `conflict`). Cascade + primary-flip + ownership rules reused from the single-assign flow. Preflight SELECT replaces exception-driven conflict detection so a bad row can no longer poison the async session (avoids `MissingGreenlet` on the next request). Distinct URL path (`-bulk`, not `/bulk`) sidesteps the collision with `/locations/{partner_product_id}`.
 - ✅ **Frontend**: `ProductsPage` — multi-select checkboxes on each row + select-all header + sticky floating action bar with `Assign N to bin`. New `BulkLocationModal` reuses the tree renderer, filters by common cascade (or shows an amber "multi-category" warning + untagged-only tree when the selection spans cascades), streams per-row results back on partial failures so only successful SKUs get cleared from the selection.
 - ✅ **Testing**: iter67 — 8/8 backend pytest green (`/app/backend/tests/test_bulk_assign_location.py`) + 100% frontend Playwright green.
