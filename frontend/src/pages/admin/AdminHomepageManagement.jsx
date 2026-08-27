@@ -78,7 +78,8 @@ const SECTION_SCHEMAS = {
     label: "Product Carousel",
     top: [F.text("title", "Title"), F.text("subtitle", "Subtitle")],
     config: [
-      F.text("filter", "Filter (bestsellers / new / category slug)"),
+      F.text("filter", "Category slug (or keyword: bestsellers / new). Blank = all"),
+      F.text("subcategory", "Subcategory slug (optional)"),
       F.num("limit", "Number of products to show"),
       F.url("link", "See-all link"),
     ],

@@ -6,6 +6,7 @@
  * Detail drawer surfaces the full supplier snapshot + audit trail.
  */
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Building2, CheckCircle2, X, AlertTriangle, Search, ExternalLink,
@@ -40,6 +41,7 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
   const [detail, setDetail] = useState(null);
   const [action, setAction] = useState(null); // "approve" | "reject" | "request-info" | "suspend" | "unsuspend"
   const [notes, setNotes] = useState("");
+  const nav = useNavigate();
 
   const load = async () => {
     setBusy(true);
@@ -147,9 +149,16 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
                       style={{ background: `${meta.color}22`, color: meta.color }}>{meta.label}</span>
                   </td>
                   <td className="p-3 text-right">
-                    <button onClick={() => openDetail(it)} className="text-xs px-3 h-8 rounded-lg font-medium"
-                      style={{ background: "#77BC1F", color: "#0a1200" }}
-                      data-testid={`supplier-review-${it.application_code}`}>Review</button>
+                    {it.supplier?.status === "approved" ? (
+                      <button onClick={() => nav(`/admin/modules/mart/suppliers/${it.supplier.id}`)}
+                        className="text-xs px-3 h-8 rounded-lg font-medium"
+                        style={{ background: "#77BC1F", color: "#0a1200" }}
+                        data-testid={`supplier-open-${it.application_code}`}>Open workspace</button>
+                    ) : (
+                      <button onClick={() => openDetail(it)} className="text-xs px-3 h-8 rounded-lg font-medium"
+                        style={{ background: "#77BC1F", color: "#0a1200" }}
+                        data-testid={`supplier-review-${it.application_code}`}>Review</button>
+                    )}
                   </td>
                 </tr>
               );

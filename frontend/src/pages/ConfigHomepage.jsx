@@ -43,20 +43,15 @@ const compactMoney = (v, cur) => {
 export const ConfigHomepage = () => {
   const { country } = useApp();
   const [sections, setSections] = useState(null);
-  const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const [{ data: hp }, { data: pr }] = await Promise.all([
-          api.get(`/homepage?country=${country.code}`),
-          api.get(`/mart/products?country=${country.code}&limit=24`),
-        ]);
+        const { data: hp } = await api.get(`/homepage?country=${country.code}`);
         if (!mounted) return;
         setSections(hp.sections || []);
-        setProducts(pr || []);
       } catch (e) {
         setError(e?.response?.data?.detail || e?.message || "Homepage failed to load");
       }
@@ -80,7 +75,7 @@ export const ConfigHomepage = () => {
   return (
     <div data-testid="config-homepage" className="pb-16">
       {sections.map((s, i) => (
-        <SectionRenderer key={s.id} section={s} index={i} products={products} country={country} />
+        <SectionRenderer key={s.id} section={s} index={i} country={country} />
       ))}
       {/* Persistent trust strip — always at the tail so admin can't accidentally hide it */}
       <TrustStrip />
@@ -93,7 +88,7 @@ export const ConfigHomepage = () => {
  * SECTION DISPATCH
  * ============================================================================ */
 
-const SectionRenderer = ({ section, index, products, country }) => {
+const SectionRenderer = ({ section, index, country }) => {
   const R = RENDERERS[section.section_type];
   if (!R) return null;
   return (
@@ -101,7 +96,7 @@ const SectionRenderer = ({ section, index, products, country }) => {
       className={index === 0 ? "mt-4 md:mt-6" : "mt-10 md:mt-14"}
       data-testid={`hp-section-${section.section_type}-${section.id}`}
     >
-      <R section={section} products={products} country={country} />
+      <R section={section} country={country} />
     </section>
   );
 };
@@ -405,12 +400,71 @@ const BannerTrio = ({ section }) => {
  * PRODUCT CAROUSEL — horizontal snap-scroll
  * ============================================================================ */
 
-const ProductCarousel = ({ section, products, country }) => {
+const ProductCarousel = ({ section, country }) => {
   const cfg = section.config || {};
-  const limit = cfg.limit || 12;
+  const limit = Number(cfg.limit) || 12;
   const scrollRef = React.useRef(null);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fixing_Prompt v5 §11 — filter products by the section's category slug.
+  // Any `filter` value that's not a keyword (bestsellers/new) is treated as
+  // a category slug and passed to the server-side query. This eliminates
+  // cross-category leakage in homepage sections.
+  const filter = (cfg.filter || "").trim();
+  const isKeyword = ["", "bestsellers", "new", "newest", "featured"].includes(filter.toLowerCase());
+  const categorySlug = isKeyword ? null : filter;
+  const subcategorySlug = (cfg.subcategory || "").trim() || null;
+  const sortKey = filter.toLowerCase() === "new" || filter.toLowerCase() === "newest" ? "newest" : "popularity";
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const params = new URLSearchParams({
+          country: country.code,
+          limit: String(limit),
+          sort: sortKey,
+        });
+        if (categorySlug) params.set("category", categorySlug);
+        if (subcategorySlug) params.set("subcategory", subcategorySlug);
+        const { data } = await api.get(`/mart/products?${params.toString()}`);
+        if (mounted) setProducts(Array.isArray(data) ? data : []);
+      } catch {
+        if (mounted) setProducts([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [country.code, categorySlug, subcategorySlug, limit, sortKey]);
+
   const slice = products.slice(0, limit);
-  if (!slice.length) return null;
+  if (loading) {
+    return (
+      <div className="baked-container">
+        <h2 className="text-xl md:text-3xl font-bold tracking-tight leading-tight mb-5">{section.title}</h2>
+        <div className="flex gap-3 overflow-hidden" data-testid={`hp-carousel-skeleton-${section.id}`}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="shrink-0 w-[46%] sm:w-[32%] md:w-[22%] lg:w-[18%] aspect-[3/4] rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!slice.length) {
+    // Empty-state so the admin notices the section returns nothing —
+    // previously this silently swallowed misconfigured category filters.
+    return (
+      <div className="baked-container">
+        <h2 className="text-xl md:text-3xl font-bold tracking-tight leading-tight mb-3">{section.title}</h2>
+        <p className="text-xs text-muted-foreground" data-testid={`hp-carousel-empty-${section.id}`}>
+          No products{categorySlug ? ` in "${categorySlug}"` : ""} yet.
+        </p>
+      </div>
+    );
+  }
 
   const scroll = (dir) => {
     if (!scrollRef.current) return;

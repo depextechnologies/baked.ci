@@ -30,8 +30,7 @@ import { AdminSuppliersShell } from "@/pages/admin/AdminSuppliersShell";
 import { AdminPurchaseOrders } from "@/pages/admin/AdminPurchaseOrders";
 import { AdminSupplierProductRequests } from "@/pages/admin/AdminSupplierProductRequests";
 import { AdminDriverPayouts } from "@/pages/admin/AdminDriverPayouts";
-import { AdminMartPartnerApprovals } from "@/pages/admin/AdminMartPartnerApprovals";
-import { AdminPartnerImagesQueue }   from "@/pages/admin/AdminPartnerImagesQueue";
+import { AdminSupplierDetail } from "@/pages/admin/AdminSupplierDetail";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
 import { SupplierInvoicesPage as AdminSupplierInvoices } from "@/components/invoices/SupplierInvoicesPage";
@@ -61,8 +60,10 @@ export const AdminApp = () => (
       <Route path="driver-payouts" element={<AdminDriverPayouts />} />
       <Route path="driver-applications" element={<AdminDriverApplications />} />
       <Route path="homepage-management" element={<AdminHomepageManagement />} />
-      <Route path="mart-partner-approvals" element={<AdminMartPartnerApprovals />} />
-      <Route path="partner-image-reviews"  element={<AdminPartnerImagesQueue />} />
+      {/* Fixing_Prompt v5 — old duplicate routes redirect into the unified
+          Suppliers workflow. Bookmarks keep working, one authoritative queue. */}
+      <Route path="mart-partner-approvals" element={<Navigate to="/admin/modules/mart/approvals" replace />} />
+      <Route path="partner-image-reviews"  element={<Navigate to="/admin/modules/mart/suppliers" replace />} />
       {/*
         Inventory Control Tower belongs to MARTbakēd — the global route
         redirects into the module workspace so existing bookmarks and
@@ -81,6 +82,7 @@ export const AdminApp = () => (
         <Route path="approvals" element={<AdminProductApprovals />} />
         <Route path="category-requests" element={<AdminCategoryRequests />} />
         <Route path="suppliers" element={<AdminSuppliersShell />} />
+        <Route path="suppliers/:supplierId" element={<AdminSupplierDetail />} />
         <Route path="suppliers/applications" element={<AdminSupplierApplications />} />
         <Route path="suppliers/product-requests" element={<AdminSupplierProductRequests />} />
         <Route path="purchase-orders" element={<AdminPurchaseOrders />} />

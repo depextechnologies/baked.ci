@@ -880,3 +880,136 @@ async def admin_reject_request(
     )
     await session.commit()
     return _req_dict(r)
+
+
+# ===========================================================================
+# Fixing_Prompt v5 — Bulk actions on product requests
+#   POST /api/admin/modules/mart/suppliers/product-requests/bulk-approve
+#   POST /api/admin/modules/mart/suppliers/product-requests/bulk-reject
+# ===========================================================================
+
+
+class BulkApproveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_ids: List[str] = Field(..., min_length=1, max_length=100)
+    # Optional shared category override (mostly used when the supplier
+    # forgot to attach a category to every request in the batch).
+    category_id: Optional[str] = None
+    link_at_supplier_cost: bool = True
+    notes: Optional[str] = Field(None, max_length=2000)
+
+
+class BulkRejectIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_ids: List[str] = Field(..., min_length=1, max_length=100)
+    notes: str = Field(..., min_length=1, max_length=2000)
+
+
+@admin_prod_req_router.post("/bulk-approve")
+async def admin_bulk_approve_requests(
+    payload: BulkApproveIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Approve many product requests at once. Skips non-pending rows and
+    rows without a resolvable category. Returns per-row outcome so the
+    UI can highlight partial failures."""
+    results = {"approved": [], "skipped": []}
+    from shared.notifications.routes import notify as inapp_notify
+
+    for req_id in payload.request_ids:
+        r = await session.get(SupplierProductRequest, req_id)
+        if not r or r.status != "pending":
+            results["skipped"].append({"id": req_id, "reason": "not_pending"})
+            continue
+        supplier = await session.get(Supplier, r.supplier_id)
+        cat_id = payload.category_id or r.proposed_category_id
+        if not cat_id:
+            results["skipped"].append({"id": req_id, "reason": "missing_category"})
+            continue
+        cat = await session.get(MartCategory, cat_id)
+        if not cat or cat.country != supplier.country:
+            results["skipped"].append({"id": req_id, "reason": "invalid_category"})
+            continue
+
+        sku = f"MRT-{supplier.country}-{uuid.uuid4().hex[:8].upper()}"
+        default_price = r.proposed_cost_price or 0
+        mp = MartProduct(
+            country=supplier.country, module="mart",
+            category_slug=cat.slug,
+            name=r.proposed_name, sku_code=sku,
+            brand=r.proposed_manufacturer,
+            image=r.image_url,
+            price=default_price, currency=supplier.default_currency,
+            ean_upc=r.proposed_ean_upc,
+            manufacturer=r.proposed_manufacturer,
+            pack_size=r.proposed_pack_size,
+            short_description=r.proposed_short_description,
+        )
+        session.add(mp)
+        await session.flush()
+
+        if payload.link_at_supplier_cost and r.proposed_cost_price is not None:
+            session.add(SupplierProduct(
+                supplier_id=supplier.id, master_product_id=mp.id,
+                cost_price=r.proposed_cost_price,
+                currency=r.proposed_currency or supplier.default_currency,
+                moq=r.proposed_moq or 1, lead_time_days=r.proposed_lead_time_days or 0,
+                is_active=True,
+            ))
+
+        r.status = "approved"
+        r.review_notes = payload.notes
+        r.reviewed_at = datetime.now(timezone.utc)
+        r.reviewer_admin_id = admin.id
+        r.created_master_product_id = mp.id
+
+        await inapp_notify(
+            session,
+            recipient_kind="supplier", recipient_id=supplier.id,
+            kind="product_request_approved",
+            title=f"'{r.proposed_name}' approved",
+            body=f"Now linked to your catalogue as {mp.sku_code}.",
+            link=f"/martbaked/{supplier.seller_slug or 'sellers'}/portal/catalogue",
+            entity_kind="supplier_product_request", entity_id=r.id,
+            actor_label=admin.email,
+        )
+        results["approved"].append({"id": req_id, "master_product_id": mp.id})
+
+    await session.commit()
+    return results
+
+
+@admin_prod_req_router.post("/bulk-reject")
+async def admin_bulk_reject_requests(
+    payload: BulkRejectIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Reject many product requests at once with a shared reason. Skips
+    non-pending rows."""
+    from shared.notifications.routes import notify as inapp_notify
+    results = {"rejected": [], "skipped": []}
+    for req_id in payload.request_ids:
+        r = await session.get(SupplierProductRequest, req_id)
+        if not r or r.status != "pending":
+            results["skipped"].append({"id": req_id, "reason": "not_pending"})
+            continue
+        r.status = "rejected"
+        r.review_notes = payload.notes
+        r.reviewed_at = datetime.now(timezone.utc)
+        r.reviewer_admin_id = admin.id
+        supplier = await session.get(Supplier, r.supplier_id)
+        await inapp_notify(
+            session,
+            recipient_kind="supplier", recipient_id=r.supplier_id,
+            kind="product_request_rejected",
+            title=f"'{r.proposed_name}' needs changes",
+            body=payload.notes,
+            link=f"/martbaked/{(supplier.seller_slug if supplier else 'sellers')}/portal/product-requests",
+            entity_kind="supplier_product_request", entity_id=r.id,
+            actor_label=admin.email,
+        )
+        results["rejected"].append({"id": req_id})
+    await session.commit()
+    return results

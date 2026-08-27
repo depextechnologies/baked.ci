@@ -126,9 +126,12 @@ api_router.include_router(admin_category_req_router)
 api_router.include_router(partner_category_req_router)
 api_router.include_router(supplier_category_req_router)
 api_router.include_router(supplier_public_router)
+# Register the product-requests router BEFORE admin_supplier_router so that
+# GET /admin/modules/mart/suppliers/product-requests doesn't get swallowed by
+# admin_supplier_router's `/{sid}` catch-all. (Fixing_Prompt v5 — 2026-02)
+api_router.include_router(admin_supplier_prodreq_router)
 api_router.include_router(admin_supplier_router)
 api_router.include_router(supplier_portal_router)
-api_router.include_router(admin_supplier_prodreq_router)
 api_router.include_router(po_partner_router)
 api_router.include_router(po_supplier_router)
 api_router.include_router(po_admin_router)

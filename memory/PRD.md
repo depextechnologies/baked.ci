@@ -3,7 +3,24 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Supplier Gallery → Customer PDP Sync (Phase 3)
+## Latest (2026-02-28) — MARTbaked Supplier-Centric Admin Workflow (Fixing_Prompt v5)
+- ✅ **Unified supplier workspace (2026-02-28)** — collapses duplicate approval queues into a single supplier-centric flow:
+  - **Nav cleanup**: `/admin/mart-partner-approvals` and `/admin/partner-image-reviews` removed from AdminLayout left nav. Both routes now Navigate-redirect (`/admin/mart-partner-approvals` → `/admin/modules/mart/approvals`, `/admin/partner-image-reviews` → `/admin/modules/mart/suppliers`). Standalone page files deleted.
+  - **New Supplier Detail workspace** at `/admin/modules/mart/suppliers/:supplierId` with Overview + Products tabs. Approved suppliers in the Applications table now show an "Open workspace" button that navigates here.
+  - **Products tab**: server-side filtering by status (All/Pending/Approved/Rejected/Withdrawn), category slug, subcategory slug, and free-text search. Bulk approve + bulk reject with a shared category-fallback and shared notes.
+  - **Product Review drawer**: shows ALL submitted images (thumbnails + main viewer), full product info, and inline approve/reject actions — replaces the standalone image-review page.
+  - **Warehouse allocation**: Overview surfaces the supplier's existing warehouse assignments (primary badge). Products inherit — no per-product allocation UI (per user choice).
+  - **New backend endpoints** (`shared/suppliers/routes.py`):
+    - `GET /api/admin/modules/mart/suppliers/{sid}` — snapshot with warehouse_assignments + product_buckets + audit_trail
+    - `GET /api/admin/modules/mart/suppliers/{sid}/products?status=&category=&subcategory=&q=&limit=` — server-side filtered
+  - **New bulk endpoints** (`shared/suppliers/portal_routes.py`):
+    - `POST /api/admin/modules/mart/suppliers/product-requests/bulk-approve` — accepts request_ids[], optional category_id fallback; returns `{approved:[…], skipped:[…]}`
+    - `POST /api/admin/modules/mart/suppliers/product-requests/bulk-reject` — accepts request_ids[], required notes
+  - **Router-ordering fix** (`server.py`): `admin_supplier_prodreq_router` now registered BEFORE `admin_supplier_router` so `/suppliers/product-requests` doesn't get swallowed by `/suppliers/{sid}`.
+  - **Homepage filtering fix** (`ConfigHomepage.jsx`): `ProductCarousel` fetches its OWN products with `?category=<cfg.filter>&subcategory=<cfg.subcategory>` via `/api/mart/products` — eliminates the previous cross-category leak where all sections shared the same 24-product preload. AdminHomepageManagement `product_carousel` editor now exposes a `subcategory` field alongside filter/limit.
+  - **Testing**: iter68 — new pytest `test_supplier_centric_workflow.py` (9/9 green: supplier detail, filters, bulk-approve, bulk-reject, skip-non-pending, zero cross-category leakage). Regression suites `test_supplier_portal_phase2b.py` + `test_supplier_warehouses.py` + `test_homepage_cms.py` all pass. Testing-agent Playwright: every review bullet ✅.
+
+## Prior (2026-02-28) — Supplier Gallery → Customer PDP Sync (Phase 3)
 - ✅ **Approval queue for supplier images (2026-02-28)** — Phase 3 of the Fixing_Prompt.docx v4 spec:
   - **Schema**: new `images_review_status` (none|pending|approved|rejected) + `images_review_note` on `partner_products` (migration `0036_partner_images_review`). Supplier upload/reorder now auto-flips status to `pending` when the product is linked to a MartProduct.
   - **Backend admin endpoints** (under `/admin/mart-partner/`):

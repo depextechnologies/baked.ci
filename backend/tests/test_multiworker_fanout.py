@@ -20,18 +20,18 @@ import pytest
 import websockets
 
 from tests.test_realtime_ws import (   # reuse the Slice-7 helpers
-    WS_URL, admin_headers,
+    WS_URL, admin_headers,  # noqa: F401 - pytest fixture reused across modules
     _bootstrap_approved_online_driver as bootstrap_approved_driver,
     _dispatch_and_accept as _dispatch_helper,
 )
 
 
-def dispatch_and_accept(admin_headers, driver):
+def dispatch_and_accept(admin_headers, driver):  # noqa: F811 - fixture arg shadowing is intentional
     return _dispatch_helper(driver, admin_headers)
 
 
 @pytest.mark.asyncio
-async def test_multiworker_ws_fanout(admin_headers):
+async def test_multiworker_ws_fanout(admin_headers):  # noqa: F811 - pytest fixture
     """Open N=5 (customer, driver) socket pairs sequentially. Every driver
     socket sends one location frame; the paired customer socket must
     receive it. If Redis pub/sub or the multi-worker glue is broken this
