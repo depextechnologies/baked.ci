@@ -31,6 +31,7 @@ import { AdminPurchaseOrders } from "@/pages/admin/AdminPurchaseOrders";
 import { AdminSupplierProductRequests } from "@/pages/admin/AdminSupplierProductRequests";
 import { AdminDriverPayouts } from "@/pages/admin/AdminDriverPayouts";
 import { AdminSupplierDetail } from "@/pages/admin/AdminSupplierDetail";
+import { AdminMartAttributes } from "@/pages/admin/AdminMartAttributes";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
 import { SupplierInvoicesPage as AdminSupplierInvoices } from "@/components/invoices/SupplierInvoicesPage";
@@ -79,6 +80,7 @@ export const AdminApp = () => (
         <Route path="partners/applications" element={<ModulePartnerApplications />} />
         <Route path="products" element={<ModuleProducts />} />
         <Route path="catalog" element={<AdminMartCatalog />} />
+        <Route path="attributes" element={<AdminMartAttributes />} />
         <Route path="approvals" element={<AdminProductApprovals />} />
         <Route path="category-requests" element={<AdminCategoryRequests />} />
         <Route path="suppliers" element={<AdminSuppliersShell />} />

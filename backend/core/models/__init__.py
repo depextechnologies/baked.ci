@@ -17,6 +17,10 @@ from core.models.mart import (
     RewardEntry,
     SupportTicket,
 )
+from core.models.mart_attributes import (
+    ATTRIBUTE_TYPES,
+    MartAttribute, MartAttributeAudit, MartAttributeOption, MartCategoryAttribute,
+)
 from core.models.express import (
     ExpressBooking,
     ExpressBookingItem,
@@ -145,6 +149,11 @@ __all__ = [
     "WarehouseCategoryDefault",
     "HomepageSection",
     "HOMEPAGE_SECTION_TYPES",
+    "MartAttribute",
+    "MartAttributeAudit",
+    "MartAttributeOption",
+    "MartCategoryAttribute",
+    "ATTRIBUTE_TYPES",
     "PartnerProduct",
     "PartnerOrder",
     "PartnerOrderPick",

@@ -17,6 +17,7 @@ const MODULE_NAV = [
   { seg: "applications", label: "Applications", icon: ClipboardList, martOnly: true, note: "Partner applications" },
   { seg: "products", label: "Products", icon: Package, martOnly: true, note: "Legacy read-only" },
   { seg: "catalog", label: "Catalog", icon: Boxes, martOnly: true, note: "Categories, brands, master products" },
+  { seg: "attributes", label: "Attributes", icon: Tag, martOnly: true, note: "Dynamic category attributes" },
   { seg: "approvals", label: "Approvals", icon: Sparkles, martOnly: true, note: "Partner product review queue" },
   { seg: "category-requests", label: "Category Requests", icon: Sparkles, martOnly: true, note: "Partner-proposed categories" },
   { seg: "suppliers", label: "Suppliers", icon: Building2, martOnly: true, note: "Supplier onboarding & governance" },

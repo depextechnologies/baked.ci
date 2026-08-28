@@ -67,6 +67,8 @@ class CategoryUpdate(BaseModel):
     icon: Optional[str] = None
     image: Optional[str] = None
     order: Optional[int] = None
+    # Fixing_Prompt v6 — soft-delete toggle for admin UI (activate / deactivate)
+    is_active: Optional[bool] = None
 
 
 @router.get("/categories")
@@ -110,13 +112,18 @@ async def update_category(
     row = await session.get(MartCategory, cat_id)
     if not row:
         raise HTTPException(404, "Category not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    is_active = data.pop("is_active", None)
+    for k, v in data.items():
         setattr(row, k, v)
+    if is_active is not None:
+        from datetime import datetime, timezone
+        row.deleted_at = None if is_active else datetime.now(timezone.utc)
     row.updated_by = admin.id
     await session.commit()
     await session.refresh(row)
     await _audit(session, admin, "mart.category.update", cat_id)
-    return row_to_dict(row)
+    return {**row_to_dict(row), "is_active": row.deleted_at is None}
 
 
 @router.delete("/categories/{cat_id}", status_code=204)

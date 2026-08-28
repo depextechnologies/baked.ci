@@ -3,7 +3,30 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — MARTbaked Supplier-Centric Admin Workflow (Fixing_Prompt v5)
+## Latest (2026-02-28) — Dynamic Category Attribute System · Slice 1 (Fixing_Prompt v6)
+- ✅ **Slice 1 shipped — DB + Admin CRUD + Public Resolver**:
+  - **New models** (`core/models/mart_attributes.py`):
+    - `MartAttribute` — global definitions (immutable auto-slug `key`, soft-delete via `is_active`)
+    - `MartAttributeOption` — options for select / multi_select
+    - `MartCategoryAttribute` — (category, subcategory?, attribute) assignment with is_required / customer_visible / supplier_editable / sort_order / is_active
+    - `MartAttributeAudit` — full before/after diff log
+  - **Migration**: `0037_mart_dynamic_attributes` — 4 new tables with FKs + indexes; existing product data untouched
+  - **Types supported**: short_text · long_text · integer · decimal · select · multi_select · boolean · date (image/document deferred, handled by existing supplier upload)
+  - **Resolver** (`modules/mart_attributes/resolver.py`): subcategory row wins over parent-category row for the same attribute; drops inactive attributes/assignments; optional `customer_visible_only` filter for the customer PDP
+  - **Validator** (`modules/mart_attributes/validate.py`): type coercion + required checks + option-membership; snapshots `{v, label, type}` in `mart_products.details` so renames never orphan history
+  - **Admin endpoints** under `/api/admin/mart/`:
+    - `GET/POST/PATCH/DELETE /attributes` (soft-delete)
+    - `POST/PATCH/DELETE /attributes/{id}/options` + `/attributes/options/{id}`
+    - `GET/POST/PATCH/DELETE /categories/{id}/attributes` (assignment CRUD, idempotent upsert)
+    - Extended existing `PATCH /admin/mart/categories/{id}` to accept `is_active` toggle (soft delete via `deleted_at`)
+    - `GET /attributes/audit?entity_kind=&entity_id=` — full diff log
+  - **Public/portal endpoint**: `GET /api/mart/categories/{id}/attributes?subcategory_id=&customer_visible_only=` — returns resolved list; accepts either `id` or `slug`
+  - **Frontend**: new page `/admin/modules/mart/attributes` (`AdminMartAttributes.jsx`) with 3 tabs — **Attributes** (definitions + options editor) · **Category Assignment** (scope picker: category / subcategory, live per-row Required/Customer/Supplier/Active toggles + sort-order input) · **Audit Trail** (full diff view). Added to Module workspace sub-nav.
+  - **Testing**: `test_dynamic_attributes.py` — 12/12 pass (CRUD, immutable key, option lifecycle, category assignment + idempotent upsert, subcategory override wins, customer_visible filter, audit before/after diff, category rename + deactivate)
+- 🔜 **Slice 2 (next)**: Supplier product-request form dynamically loads resolved attributes for the chosen category/subcategory and renders typed inputs with required-field validation. Data lands under `mart_products.details` on approval.
+- 🔜 **Slice 3**: Admin approval drawer renders submitted attribute values grouped; Customer PDP renders only `customer_visible` attributes automatically.
+
+## Prior (2026-02-28) — MARTbaked Supplier-Centric Admin Workflow (Fixing_Prompt v5)
 - ✅ **Unified supplier workspace (2026-02-28)** — collapses duplicate approval queues into a single supplier-centric flow:
   - **Nav cleanup**: `/admin/mart-partner-approvals` and `/admin/partner-image-reviews` removed from AdminLayout left nav. Both routes now Navigate-redirect (`/admin/mart-partner-approvals` → `/admin/modules/mart/approvals`, `/admin/partner-image-reviews` → `/admin/modules/mart/suppliers`). Standalone page files deleted.
   - **New Supplier Detail workspace** at `/admin/modules/mart/suppliers/:supplierId` with Overview + Products tabs. Approved suppliers in the Applications table now show an "Open workspace" button that navigates here.
