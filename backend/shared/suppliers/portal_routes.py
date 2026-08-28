@@ -148,6 +148,7 @@ def _req_dict(r: SupplierProductRequest) -> dict:
         "id": r.id, "supplier_id": r.supplier_id,
         "proposed_name": r.proposed_name,
         "proposed_category_id": r.proposed_category_id,
+        "proposed_subcategory_id": r.proposed_subcategory_id,
         "proposed_ean_upc": r.proposed_ean_upc,
         "proposed_manufacturer": r.proposed_manufacturer,
         "proposed_pack_size": r.proposed_pack_size,
@@ -161,6 +162,7 @@ def _req_dict(r: SupplierProductRequest) -> dict:
         "review_notes": r.review_notes,
         "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
         "created_master_product_id": r.created_master_product_id,
+        "attributes": r.attributes or {},
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
 
@@ -445,6 +447,31 @@ async def list_supplier_categories(
     return {"items": [{"id": c.id, "name": c.name, "slug": c.slug} for c in rows]}
 
 
+@router.get("/me/subcategories")
+async def list_supplier_subcategories(
+    category: str,
+    supplier: Supplier = Depends(get_current_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    """Subcategories for the supplier's country, filtered by parent slug.
+    Powers the New Product Request form's subcategory picker (Slice 2).
+    """
+    from core.models import MartSubcategory
+    cat = (await session.execute(
+        select(MartCategory).where(
+            MartCategory.country == supplier.country,
+            MartCategory.slug == category,
+        )
+    )).scalar_one_or_none()
+    if not cat:
+        return []
+    rows = (await session.execute(
+        select(MartSubcategory).where(MartSubcategory.category_id == cat.id)
+        .order_by(MartSubcategory.order.asc(), MartSubcategory.name.asc())
+    )).scalars().all()
+    return [{"id": s.id, "name": s.name, "slug": s.slug} for s in rows]
+
+
 @router.post("/me/catalogue", status_code=201)
 async def add_catalogue(
     payload: CatalogueIn,
@@ -523,6 +550,8 @@ class ProductRequestIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     proposed_name: str = Field(..., min_length=2, max_length=400)
     proposed_category_id: Optional[str] = None
+    # Fixing_Prompt v6 · Slice 2 — subcategory scope for dynamic attribute resolution
+    proposed_subcategory_id: Optional[str] = None
     proposed_ean_upc: Optional[str] = None
     proposed_manufacturer: Optional[str] = None
     proposed_pack_size: Optional[str] = None
@@ -534,6 +563,38 @@ class ProductRequestIn(BaseModel):
     proposed_lead_time_days: Optional[int] = Field(None, ge=0)
     image_url: Optional[str] = None
     notes: Optional[str] = None
+    # Dynamic attribute payload: {attribute_key: raw_value}. Validated + snapshotted
+    # server-side against the resolved attribute list for the chosen category.
+    attributes: Optional[dict] = None
+
+
+async def _validate_and_snapshot_attributes(
+    session: AsyncSession, *, category_id: Optional[str],
+    subcategory_id: Optional[str], raw_attrs: Optional[dict],
+) -> dict:
+    """Return the JSONB snapshot to persist. Empty dict if no category / no
+    resolved attrs. Raises 422 on missing-required / bad-type / bad-option.
+
+    Kept in-line here (rather than an import) to avoid a circular between
+    the supplier portal and mart_attributes modules at startup.
+    """
+    if not category_id:
+        return {}
+    from modules.mart_attributes.resolver import resolve_attributes
+    from modules.mart_attributes.validate import validate_and_snapshot
+    resolved = await resolve_attributes(
+        session, category_id=category_id, subcategory_id=subcategory_id,
+    )
+    # Only supplier-editable attributes are validated. A non-editable
+    # attribute (e.g. admin-only regulatory tag) is simply skipped so the
+    # supplier can't fail their submission on a field they can't fill.
+    editable = [a for a in resolved if a.get("supplier_editable")]
+    snapshot, errors = validate_and_snapshot(editable, raw_attrs or {})
+    if errors:
+        raise HTTPException(422, {"code": "attribute_validation",
+                                  "message": "Attribute validation failed",
+                                  "errors": errors})
+    return snapshot
 
 
 @router.get("/me/product-requests")
@@ -559,9 +620,21 @@ async def create_product_request(
         cat = await session.get(MartCategory, payload.proposed_category_id)
         if not cat or cat.country != supplier.country:
             raise HTTPException(400, "Category not found in your country")
+    if payload.proposed_subcategory_id:
+        from core.models import MartSubcategory
+        sub = await session.get(MartSubcategory, payload.proposed_subcategory_id)
+        if not sub or sub.category_id != payload.proposed_category_id:
+            raise HTTPException(400, "Subcategory does not belong to the chosen category")
+    attrs_snapshot = await _validate_and_snapshot_attributes(
+        session,
+        category_id=payload.proposed_category_id,
+        subcategory_id=payload.proposed_subcategory_id,
+        raw_attrs=payload.attributes,
+    )
     r = SupplierProductRequest(
         supplier_id=supplier.id, proposed_name=payload.proposed_name,
         proposed_category_id=payload.proposed_category_id,
+        proposed_subcategory_id=payload.proposed_subcategory_id,
         proposed_ean_upc=payload.proposed_ean_upc,
         proposed_manufacturer=payload.proposed_manufacturer,
         proposed_pack_size=payload.proposed_pack_size,
@@ -572,6 +645,7 @@ async def create_product_request(
         proposed_moq=payload.proposed_moq,
         proposed_lead_time_days=payload.proposed_lead_time_days,
         image_url=payload.image_url, notes=payload.notes,
+        attributes=attrs_snapshot,
     )
     session.add(r)
     await session.commit()
@@ -603,6 +677,7 @@ async def resubmit_product_request(
             raise HTTPException(400, "Category not found in your country")
     r.proposed_name = payload.proposed_name
     r.proposed_category_id = payload.proposed_category_id
+    r.proposed_subcategory_id = payload.proposed_subcategory_id
     r.proposed_ean_upc = payload.proposed_ean_upc
     r.proposed_manufacturer = payload.proposed_manufacturer
     r.proposed_pack_size = payload.proposed_pack_size
@@ -614,6 +689,12 @@ async def resubmit_product_request(
     r.proposed_lead_time_days = payload.proposed_lead_time_days
     r.image_url = payload.image_url
     r.notes = payload.notes
+    r.attributes = await _validate_and_snapshot_attributes(
+        session,
+        category_id=payload.proposed_category_id,
+        subcategory_id=payload.proposed_subcategory_id,
+        raw_attrs=payload.attributes,
+    )
     r.status = "pending"
     r.review_notes = None
     r.reviewer_admin_id = None
@@ -798,9 +879,17 @@ async def admin_approve_request(
     # Generate SKU + defaults required by mart_products
     sku = payload.sku or f"MRT-{supplier.country}-{uuid.uuid4().hex[:8].upper()}"
     default_price = payload.mrp or r.proposed_cost_price or 0
+    # Fixing_Prompt v6 · Slice 2 — snapshot the supplier-submitted attributes
+    # into MartProduct.details keyed by attribute.key. Historical products
+    # keep this snapshot regardless of any later attribute rename / delete.
+    sub_slug = None
+    if r.proposed_subcategory_id:
+        from core.models import MartSubcategory
+        sub = await session.get(MartSubcategory, r.proposed_subcategory_id)
+        sub_slug = sub.slug if sub else None
     mp = MartProduct(
         country=supplier.country, module="mart",
-        category_slug=cat.slug,
+        category_slug=cat.slug, subcategory_slug=sub_slug,
         name=name, sku_code=sku,
         brand=(payload.manufacturer or r.proposed_manufacturer),
         image=(payload.image_url or r.image_url),
@@ -812,6 +901,7 @@ async def admin_approve_request(
         pack_size=(payload.pack_size or r.proposed_pack_size),
         net_qty=None,  # net_qty is Numeric on MartProduct; proposals are strings — skip for safety
         short_description=(payload.short_description or r.proposed_short_description),
+        details=dict(r.attributes or {}),
     )
     session.add(mp)
     await session.flush()
@@ -934,9 +1024,15 @@ async def admin_bulk_approve_requests(
 
         sku = f"MRT-{supplier.country}-{uuid.uuid4().hex[:8].upper()}"
         default_price = r.proposed_cost_price or 0
+        # Slice 2 — snapshot supplier's submitted attributes on approval.
+        sub_slug = None
+        if r.proposed_subcategory_id:
+            from core.models import MartSubcategory
+            sub = await session.get(MartSubcategory, r.proposed_subcategory_id)
+            sub_slug = sub.slug if sub else None
         mp = MartProduct(
             country=supplier.country, module="mart",
-            category_slug=cat.slug,
+            category_slug=cat.slug, subcategory_slug=sub_slug,
             name=r.proposed_name, sku_code=sku,
             brand=r.proposed_manufacturer,
             image=r.image_url,
@@ -945,6 +1041,7 @@ async def admin_bulk_approve_requests(
             manufacturer=r.proposed_manufacturer,
             pack_size=r.proposed_pack_size,
             short_description=r.proposed_short_description,
+            details=dict(r.attributes or {}),
         )
         session.add(mp)
         await session.flush()

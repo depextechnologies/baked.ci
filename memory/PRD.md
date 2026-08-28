@@ -3,7 +3,19 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Dynamic Category Attribute System · Slice 1 (Fixing_Prompt v6)
+## Latest (2026-02-28) — Dynamic Category Attribute System · Slice 2 (Fixing_Prompt v6)
+- ✅ **Slice 2 shipped — Supplier form goes dynamic**:
+  - **Model**: `supplier_product_requests` now has `proposed_subcategory_id` (FK → mart_subcategories) + `attributes` JSONB snapshot column. Migration `0038_supplier_request_attributes`.
+  - **Supplier endpoints extended** (`shared/suppliers/portal_routes.py`):
+    - `POST /api/supplier/me/product-requests` accepts `proposed_subcategory_id` and `attributes: {key: value}`; server validates against resolver + validator (missing-required → 422 with per-field errors, bad type → 422, bad option value → 422). Passes → snapshotted as `{v, label, type}` per key.
+    - `PATCH /api/supplier/me/product-requests/{id}` — same validation on resubmit.
+    - New `GET /api/supplier/me/subcategories?category=<slug>` — powers subcategory picker.
+  - **Admin approval copies the snapshot** into `mart_products.details` (single-approve + bulk-approve). `subcategory_slug` also flowed through. Historical products keep their snapshot verbatim even after attribute rename / soft-delete.
+  - **Supplier form (`PortalProductRequests.jsx`)**: category → subcategory picker → dynamic "Category-specific fields" panel with typed inputs (short_text, long_text, integer, decimal, boolean, date, select, multi_select), required-* markers, unit chips, per-field error surfacing (client + server). Only `supplier_editable=true` attributes render. Values pre-fill on revise from the snapshot.
+  - **Testing**: `test_dynamic_attributes_slice2.py` — 7/7 pass (missing-required 422, invalid_type 422, bad_option 422, snapshot survives rename, approve copies into master.details, subcategory-only required override enforced, subcategories endpoint). Full backend suite still green (49 tests total).
+- 🔜 **Slice 3 (next)**: Admin approval drawer surfaces submitted attribute values grouped; Customer PDP renders customer_visible attributes automatically.
+
+## Prior (2026-02-28) — Dynamic Category Attribute System · Slice 1 (Fixing_Prompt v6)
 - ✅ **Slice 1 shipped — DB + Admin CRUD + Public Resolver**:
   - **New models** (`core/models/mart_attributes.py`):
     - `MartAttribute` — global definitions (immutable auto-slug `key`, soft-delete via `is_active`)

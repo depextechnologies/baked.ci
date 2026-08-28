@@ -199,6 +199,11 @@ class SupplierProductRequest(Base, TimestampMixin):
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     reviewer_admin_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("admin_users.id"), nullable=True)
     created_master_product_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_products.id"), nullable=True)
+    # Fixing_Prompt v6 · Slice 2 — dynamic attribute submission
+    proposed_subcategory_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_subcategories.id"), nullable=True)
+    # Snapshot of {attribute_key: {"v": …, "label": …, "type": …}} at submit time.
+    # This survives any later rename / soft-delete of the attribute definition.
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
 
 
 class SupplierSupplyLocation(Base):
