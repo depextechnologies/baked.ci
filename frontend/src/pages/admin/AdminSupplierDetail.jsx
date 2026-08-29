@@ -639,7 +639,34 @@ const ProductReviewDrawer = ({ product, categories, onClose, onDone }) => {
                 <div className="text-sm">{product.proposed_short_description}</div>
               </div>
             )}
-            {product.status !== "pending" && product.review_notes && (
+          {/* Dynamic category-attribute values submitted by the supplier
+              (Slice 3). Rendered as a labelled group so Super Admin sees
+              exactly what the supplier filled in the dynamic form. */}
+          {product.attributes && Object.keys(product.attributes).length > 0 && (
+            <div className="col-span-2 p-4 rounded-lg border border-border" data-testid="product-review-attributes">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
+                Category-specific fields
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {Object.entries(product.attributes).map(([key, meta]) => {
+                  const raw = meta && typeof meta === "object" && "v" in meta ? meta.v : meta;
+                  const label = (meta && typeof meta === "object" && meta.label) || key;
+                  let display = raw;
+                  if (Array.isArray(raw)) display = raw.join(" · ");
+                  else if (typeof raw === "boolean") display = raw ? "Yes" : "No";
+                  else if (raw === null || raw === undefined || raw === "") display = "—";
+                  return (
+                    <div key={key} data-testid={`product-review-attr-${key}`}>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+                      <div className="text-sm font-medium">{String(display)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {product.status !== "pending" && product.review_notes && (
               <div className="col-span-2 p-3 rounded-lg" style={{ background: "rgba(148,163,184,.08)" }}>
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Review notes</div>
                 <div className="text-sm">{product.review_notes}</div>

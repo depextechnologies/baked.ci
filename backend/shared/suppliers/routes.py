@@ -1045,6 +1045,9 @@ async def admin_list_supplier_products(
             "review_notes": r.review_notes,
             "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
             "created_at": r.created_at.isoformat() if r.created_at else None,
+            # Slice 2 — dynamic attribute snapshot ({key: {v,label,type}})
+            # so the admin review drawer renders Category-specific fields.
+            "attributes": r.attributes or {},
             "category": {
                 "id": cat.id, "name": cat.name, "slug": cat.slug,
             } if cat else None,

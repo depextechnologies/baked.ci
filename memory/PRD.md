@@ -3,7 +3,15 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Dynamic Category Attribute System · Slice 2 (Fixing_Prompt v6)
+## Latest (2026-02-28) — Dynamic Category Attribute System · Slice 3 (Fixing_Prompt v6)
+- ✅ **Slice 3 shipped — Admin Approval Drawer + Customer PDP go dynamic**:
+  - **Backend** (`modules/mart/routes.py`): `GET /api/mart/products/{id}` now hydrates a new `visible_attributes: [{key, label, type, unit, value}]` array using the resolver (with `only_customer_visible=True`). Select/multi_select values are auto-translated to option labels; booleans render as `"Yes"/"No"`; sort_order is respected. Snapshot labels (from Slice 2) win over the current attribute name so historical products keep the label they were approved with.
+  - **Backend** (`shared/suppliers/routes.py`): the admin `GET /api/admin/modules/mart/suppliers/{sid}/products` response now includes each item's `attributes` snapshot, feeding the admin review drawer.
+  - **Customer PDP** (`components/mart/ProductDetails.jsx`): renders `visible_attributes` as first-class rows in the admin-configured sort order (preview line + expandable list). Any Slice-2 snapshot keys are excluded from the legacy "More info" fallback so `customer_visible=false` attributes never leak into the storefront. Legacy free-form JSONB (pre-Slice-3 products) still surfaces under "More info" untouched.
+  - **Admin Review Drawer** (`AdminSupplierDetail.jsx`): new `product-review-attributes` group renders every submitted attribute (visible OR hidden) with its snapshot label, human-friendly value (Yes/No · comma-joined arrays), grouped visually inside the drawer so Super Admin sees exactly what the supplier filled.
+  - **Testing**: `test_dynamic_attributes_slice3.py` — 6/6 pass (visibility filter, select→label translation, boolean Yes/No, multi_select → labels array, sort_order, admin drawer payload). Full backend suite 55 tests total, all green. Live end-to-end screenshot confirms visible attr appears / hidden attr absent on PDP and both appear on admin drawer.
+
+## Prior (2026-02-28) — Dynamic Category Attribute System · Slice 2 (Fixing_Prompt v6)
 - ✅ **Slice 2 shipped — Supplier form goes dynamic**:
   - **Model**: `supplier_product_requests` now has `proposed_subcategory_id` (FK → mart_subcategories) + `attributes` JSONB snapshot column. Migration `0038_supplier_request_attributes`.
   - **Supplier endpoints extended** (`shared/suppliers/portal_routes.py`):

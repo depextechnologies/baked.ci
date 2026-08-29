@@ -72,6 +72,18 @@ const NUTRITION_LABELS = {
 export const ProductDetails = ({ product }) => {
   const [expanded, setExpanded] = useState(false);
 
+  // Fixing_Prompt v6 · Slice 3 — dynamic customer-visible attributes come
+  // pre-resolved from the backend as `visible_attributes: [{key,label,type,unit,value}]`.
+  // Only these render as first-class rows (respect admin's customer_visible
+  // configuration). Legacy free-form `details` scalars still surface under
+  // "More info" as a fallback so nothing pre-Slice-3 disappears.
+  const dynamicRows = useMemo(() => {
+    return (product?.visible_attributes || []).filter(
+      (a) => a?.value !== null && a?.value !== undefined && a?.value !== "" &&
+             !(Array.isArray(a.value) && a.value.length === 0)
+    );
+  }, [product]);
+
   // Merge the flat first-class columns that map cleanly into a "label" so
   // suppliers who haven't migrated to `details` yet still surface useful
   // info. `details` takes precedence when both exist.
@@ -79,19 +91,42 @@ export const ProductDetails = ({ product }) => {
     const d = product?.details || {};
     const base = {
       description:  product?.description,
-      manufacturer: d.manufacturer || product?.manufacturer,
+      manufacturer: (typeof d.manufacturer === "object" ? d.manufacturer?.v : d.manufacturer) || product?.manufacturer,
     };
     // Details keys override base; nutrition + custom pass through.
-    return { ...base, ...d };
+    // Snapshot values ({v, label, type}) are unwrapped to their `v`.
+    const unwrapped = {};
+    for (const [k, v] of Object.entries(d)) {
+      unwrapped[k] = v && typeof v === "object" && "v" in v ? v.v : v;
+    }
+    return { ...base, ...unwrapped };
   }, [product]);
 
   const nutrition = merged.nutrition && typeof merged.nutrition === "object" ? merged.nutrition : null;
 
+  // Keys already surfaced via visible_attributes must not double-render below.
+  const dynamicKeySet = useMemo(
+    () => new Set(dynamicRows.map((a) => a.key)),
+    [dynamicRows]
+  );
+
+  // Set of keys stored as Slice-2 snapshots ({v, label, type}) — these are
+  // governed EXCLUSIVELY by `visible_attributes` so a hidden attribute
+  // never leaks into "More info" or "Known rows" below.
+  const snapshotKeySet = useMemo(() => {
+    const d = product?.details || {};
+    const s = new Set();
+    for (const [k, v] of Object.entries(d)) {
+      if (v && typeof v === "object" && "v" in v) s.add(k);
+    }
+    return s;
+  }, [product]);
+
   const knownRows = useMemo(() => {
     return RENDER_ORDER
-      .filter((k) => !isEmpty(merged[k]))
+      .filter((k) => !isEmpty(merged[k]) && !dynamicKeySet.has(k) && !snapshotKeySet.has(k))
       .map((k) => [k, merged[k]]);
-  }, [merged]);
+  }, [merged, dynamicKeySet, snapshotKeySet]);
 
   const customRows = useMemo(() => {
     // Everything the supplier added that we don't have an explicit label
@@ -99,18 +134,29 @@ export const ProductDetails = ({ product }) => {
     const known = new Set(RENDER_ORDER);
     known.add("nutrition"); known.add("description"); known.add("id");
     return Object.entries(merged)
-      .filter(([k, v]) => !known.has(k) && !isEmpty(v) && typeof v !== "object")
+      .filter(([k, v]) => !known.has(k) && !dynamicKeySet.has(k)
+              && !snapshotKeySet.has(k)
+              && !isEmpty(v) && typeof v !== "object")
       .sort(([a], [b]) => a.localeCompare(b));
-  }, [merged]);
+  }, [merged, dynamicKeySet, snapshotKeySet]);
 
   // If there's literally nothing to show, hide the whole section.
-  const hasAnything = knownRows.length + customRows.length + (nutrition ? 1 : 0) + (merged.description ? 1 : 0) > 0;
+  const hasAnything = dynamicRows.length + knownRows.length + customRows.length
+                      + (nutrition ? 1 : 0) + (merged.description ? 1 : 0) > 0;
   if (!hasAnything) return null;
 
-  // Collapsed preview — mirror Screenshot 1 (Flavour · <value>). Falls back
-  // to the first known row when Flavour isn't set.
-  const previewKey = knownRows.find(([k]) => k === "flavour")?.[0] || knownRows[0]?.[0];
-  const previewValue = previewKey ? merged[previewKey] : null;
+  const formatDynamic = (v) => Array.isArray(v) ? v.join(" · ") : String(v);
+
+  // Collapsed preview — prefer a dynamic row (respecting admin sort order),
+  // then a known static row, so PDP always shows the most-relevant field.
+  const previewDynamic = dynamicRows[0];
+  const previewKey = previewDynamic?.key
+    || knownRows.find(([k]) => k === "flavour")?.[0]
+    || knownRows[0]?.[0];
+  const previewLabel = previewDynamic?.label
+    || (previewKey ? LABELS[previewKey] || humanize(previewKey) : null);
+  const previewValue = previewDynamic ? formatDynamic(previewDynamic.value)
+    : (previewKey ? String(merged[previewKey]) : null);
 
   return (
     <section
@@ -120,10 +166,10 @@ export const ProductDetails = ({ product }) => {
       <h2 className="text-lg font-bold text-foreground">Product Details</h2>
 
       {/* Compact preview line (visible whether collapsed or expanded) */}
-      {previewKey && (
+      {previewLabel && (
         <div className="mt-3">
-          <div className="text-sm font-semibold text-foreground">{LABELS[previewKey] || humanize(previewKey)}</div>
-          <div className="text-sm text-muted-foreground">{String(previewValue)}</div>
+          <div className="text-sm font-semibold text-foreground">{previewLabel}</div>
+          <div className="text-sm text-muted-foreground">{previewValue}</div>
         </div>
       )}
 
@@ -145,6 +191,17 @@ export const ProductDetails = ({ product }) => {
           {merged.description && (
             <Row label="Description" value={merged.description} />
           )}
+
+          {/* Dynamic customer-visible attributes (Slice 3) — rendered in the
+              admin-configured sort order and skipping the preview row. */}
+          {dynamicRows
+            .filter((a) => a.key !== previewKey)
+            .map((a) => (
+              <Row key={a.key}
+                   label={a.unit ? `${a.label} (${a.unit})` : a.label}
+                   value={formatDynamic(a.value)}
+                   testid={`product-details-attr-${a.key}`} />
+            ))}
 
           {/* All known rows except the preview row (avoid duplicate render) */}
           {knownRows
@@ -185,8 +242,9 @@ export const ProductDetails = ({ product }) => {
   );
 };
 
-const Row = ({ label, value, compact = false }) => (
-  <div className={compact ? "" : "border-t border-border pt-3 first:border-t-0 first:pt-0"}>
+const Row = ({ label, value, compact = false, testid }) => (
+  <div className={compact ? "" : "border-t border-border pt-3 first:border-t-0 first:pt-0"}
+       data-testid={testid}>
     <div className="text-sm font-semibold text-foreground">{label}</div>
     <div className="text-sm text-muted-foreground whitespace-pre-line mt-0.5">{String(value)}</div>
   </div>
