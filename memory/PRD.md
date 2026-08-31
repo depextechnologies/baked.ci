@@ -3,7 +3,20 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Pluggable Storage Providers (Fixing_Prompt v7)
+## Latest (2026-02-28) — Storage Migration Tool (Fixing_Prompt v7)
+- ✅ **One-click storage cutover shipped**:
+  - **CLI**: `python backend/scripts/migrate_storage.py --source emergent --dest local [--dry-run|--list]` — enumerates every object key referenced in the DB, copies from source provider to destination, idempotent (skips objects already at dest), reports full stats.
+  - **Enumeration** (`scripts/storage_migration.py::enumerate_keys`): walks 8 columns — `mart_products.image` / `.images` (JSONB) · `partner_products.images` (JSONB) · `homepage_sections.config` (recursive JSONB walk) · `driver.gov_id_front_url / gov_id_back_url / licence_front_url / selfie_url / vehicle_reg_url` · `suppliers.logo_url / cover_image_url` · `supplier_documents.storage_path` · `supplier_invoices.invoice_document_storage_path`.
+  - **Key extractor**: strips the six known serve-URL prefixes (`/api/homepage/uploads/`, `/api/partner/uploads/`, `/api/driver/uploads/`, `/api/supplier/uploads/`, `/api/admin/homepage-sections/uploads/`, `/api/supplier-invoices/uploads/`, `/uploads/`) OR accepts a raw key that has both `/` and a known media extension. Rejects `http(s)://`, `data:`, `blob:`, and plain category names — fixes the initial "Amul / Bakery" false positives.
+  - **Admin HTTP endpoints** (`shared/admin/storage_migration_routes.py`) mounted under `/api/admin/storage/`:
+    - `GET /status` — active provider + last job snapshot
+    - `POST /enumerate` — count + sample of discovered keys (200-item preview)
+    - `POST /migrate {source, dest, dry_run}` — 202 with job id; runs in FastAPI BackgroundTask
+    - `GET /migrate/{job_id}` — poll progress + final report
+  - **Idempotent + safe**: copy skips objects already at destination (`skipped_already_present` count) and cleanly reports source-missing rows. Same-source-and-destination request → 400. Unknown provider → 400. Errors captured per-key (capped at 50 in report body).
+  - **Testing**: `test_storage_migration.py` — 13/13 pass (key extraction happy + edge, idempotent copy, dry-run does not write, source-missing reporting, same-provider raises, admin endpoints). Full backend suite 73 tests total, all green.
+
+## Prior (2026-02-28) — Pluggable Storage Providers (Fixing_Prompt v7)
 - ✅ **Bug fix — Upload no longer requires EMERGENT_LLM_KEY**:
   - Root cause: `object_storage.init()` hard-required the Emergent key + storage proxy, so every image upload (homepage category icons, banners, supplier docs, driver KYC) returned `Upload failed: EMERGENT_LLM_KEY not set`.
   - Fix: introduced a pluggable storage abstraction in `core/providers/storage/` — `base.py` (interface), `local.py` (default), `emergent.py` (legacy adapter), `s3.py` (drop-in), `factory.py` (singleton). The legacy `object_storage.put_object` / `get_object` façade is preserved 1:1 so no callers changed.

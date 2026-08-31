@@ -42,10 +42,23 @@ def sup_headers():
     return {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
 
 
+_SEEDED_SLUGS = {
+    "fruits-vegetables", "dairy-eggs", "snacks", "beverages",
+    "bakery-bread", "frozen-ready", "pantry-staples", "baby-kids",
+    "healthy-choices", "deals", "deep-discount",
+}
+
+
 def _pick_category(country="CI"):
+    """Pick a seeded (non-autotest) category. Autotest categories from
+    Slice 1/2/3 runs sometimes have required attributes attached to them
+    which would break these workflow tests."""
     r = requests.get(f"{API}/mart/categories?country={country}", timeout=15).json()
     cats = r if isinstance(r, list) else r.get("items", [])
-    return cats[0]  # {id, slug, name, ...}
+    for c in cats:
+        if c["slug"] in _SEEDED_SLUGS:
+            return c
+    return cats[0]  # fallback
 
 
 # ---------------------------------------------------------------------------

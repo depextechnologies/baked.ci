@@ -163,6 +163,10 @@ from modules.mart_attributes.routes import (  # noqa: E402
 )
 api_router.include_router(mart_attr_public_router)
 api_router.include_router(mart_attr_admin_router)
+
+# Storage migration (Fixing_Prompt v7) — Super Admin cutover tool
+from shared.admin.storage_migration_routes import router as admin_storage_router  # noqa: E402
+api_router.include_router(admin_storage_router)
 api_router.include_router(partner_staff_router)
 api_router.include_router(partner_inventory_router)
 api_router.include_router(partner_inventory_ops_router)
