@@ -3,6 +3,14 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 2 Catalogue Seed
+- ✅ **19 top-level SHOP categories × 181 subcategories** seeded idempotently for Côte d'Ivoire, parsed from the canonical `Categories_In_French.docx` with paired clean English labels. FR is the source of truth; EN was hand-cleaned where the raw English doc had OCR/translation bleed-through. All slugs are ASCII-safe & unique per country.
+- ✅ **`/app/backend/modules/shop/catalogue_data.py`**: single canonical tree with `(slug, name_fr, name_en, [subs])` tuples in doc order. Slugs are stable; renaming a name updates FR/EN + `order` on the next boot but never mutates ids.
+- ✅ **`/app/backend/modules/shop/seed.py::seed_shop_catalogue`**: wired into `run_seed()` after MART/homepage seeds. Uses on-conflict upsert keyed on `(slug, country)` (category) and `(slug, category_id)` (subcategory). Preserves admin-edited icon/image once Slice 5 exposes them.
+- ✅ **New public endpoint `GET /api/shop/catalogue?country=CI`**: returns the full nested tree (category → subcategories) in one call — powers the seller-portal category picker (Slice 4) and customer storefront rail (Slice 6).
+- ✅ **Frontend preview**: `/shopbaked` now renders a 3-column card grid of every seeded category with FR/EN toggle. All 19 cards visible with `data-testid="shopbaked-category-{slug}"`.
+- ✅ **Tests**: `test_shop_catalogue_seed.py` — 8/8 pass (counts match, order monotonic, accented FR round-trip, Apple subcats present, idempotency, unknown country → empty). Combined SHOP suite = 21/21. MART regression (dynamic attributes + catalog editing) 13/13 unaffected.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 1 Foundation
 - ✅ **Isolated SHOP catalogue tables**: migration `0039_shop_foundation` creates `shop_brands / shop_categories / shop_subcategories / shop_products / shop_variants`. `ShopProduct` carries JSONB `images`, `attributes` (parent-level) and status ∈ {draft, pending_review, active, archived, rejected}. `ShopVariant` carries per-SKU price / stock / condition / attribute overrides / images.
 - ✅ **Shared-supplier identity**: added `suppliers.modules` JSONB column (default & backfilled to `["MART"]`). Every existing supplier retains MART access; SHOP access is opt-in per supplier and gated by an array-contains predicate.

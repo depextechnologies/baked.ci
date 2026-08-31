@@ -935,6 +935,9 @@ async def run_seed():
         # Homepage CMS default stack (CI + IN) — insert-only, admin edits preserved.
         from modules.homepage.seed import seed_homepage
         await seed_homepage(session)
+        # SHOPbakēd catalogue (Slice 2) — 19 categories × subcategory tree per country.
+        from modules.shop.seed import seed_shop_catalogue
+        await seed_shop_catalogue(session)
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars

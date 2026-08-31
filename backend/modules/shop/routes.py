@@ -113,6 +113,59 @@ async def shop_list_subcategories(
     ]
 
 
+@public_router.get("/catalogue")
+async def shop_catalogue_tree(country: str = Query("CI"),
+                              session: AsyncSession = Depends(get_session)):
+    """Full SHOP category tree (category → subcategories) in one call.
+
+    Powers the seller-portal category picker (Slice 4) and the customer
+    storefront home rail (Slice 6). Only active categories are returned;
+    subcategories are ordered by their `order` column.
+    """
+    cats = (
+        (
+            await session.execute(
+                select(ShopCategory)
+                .where(ShopCategory.country == country.upper(),
+                       ShopCategory.deleted_at.is_(None))
+                .order_by(ShopCategory.order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not cats:
+        return []
+    cat_ids = [c.id for c in cats]
+    subs = (
+        (
+            await session.execute(
+                select(ShopSubcategory)
+                .where(ShopSubcategory.category_id.in_(cat_ids))
+                .order_by(ShopSubcategory.category_id, ShopSubcategory.order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    subs_by_cat: dict[str, list] = {}
+    for s in subs:
+        subs_by_cat.setdefault(s.category_id, []).append({
+            "id": s.id, "slug": s.slug,
+            "name_en": s.name_en, "name_fr": s.name_fr,
+            "image": s.image, "order": s.order,
+        })
+    return [
+        {
+            "id": c.id, "slug": c.slug,
+            "name_en": c.name_en, "name_fr": c.name_fr,
+            "icon": c.icon, "image": c.image, "order": c.order,
+            "subcategories": subs_by_cat.get(c.id, []),
+        }
+        for c in cats
+    ]
+
+
 @public_router.get("/products")
 async def shop_list_products(
     country: str = Query("CI"),
