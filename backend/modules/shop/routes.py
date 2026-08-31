@@ -14,9 +14,11 @@ and never reads from `mart_*`. Suppliers are shared (see `suppliers.modules`
 JSONB) but their catalogue is strictly per-module.
 """
 from __future__ import annotations
-from typing import Optional
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -332,3 +334,197 @@ async def admin_list_products(
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Slice 5 — SHOP product approval queue (mirrors MART product-requests)
+# ---------------------------------------------------------------------------
+
+
+class ApprovalIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    notes: Optional[str] = Field(None, max_length=800)
+
+
+class BulkIdsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ids: List[str] = Field(..., min_length=1)
+    notes: Optional[str] = Field(None, max_length=800)
+
+
+def _admin_product_dict(p: ShopProduct, variant_count: int = 0) -> dict:
+    return {
+        "id": p.id, "title": p.title, "country": p.country,
+        "supplier_id": p.supplier_id, "category_id": p.category_id,
+        "subcategory_id": p.subcategory_id, "status": p.status,
+        "images": p.images or [], "attributes": p.attributes or {},
+        "description": p.description,
+        "variant_count": variant_count,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "published_at": p.published_at.isoformat() if p.published_at else None,
+    }
+
+
+@admin_router.get("/product-requests")
+async def admin_list_product_requests(
+    bucket: str = Query("pending", pattern="^(pending|approved|rejected|all)$"),
+    country: str = Query("CI"),
+    limit: int = Query(100, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+):
+    """List SHOP products by review bucket.
+
+    * `pending`   → status = pending_review
+    * `approved`  → status = active
+    * `rejected`  → status = rejected
+    * `all`       → all buckets
+    """
+    q = (
+        select(ShopProduct)
+        .where(ShopProduct.country == country.upper(),
+               ShopProduct.deleted_at.is_(None))
+        .order_by(ShopProduct.created_at.desc())
+        .limit(limit)
+    )
+    status_map = {"pending": "pending_review", "approved": "active", "rejected": "rejected"}
+    if bucket != "all":
+        q = q.where(ShopProduct.status == status_map[bucket])
+    rows = (await session.execute(q)).scalars().all()
+
+    # Bucket counts (unbounded — small in practice, cheap enough).
+    counts_rows = (
+        await session.execute(
+            select(ShopProduct.status, func.count(ShopProduct.id))
+            .where(ShopProduct.country == country.upper(),
+                   ShopProduct.deleted_at.is_(None))
+            .group_by(ShopProduct.status)
+        )
+    ).all()
+    counts_by_status = {s: c for s, c in counts_rows}
+
+    # Variant counts for the rows returned.
+    variant_counts = {}
+    if rows:
+        pid_list = [r.id for r in rows]
+        vrows = (
+            await session.execute(
+                select(ShopVariant.product_id, func.count(ShopVariant.id))
+                .where(ShopVariant.product_id.in_(pid_list))
+                .group_by(ShopVariant.product_id)
+            )
+        ).all()
+        variant_counts = {pid: c for pid, c in vrows}
+
+    return {
+        "buckets": {
+            "pending": counts_by_status.get("pending_review", 0),
+            "approved": counts_by_status.get("active", 0),
+            "rejected": counts_by_status.get("rejected", 0),
+        },
+        "items": [_admin_product_dict(r, variant_counts.get(r.id, 0)) for r in rows],
+    }
+
+
+async def _load_product_for_review(session: AsyncSession, pid: str) -> ShopProduct:
+    p = await session.get(ShopProduct, pid)
+    if not p or p.deleted_at is not None:
+        raise HTTPException(404, "SHOP product not found")
+    return p
+
+
+@admin_router.get("/product-requests/{pid}")
+async def admin_product_detail(
+    pid: str,
+    session: AsyncSession = Depends(get_session),
+):
+    p = await _load_product_for_review(session, pid)
+    variants = (
+        await session.execute(
+            select(ShopVariant).where(ShopVariant.product_id == p.id)
+            .order_by(ShopVariant.created_at)
+        )
+    ).scalars().all()
+    return {
+        **_admin_product_dict(p, len(variants)),
+        "variants": [
+            {
+                "id": v.id, "sku": v.sku, "title_suffix": v.title_suffix,
+                "price": float(v.price) if v.price is not None else 0.0,
+                "compare_at_price": float(v.compare_at_price) if v.compare_at_price is not None else None,
+                "currency": v.currency, "stock_qty": v.stock_qty,
+                "condition": v.condition, "attributes": v.attributes or {},
+                "images": v.images or [], "is_active": v.is_active,
+            } for v in variants
+        ],
+    }
+
+
+@admin_router.post("/product-requests/{pid}/approve")
+async def admin_approve_product(
+    pid: str, payload: ApprovalIn,
+    session: AsyncSession = Depends(get_session),
+):
+    p = await _load_product_for_review(session, pid)
+    if p.status not in ("pending_review", "rejected"):
+        raise HTTPException(400, f"Cannot approve product in status={p.status}")
+    p.status = "active"
+    if p.published_at is None:
+        p.published_at = datetime.now(timezone.utc)
+    await session.commit()
+    return {"id": p.id, "status": p.status,
+            "published_at": p.published_at.isoformat() if p.published_at else None}
+
+
+@admin_router.post("/product-requests/{pid}/reject")
+async def admin_reject_product(
+    pid: str, payload: ApprovalIn,
+    session: AsyncSession = Depends(get_session),
+):
+    p = await _load_product_for_review(session, pid)
+    if p.status not in ("pending_review", "active"):
+        raise HTTPException(400, f"Cannot reject product in status={p.status}")
+    p.status = "rejected"
+    await session.commit()
+    return {"id": p.id, "status": p.status}
+
+
+@admin_router.post("/product-requests/bulk-approve")
+async def admin_bulk_approve(
+    payload: BulkIdsIn,
+    session: AsyncSession = Depends(get_session),
+):
+    approved, blocked = [], []
+    for pid in payload.ids:
+        p = await session.get(ShopProduct, pid)
+        if not p or p.deleted_at is not None:
+            blocked.append({"id": pid, "reason": "not_found"})
+            continue
+        if p.status not in ("pending_review", "rejected"):
+            blocked.append({"id": pid, "reason": f"bad_status:{p.status}"})
+            continue
+        p.status = "active"
+        if p.published_at is None:
+            p.published_at = datetime.now(timezone.utc)
+        approved.append(pid)
+    await session.commit()
+    return {"approved": approved, "blocked": blocked}
+
+
+@admin_router.post("/product-requests/bulk-reject")
+async def admin_bulk_reject(
+    payload: BulkIdsIn,
+    session: AsyncSession = Depends(get_session),
+):
+    rejected, blocked = [], []
+    for pid in payload.ids:
+        p = await session.get(ShopProduct, pid)
+        if not p or p.deleted_at is not None:
+            blocked.append({"id": pid, "reason": "not_found"})
+            continue
+        if p.status not in ("pending_review", "active"):
+            blocked.append({"id": pid, "reason": f"bad_status:{p.status}"})
+            continue
+        p.status = "rejected"
+        rejected.append(pid)
+    await session.commit()
+    return {"rejected": rejected, "blocked": blocked}

@@ -61,9 +61,10 @@ class TestShopStubsAlive:
         assert isinstance(r.json(), list)  # empty on Slice 1
 
     def test_shop_products_public(self):
+        # Post Slice 5, approved products may exist — assert shape not emptiness.
         r = requests.get(f"{API}/shop/products?country=CI", timeout=10)
         assert r.status_code == 200
-        assert r.json() == []  # nothing published yet
+        assert isinstance(r.json(), list)
 
     def test_shop_portal_health(self):
         r = requests.get(f"{API}/shop/portal/health", timeout=10)

@@ -15,7 +15,7 @@ import { useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Building2, ArrowLeft, ChevronRight, Package, ShieldCheck, Warehouse as WarehouseIcon,
-  Search, X, CheckCircle2, XCircle, Image as ImageIcon, Star,
+  Search, X, CheckCircle2, XCircle, Image as ImageIcon, Star, Layers,
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
@@ -105,6 +105,7 @@ export const AdminSupplierDetail = () => {
             (detail.product_buckets?.rejected || 0) +
             (detail.product_buckets?.withdrawn || 0)
           })`, icon: Package },
+          { code: "modules", label: "Modules", icon: Layers },
         ].map(t => {
           const on = tab === t.code;
           const Icon = t.icon;
@@ -125,6 +126,101 @@ export const AdminSupplierDetail = () => {
 
       {tab === "overview" && <OverviewTab detail={detail} />}
       {tab === "products" && <ProductsTab supplierId={supplierId} detail={detail} onProductChange={loadDetail} />}
+      {tab === "modules" && <ModulesTab supplier={detail.supplier} onSaved={loadDetail} />}
+    </div>
+  );
+};
+
+// ==========================================================================
+// Modules tab — grant/revoke module access (Slice 5)
+// ==========================================================================
+
+const ALL_MODULES = [
+  { code: "MART", label: "MARTbakēd", tagline: "Groceries & daily needs (default, always on)", locked: true },
+  { code: "SHOP", label: "SHOPbakēd", tagline: "Fashion, electronics, home goods — variant-heavy listings", locked: false },
+];
+
+const ModulesTab = ({ supplier, onSaved }) => {
+  const [selected, setSelected] = useState(new Set(supplier.modules || ["MART"]));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setSelected(new Set(supplier.modules || ["MART"])); }, [supplier.modules]);
+
+  const toggle = (code) => {
+    const next = new Set(selected);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    next.add("MART"); // always retain MART client-side too
+    setSelected(next);
+  };
+
+  const dirty = useMemo(() => {
+    const cur = new Set(supplier.modules || ["MART"]);
+    if (cur.size !== selected.size) return true;
+    for (const m of cur) if (!selected.has(m)) return true;
+    return false;
+  }, [supplier.modules, selected]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const modules = Array.from(selected);
+      await adminApi.patch(`/admin/modules/mart/suppliers/${supplier.id}/modules`, { modules });
+      toast.success("Modules updated");
+      onSaved?.();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-6" data-testid="supplier-modules-tab">
+      <div>
+        <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>Business modules</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Choose which BAKĒD business apps this supplier can operate on. Suppliers can list
+          catalogues, receive purchase orders and be surfaced to customers within the modules
+          you enable here. MARTbakēd is always on because it's the platform default.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {ALL_MODULES.map((m) => {
+          const on = selected.has(m.code);
+          return (
+            <label key={m.code}
+              data-testid={`supplier-module-${m.code.toLowerCase()}`}
+              className="flex items-start gap-3 border rounded-xl p-4 cursor-pointer transition-colors"
+              style={{
+                borderColor: on ? "#77BC1F" : "var(--border)",
+                background: on ? "rgba(119,188,31,.08)" : "transparent",
+                opacity: m.locked ? 0.85 : 1,
+                cursor: m.locked ? "default" : "pointer",
+              }}
+              onClick={() => !m.locked && toggle(m.code)}
+            >
+              <input type="checkbox" checked={on} readOnly disabled={m.locked}
+                     data-testid={`supplier-module-${m.code.toLowerCase()}-checkbox`} />
+              <div className="flex-1">
+                <div className="font-semibold" style={{ color: "var(--foreground)" }}>
+                  {m.label}
+                  {m.locked && <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded"
+                                    style={{ background: "rgba(148,163,184,.15)", color: "var(--muted-foreground)" }}>always on</span>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">{m.tagline}</div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-end gap-3">
+        <span className="text-xs text-muted-foreground">
+          Current: <strong>{(supplier.modules || []).join(", ") || "MART"}</strong>
+        </span>
+        <button onClick={save} disabled={!dirty || saving}
+                className="pl-btn pl-btn-primary"
+                data-testid="supplier-modules-save"
+                style={{ opacity: !dirty || saving ? 0.6 : 1 }}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+      </div>
     </div>
   );
 };

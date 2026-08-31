@@ -176,3 +176,30 @@ class ShopCategoryAttribute(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class ShopCartItem(Base):
+    """A SHOP variant sitting in a customer's cart.
+
+    Kept in a separate table from MART's `cart_items` because MART's row
+    holds a hard FK to `mart_products.id`. Sharing the parent `carts` row
+    means a single active cart can mix MART products + SHOP variants, and
+    Slice 8 checkout can split them into per-module fulfilment orders.
+    """
+    __tablename__ = "shop_cart_items"
+    __table_args__ = (
+        UniqueConstraint("cart_id", "variant_id", name="uq_shop_cart_items_cart_variant"),
+        Index("ix_shop_cart_items_cart", "cart_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("shpci"))
+    cart_id: Mapped[str] = mapped_column(
+        String, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False,
+    )
+    variant_id: Mapped[str] = mapped_column(
+        String, ForeignKey("shop_variants.id", ondelete="CASCADE"), nullable=False,
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    added_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False,
+    )
+

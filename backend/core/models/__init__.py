@@ -95,7 +95,7 @@ from core.models.notifications import RECIPIENT_KINDS, Notification
 from core.models.shop import (
     SHOP_PRODUCT_STATUSES, SHOP_VARIANT_CONDITIONS,
     ShopBrand, ShopCategory, ShopSubcategory, ShopProduct, ShopVariant,
-    ShopCategoryAttribute,
+    ShopCategoryAttribute, ShopCartItem,
 )
 
 __all__ = [
@@ -196,7 +196,7 @@ __all__ = [
     "RECIPIENT_KINDS", "Notification",
     "SHOP_PRODUCT_STATUSES", "SHOP_VARIANT_CONDITIONS",
     "ShopBrand", "ShopCategory", "ShopSubcategory", "ShopProduct", "ShopVariant",
-    "ShopCategoryAttribute",
+    "ShopCategoryAttribute", "ShopCartItem",
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",

@@ -83,7 +83,7 @@ def _supplier_dict(s: Supplier) -> dict:
         "business_email": s.business_email, "business_phone": s.business_phone,
         "website": s.website, "years_in_operation": s.years_in_operation,
         "country": s.country, "default_currency": s.default_currency,
-        "module": s.module, "status": s.status,
+        "module": s.module, "modules": s.modules or [], "status": s.status,
         "supplier_portal_active": s.supplier_portal_active,
         "phone_verified": s.phone_verified, "email_verified": s.email_verified,
         "approved_at": s.approved_at.isoformat() if s.approved_at else None,
@@ -894,6 +894,65 @@ async def admin_unsuspend_supplier(
 #   GET /api/admin/modules/mart/suppliers/{sid}/products            — products
 #     ?status=&category=&subcategory=&q=&limit=
 # ===========================================================================
+
+
+# ===========================================================================
+# Slice 5 — Modules toggle: enable/disable module access per supplier.
+# ===========================================================================
+
+_SUPPORTED_MODULES = {"MART", "SHOP"}
+
+
+class ModulesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    modules: List[str] = Field(..., min_length=1)
+
+
+@admin_router.patch("/{sid}/modules")
+async def admin_set_supplier_modules(
+    sid: str,
+    payload: ModulesIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Overwrite the supplier's `modules` array (e.g. `["MART","SHOP"]`).
+
+    * Every value must belong to the supported-modules whitelist.
+    * `MART` is always kept — a supplier without any module is meaningless.
+    * Audit-logged as `supplier.modules_updated` with before/after diff.
+    """
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    incoming = [m.upper().strip() for m in payload.modules if m and m.strip()]
+    unknown = [m for m in incoming if m not in _SUPPORTED_MODULES]
+    if unknown:
+        raise HTTPException(400, {"code": "unsupported_module",
+                                  "message": f"Unknown modules: {', '.join(unknown)}"})
+    if "MART" not in incoming:
+        incoming = ["MART"] + incoming  # always retain MART
+    # De-duplicate while preserving order.
+    seen, ordered = set(), []
+    for m in incoming:
+        if m not in seen:
+            ordered.append(m); seen.add(m)
+
+    before = list(supplier.modules or [])
+    if before == ordered:
+        return {"id": supplier.id, "modules": ordered, "changed": False}
+
+    supplier.modules = ordered
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, actor_admin_id=admin.id,
+        action="supplier.modules_updated",
+        from_status=",".join(before) or None,
+        to_status=",".join(ordered),
+        notes=None,
+    ))
+    await session.commit()
+    return {"id": supplier.id, "modules": ordered, "changed": True,
+            "before": before, "after": ordered}
 
 
 @admin_router.get("/{sid}")

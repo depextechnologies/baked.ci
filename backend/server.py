@@ -187,10 +187,12 @@ from modules.shop import (  # noqa: E402
     portal_router as shop_portal_router,
     admin_router as shop_admin_router,
     portal_seller_router as shop_portal_seller_router,
+    storefront_router as shop_storefront_router,
 )
 api_router.include_router(shop_public_router)
 api_router.include_router(shop_portal_router)
 api_router.include_router(shop_portal_seller_router)
+api_router.include_router(shop_storefront_router)
 api_router.include_router(shop_admin_router)
 # TODO: food, auto, immo
 

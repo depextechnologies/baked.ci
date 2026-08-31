@@ -1,153 +1,149 @@
 /**
- * ShopHome — SHOPbakēd storefront landing (Slice 2 preview).
+ * ShopHome — SHOPbakēd customer storefront home (Slice 6).
  *
- * Slice 6 will replace this with the real customer home (hero, hand-curated
- * collections, brand rail, PDP). Right now it renders the seeded catalogue
- * tree so QA and stakeholders can eyeball the seed and locale coverage.
+ * Sections:
+ *   1. Hero — brand statement + CTA
+ *   2. Category rail — horizontally scrollable pills from /api/shop/catalogue
+ *   3. Fresh drops — grid of the newest approved products from /api/shop/products
  */
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { api } from "@/lib/api";
+import { ArrowRight, Sparkles, ShieldCheck, Truck } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const localised = (r, locale) => (locale === "fr" ? r?.name_fr : r?.name_en) || r?.name_en || r?.name_fr || r?.slug;
 
-export const ShopHome = () => {
+export const ShopHome = ({ locale = "fr" }) => {
   const [tree, setTree] = useState(null);
-  const [health, setHealth] = useState(null);
-  const [locale, setLocale] = useState("fr");
+  const [products, setProducts] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch(`${API}/shop/health`).then((r) => r.json()),
-      fetch(`${API}/shop/catalogue?country=CI`).then((r) => r.json()),
+      api.get("/shop/catalogue?country=CI"),
+      api.get("/shop/products?country=CI&limit=12"),
     ])
-      .then(([h, t]) => {
+      .then(([t, p]) => {
         if (cancelled) return;
-        setHealth(h);
-        setTree(t);
+        setTree(t.data || []);
+        setProducts(p.data || []);
       })
-      .catch((e) => !cancelled && setError(e.message));
-    return () => {
-      cancelled = true;
-    };
+      .catch((e) => !cancelled && setError(e?.message || "Failed to load"));
+    return () => { cancelled = true; };
   }, []);
 
-  const totalSubs = useMemo(
-    () => (tree || []).reduce((n, c) => n + (c.subcategories?.length || 0), 0),
-    [tree],
-  );
-
-  const [attrsByCat, setAttrsByCat] = useState({});
-  useEffect(() => {
-    if (!tree) return;
-    let cancelled = false;
-    Promise.all(
-      tree.map((c) =>
-        fetch(`${API}/shop/categories/${c.slug}/attributes`)
-          .then((r) => (r.ok ? r.json() : { attributes: [] }))
-          .then((d) => [c.slug, d.attributes || []]),
-      ),
-    ).then((pairs) => !cancelled && setAttrsByCat(Object.fromEntries(pairs)));
-    return () => {
-      cancelled = true;
-    };
-  }, [tree]);
-
   return (
-    <section data-testid="shopbaked-home">
-      <div className="flex items-start justify-between gap-6 flex-wrap">
-        <div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-            SHOP<span className="text-amber-400">bakēd</span> catalogue preview
+    <div data-testid="shopbaked-home">
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-2xl mb-10 border border-neutral-800 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black">
+        <div className="absolute inset-0 opacity-20 pointer-events-none"
+             style={{ background: "radial-gradient(ellipse at top right, rgba(251,191,36,.6), transparent 55%)" }} />
+        <div className="relative px-8 py-14 md:px-14 md:py-20">
+          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-amber-300 mb-4">
+            <Sparkles size={14} /> The BAKĒD marketplace
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-50 max-w-3xl">
+            Fashion, tech & home goods.
+            <span className="block text-amber-400">Shipped across Côte d'Ivoire.</span>
           </h1>
-          <p className="mt-4 text-neutral-400 max-w-xl">
-            {tree
-              ? `${tree.length} categories · ${totalSubs} subcategories seeded for Côte d'Ivoire.`
-              : "Loading catalogue…"}
+          <p className="mt-5 text-neutral-300 max-w-xl">
+            {tree ? `${tree.length} categories · ${tree.reduce((n, c) => n + (c.subcategories?.length || 0), 0)} sub-brands ready to explore.` : "Loading catalogue…"}
           </p>
-        </div>
-        <div className="inline-flex rounded-full border border-neutral-800 p-1 text-xs" data-testid="shopbaked-locale-toggle">
-          {["fr", "en"].map((code) => (
-            <button
-              key={code}
-              onClick={() => setLocale(code)}
-              className={`px-3 py-1.5 rounded-full transition-colors ${
-                locale === code ? "bg-amber-400 text-neutral-950 font-semibold" : "text-neutral-400"
-              }`}
-              data-testid={`shopbaked-locale-${code}`}
-            >
-              {code.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {error && (
-        <p className="mt-6 text-red-400" data-testid="shopbaked-home-error">Error: {error}</p>
-      )}
-
-      {health && (
-        <div className="mt-8 border border-neutral-800 rounded-xl p-6 bg-neutral-900/40" data-testid="shopbaked-health-card">
-          <h2 className="text-lg font-semibold">Module health</h2>
-          <ul className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm" data-testid="shopbaked-health-counts">
-            {Object.entries(health.counts || {}).map(([k, v]) => (
-              <li key={k} className="border border-neutral-800 rounded-lg px-3 py-2 bg-neutral-950">
-                <div className="text-neutral-500 text-xs uppercase tracking-wide">{k}</div>
-                <div className="text-neutral-100 text-lg font-semibold">{v}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {tree && (
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="shopbaked-catalogue">
-          {tree.map((cat) => (
-            <article
-              key={cat.id}
-              className="border border-neutral-800 rounded-xl p-5 bg-neutral-900/40 hover:border-amber-400/60 transition-colors"
-              data-testid={`shopbaked-category-${cat.slug}`}
-            >
-              <header className="flex items-baseline justify-between gap-3">
-                <h3 className="text-lg font-semibold text-neutral-100">
-                  {locale === "fr" ? cat.name_fr : cat.name_en}
-                </h3>
-                <span className="text-xs text-neutral-500 shrink-0">
-                  {cat.subcategories?.length || 0} sub
-                </span>
-              </header>
-              <p className="mt-1 text-xs text-neutral-500 font-mono">{cat.slug}</p>
-              {attrsByCat[cat.slug]?.length ? (
-                <div className="mt-2 flex flex-wrap gap-1" data-testid={`shopbaked-attrs-${cat.slug}`}>
-                  {attrsByCat[cat.slug].map((a) => (
-                    <span
-                      key={a.key}
-                      className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-300 border border-amber-400/20"
-                    >
-                      {a.key}
-                    </span>
-                  ))}
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href="#shop-catalogue" className="pl-btn pl-btn-primary" data-testid="shopbaked-hero-cta">
+              Browse categories <ArrowRight size={14} />
+            </a>
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3 max-w-2xl">
+            {[
+              { icon: ShieldCheck, label: "Vetted sellers", tag: "Every listing reviewed" },
+              { icon: Truck, label: "Same-day CI", tag: "Abidjan express" },
+              { icon: Sparkles, label: "Fresh drops", tag: "New arrivals weekly" },
+            ].map(({ icon: Icon, label, tag }) => (
+              <div key={label} className="flex items-start gap-3">
+                <Icon size={16} className="text-amber-400 mt-0.5" />
+                <div>
+                  <div className="text-sm font-semibold text-neutral-100">{label}</div>
+                  <div className="text-xs text-neutral-500">{tag}</div>
                 </div>
-              ) : null}
-              <ul className="mt-3 space-y-1 text-sm text-neutral-300">
-                {(cat.subcategories || []).slice(0, 6).map((s) => (
-                  <li key={s.id} data-testid={`shopbaked-sub-${s.slug}`} className="flex items-center gap-2">
-                    <span className="w-1 h-1 rounded-full bg-neutral-600" />
-                    <span>{locale === "fr" ? s.name_fr : s.name_en}</span>
-                  </li>
-                ))}
-                {(cat.subcategories?.length || 0) > 6 && (
-                  <li className="text-xs text-neutral-500">
-                    +{cat.subcategories.length - 6} more
-                  </li>
-                )}
-              </ul>
-            </article>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
-      )}
-    </section>
+      </section>
+
+      {error && <p className="text-red-400 mb-6" data-testid="shopbaked-home-error">Error: {error}</p>}
+
+      {/* Categories rail */}
+      <section id="shop-catalogue" className="mb-12">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-xl font-semibold text-neutral-100">Categories</h2>
+          <span className="text-xs text-neutral-500">{tree?.length || 0} total</span>
+        </div>
+        {!tree && <div className="text-sm text-neutral-500">Loading…</div>}
+        {tree && (
+          <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5" data-testid="shopbaked-category-rail">
+            {tree.map((c) => (
+              <Link
+                key={c.id}
+                to={`/shopbaked/c/${c.slug}`}
+                data-testid={`shopbaked-category-tile-${c.slug}`}
+                className="group border border-neutral-800 rounded-xl p-4 bg-neutral-900/40 hover:border-amber-400/60 transition-colors"
+              >
+                <div className="text-sm font-semibold text-neutral-100 group-hover:text-amber-300 transition-colors">
+                  {localised(c, locale)}
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-1">
+                  {c.subcategories?.length || 0} sub-categories
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Fresh drops */}
+      <section className="mb-12">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-xl font-semibold text-neutral-100">Fresh drops</h2>
+          <span className="text-xs text-neutral-500">{products?.length || 0} live</span>
+        </div>
+        {!products && <div className="text-sm text-neutral-500">Loading…</div>}
+        {products && products.length === 0 && (
+          <div className="text-sm text-neutral-500" data-testid="shopbaked-no-products">
+            No approved SHOP products yet — check back once suppliers publish new listings.
+          </div>
+        )}
+        {products && products.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" data-testid="shopbaked-fresh-drops">
+            {products.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        )}
+      </section>
+    </div>
   );
 };
+
+export const ProductCard = ({ product }) => (
+  <Link
+    to={`/shopbaked/p/${product.id}`}
+    data-testid={`shopbaked-product-card-${product.id}`}
+    className="group block border border-neutral-800 rounded-xl overflow-hidden bg-neutral-900/40 hover:border-amber-400/60 transition-colors"
+  >
+    <div className="aspect-square bg-neutral-950 flex items-center justify-center overflow-hidden">
+      {product.images?.[0] ? (
+        <img src={product.images[0]} alt={product.title}
+             className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+      ) : (
+        <span className="text-neutral-700 text-4xl">SHOP</span>
+      )}
+    </div>
+    <div className="p-3">
+      <div className="text-sm font-medium text-neutral-100 truncate">{product.title}</div>
+      <div className="text-[11px] text-neutral-500 mt-1">Ships from Côte d'Ivoire</div>
+    </div>
+  </Link>
+);
 
 export default ShopHome;

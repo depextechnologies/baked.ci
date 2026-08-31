@@ -3,6 +3,33 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 6 Customer Storefront
+- ✅ **Real customer home** at `/shopbaked`: gradient hero with FR/EN copy, trust-badge row, live 19-category tile grid, 12-card "Fresh drops" product grid. All routed through the existing `api` axios client (JWT-aware).
+- ✅ **Category landing** at `/shopbaked/c/:categorySlug`: subcategory pill rail with `?sub=` query param filter, responsive product grid.
+- ✅ **PDP** at `/shopbaked/p/:productId`: two-column layout with images + description + price range + variant picker. Picker auto-derives from the attribute schema — only attribute keys that differ across the product's variants render as picker rows (Colour + Storage on iPhone, Colour on t-shirts, etc.). Live variant match on selection changes price/stock/SKU.
+- ✅ **Add-to-cart wired**: `POST /api/shop/cart/items` with 401 fallback showing "Please sign in" toast; upserts quantity on repeat add; button disabled + shows "Select options"/"Out of stock" states.
+- ✅ **New backend surface**:
+  * `GET /api/shop/products/{pid}` — public PDP payload with variants + attribute schema + price range (only exposes `active` products).
+  * `GET /api/shop/cart/me` — hydrated SHOP cart with per-line totals + item_count.
+  * `POST /api/shop/cart/items` — add-or-upsert (variant, quantity).
+  * `PATCH /api/shop/cart/items/{id}` — update quantity (1-99).
+  * `DELETE /api/shop/cart/items/{id}` — remove item.
+- ✅ **New `shop_cart_items` table** (migration 0042): separate table from MART's `cart_items` (which has hard FK to `mart_products.id`), sharing the same parent `carts` row so a customer's cart can mix MART + SHOP entries. Cross-module isolation guaranteed at query time.
+- ✅ **Tests**: `test_shop_storefront.py` — 7/7 covering PDP shape, draft-product 404, cart add/upsert/patch/delete, bad-variant 404, MART cart isolation. Full SHOP suite = 59 passed / 1 skipped (foxtrot no password) across all Slices 1-6. MART regression unaffected.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 5 Admin Approval
+- ✅ **Modules tab in supplier drawer** (`/admin/modules/mart/suppliers/{id}` → "Modules"): checkbox card grid for MART (locked as always-on) + SHOP; "Save changes" pill only lights up when the selection diverges from the persisted state.
+- ✅ **`PATCH /api/admin/modules/mart/suppliers/{sid}/modules`**: whitelists allowed modules (`MART`, `SHOP`), always retains MART even if the client sends only `["SHOP"]`, dedupes + preserves order. Idempotent responses return `changed=false`. Every change writes a `supplier.modules_updated` audit row (migration 0041 extends the check constraint).
+- ✅ **SHOP product approval queue** at `/api/admin/modules/shop/product-requests`:
+  * `GET ?bucket=pending|approved|rejected|all` — with per-status bucket counters and per-product variant counts.
+  * `GET /{pid}` — full product + variants payload for the approval drawer.
+  * `POST /{pid}/approve` — flips to `active` and sets `published_at`.
+  * `POST /{pid}/reject` — flips to `rejected`.
+  * `POST /bulk-approve` and `POST /bulk-reject` — batch operations with `blocked` list reporting `not_found` / `bad_status` per id.
+- ✅ **`GET /api/admin/modules/mart/suppliers/{sid}`** now exposes `modules` on the payload so the frontend can hydrate the Modules tab without an extra call.
+- ✅ **Migration 0041 `audit_modules_action`**: extends `supplier_review_audit.ck_supplier_audit_action` to accept `supplier.modules_updated`.
+- ✅ **Tests**: `test_shop_admin_slice5.py` — 11/11 covering pending listing, approve/reject singles, bulk approve/reject with blocked reporting, cannot-re-approve, modules toggle grant/revoke/idempotent/unknown/mart-retained, supplier detail exposure, auth guards. Full SHOP suite = 53/53 pass, MART regression unaffected.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 4 Seller Portal
 - ✅ **New seller-portal route `/martbaked/:slug/portal/shop`** — module-gated (`SHOP` in `supplier.modules`), reuses the existing supplier login + portal shell. Off-boarded suppliers see a friendly "SHOP not enabled" banner rather than an error.
 - ✅ **Dynamic form auto-renders per subcategory**: category picker triggers a call to `/api/shop/categories/{cid}/attributes?subcategory_id=...`; Size/Colour/RAM/Storage/etc. render as the correct input type (`select`, `text`, `number`) with option lists, unit hints, and an "override" badge on subcategory-scoped rows.
