@@ -114,6 +114,7 @@ const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";
 
 export const AdminHomepageManagement = () => {
   const [country, setCountry] = useState("CI");
+  const [module, setModule] = useState("mart");
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);   // full row being edited
@@ -122,12 +123,14 @@ export const AdminHomepageManagement = () => {
   const load = async () => {
     setBusy(true);
     try {
-      const { data } = await adminApi.get(`/admin/homepage-sections?country=${country}`);
+      const { data } = await adminApi.get(
+        `/admin/homepage-sections?country=${country}&module=${module}`,
+      );
       setItems(data.items || []);
     } catch (e) { toast.error(errMsg(e)); }
     finally { setBusy(false); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [country]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [country, module]);
 
   const toggle = async (row) => {
     try {
@@ -164,6 +167,7 @@ export const AdminHomepageManagement = () => {
         const { _creating, id, ...rest } = row;
         void _creating; void id;
         rest.country = country;
+        rest.module = module;
         rest.display_order = ((items[items.length - 1]?.display_order) || 0) + 10;
         await adminApi.post(`/admin/homepage-sections`, rest);
         toast.success("Section created");
@@ -189,6 +193,26 @@ export const AdminHomepageManagement = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <span className="inline-flex rounded-full border border-border p-1 text-xs"
+                data-testid="hp-module-toggle">
+            {[
+              { code: "mart", label: "MARTbakēd" },
+              { code: "shop", label: "SHOPbakēd" },
+            ].map((m) => (
+              <button
+                key={m.code}
+                onClick={() => setModule(m.code)}
+                data-testid={`hp-module-${m.code}`}
+                className={`px-3 py-1.5 rounded-full transition-colors ${
+                  module === m.code
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </span>
           <Globe size={14} className="text-muted-foreground" />
           <select value={country} onChange={(e) => setCountry(e.target.value)}
                   className="h-9 rounded-lg bg-secondary text-sm px-3"

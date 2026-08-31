@@ -36,6 +36,7 @@ def _dict(row: HomepageSection) -> dict:
     return {
         "id": row.id,
         "country": row.country,
+        "module": row.module,
         "section_type": row.section_type,
         "title": row.title,
         "subtitle": row.subtitle,
@@ -48,6 +49,7 @@ def _dict(row: HomepageSection) -> dict:
 class SectionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     country: str = Field(..., min_length=2, max_length=2)
+    module: str = Field("mart", min_length=2, max_length=16)
     section_type: str
     title: Optional[str] = None
     subtitle: Optional[str] = None
@@ -62,6 +64,7 @@ class SectionPatch(BaseModel):
     subtitle: Optional[str] = None
     config: Optional[dict] = None
     is_enabled: Optional[bool] = None
+    module: Optional[str] = Field(None, min_length=2, max_length=16)
 
 
 class ReorderItem(BaseModel):
@@ -78,16 +81,19 @@ class ReorderIn(BaseModel):
 @router.get("/homepage")
 async def get_public_homepage(
     country: str = Query(..., min_length=2, max_length=2),
+    module: str = Query("mart", min_length=2, max_length=16),
     session: AsyncSession = Depends(get_session),
 ):
-    """Return every ENABLED section for the given country, ordered."""
+    """Return every ENABLED section for the given country + module, ordered."""
     rows = (await session.execute(
         select(HomepageSection).where(
             HomepageSection.country == country.upper(),
+            HomepageSection.module == module.lower(),
             HomepageSection.is_enabled == True,  # noqa: E712
         ).order_by(HomepageSection.display_order.asc())
     )).scalars().all()
-    return {"country": country.upper(), "sections": [_dict(r) for r in rows]}
+    return {"country": country.upper(), "module": module.lower(),
+            "sections": [_dict(r) for r in rows]}
 
 
 # ---------------------------------------------------------------- admin ----
@@ -95,16 +101,18 @@ async def get_public_homepage(
 @admin_router.get("")
 async def admin_list_sections(
     country: str = Query(..., min_length=2, max_length=2),
+    module: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
-    rows = (await session.execute(
-        select(HomepageSection).where(
-            HomepageSection.country == country.upper()
-        ).order_by(HomepageSection.display_order.asc())
-    )).scalars().all()
+    q = select(HomepageSection).where(HomepageSection.country == country.upper())
+    if module:
+        q = q.where(HomepageSection.module == module.lower())
+    q = q.order_by(HomepageSection.module.asc(), HomepageSection.display_order.asc())
+    rows = (await session.execute(q)).scalars().all()
     return {
         "country": country.upper(),
+        "module": module.lower() if module else None,
         "section_types": HOMEPAGE_SECTION_TYPES,
         "items": [_dict(r) for r in rows],
     }
@@ -120,6 +128,7 @@ async def admin_create_section(
         raise HTTPException(400, f"Unknown section_type: {payload.section_type}")
     row = HomepageSection(**payload.model_dump())
     row.country = row.country.upper()
+    row.module = row.module.lower()
     session.add(row)
     await session.commit()
     await session.refresh(row)

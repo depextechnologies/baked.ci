@@ -3,6 +3,15 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 7 Homepage Editor
+- ✅ **Migration 0043 `homepage_module`**: adds `homepage_sections.module` (default "mart") + composite index `(country, module, display_order)`. Existing MART rows backfilled automatically via the server default.
+- ✅ **Public GET `/api/homepage?country=CI&module=shop`**: filters by module (defaults to `mart` for backwards compat). Response now includes the requested module for round-tripping.
+- ✅ **Admin GET `/api/admin/homepage-sections?country=CI&module=shop`**: filters by module; omit `module` to see all (grouped in ordering). Section create/patch accept `module`.
+- ✅ **Seeded SHOP homepage stack** (`modules/shop/homepage_seed.py`): 5 default rails — hero, category_grid (6 top SHOP categories), product_carousel ("Fresh drops"), promotional_banner ("Under 10 000 XOF"), brand_carousel. Idempotent on stable ids.
+- ✅ **`/shopbaked` storefront** rewritten to render admin-curated rails from `/api/homepage?country=CI&module=shop`. `SectionRenderer` dispatches on `section_type` to `HeroSection`, `CategoryGridSection`, `ProductCarouselSection`, `PromoBannerSection`, `BrandCarouselSection`. Unknown section types render nothing so admins can safely experiment.
+- ✅ **Admin UI** (`AdminHomepageManagement.jsx`): new MART / SHOP module pill toggle at top of the page filters the section table and drives what module new sections are created under. Every existing button (edit, toggle, reorder, delete) works unchanged.
+- ✅ **Tests**: `test_shop_homepage_slice7.py` — 8/8 covering default module = mart, `?module=shop` isolation, admin filter, unknown module → empty, create-appears-in-public-shop, MART isolation (SHOP row not visible on MART homepage), auth guard. Live UI smoke: 5 CMS sections rendered, hero copy + category grid + fresh drops all admin-editable.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 6 Customer Storefront
 - ✅ **Real customer home** at `/shopbaked`: gradient hero with FR/EN copy, trust-badge row, live 19-category tile grid, 12-card "Fresh drops" product grid. All routed through the existing `api` axios client (JWT-aware).
 - ✅ **Category landing** at `/shopbaked/c/:categorySlug`: subcategory pill rail with `?sub=` query param filter, responsive product grid.

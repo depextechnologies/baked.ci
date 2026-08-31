@@ -941,6 +941,9 @@ async def run_seed():
         # SHOPbakēd attributes (Slice 3) — 6 attrs + subcategory-scoped inheritance.
         from modules.shop.attributes_seed import seed_shop_attributes
         await seed_shop_attributes(session)
+        # SHOPbakēd homepage (Slice 7) — module-scoped rails for /shopbaked.
+        from modules.shop.homepage_seed import seed_shop_homepage
+        await seed_shop_homepage(session)
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars
