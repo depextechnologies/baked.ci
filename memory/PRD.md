@@ -3,7 +3,15 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Category Editing Fix + Bulk Delete (Fixing_Prompt v8)
+## Latest (2026-02-28) — Sell-on-BAKĒD & Mobile Nav Fixes (Fixing_Prompt v9)
+- ✅ **Sell-on-BAKĒD opportunity cards** (`apps/partner-landing/PartnerLandingApp.jsx`):
+  - Data model expanded from `href` to `cardHref` + `applyHref` + `internal`. MART: card → `/martbaked/sellers`, Apply Now → `/martbaked/sellers/apply`. EXPRESS: both → `/driver` (SPA). FOOD / SHOP / AUTO / IMMO keep the existing `mart.partner.baked.ci` externals in a new tab.
+  - `OpportunityCard` uses `useNavigate()` for internal routes; the Apply CTA calls `e.stopPropagation()` so its target wins over the parent card anchor (per docx §7 — no double-navigation, no unexpected new-tab openings).
+  - Test IDs preserved (`partner-opportunity-{code}`) + new `partner-opportunity-{code}-apply` on every Apply button for regression coverage.
+- ✅ **Mobile menu "Delivery Partner"** (`components/mobile/MobileHeader.jsx`): changed from broken `/delivery-partner` to `/driver` (the SENDbakēd onboarding entry).
+- **Live verification**: Playwright walked the flow — MART card → `/martbaked/sellers`, MART Apply → `/martbaked/sellers/apply`, EXPRESS Apply → `/driver/onboarding`. All three routing checks green.
+
+## Prior (2026-02-28) — Category Editing Fix + Bulk Delete (Fixing_Prompt v8)
 - ✅ **Bug fix — "Extra inputs are not permitted" gone**: root cause was `AdminMartCatalog.jsx` posting the whole GET response back (with `id`, `slug`, `created_at`, `deleted_at`, `version`, `module`, `created_by`, `updated_by`) to a strict `CategoryUpdate` DTO. Fix keeps the DTO strict (per docx) and instead ships a `pickEditable(obj, whitelist)` helper — only `name_en / name_fr / icon / image / order / is_active` (Category) and `name_en / name_fr / image / order` (Subcategory) reach the wire.
 - ✅ **Bulk delete shipped for Categories · Subcategories · Attributes**:
   - Frontend adds a checkbox column with select-all header on all three tables. Selecting rows reveals a blue action bar with a "Delete Selected" button and a Clear shortcut. Confirmation dialog explicitly warns about associated subcategories / products / homepage sections / attribute assignments before firing.

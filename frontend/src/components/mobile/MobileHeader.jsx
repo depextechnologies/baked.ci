@@ -20,7 +20,7 @@ const tOr = (locale, key, fallback) => {
 const DRAWER_LINKS = [
   { label: "Partner with BAKĒD", to: "/partner",              icon: Store,        testid: "m-drawer-partner" },
   { label: "Sell on BAKĒD",      to: "/Sell-on-baked",        icon: Package,      testid: "m-drawer-sell" },
-  { label: "Delivery Partner",   to: "/delivery-partner",     icon: Truck,        testid: "m-drawer-delivery-partner" },
+  { label: "Delivery Partner",   to: "/driver",               icon: Truck,        testid: "m-drawer-delivery-partner" },
   { label: "About us",           to: "/about",                icon: Info,         testid: "m-drawer-about" },
   { label: "Blog",               to: "/blog",                 icon: Newspaper,    testid: "m-drawer-blog" },
   { label: "Offers",             to: "/products?sort=price_asc", icon: Tag,       testid: "m-drawer-offers" },
