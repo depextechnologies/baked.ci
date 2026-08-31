@@ -3,6 +3,15 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 3 Dynamic Attributes
+- ✅ **Attribute engine extended for SHOP**: added `mart_attributes.module` discriminator (default "mart") + new `shop_category_attributes` assignment table with FKs to `shop_categories`/`shop_subcategories`. Attribute definitions live in one shared table; assignments are strictly per-module.
+- ✅ **6 SHOP attributes seeded**: Size, Colour, RAM, Storage, Condition, Warranty — with 52 options between them (bilingual FR/EN labels like `Neuf / New`, `Reconditionné / Refurbished`).
+- ✅ **42 subcategory-inheriting assignments** across 14 categories (Condition on all, Colour on fashion+electronics, Size on apparel/footwear, RAM/Storage/Warranty on electronics).
+- ✅ **Inheritance-override demo working**: `sneakers` overrides parent Colour → `is_required=True`; `iphone/ipad/mac` override parent Storage → `is_required=True`. Resolver correctly reports `scope=subcategory` for the winning rows and `scope=category` for the inherited ones.
+- ✅ **`GET /api/shop/categories/{id_or_slug}/attributes?subcategory_id=...`** returns the resolved list, with slug fallback for both category & subcategory.
+- ✅ **`/shopbaked` preview** now shows attribute-key chips on each category card so QA can eyeball the module→attribute mapping.
+- ✅ **Tests**: `test_shop_attributes.py` — 12/12 pass covering definitions, inheritance, subcategory-wins, slug lookup, unknown categories → 404, isolation from MART. Combined SHOP suite = 33/33. MART attribute regression 25/25 unaffected.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 2 Catalogue Seed
 - ✅ **19 top-level SHOP categories × 181 subcategories** seeded idempotently for Côte d'Ivoire, parsed from the canonical `Categories_In_French.docx` with paired clean English labels. FR is the source of truth; EN was hand-cleaned where the raw English doc had OCR/translation bleed-through. All slugs are ASCII-safe & unique per country.
 - ✅ **`/app/backend/modules/shop/catalogue_data.py`**: single canonical tree with `(slug, name_fr, name_en, [subs])` tuples in doc order. Slugs are stable; renaming a name updates FR/EN + `order` on the next boot but never mutates ids.

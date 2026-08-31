@@ -60,6 +60,11 @@ class MartAttribute(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     type: Mapped[str] = mapped_column(String(24), nullable=False)  # see ATTRIBUTE_TYPES
     unit: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)  # e.g. "cm", "kg"
+    # Slice 3 (2026-02) — module discriminator. Attribute definitions can be
+    # scoped to a module ("mart" | "shop" | ...). Definitions are reused
+    # across categories inside their own module; the resolver never crosses
+    # modules. Defaults to "mart" so pre-Slice-3 rows keep working.
+    module: Mapped[str] = mapped_column(String(16), nullable=False, default="mart", server_default="mart")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

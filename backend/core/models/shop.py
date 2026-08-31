@@ -138,3 +138,41 @@ class ShopVariant(Base, TimestampMixin):
     attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     images: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+
+class ShopCategoryAttribute(Base):
+    """SHOP attribute assignment / override at category or subcategory scope.
+
+    Mirrors `MartCategoryAttribute` but with FKs into the SHOP hierarchy
+    (`shop_categories` / `shop_subcategories`). Attribute definitions
+    remain in the shared `mart_attributes` table; SHOP definitions carry
+    `module="shop"` there.
+
+    Resolution rule (parent ∪ subcategory with subcategory-wins overrides)
+    is implemented in `modules.shop.attributes_resolver.resolve_attributes`.
+    """
+    __tablename__ = "shop_category_attributes"
+    __table_args__ = (
+        UniqueConstraint("category_id", "subcategory_id", "attribute_id",
+                         name="uq_shop_cat_attr_scope"),
+        Index("ix_shop_cat_attr_cat", "category_id"),
+        Index("ix_shop_cat_attr_sub", "subcategory_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("shpcatattr"))
+    category_id: Mapped[str] = mapped_column(
+        String, ForeignKey("shop_categories.id", ondelete="CASCADE"), nullable=False,
+    )
+    subcategory_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("shop_subcategories.id", ondelete="CASCADE"), nullable=True,
+    )
+    attribute_id: Mapped[str] = mapped_column(
+        String, ForeignKey("mart_attributes.id", ondelete="CASCADE"), nullable=False,
+    )
+    is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    customer_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    supplier_editable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

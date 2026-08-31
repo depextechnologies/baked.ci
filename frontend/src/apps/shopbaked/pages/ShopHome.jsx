@@ -37,6 +37,22 @@ export const ShopHome = () => {
     [tree],
   );
 
+  const [attrsByCat, setAttrsByCat] = useState({});
+  useEffect(() => {
+    if (!tree) return;
+    let cancelled = false;
+    Promise.all(
+      tree.map((c) =>
+        fetch(`${API}/shop/categories/${c.slug}/attributes`)
+          .then((r) => (r.ok ? r.json() : { attributes: [] }))
+          .then((d) => [c.slug, d.attributes || []]),
+      ),
+    ).then((pairs) => !cancelled && setAttrsByCat(Object.fromEntries(pairs)));
+    return () => {
+      cancelled = true;
+    };
+  }, [tree]);
+
   return (
     <section data-testid="shopbaked-home">
       <div className="flex items-start justify-between gap-6 flex-wrap">
@@ -101,6 +117,18 @@ export const ShopHome = () => {
                 </span>
               </header>
               <p className="mt-1 text-xs text-neutral-500 font-mono">{cat.slug}</p>
+              {attrsByCat[cat.slug]?.length ? (
+                <div className="mt-2 flex flex-wrap gap-1" data-testid={`shopbaked-attrs-${cat.slug}`}>
+                  {attrsByCat[cat.slug].map((a) => (
+                    <span
+                      key={a.key}
+                      className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-300 border border-amber-400/20"
+                    >
+                      {a.key}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <ul className="mt-3 space-y-1 text-sm text-neutral-300">
                 {(cat.subcategories || []).slice(0, 6).map((s) => (
                   <li key={s.id} data-testid={`shopbaked-sub-${s.slug}`} className="flex items-center gap-2">

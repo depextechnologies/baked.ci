@@ -24,6 +24,7 @@ from core.db import get_session
 from core.models import (
     ShopBrand, ShopCategory, ShopProduct, ShopSubcategory, ShopVariant, Supplier,
 )
+from modules.shop.attributes_resolver import resolve_shop_attributes
 from shared.admin.routes import get_current_admin
 
 
@@ -164,6 +165,54 @@ async def shop_catalogue_tree(country: str = Query("CI"),
         }
         for c in cats
     ]
+
+
+@public_router.get("/categories/{category_id}/attributes")
+async def shop_resolved_attributes(
+    category_id: str,
+    subcategory_id: Optional[str] = Query(None),
+    customer_visible_only: bool = Query(False),
+    session: AsyncSession = Depends(get_session),
+):
+    """Resolve SHOP attributes for (category, subcategory).
+
+    Accepts either an id OR slug for both category_id and subcategory_id so
+    the seller portal and PDP can call this with URL-friendly slugs.
+    """
+    cat = await session.get(ShopCategory, category_id)
+    if not cat:
+        cat = (
+            await session.execute(
+                select(ShopCategory).where(ShopCategory.slug == category_id).limit(1)
+            )
+        ).scalar_one_or_none()
+    if not cat:
+        raise HTTPException(404, "SHOP category not found")
+
+    sid = subcategory_id
+    if sid:
+        sub = await session.get(ShopSubcategory, sid)
+        if not sub:
+            sub = (
+                await session.execute(
+                    select(ShopSubcategory).where(
+                        ShopSubcategory.slug == sid,
+                        ShopSubcategory.category_id == cat.id,
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+        sid = sub.id if sub else None
+
+    resolved = await resolve_shop_attributes(
+        session, category_id=cat.id, subcategory_id=sid,
+        only_customer_visible=customer_visible_only,
+    )
+    return {
+        "category": {"id": cat.id, "slug": cat.slug,
+                     "name_en": cat.name_en, "name_fr": cat.name_fr},
+        "subcategory_id": sid,
+        "attributes": resolved,
+    }
 
 
 @public_router.get("/products")
