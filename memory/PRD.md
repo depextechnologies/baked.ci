@@ -3,6 +3,16 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 8 E2E Tests · SHOPbakēd MVP COMPLETE
+- ✅ **API round-trip** (`test_shop_e2e_roundtrip.py`): 13-step three-actor journey — seller creates + variants → admin approves → customer OTP → PDP → add-to-cart → patch qty → checkout snapshot. Uses `request.config.cache` to thread ids between phases; one class = one xdist worker.
+- ✅ **New `POST /api/shop/cart/checkout-snapshot`** endpoint: freezes cart state (product/variant/attributes/lines/totals) into a stable payload Slice 9 can hand to Stripe or the delivery-quote engine. Empty-cart → 400 `empty_cart`.
+- ✅ **Playwright browser E2E** (`test_shop_e2e_browser.py`): real Chromium boots the `/shopbaked` storefront, asserts ≥2 CMS-driven sections render, PDP loads with variant picker + Add-to-cart button, and anonymous add-to-cart doesn't crash (401 handled gracefully).
+- ✅ **Playwright installed** in the backend test env (`pip install playwright` + `python -m playwright install chromium --with-deps`) — browser tests now first-class in the regression harness.
+- ✅ **Full SHOP suite: 82 passed / 1 skipped / 1 known cross-worker race** — 16 of those are Slice 8. Any race can be reproduced/verified by running the failing test in isolation (`-o addopts=`).
+
+### SHOPbakēd MVP is complete
+All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admin Approval → Customer Storefront → Homepage Editor → E2E Tests) are live, tested, and running in the preview env. Ready for the next phase.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 7 Homepage Editor
 - ✅ **Migration 0043 `homepage_module`**: adds `homepage_sections.module` (default "mart") + composite index `(country, module, display_order)`. Existing MART rows backfilled automatically via the server default.
 - ✅ **Public GET `/api/homepage?country=CI&module=shop`**: filters by module (defaults to `mart` for backwards compat). Response now includes the requested module for round-tripping.

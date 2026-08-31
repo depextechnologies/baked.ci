@@ -246,3 +246,45 @@ async def delete_shop_cart_item(
     await session.delete(it)
     await session.commit()
     return
+
+
+# ---------------------------------------------------------------------------
+# Checkout snapshot (Slice 8 primitive) — freezes the current cart state
+# so downstream flows (Stripe intent, delivery quote, receipt PDF) work off
+# a stable payload. Slice 9 will consume this and mint a real Order.
+# ---------------------------------------------------------------------------
+
+@router.post("/cart/checkout-snapshot")
+async def shop_checkout_snapshot(
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    cart = await _active_cart(session, customer.id)
+    hydrated = await _hydrate_shop_cart(session, cart)
+    if not hydrated["items"]:
+        raise HTTPException(400, {"code": "empty_cart", "message": "Cart is empty"})
+    # Aggregate line details for the snapshot — everything downstream needs
+    # is baked in here so no extra lookups are required to render a receipt.
+    lines = [
+        {
+            "sku": it["variant"]["sku"], "quantity": it["quantity"],
+            "unit_price": it["variant"]["price"],
+            "currency": it["variant"]["currency"],
+            "line_total": it["line_total"],
+            "product_id": it["product"]["id"] if it["product"] else None,
+            "product_title": it["product"]["title"] if it["product"] else None,
+            "variant_id": it["variant"]["id"],
+            "attributes": it["variant"]["attributes"] or {},
+        }
+        for it in hydrated["items"]
+    ]
+    return {
+        "cart_id": cart.id,
+        "customer_id": customer.id,
+        "module": "shop",
+        "currency": hydrated["currency"],
+        "subtotal": hydrated["subtotal"],
+        "item_count": hydrated["item_count"],
+        "line_count": len(lines),
+        "lines": lines,
+    }
