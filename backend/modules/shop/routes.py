@@ -272,14 +272,17 @@ async def shop_list_products(
 
 # ---------------------------------------------------------------------------
 # Seller portal — /api/shop/portal/* (requires the caller to have SHOP in
-# their supplier.modules array). Full portal handlers land in Slice 4.
+# their supplier.modules array). Real handlers live in
+# `modules.shop.portal_routes` (Slice 4). The stub below stays as a
+# public-ish liveness probe with the same prefix.
 # ---------------------------------------------------------------------------
 portal_router = APIRouter(prefix="/shop/portal", tags=["shop-portal"])
 
 
 @portal_router.get("/health")
 async def portal_health():
-    """Liveness probe — Slice 4 will replace this with the portal dashboard."""
+    """Liveness probe — Slice 4 exposes the real seller endpoints via
+    `modules.shop.portal_routes.router`."""
     return {"module": "shop", "surface": "seller_portal", "status": "ok"}
 
 

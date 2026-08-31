@@ -3,6 +3,14 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 4 Seller Portal
+- ✅ **New seller-portal route `/martbaked/:slug/portal/shop`** — module-gated (`SHOP` in `supplier.modules`), reuses the existing supplier login + portal shell. Off-boarded suppliers see a friendly "SHOP not enabled" banner rather than an error.
+- ✅ **Dynamic form auto-renders per subcategory**: category picker triggers a call to `/api/shop/categories/{cid}/attributes?subcategory_id=...`; Size/Colour/RAM/Storage/etc. render as the correct input type (`select`, `text`, `number`) with option lists, unit hints, and an "override" badge on subcategory-scoped rows.
+- ✅ **Variant editor grid**: table of SKU × price × stock × per-variant attributes; add-row footer with select-typed cells for `select` attributes. Duplicate SKU per product → 409. Any variant CRUD flips a previously `active` parent product back to `pending_review` (re-approval contract for Slice 5).
+- ✅ **New backend surface `/api/shop/portal/*`** (all `Depends(get_shop_supplier)`): `GET /catalogue`, `POST /products`, `GET /products/{id}` (with `attribute_schema`), `PATCH /products/{id}`, `POST /products/{id}/variants`, `PATCH /products/{id}/variants/{vid}`, `DELETE /products/{id}/variants/{vid}`.
+- ✅ **`supplier.modules` now exposed** on `GET /api/supplier/me` so the frontend can flip the SHOP tab on/off without an extra round-trip.
+- ✅ **Tests**: `test_shop_portal_seller.py` — 9/9 pass covering module gate, product create → pending_review, resolved-schema on GET, variant CRUD, duplicate SKU 409, wrong-subcategory 400, unknown-product 404, ownership. Combined SHOP suite = 42/42. MART regression unaffected.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 3 Dynamic Attributes
 - ✅ **Attribute engine extended for SHOP**: added `mart_attributes.module` discriminator (default "mart") + new `shop_category_attributes` assignment table with FKs to `shop_categories`/`shop_subcategories`. Attribute definitions live in one shared table; assignments are strictly per-module.
 - ✅ **6 SHOP attributes seeded**: Size, Colour, RAM, Storage, Condition, Warranty — with 52 options between them (bilingual FR/EN labels like `Neuf / New`, `Reconditionné / Refurbished`).

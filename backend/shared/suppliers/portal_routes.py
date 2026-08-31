@@ -92,6 +92,8 @@ def _sup_dict(s: Supplier) -> dict:
         "status": s.status, "supplier_portal_active": s.supplier_portal_active,
         "phone_verified": s.phone_verified, "email_verified": s.email_verified,
         "approved_at": s.approved_at.isoformat() if s.approved_at else None,
+        # Slice 1 shared-identity — array of modules the supplier has access to.
+        "modules": s.modules or [],
     }
 
 

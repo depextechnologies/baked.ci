@@ -9,5 +9,6 @@ from modules.shop.routes import (
     portal_router,
     admin_router,
 )
+from modules.shop.portal_routes import router as portal_seller_router
 
-__all__ = ["public_router", "portal_router", "admin_router"]
+__all__ = ["public_router", "portal_router", "admin_router", "portal_seller_router"]

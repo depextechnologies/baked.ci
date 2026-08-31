@@ -26,6 +26,7 @@ import { PortalDocuments } from "./portal/PortalDocuments";
 import { PortalLocations } from "./portal/PortalLocations";
 import { PortalProductRequests } from "./portal/PortalProductRequests";
 import { PortalOrders } from "./portal/PortalOrders";
+import { PortalShop } from "./portal/PortalShop";
 import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
 import { NotificationBell } from "../../components/notifications/NotificationBell";
 
@@ -101,6 +102,7 @@ const NAV = [
   { to: "dashboard",         label: "Dashboard",        icon: LayoutDashboard },
   { to: "profile",           label: "Business Profile", icon: Building2 },
   { to: "catalogue",         label: "Catalogue",        icon: PackageSearch },
+  { to: "shop",              label: "SHOPbakēd",        icon: ShoppingBag },
   { to: "orders",            label: "Orders",           icon: ShoppingBag },
   { to: "invoices",          label: "Invoices",         icon: Receipt },
   { to: "product-requests",  label: "Product Requests", icon: PlusSquare },
@@ -222,6 +224,7 @@ export const SellerPortalApp = ({ legacy = false }) => {
         <Route path="dashboard" element={<PortalHome supplier={supplier} />} />
         <Route path="profile" element={<PortalProfile />} />
         <Route path="catalogue" element={<PortalCatalogue />} />
+        <Route path="shop" element={<PortalShop />} />
         <Route path="orders" element={<PortalOrders />} />
         <Route path="invoices" element={<SupplierInvoicesPage apiClient={portalApi} role="supplier" basePath="/supplier/me/invoices" />} />
         <Route path="documents" element={<PortalDocuments />} />

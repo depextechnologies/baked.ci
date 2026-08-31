@@ -22,6 +22,7 @@
 - Password: `Supplier1234!`
 - Code: `SUP-CI-0001`
 - Slug: `delta` → portal path `/martbaked/delta/portal/dashboard`
+- **Modules**: `["MART", "SHOP"]` — SHOP tab visible at `/martbaked/delta/portal/shop` (Slice 4)
 
 ### DEMO Echo Fresh Produce (approved during P0 verification)
 - Slug: `echo` → portal path `/martbaked/echo/portal/dashboard`
