@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,7 +12,17 @@ import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
 import { SellerPortalApp } from "@/apps/martbaked-sellers/SellerPortalApp";
-import { ShopbakedApp } from "@/apps/shopbaked/ShopbakedApp";
+
+/**
+ * Legacy /shopbaked/* URLs are redirected to /shop/* so the SHOP tab
+ * lives inside the customer shell with the same MART / SEND / … tab bar.
+ * Any bookmarked/deep-linked `/shopbaked/c/mode-femme` → `/shop/c/mode-femme`.
+ */
+const ShopbakedRedirect = () => {
+  const { pathname, search } = useLocation();
+  const target = pathname.replace(/^\/shopbaked/, "/shop") + search;
+  return <Navigate to={target} replace />;
+};
 
 /**
  * App.js — thin dispatcher (Phase 1a v2.0 monorepo refactor).
@@ -52,7 +62,8 @@ const App = () => (
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />
           <Route path="/martbaked/sellers/*" element={<SellerApp />} />
-          <Route path="/shopbaked/*" element={<ShopbakedApp />} />
+          <Route path="/shopbaked" element={<Navigate to="/shop" replace />} />
+          <Route path="/shopbaked/*" element={<ShopbakedRedirect />} />
           <Route path="/*" element={<CustomerApp />} />
         </Routes>
         <Toaster position="top-right" theme="dark" />

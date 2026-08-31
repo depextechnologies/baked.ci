@@ -9,7 +9,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { ProductCard } from "./ShopHome";
 
-export const ShopCategory = ({ locale = "fr" }) => {
+export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
   const { categorySlug } = useParams();
   const [params, setParams] = useSearchParams();
   const activeSub = params.get("sub");
@@ -37,9 +37,9 @@ export const ShopCategory = ({ locale = "fr" }) => {
   }, [categorySlug, activeSub]);
 
   return (
-    <div data-testid="shopbaked-category">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-category">
       <div className="mb-6">
-        <Link to="/shopbaked" className="text-xs text-neutral-500 hover:text-amber-300" data-testid="shopbaked-category-back">
+        <Link to={basePath} className="text-xs text-neutral-500 hover:text-amber-300" data-testid="shopbaked-category-back">
           ← All categories
         </Link>
         <h1 className="mt-2 text-3xl font-bold text-neutral-100">
@@ -84,7 +84,7 @@ export const ShopCategory = ({ locale = "fr" }) => {
       {products && products.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
              data-testid="shopbaked-category-grid">
-          {products.map((p) => <ProductCard key={p.id} product={p} />)}
+          {products.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
         </div>
       )}
     </div>

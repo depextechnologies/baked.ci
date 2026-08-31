@@ -16,7 +16,7 @@ import { ShoppingBag, ArrowLeft } from "lucide-react";
 
 const isSelect = (a) => a.type === "select" || a.type === "multi_select";
 
-export const ShopProduct = () => {
+export const ShopProduct = ({ basePath = "/shop" }) => {
   const { productId } = useParams();
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
@@ -88,7 +88,7 @@ export const ShopProduct = () => {
   if (error) {
     return (
       <div className="text-sm text-neutral-400" data-testid="shopbaked-pdp-error">
-        <Link to="/shopbaked" className="text-amber-300 hover:underline">← Back</Link>
+        <Link to={basePath} className="text-amber-300 hover:underline">← Back</Link>
         <p className="mt-4">Error: {typeof error === "string" ? error : "Product unavailable"}</p>
       </div>
     );
@@ -96,8 +96,8 @@ export const ShopProduct = () => {
   if (!detail) return <div className="text-sm text-neutral-500">Loading…</div>;
 
   return (
-    <article data-testid="shopbaked-pdp">
-      <Link to="/shopbaked" className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-amber-300 mb-4"
+    <article className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-pdp">
+      <Link to={basePath} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-amber-300 mb-4"
             data-testid="shopbaked-pdp-back">
         <ArrowLeft size={12} /> Back to marketplace
       </Link>

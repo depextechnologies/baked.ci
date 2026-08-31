@@ -13,7 +13,7 @@ import { ArrowRight, Sparkles, ShieldCheck, Truck, Tag } from "lucide-react";
 const l = (r, locale) =>
   (locale === "fr" ? r?.name_fr : r?.name_en) || r?.name_en || r?.name_fr || r?.slug;
 
-export const ShopHome = ({ locale = "fr" }) => {
+export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
   const [tree, setTree] = useState(null);
   const [products, setProducts] = useState(null);
   const [homepage, setHomepage] = useState(null);
@@ -37,14 +37,15 @@ export const ShopHome = ({ locale = "fr" }) => {
   }, []);
 
   return (
-    <div data-testid="shopbaked-home">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-home">
       {error && <p className="text-red-400 mb-6" data-testid="shopbaked-home-error">Error: {error}</p>}
 
       {/* Admin-curated sections drive the layout. Fallback hero remains
           when the CMS returns nothing (fresh install / migration in flight). */}
       {(homepage || []).map((section) => (
         <SectionRenderer key={section.id} section={section}
-                         tree={tree} products={products} locale={locale} />
+                         tree={tree} products={products} locale={locale}
+                         basePath={basePath} />
       ))}
 
       {homepage && homepage.length === 0 && (
@@ -59,17 +60,17 @@ export const ShopHome = ({ locale = "fr" }) => {
 // Unknown section_types render nothing so admins can safely experiment.
 // ==========================================================================
 
-const SectionRenderer = ({ section, tree, products, locale }) => {
+const SectionRenderer = ({ section, tree, products, locale, basePath = "/shop" }) => {
   const testId = `shopbaked-section-${section.section_type}-${section.id}`;
   switch (section.section_type) {
     case "hero":
-      return <HeroSection section={section} testId={testId} />;
+      return <HeroSection section={section} testId={testId} basePath={basePath} />;
     case "category_grid":
-      return <CategoryGridSection section={section} tree={tree} locale={locale} testId={testId} />;
+      return <CategoryGridSection section={section} tree={tree} locale={locale} testId={testId} basePath={basePath} />;
     case "product_carousel":
-      return <ProductCarouselSection section={section} products={products} testId={testId} />;
+      return <ProductCarouselSection section={section} products={products} testId={testId} basePath={basePath} />;
     case "promotional_banner":
-      return <PromoBannerSection section={section} testId={testId} />;
+      return <PromoBannerSection section={section} testId={testId} basePath={basePath} />;
     case "brand_carousel":
       return <BrandCarouselSection section={section} testId={testId} />;
     default:
@@ -77,8 +78,9 @@ const SectionRenderer = ({ section, tree, products, locale }) => {
   }
 };
 
-const HeroSection = ({ section, testId }) => {
+const HeroSection = ({ section, testId, basePath = "/shop" }) => {
   const { title, subtitle, config = {} } = section;
+  const resolveLink = (l) => (l && l.startsWith("/shopbaked") ? l.replace("/shopbaked", basePath) : (l || basePath));
   return (
     <section
       className="relative overflow-hidden rounded-2xl mb-10 border border-neutral-800 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black"
@@ -96,12 +98,12 @@ const HeroSection = ({ section, testId }) => {
         {subtitle && <p className="mt-5 text-neutral-300 max-w-xl">{subtitle}</p>}
         <div className="mt-8 flex flex-wrap gap-3">
           {config.cta_label && (
-            <Link to={config.cta_link || "/shopbaked"} className="pl-btn pl-btn-primary" data-testid="shopbaked-hero-cta">
+            <Link to={resolveLink(config.cta_link)} className="pl-btn pl-btn-primary" data-testid="shopbaked-hero-cta">
               {config.cta_label} <ArrowRight size={14} />
             </Link>
           )}
           {config.secondary_cta_label && (
-            <Link to={config.secondary_cta_link || "/shopbaked"} className="pl-btn"
+            <Link to={resolveLink(config.secondary_cta_link)} className="pl-btn"
                   data-testid="shopbaked-hero-secondary">
               {config.secondary_cta_label}
             </Link>
@@ -127,7 +129,7 @@ const HeroSection = ({ section, testId }) => {
   );
 };
 
-const CategoryGridSection = ({ section, tree, locale, testId }) => {
+const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop" }) => {
   const cats = section.config?.categories || [];
   // Merge CMS ordering with catalogue metadata for i18n names.
   const enriched = cats
@@ -150,7 +152,7 @@ const CategoryGridSection = ({ section, tree, locale, testId }) => {
       <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
            data-testid="shopbaked-category-rail">
         {enriched.map((c) => (
-          <Link key={c.slug} to={`/shopbaked/c/${c.slug}`}
+          <Link key={c.slug} to={`${basePath}/c/${c.slug}`}
                 data-testid={`shopbaked-category-tile-${c.slug}`}
                 className="group border border-neutral-800 rounded-xl p-4 bg-neutral-900/40 hover:border-amber-400/60 transition-colors">
             <div className="text-sm font-semibold text-neutral-100 group-hover:text-amber-300 transition-colors">
@@ -166,7 +168,7 @@ const CategoryGridSection = ({ section, tree, locale, testId }) => {
   );
 };
 
-const ProductCarouselSection = ({ section, products, testId }) => {
+const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" }) => {
   const limit = section.config?.limit || 12;
   const items = (products || []).slice(0, limit);
   return (
@@ -187,15 +189,17 @@ const ProductCarouselSection = ({ section, products, testId }) => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
              data-testid="shopbaked-fresh-drops">
-          {items.map((p) => <ProductCard key={p.id} product={p} />)}
+          {items.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
         </div>
       )}
     </section>
   );
 };
 
-const PromoBannerSection = ({ section, testId }) => {
+const PromoBannerSection = ({ section, testId, basePath = "/shop" }) => {
   const { title, subtitle, config = {} } = section;
+  const link = (config.link && config.link.startsWith("/shopbaked"))
+    ? config.link.replace("/shopbaked", basePath) : (config.link || basePath);
   return (
     <section
       className="mb-12 rounded-2xl border border-amber-400/30 bg-gradient-to-br from-amber-950/60 to-neutral-950 p-8 md:p-10 relative overflow-hidden"
@@ -209,7 +213,7 @@ const PromoBannerSection = ({ section, testId }) => {
       <h2 className="text-2xl md:text-3xl font-bold text-neutral-100">{title}</h2>
       {subtitle && <p className="mt-2 text-neutral-400 max-w-xl">{subtitle}</p>}
       {config.cta_label && (
-        <Link to={config.link || "/shopbaked"} className="mt-6 inline-block pl-btn pl-btn-primary"
+        <Link to={link} className="mt-6 inline-block pl-btn pl-btn-primary"
               data-testid="shopbaked-promo-cta">
           {config.cta_label} <ArrowRight size={14} />
         </Link>
@@ -245,9 +249,9 @@ const FallbackHero = ({ tree }) => (
   </section>
 );
 
-export const ProductCard = ({ product }) => (
+export const ProductCard = ({ product, basePath = "/shop" }) => (
   <Link
-    to={`/shopbaked/p/${product.id}`}
+    to={`${basePath}/p/${product.id}`}
     data-testid={`shopbaked-product-card-${product.id}`}
     className="group block border border-neutral-800 rounded-xl overflow-hidden bg-neutral-900/40 hover:border-amber-400/60 transition-colors"
   >

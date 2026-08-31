@@ -56,6 +56,12 @@ import { ExpressBookings } from "@/pages/express/ExpressBookings";
 import { ExpressServices } from "@/pages/express/ExpressServices";
 import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
 
+// SHOPbakēd storefront (Slice 6+7) — mounted under /shop/* so the module
+// tabs (MART / SHOP / SEND / …) switch to it in-shell, matching MART UX.
+import { ShopHome } from "@/apps/shopbaked/pages/ShopHome";
+import { ShopCategory } from "@/apps/shopbaked/pages/ShopCategory";
+import { ShopProduct } from "@/apps/shopbaked/pages/ShopProduct";
+
 // Footer landing pages — desktop + mobile share the same coming-soon route
 // table. Extracted here so DesktopCustomerShell and MobileCustomerShell stay
 // in lock-step without duplication.
@@ -97,7 +103,9 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<ComingSoonPage />} />
-      <Route path="/shop" element={<ComingSoonPage />} />
+      <Route path="/shop" element={<ShopHome basePath="/shop" />} />
+      <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
+      <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/express" element={<ExpressHome />} />
       <Route path="/express/book/location" element={<ExpressStepLocation />} />
       <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
@@ -149,7 +157,9 @@ const MobileCustomerShell = () => (
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<ComingSoonPage />} />
-      <Route path="/shop" element={<ComingSoonPage />} />
+      <Route path="/shop" element={<ShopHome basePath="/shop" />} />
+      <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
+      <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/express" element={<ExpressHome />} />
       <Route path="/express/book/location" element={<ExpressStepLocation />} />
       <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
