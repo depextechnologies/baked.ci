@@ -3,7 +3,17 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Dynamic Category Attribute System · Slice 3 (Fixing_Prompt v6)
+## Latest (2026-02-28) — Pluggable Storage Providers (Fixing_Prompt v7)
+- ✅ **Bug fix — Upload no longer requires EMERGENT_LLM_KEY**:
+  - Root cause: `object_storage.init()` hard-required the Emergent key + storage proxy, so every image upload (homepage category icons, banners, supplier docs, driver KYC) returned `Upload failed: EMERGENT_LLM_KEY not set`.
+  - Fix: introduced a pluggable storage abstraction in `core/providers/storage/` — `base.py` (interface), `local.py` (default), `emergent.py` (legacy adapter), `s3.py` (drop-in), `factory.py` (singleton). The legacy `object_storage.put_object` / `get_object` façade is preserved 1:1 so no callers changed.
+  - **Config**: `STORAGE_PROVIDER=local|emergent|s3` (default `local`) + `STORAGE_LOCAL_PATH` (default `/app/backend/uploads`). S3 uses the four standard `AWS_*` env vars.
+  - **Static mount**: FastAPI mounts `/uploads` at `STORAGE_LOCAL_PATH` for direct-download URLs. Content-Type is inferred from filename extension on serve.
+  - **Path traversal**: blocked in `LocalStorageProvider._absolute()` — any `..` segment or absolute prefix raises `ValueError`.
+  - **Verified end-to-end**: homepage category-icon upload via `POST /api/admin/homepage-sections/uploads` → 200 → `/api/homepage/uploads/{key}` returns the bytes with `image/png` Content-Type. All existing consumers (mart-partner images, supplier docs, driver KYC, homepage banners, invoices) inherit the fix.
+  - **Testing**: `test_storage_provider.py` — 5/5 pass (default=local, unknown provider rejected, put/get roundtrip, path-traversal blocked, homepage HTTP upload+serve). Full backend suite 60 tests total, all green.
+
+## Prior (2026-02-28) — Dynamic Category Attribute System · Slice 3 (Fixing_Prompt v6)
 - ✅ **Slice 3 shipped — Admin Approval Drawer + Customer PDP go dynamic**:
   - **Backend** (`modules/mart/routes.py`): `GET /api/mart/products/{id}` now hydrates a new `visible_attributes: [{key, label, type, unit, value}]` array using the resolver (with `only_customer_visible=True`). Select/multi_select values are auto-translated to option labels; booleans render as `"Yes"/"No"`; sort_order is respected. Snapshot labels (from Slice 2) win over the current attribute name so historical products keep the label they were approved with.
   - **Backend** (`shared/suppliers/routes.py`): the admin `GET /api/admin/modules/mart/suppliers/{sid}/products` response now includes each item's `attributes` snapshot, feeding the admin review drawer.

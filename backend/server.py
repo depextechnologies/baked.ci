@@ -176,6 +176,17 @@ api_router.include_router(realtime_router)
 
 app.include_router(api_router)
 
+# ---- Static file serving for LocalStorageProvider (Fixing_Prompt v7) ----
+# When STORAGE_PROVIDER=local, files land under STORAGE_LOCAL_PATH and are
+# served by StaticFiles at /uploads/... — the same URL the storage
+# provider returns from `.public_url()`. Under STORAGE_PROVIDER=s3 the
+# mount still exists but nothing ever gets written into it.
+from starlette.staticfiles import StaticFiles  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+_uploads_root = _Path(os.environ.get("STORAGE_LOCAL_PATH") or "/app/backend/uploads").resolve()
+_uploads_root.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_root)), name="uploads")
+
 # ---- Postgres-outage-friendly middleware ----
 # When Postgres goes briefly unreachable (container restart, VM reschedule),
 # every request bubbles up a `ConnectionRefusedError` / `OperationalError`
