@@ -3,6 +3,16 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 1 Foundation
+- ✅ **Isolated SHOP catalogue tables**: migration `0039_shop_foundation` creates `shop_brands / shop_categories / shop_subcategories / shop_products / shop_variants`. `ShopProduct` carries JSONB `images`, `attributes` (parent-level) and status ∈ {draft, pending_review, active, archived, rejected}. `ShopVariant` carries per-SKU price / stock / condition / attribute overrides / images.
+- ✅ **Shared-supplier identity**: added `suppliers.modules` JSONB column (default & backfilled to `["MART"]`). Every existing supplier retains MART access; SHOP access is opt-in per supplier and gated by an array-contains predicate.
+- ✅ **Router surface** (`modules/shop/routes.py`): three routers wired in `server.py`:
+  - `/api/shop/*` — public storefront (`/health`, `/categories`, `/subcategories`, `/products`)
+  - `/api/shop/portal/*` — seller portal (`/health` stub for Slice 4)
+  - `/api/admin/modules/shop/*` — admin, `Depends(get_current_admin)` (`/health`, `/products`)
+- ✅ **Frontend shell**: `/shopbaked/*` mounted in `App.js` with `ShopbakedApp` + `ShopHome` (health card pings `/api/shop/health` and renders live table counts). Admin surface `/admin/modules/shop` already routes through the generic `ModuleWorkspace` and will be specialised in Slice 5.
+- ✅ **Tests**: `test_shop_foundation.py` — 12/12 pass covering module stubs, admin auth guard, MART isolation, and platform advertisement (`GET /api/` lists "shop"). MART regression (`dynamic_attributes` × 3 + `catalog_editing_and_bulk_delete`) → 31/31 pass.
+
 ## Latest (2026-02-28) — Sell-on-BAKĒD & Mobile Nav Fixes (Fixing_Prompt v9)
 - ✅ **Sell-on-BAKĒD opportunity cards** (`apps/partner-landing/PartnerLandingApp.jsx`):
   - Data model expanded from `href` to `cardHref` + `applyHref` + `internal`. MART: card → `/martbaked/sellers`, Apply Now → `/martbaked/sellers/apply`. EXPRESS: both → `/driver` (SPA). FOOD / SHOP / AUTO / IMMO keep the existing `mart.partner.baked.ci` externals in a new tab.

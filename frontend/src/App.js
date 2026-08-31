@@ -12,6 +12,7 @@ import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
 import { SellerPortalApp } from "@/apps/martbaked-sellers/SellerPortalApp";
+import { ShopbakedApp } from "@/apps/shopbaked/ShopbakedApp";
 
 /**
  * App.js — thin dispatcher (Phase 1a v2.0 monorepo refactor).
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />
           <Route path="/martbaked/sellers/*" element={<SellerApp />} />
+          <Route path="/shopbaked/*" element={<ShopbakedApp />} />
           <Route path="/*" element={<CustomerApp />} />
         </Routes>
         <Toaster position="top-right" theme="dark" />

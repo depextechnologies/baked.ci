@@ -176,7 +176,21 @@ api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
 api_router.include_router(driver_track_router)
 api_router.include_router(realtime_router)
-# TODO: food, shop, express, auto, immo
+
+# --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
+# Marketplace module. Isolated tables (shop_*), shared supplier identity
+# via `suppliers.modules` JSONB. Slices 2-8 will flesh out catalogue,
+# attributes, seller portal, approvals and storefront on top of these
+# stub endpoints.
+from modules.shop import (  # noqa: E402
+    public_router as shop_public_router,
+    portal_router as shop_portal_router,
+    admin_router as shop_admin_router,
+)
+api_router.include_router(shop_public_router)
+api_router.include_router(shop_portal_router)
+api_router.include_router(shop_admin_router)
+# TODO: food, auto, immo
 
 app.include_router(api_router)
 
