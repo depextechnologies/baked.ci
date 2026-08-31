@@ -3,7 +3,18 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-28) — Storage Migration Tool (Fixing_Prompt v7)
+## Latest (2026-02-28) — Category Editing Fix + Bulk Delete (Fixing_Prompt v8)
+- ✅ **Bug fix — "Extra inputs are not permitted" gone**: root cause was `AdminMartCatalog.jsx` posting the whole GET response back (with `id`, `slug`, `created_at`, `deleted_at`, `version`, `module`, `created_by`, `updated_by`) to a strict `CategoryUpdate` DTO. Fix keeps the DTO strict (per docx) and instead ships a `pickEditable(obj, whitelist)` helper — only `name_en / name_fr / icon / image / order / is_active` (Category) and `name_en / name_fr / image / order` (Subcategory) reach the wire.
+- ✅ **Bulk delete shipped for Categories · Subcategories · Attributes**:
+  - Frontend adds a checkbox column with select-all header on all three tables. Selecting rows reveals a blue action bar with a "Delete Selected" button and a Clear shortcut. Confirmation dialog explicitly warns about associated subcategories / products / homepage sections / attribute assignments before firing.
+  - Backend endpoints (all Super-Admin-gated, all audited):
+    - `POST /api/admin/mart/categories/bulk-delete` — soft-deletes via `deleted_at`; refuses individual rows with subcategories or active products (per-id `blocked` list). Returns `{deleted:[], blocked:[]}` so partial batches don't fail.
+    - `POST /api/admin/mart/subcategories/bulk-delete` — hard-deletes; blocks rows with active products.
+    - `POST /api/admin/mart/attributes/bulk-delete` — soft-deactivates (is_active=false); historical snapshot values on products preserved. Idempotent second-run returns `already_inactive`.
+  - Every mutation writes to the audit trail (`mart.category.bulk_delete`, `mart.subcategory.bulk_delete`, `attribute.bulk_deactivate`).
+- **Testing**: `test_catalog_editing_and_bulk_delete.py` — 6/6 pass (editable-only PATCH ok, unknown-field 422, bulk-delete with blockers, subcategory bulk-delete, attribute bulk-deactivate idempotent). Full backend suite 74 tests all green (2 transient network flakes on retry). Live UI screenshot confirms toast "Saved" on edit + bulk bar visible on select.
+
+## Prior (2026-02-28) — Storage Migration Tool (Fixing_Prompt v7)
 - ✅ **One-click storage cutover shipped**:
   - **CLI**: `python backend/scripts/migrate_storage.py --source emergent --dest local [--dry-run|--list]` — enumerates every object key referenced in the DB, copies from source provider to destination, idempotent (skips objects already at dest), reports full stats.
   - **Enumeration** (`scripts/storage_migration.py::enumerate_keys`): walks 8 columns — `mart_products.image` / `.images` (JSONB) · `partner_products.images` (JSONB) · `homepage_sections.config` (recursive JSONB walk) · `driver.gov_id_front_url / gov_id_back_url / licence_front_url / selfie_url / vehicle_reg_url` · `suppliers.logo_url / cover_image_url` · `supplier_documents.storage_path` · `supplier_invoices.invoice_document_storage_path`.

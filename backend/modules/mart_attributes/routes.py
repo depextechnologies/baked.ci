@@ -263,6 +263,39 @@ async def admin_soft_delete_attribute(
     await session.commit()
 
 
+# Fixing_Prompt v8 — bulk-deactivate attributes
+class _AttrBulkDeleteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ids: list[str] = Field(..., min_length=1, max_length=200)
+
+
+@admin_router.post("/attributes/bulk-delete")
+async def admin_bulk_delete_attributes(
+    payload: _AttrBulkDeleteIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(get_current_admin),
+):
+    """Bulk soft-delete of attribute definitions. Historical product
+    values under `details` are preserved thanks to the Slice-2 snapshot
+    format (rename never destroys data)."""
+    deleted, blocked = [], []
+    for aid in payload.ids:
+        row = await session.get(MartAttribute, aid)
+        if not row:
+            blocked.append({"id": aid, "reason": "not_found"})
+            continue
+        if not row.is_active:
+            blocked.append({"id": aid, "reason": "already_inactive"})
+            continue
+        before = _attr_dict(row)
+        row.is_active = False
+        await _audit(session, admin=admin, action="bulk_deactivate", kind="attribute",
+                     entity_id=row.id, before=before, after=_attr_dict(row))
+        deleted.append(aid)
+    await session.commit()
+    return {"deleted": deleted, "blocked": blocked}
+
+
 # ---------------------------------------------------------------------------
 # Admin — attribute options
 # ---------------------------------------------------------------------------

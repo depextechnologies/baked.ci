@@ -93,6 +93,8 @@ const AttributesTab = () => {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -100,6 +102,7 @@ const AttributesTab = () => {
         `/admin/mart/attributes${includeInactive ? "?include_inactive=1" : ""}`
       );
       setItems(data.items || []);
+      setSelected(new Set());
     } catch (e) { toast.error(errMsg(e)); }
   }, [includeInactive]);
   useEffect(() => { load(); }, [load]);
@@ -121,6 +124,34 @@ const AttributesTab = () => {
     } catch (e) { toast.error(errMsg(e)); }
   };
 
+  const toggleOne = (id) => {
+    const n = new Set(selected);
+    n.has(id) ? n.delete(id) : n.add(id);
+    setSelected(n);
+  };
+  const toggleAll = () => {
+    const active = items.filter(i => i.is_active);
+    if (selected.size === active.length) setSelected(new Set());
+    else setSelected(new Set(active.map(i => i.id)));
+  };
+  const bulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!window.confirm(
+      `Deactivate ${ids.length} attribute${ids.length === 1 ? "" : "s"}? ` +
+      "Historical product values under details are preserved."
+    )) return;
+    setBulkBusy(true);
+    try {
+      const { data } = await adminApi.post("/admin/mart/attributes/bulk-delete", { ids });
+      const done = (data.deleted || []).length;
+      const blocked = (data.blocked || []).length;
+      toast.success(`Deactivated ${done}${blocked ? ` · ${blocked} skipped` : ""}`);
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setBulkBusy(false); }
+  };
+
   return (
     <div className="space-y-4" data-testid="attributes-tab">
       <div className="flex items-center gap-3">
@@ -138,10 +169,30 @@ const AttributesTab = () => {
         </label>
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(29,155,240,.08)", border: "1px solid rgba(29,155,240,.3)" }}
+             data-testid="attributes-bulk-bar">
+          <span className="text-xs font-medium">{selected.size} selected</span>
+          <button onClick={bulkDelete} disabled={bulkBusy}
+                  data-testid="attributes-bulk-delete"
+                  className="text-xs px-3 h-8 rounded-lg font-medium text-white"
+                  style={{ background: "#FF4C52" }}>
+            Delete Selected
+          </button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
+        </div>
+      )}
+
       <div className="baked-card bg-card border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground">
             <tr>
+              <th className="p-3 w-8">
+                <input type="checkbox"
+                       checked={items.filter(i => i.is_active).length > 0 &&
+                                selected.size === items.filter(i => i.is_active).length}
+                       onChange={toggleAll} data-testid="attributes-select-all" />
+              </th>
               <th className="text-left p-3">Name</th>
               <th className="text-left p-3">Key</th>
               <th className="text-left p-3">Type</th>
@@ -152,13 +203,18 @@ const AttributesTab = () => {
           </thead>
           <tbody data-testid="attributes-table-body">
             {items.length === 0 && (
-              <tr><td colSpan={6} className="p-6 text-center text-muted-foreground text-xs"
+              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground text-xs"
                    data-testid="attributes-empty">
                 No attributes yet — create one to get started.
               </td></tr>
             )}
             {items.map(a => (
               <tr key={a.id} className="border-t border-border" data-testid={`attribute-row-${a.id}`}>
+                <td className="p-3">
+                  <input type="checkbox" checked={selected.has(a.id)} disabled={!a.is_active}
+                         onChange={() => toggleOne(a.id)}
+                         data-testid={`attribute-select-${a.id}`} />
+                </td>
                 <td className="p-3 font-medium">{a.name}</td>
                 <td className="p-3 text-xs font-mono text-muted-foreground">{a.key}</td>
                 <td className="p-3 text-xs">
