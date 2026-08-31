@@ -203,3 +203,65 @@ class ShopCartItem(Base):
         TIMESTAMP(timezone=True), server_default=func.now(), nullable=False,
     )
 
+
+SHOP_ORDER_STATUSES = (
+    "pending_payment",  # waiting for Stripe / cash pledge
+    "paid",             # payment cleared
+    "packing",          # supplier prepping
+    "shipped",
+    "delivered",
+    "cancelled",
+    "refunded",
+)
+
+
+class ShopOrder(Base):
+    """A confirmed SHOP fulfilment order — one per customer, per checkout."""
+    __tablename__ = "shop_orders"
+    __table_args__ = (
+        UniqueConstraint("number", name="uq_shop_orders_number"),
+        Index("ix_shop_orders_customer", "customer_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("shpord"))
+    number: Mapped[str] = mapped_column(String, nullable=False)
+    customer_id: Mapped[str] = mapped_column(String, ForeignKey("customers.id"), nullable=False)
+    module: Mapped[str] = mapped_column(String(16), nullable=False, default="shop", server_default="shop")
+    country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending_payment", server_default="pending_payment")
+    subtotal: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    delivery_fee: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0, server_default="0")
+    total: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    payment_status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending", server_default="pending")
+    payment_provider: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+    payment_provider_ref: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    delivery_address: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    instructions: Mapped[Optional[str]] = mapped_column(String(400), nullable=True)
+    placed_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class ShopOrderItem(Base):
+    __tablename__ = "shop_order_items"
+    __table_args__ = (
+        Index("ix_shop_order_items_order", "order_id"),
+        Index("ix_shop_order_items_supplier", "supplier_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("shpoi"))
+    order_id: Mapped[str] = mapped_column(String, ForeignKey("shop_orders.id", ondelete="CASCADE"), nullable=False)
+    variant_id: Mapped[str] = mapped_column(String, ForeignKey("shop_variants.id"), nullable=False)
+    product_id: Mapped[str] = mapped_column(String, ForeignKey("shop_products.id"), nullable=False)
+    supplier_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True)
+    sku: Mapped[str] = mapped_column(String(120), nullable=False)
+    title: Mapped[str] = mapped_column(String(400), nullable=False)
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    unit_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    line_total: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+

@@ -93,9 +93,9 @@ from core.models.supplier_invoices import (
 )
 from core.models.notifications import RECIPIENT_KINDS, Notification
 from core.models.shop import (
-    SHOP_PRODUCT_STATUSES, SHOP_VARIANT_CONDITIONS,
+    SHOP_PRODUCT_STATUSES, SHOP_VARIANT_CONDITIONS, SHOP_ORDER_STATUSES,
     ShopBrand, ShopCategory, ShopSubcategory, ShopProduct, ShopVariant,
-    ShopCategoryAttribute, ShopCartItem,
+    ShopCategoryAttribute, ShopCartItem, ShopOrder, ShopOrderItem,
 )
 
 __all__ = [
@@ -194,9 +194,9 @@ __all__ = [
     "INVOICE_STATUSES", "LINE_MATCH_STATUSES",
     "SupplierInvoice", "SupplierInvoiceLine", "SupplierInvoiceAudit",
     "RECIPIENT_KINDS", "Notification",
-    "SHOP_PRODUCT_STATUSES", "SHOP_VARIANT_CONDITIONS",
+    "SHOP_PRODUCT_STATUSES", "SHOP_VARIANT_CONDITIONS", "SHOP_ORDER_STATUSES",
     "ShopBrand", "ShopCategory", "ShopSubcategory", "ShopProduct", "ShopVariant",
-    "ShopCategoryAttribute", "ShopCartItem",
+    "ShopCategoryAttribute", "ShopCartItem", "ShopOrder", "ShopOrderItem",
     "SUPPLIER_STATUSES", "SUPPLIER_APPLICATION_STATUSES",
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",

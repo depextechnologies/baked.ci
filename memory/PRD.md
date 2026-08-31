@@ -3,6 +3,15 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
+## Latest (2026-02-28) — SHOPbakēd Slice 9 Checkout Engine
+- ✅ **Migration 0044**: created isolated `shop_orders` + `shop_order_items` tables (FKs into SHOP hierarchy, JSONB `snapshot` for immutable audit trail, unique `number` column `SHOP-CI-YYYY-NNNNN`, `supplier_id` on each line item for future per-supplier fulfilment split).
+- ✅ **`POST /api/shop/checkout`** — consumes the current SHOP cart, validates every variant's `stock_qty ≥ quantity` (409 `insufficient_stock` on shortfall, 409 `variant_unavailable` on inactivated variants), mints one `ShopOrder` + N `ShopOrderItem` rows, atomically deducts stock, clears the SHOP cart items (parent `carts` row survives so MART cart is untouched). Cash-on-delivery → `status=paid, payment_status=paid` for MVP; Stripe/wallet → `pending_payment/pending` (Slice 10 will complete the Stripe flow).
+- ✅ **`GET /api/shop/orders/me`** + **`GET /api/shop/orders/{id}`** — customer-scoped list + detail with 404 on cross-customer access.
+- ✅ **Frontend `/shop/checkout`**: two-column form — Delivery address + Instructions + Payment method radio; right-column Order Summary with line items + Total in amber; "Place order" CTA.
+- ✅ **Frontend `/shop/order/:orderId`**: confirmation page with success checkmark, order number, status/payment/total tri-panel, itemised list, "Continue shopping" CTA.
+- ✅ **"Go to checkout" CTA** on `/shop` home top-right so customers can reach the flow.
+- ✅ **Tests**: `test_shop_checkout_slice9.py` — 7/7 covering empty-cart 400, full flow (order+snapshot+stock deduction+cart clear), Stripe stays pending, insufficient stock 409, list+detail scoped to customer, cross-customer 404, auth guards. Full SHOP suite = 86/88 (1 skip + 1 known cross-worker flake). MART regression unaffected. Live UI verified: checkout renders total = 999 XOF, cash-on-delivery selected, all inputs mounted.
+
 ## Latest (2026-02-28) — SHOPbakēd Slice 8 E2E Tests · SHOPbakēd MVP COMPLETE
 - ✅ **API round-trip** (`test_shop_e2e_roundtrip.py`): 13-step three-actor journey — seller creates + variants → admin approves → customer OTP → PDP → add-to-cart → patch qty → checkout snapshot. Uses `request.config.cache` to thread ids between phases; one class = one xdist worker.
 - ✅ **New `POST /api/shop/cart/checkout-snapshot`** endpoint: freezes cart state (product/variant/attributes/lines/totals) into a stable payload Slice 9 can hand to Stripe or the delivery-quote engine. Empty-cart → 400 `empty_cart`.

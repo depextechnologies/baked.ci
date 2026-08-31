@@ -15,7 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
@@ -288,3 +288,208 @@ async def shop_checkout_snapshot(
         "line_count": len(lines),
         "lines": lines,
     }
+
+# ---------------------------------------------------------------------------
+# Checkout engine (Slice 9) — consume the snapshot, mint per-module orders,
+# deduct stock, clear the cart. Foundation for Phase 8 Stripe integration.
+# ---------------------------------------------------------------------------
+
+from datetime import datetime, timezone
+from core.models import ShopOrder, ShopOrderItem
+
+
+class CheckoutIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    payment_method: str = Field("cash_on_delivery", pattern="^(cash_on_delivery|stripe|wallet)$")
+    delivery_address: Optional[dict] = None
+    instructions: Optional[str] = Field(None, max_length=400)
+
+
+async def _next_shop_order_number(session: AsyncSession) -> str:
+    """SHOP-CI-YYYY-NNNNN — monotonically increasing within a year.
+
+    Guarded by the UNIQUE index on `number`; on race, the DB rejects and
+    we bubble a 409 up so the client can retry (Slice 9 clients are
+    non-concurrent so the naive count-based approach is fine).
+    """
+    year = datetime.now(timezone.utc).year
+    prefix = f"SHOP-CI-{year}-"
+    count = (
+        await session.execute(
+            select(func.count(ShopOrder.id)).where(ShopOrder.number.like(f"{prefix}%"))
+        )
+    ).scalar_one()
+    return f"{prefix}{count + 1:05d}"
+
+
+@router.post("/checkout", status_code=201)
+async def shop_checkout(
+    payload: CheckoutIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    """Consume the current SHOP cart → mint one ShopOrder + N line items.
+
+    Contract:
+      * Snapshot is generated inline (same shape as /cart/checkout-snapshot).
+      * Every variant's stock_qty is deducted atomically; insufficient stock
+        aborts the whole checkout with 409.
+      * SHOP cart items are cleared on success.
+      * Cash-on-delivery orders land in `paid` status immediately for MVP
+        (no Stripe wiring yet); other methods land `pending_payment`.
+    """
+    cart = await _active_cart(session, customer.id)
+    hydrated = await _hydrate_shop_cart(session, cart)
+    if not hydrated["items"]:
+        raise HTTPException(400, {"code": "empty_cart", "message": "Cart is empty"})
+
+    # Stock check + reservation.
+    variant_rows = (
+        await session.execute(
+            select(ShopVariant).where(
+                ShopVariant.id.in_([it["variant"]["id"] for it in hydrated["items"]])
+            )
+        )
+    ).scalars().all()
+    variants_by_id = {v.id: v for v in variant_rows}
+    for it in hydrated["items"]:
+        v = variants_by_id.get(it["variant"]["id"])
+        if not v or not v.is_active:
+            raise HTTPException(409, {
+                "code": "variant_unavailable",
+                "message": f"Variant {it['variant']['sku']} is no longer available",
+            })
+        if v.stock_qty < it["quantity"]:
+            raise HTTPException(409, {
+                "code": "insufficient_stock",
+                "message": f"Only {v.stock_qty} of {v.sku} remain in stock",
+            })
+
+    # Build order + items.
+    product_rows = (
+        await session.execute(
+            select(ShopProduct).where(
+                ShopProduct.id.in_([v.product_id for v in variant_rows])
+            )
+        )
+    ).scalars().all()
+    products_by_id = {p.id: p for p in product_rows}
+
+    number = await _next_shop_order_number(session)
+    now = datetime.now(timezone.utc)
+    is_cod = payload.payment_method == "cash_on_delivery"
+
+    order = ShopOrder(
+        id=new_id("shpord"), number=number,
+        customer_id=customer.id, country="CI", module="shop",
+        status="paid" if is_cod else "pending_payment",
+        subtotal=hydrated["subtotal"],
+        delivery_fee=0,
+        total=hydrated["subtotal"],
+        currency=hydrated["currency"],
+        payment_status="paid" if is_cod else "pending",
+        payment_provider=payload.payment_method,
+        snapshot={
+            "cart_id": cart.id, "module": "shop",
+            "subtotal": hydrated["subtotal"], "item_count": hydrated["item_count"],
+            "currency": hydrated["currency"],
+            "lines": [
+                {
+                    "sku": it["variant"]["sku"], "quantity": it["quantity"],
+                    "unit_price": it["variant"]["price"],
+                    "line_total": it["line_total"],
+                    "variant_id": it["variant"]["id"],
+                    "attributes": it["variant"]["attributes"] or {},
+                    "product_title": it["product"]["title"] if it["product"] else None,
+                } for it in hydrated["items"]
+            ],
+        },
+        delivery_address=payload.delivery_address,
+        instructions=payload.instructions,
+        placed_at=now,
+    )
+    session.add(order)
+
+    for it in hydrated["items"]:
+        v = variants_by_id[it["variant"]["id"]]
+        p = products_by_id[v.product_id]
+        session.add(ShopOrderItem(
+            id=new_id("shpoi"), order_id=order.id,
+            variant_id=v.id, product_id=p.id, supplier_id=p.supplier_id,
+            sku=v.sku, title=p.title, attributes=v.attributes or {},
+            unit_price=float(v.price), quantity=it["quantity"],
+            line_total=it["line_total"], currency=hydrated["currency"],
+        ))
+        # Deduct stock.
+        v.stock_qty = v.stock_qty - it["quantity"]
+
+    # Clear the cart items (parent cart row survives for MART use).
+    for it in hydrated["items"]:
+        db_it = await session.get(ShopCartItem, it["id"])
+        if db_it:
+            await session.delete(db_it)
+
+    await session.commit()
+    await session.refresh(order)
+    return _order_dict(order, session=None)
+
+
+def _order_dict(o: ShopOrder, session=None) -> dict:
+    return {
+        "id": o.id, "number": o.number,
+        "customer_id": o.customer_id, "country": o.country, "module": o.module,
+        "status": o.status, "subtotal": float(o.subtotal),
+        "delivery_fee": float(o.delivery_fee), "total": float(o.total),
+        "currency": o.currency,
+        "payment_status": o.payment_status, "payment_provider": o.payment_provider,
+        "payment_provider_ref": o.payment_provider_ref,
+        "snapshot": o.snapshot or {},
+        "delivery_address": o.delivery_address,
+        "instructions": o.instructions,
+        "placed_at": o.placed_at.isoformat() if o.placed_at else None,
+        "created_at": o.created_at.isoformat() if o.created_at else None,
+    }
+
+
+@router.get("/orders/me")
+async def list_my_shop_orders(
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (
+        await session.execute(
+            select(ShopOrder).where(ShopOrder.customer_id == customer.id)
+            .order_by(ShopOrder.created_at.desc())
+        )
+    ).scalars().all()
+    return {"items": [_order_dict(o) for o in rows]}
+
+
+@router.get("/orders/{order_id}")
+async def get_my_shop_order(
+    order_id: str,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    o = await session.get(ShopOrder, order_id)
+    if not o or o.customer_id != customer.id:
+        raise HTTPException(404, "Order not found")
+    items = (
+        await session.execute(
+            select(ShopOrderItem).where(ShopOrderItem.order_id == o.id)
+            .order_by(ShopOrderItem.created_at)
+        )
+    ).scalars().all()
+    return {
+        **_order_dict(o),
+        "items": [
+            {
+                "id": it.id, "sku": it.sku, "title": it.title,
+                "attributes": it.attributes or {},
+                "unit_price": float(it.unit_price), "quantity": it.quantity,
+                "line_total": float(it.line_total), "currency": it.currency,
+                "variant_id": it.variant_id, "product_id": it.product_id,
+            } for it in items
+        ],
+    }
+

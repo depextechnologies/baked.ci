@@ -61,6 +61,7 @@ import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
 import { ShopHome } from "@/apps/shopbaked/pages/ShopHome";
 import { ShopCategory } from "@/apps/shopbaked/pages/ShopCategory";
 import { ShopProduct } from "@/apps/shopbaked/pages/ShopProduct";
+import { ShopCheckout, ShopOrderConfirmation } from "@/apps/shopbaked/pages/ShopCheckout";
 
 // Footer landing pages — desktop + mobile share the same coming-soon route
 // table. Extracted here so DesktopCustomerShell and MobileCustomerShell stay
@@ -106,6 +107,8 @@ const DesktopCustomerShell = () => (
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
+      <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
+      <Route path="/shop/order/:orderId" element={<ShopOrderConfirmation basePath="/shop" />} />
       <Route path="/express" element={<ExpressHome />} />
       <Route path="/express/book/location" element={<ExpressStepLocation />} />
       <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
@@ -160,6 +163,8 @@ const MobileCustomerShell = () => (
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
+      <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
+      <Route path="/shop/order/:orderId" element={<ShopOrderConfirmation basePath="/shop" />} />
       <Route path="/express" element={<ExpressHome />} />
       <Route path="/express/book/location" element={<ExpressStepLocation />} />
       <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
