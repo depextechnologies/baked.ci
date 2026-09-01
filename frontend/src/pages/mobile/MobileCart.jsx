@@ -100,6 +100,7 @@ export const MobileCart = () => {
                     <div className="flex items-center gap-1.5">
                       <span
                         data-testid={`m-cart-badge-${i.id}`}
+                        data-cart-module-badge={i.id}
                         className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
                         style={{
                           background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",

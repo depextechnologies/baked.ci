@@ -1,5 +1,16 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOPbakēd Module Context / Navigation / Branding (Fixing_Prompt v5) — COMPLETE
+Fixed the mobile SHOPbakēd "context leak" reported with 3 screenshots:
+
+- **§3 / §6 Bottom nav is module-aware**: `MobileBottomNav.jsx` reads `activeModule` from `useApp()` and resolves Home/Categories destinations via a HOME/CATS route table (`mart→/, shop→/shop, shop→/shop/categories, …`). Active-tint pulled from the `MODULES` registry (SHOP amber #FCC44C, MART green #77BC1F, etc.) plus a matching FAB gradient. Cart + Profile tabs stay MART green — they're global infrastructure.
+- **§2 New SHOP Categories page**: `apps/shopbaked/pages/ShopCategoriesIndex.jsx` at `/shop/categories` fetches `/api/shop/catalogue?country=CI` and renders the full SHOP tree (Mode Femme, Mode Homme, Shoes & Sneakers, Electronics, Home, …) — 19 tiles rendered on preview DB. Zero MART leak.
+- **§1 App-selector shows active module**: `AppSelectorSheet.jsx` now reads `activeModule` and paints an "Active" chip + thicker tinted border on the currently-selected card (testid `m-app-selector-current-{code}`). Swaps live when the user switches modules.
+- **§9 Cart cross-module regression**: unchanged — iter71 fix stands. Verified in testing agent iter75 (add MART then SHOP → both persist through module switches).
+- Testing agent iter75 — Tests A / B / C all PASS on mobile 420×900. Zero critical issues. Minor testid alias added for cross-viewport spec parity (`data-cart-module-badge` on the mobile cart line).
+
+
+
 ## 2026-03-01 — SHOP Delivery PIN SMS + E.164 Fix — COMPLETE
 - **PIN SMS wiring**: `POST /api/shop/checkout` now fires `send_sms(customer.phone, body, tag='shop_delivery_pin')` after commit inside a try/except — order flow never fails if SMS hiccups. Response gains a `delivery_pin_sms: {attempted, delivered, channel, phone}` object so the UI can toast the customer's inbox. Reuses the existing pluggable `sms_provider` (dev logs / Twilio in prod).
 - **Frontend toasts**: `CheckoutPage.jsx` + `MobileCheckout.jsx` — after a SHOP order succeeds, toast "Delivery PIN sent to +…" when `delivered=true`, else "Delivery PIN is on your order page". `ShopOrderConfirmation` PIN card gains "Also sent by SMS to your registered phone" caption.

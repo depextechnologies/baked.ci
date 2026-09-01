@@ -1,0 +1,64 @@
+{
+  "summary": "Iter75 mobile frontend test of SHOPbakēd module context/branding/nav. Verified Tests A (MART→SHOP), B (SHOP→MART), and C (cross-module cart) at 420x900 viewport using preview URL. All three flows PASS. Module-aware bottom-nav (Home/Categories) resolves per activeModule, SHOP tint #FCC44C and MART tint #77BC1F confirmed via computed styles, Cart+Profile stay #77BC1F (global). AppSelectorSheet correctly shows m-app-selector-current-{mart|shop} badge in-sync with activeModule and swaps as the module switches. /shop/categories renders shopbaked-categories-index with 19 SHOP tiles (shopbaked-cat-mode-femme, -mode-homme, ...); zero MART leak (no m-cat-tile-* elements). /categories on MART side has no shopbaked leak. Deep-link path /shop/c/mode-femme → Home tap returns to /shop. Cross-module cart works: added MART product prd_76539… and SHOP product shpprd_7ff8… (via /shop/p/{id} → shopbaked-pdp-add-to-cart) — /cart shows BOTH lines with module chips (text 'MART' + 'SHOP').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "testid_gaps": [
+    {"expected": "cart-module-badge-{id}", "actual": "m-cart-badge-{id}", "impact": "Review request referenced cart-module-badge-{id}; mobile cart page uses m-cart-badge-{id}. Badges functionally render 'MART' and 'SHOP' labels correctly. Consider adding an alias data-testid or unifying naming for cross-viewport tests."}
+  ],
+  "verified_flows": {
+    "A_mart_to_shop": {
+      "fab_opens_sheet": true,
+      "on_mart_current_badge_mart": true,
+      "on_mart_current_badge_shop": false,
+      "switch_to_shop_url": "/shop",
+      "shop_home_tint_rgb": "rgb(252,196,76) == #FCC44C",
+      "home_tap_on_shop_stays": "/shop",
+      "categories_tap_on_shop": "/shop/categories",
+      "shopbaked_categories_index_present": true,
+      "shop_tiles_count": 19,
+      "mode_femme_tile": true,
+      "mode_homme_tile": true,
+      "mart_tile_leak": false,
+      "subcat_navigation": "/shop/c/mode-femme",
+      "home_from_subcat_returns_to_shop": true
+    },
+    "B_shop_to_mart": {
+      "on_shop_current_badge_shop": true,
+      "on_shop_current_badge_mart": false,
+      "switch_to_mart_url": "/",
+      "home_stays_on_slash": true,
+      "categories_url": "/categories",
+      "mart_categories_tint_rgb": "rgb(119,188,31) == #77BC1F",
+      "shopbaked_leak": false
+    },
+    "C_cross_module_cart": {
+      "mart_added_line": "m-cart-line-ci_b159c2128ef24b08 badge=MART",
+      "shop_added_line": "m-cart-line-shpci_d033bcfb9c624bd9 badge=SHOP",
+      "both_persist_in_cart": true,
+      "total": "2 900 CFA"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Minor / optional) Align cart line module-badge testid to cart-module-badge-{id} to match review contract, OR update spec — current impl uses m-cart-badge-{id}. Functionality is correct, only naming differs.",
+    "(Seed) SHOP subcategory 'mode-femme/robes-femme' has zero products (shopbaked-category-empty). Iter74 test SHOP products exist under a different subcat (shpsub_5dc51fcb1eb84905). Not blocking iter75 but worth seeding at least one product under mode-femme for a fully realistic MART→SHOP→category→product journey."
+  ],
+  "critical_code_review_comments": [
+    "MobileBottomNav.jsx cleanly resolves active module from useApp() and drives HOME/CATS route tables + tint via MODULES registry — a good pattern; consider hoisting HOME/CATS into /lib/modules.js so any future module addition is one-line.",
+    "MobileBottomNav Cart+Profile hardcode tint='#77BC1F' inline — comment already explains it's intentional (global). OK.",
+    "ShopCategoriesIndex.jsx: Good empty-state and loading/error handling. abs() helper duplicated across shop pages — could be centralized.",
+    "AppSelectorSheet.jsx: isCurrent border/badge logic is clean; ensure setActiveModule persists (context uses localStorage per prior iters) so refresh keeps the SHOP tint."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not_tested", "frontend": "100%"},
+  "test_credentials": "Customer OTP: +2250700919903 (dev_code returned inline by /api/auth/otp/request). Token injected into localStorage keys baked_access_token + access_token before nav.",
+  "seed_data_creation": "None. Used existing MART product prd_76539… and existing SHOP product shpprd_7ff8a08e311a4c98 (TEST_Iter74 iPhone) from iter74.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All Fixing_Prompt v5 requirements for §1, §2, §3, §4, §7, §9 are functionally satisfied on mobile 420x900. If next iter changes cart badge testid to cart-module-badge-{id}, run same 3-flow script. SHOP PDP add-to-cart testid is shopbaked-pdp-add-to-cart. SHOP products listing at /api/shop/products?country=CI (6 products in iter75 preview DB, all under shpsub_5dc51fcb1eb84905).",
+  "rca of the issue": "N/A — no bugs found. Only minor testid naming mismatch (m-cart-badge-{id} vs review-spec cart-module-badge-{id}) which is a spec/impl-contract gap, not a functional defect."
+}

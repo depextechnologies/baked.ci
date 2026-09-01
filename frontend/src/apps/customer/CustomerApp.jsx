@@ -60,6 +60,7 @@ import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
 // tabs (MART / SHOP / SEND / …) switch to it in-shell, matching MART UX.
 import { ShopHome } from "@/apps/shopbaked/pages/ShopHome";
 import { ShopCategory } from "@/apps/shopbaked/pages/ShopCategory";
+import { ShopCategoriesIndex } from "@/apps/shopbaked/pages/ShopCategoriesIndex";
 import { ShopProduct } from "@/apps/shopbaked/pages/ShopProduct";
 import { ShopCheckout, ShopOrderConfirmation } from "@/apps/shopbaked/pages/ShopCheckout";
 
@@ -105,6 +106,7 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<ComingSoonPage />} />
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
+      <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
@@ -161,6 +163,7 @@ const MobileCustomerShell = () => (
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<ComingSoonPage />} />
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
+      <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
