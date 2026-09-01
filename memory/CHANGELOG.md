@@ -1,5 +1,10 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Categories responsive grid — COMPLETE
+- `ShopCategoriesIndex.jsx` grid → `grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 md:gap-4` — mobile keeps its 3-up layout, tablet is 4, desktop shows 6 tiles per row per user spec. Verified at 1440×900 → 19 tiles render in a clean 6-column layout.
+
+
+
 ## 2026-03-01 — SHOP Demo Products (Fixing_Prompt v8) — COMPLETE
 Populated every SHOP subcategory with a placeholder product so the storefront isn't empty before real sellers list inventory:
 

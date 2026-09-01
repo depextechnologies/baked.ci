@@ -64,7 +64,7 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
           <p className="text-xs text-muted-foreground">No SHOP categories published yet.</p>
         </div>
       ) : (
-        <div className="px-4 grid grid-cols-3 gap-3">
+        <div className="px-4 grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
           {tree.map((c) => {
             const img = abs(c.image);
             return (
