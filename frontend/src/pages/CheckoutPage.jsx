@@ -57,9 +57,15 @@ export const CheckoutPage = () => {
   }, [customer, country.code, activeAddress]);
 
   const items = cart.items || [];
-  const subtotal = cart.subtotal || 0;
-  const elig = checkOrderEligibility(subtotal, country);
-  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
+  const hasShop = (cart.shop?.item_count ?? 0) > 0 || items.some((i) => i.module === "shop");
+  const hasMart = (cart.mart?.item_count ?? 0) > 0 || items.some((i) => i.module !== "shop");
+  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
+  const elig = checkOrderEligibility(martSubtotal, country);
+  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
+  const minOrderOk = hasMart ? martEligible : true;
+  const total = (hasMart ? elig.total : 0) + shopSubtotal;
+  const subtotal = martSubtotal + shopSubtotal;
 
   const saveAddress = async (candidate) => {
     // Called by AddressSelector's onPick — persist the picked place, refresh
@@ -100,22 +106,52 @@ export const CheckoutPage = () => {
   });
 
   const placeOrder = async () => {
-    if (!addressId) { toast.error(language === "en" ? "Please choose an address" : "Veuillez choisir une adresse"); return; }
-    if (!slotId) { toast.error(language === "en" ? "Please choose a delivery time" : "Veuillez choisir une créneau"); return; }
+    if (hasMart && !addressId) { toast.error(language === "en" ? "Please choose an address" : "Veuillez choisir une adresse"); return; }
+    if (hasMart && !slotId) { toast.error(language === "en" ? "Please choose a delivery time" : "Veuillez choisir une créneau"); return; }
     if (!minOrderOk) { toast.error(`Minimum order is ${formatMoney(country.min_order, country.currency, country.currency_symbol)}`); return; }
     setBusy(true);
     try {
       const slot = slots.find(s => s.id === slotId);
-      const { data } = await api.post("/orders", {
-        address_id: addressId,
-        delivery_slot_id: slotId,
-        delivery_slot_label: slot?.label || "",
-        payment_method: method,
-        instructions,
-      });
+      // Unified checkout: place MART order first (if any), then SHOP order
+      // (if any). Backend keeps both fulfilment paths isolated. If MART fails
+      // we abort and leave SHOP cart intact; if SHOP fails after MART success
+      // we still route to the MART receipt and surface the SHOP error toast.
+      let martOrder = null;
+      if (hasMart) {
+        const { data } = await api.post("/orders", {
+          address_id: addressId,
+          delivery_slot_id: slotId,
+          delivery_slot_label: slot?.label || "",
+          payment_method: method,
+          instructions,
+        });
+        martOrder = data;
+      }
+      let shopOrder = null;
+      if (hasShop) {
+        try {
+          const chosen = addresses.find((a) => a.id === addressId);
+          const { data } = await api.post("/shop/checkout", {
+            payment_method: method === "cod" ? "cash_on_delivery" : method,
+            delivery_address: chosen ? {
+              line1: chosen.line1, city: chosen.city, region: chosen.region,
+              country: chosen.country, postal_code: chosen.postal_code,
+              latitude: chosen.latitude, longitude: chosen.longitude,
+              formatted_address: chosen.formatted_address,
+            } : null,
+            instructions,
+          });
+          shopOrder = data;
+        } catch (shopErr) {
+          const d = shopErr?.response?.data?.detail;
+          const msg = typeof d === "string" ? d : (d?.message || "SHOP order failed — items kept in cart");
+          toast.error(msg, { duration: 6000 });
+        }
+      }
       await reloadCart();
       toast.success(language === "en" ? "Order placed!" : "Commande passée !");
-      navigate(`/orders/${data.id}`);
+      if (martOrder) navigate(`/orders/${martOrder.id}`);
+      else if (shopOrder) navigate(`/shop/order/${shopOrder.id}`);
     } catch (e) {
       const detail = e?.response?.data?.detail;
       // "Coming soon" from allocation engine — detail is an object with gaps
@@ -216,11 +252,39 @@ export const CheckoutPage = () => {
         <div className="baked-card bg-card border border-border p-5 sticky top-24 space-y-3">
           <div className="text-sm font-semibold">{language === "en" ? "Order summary" : "Résumé de la commande"}</div>
           <div className="text-xs text-muted-foreground space-y-1">
-            {items.map((it) => (<div key={it.id} className="flex justify-between"><span className="truncate pr-2">{it.quantity} × {it.product.name}</span><span>{formatMoney(it.line_total, it.product.currency, it.product.currency_symbol)}</span></div>))}
+            {items.map((it) => {
+              const isShop = it.module === "shop";
+              const label = isShop ? (it.title || it.product?.title) : it.product?.name;
+              const curr = it.currency || it.product?.currency || country.currency;
+              return (
+                <div key={it.id} className="flex justify-between">
+                  <span className="truncate pr-2">
+                    <span className="text-[9px] uppercase tracking-widest font-semibold px-1 py-0.5 rounded mr-1"
+                          style={{
+                            background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
+                            color: isShop ? "#F59E0B" : "#77BC1F",
+                          }}>{isShop ? "SHOP" : "MART"}</span>
+                    {it.quantity} × {label}
+                  </span>
+                  <span>{formatMoney(it.line_total, curr, country.currency_symbol)}</span>
+                </div>
+              );
+            })}
           </div>
           <div className="h-px bg-border" />
+          {hasMart && (
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">MART subtotal</span><span>{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
+          )}
+          {hasShop && (
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">SHOP subtotal</span><span>{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
+          )}
           <div className="flex justify-between text-sm"><span className="text-muted-foreground">{t(uiLocale, "cart.subtotal")}</span><span>{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
-          <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery" : "Livraison"}</span><span>{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+          {hasMart && (
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (MART)" : "Livraison (MART)"}</span><span>{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+          )}
+          {hasShop && (
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Shipping (SHOP)" : "Expédition (SHOP)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By seller" : "Par vendeur"}</span></div>
+          )}
           <div className="h-px bg-border" />
           <div className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           {!minOrderOk && (<div data-testid="checkout-min-order-warning" className="text-[11px] p-2 rounded-lg bg-yellow-500/10 text-yellow-500">{language === "en" ? `Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum` : `Ajoutez ${formatMoney(shortfall, country.currency, country.currency_symbol)} pour atteindre le minimum de ${formatMoney(minOrder, country.currency, country.currency_symbol)}`}</div>)}

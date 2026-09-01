@@ -1,8 +1,15 @@
 # BAKĒD — Roadmap / Parked Backlog
 
-_Last snapshot: 2026-02-19 when the user paused polish work to open a new module._
+_Last snapshot: 2026-03-01 after shipping SHOPbakēd Slices 1–9 + Unified Cart Drawer + Mixed Checkout._
 
 ## 🟡 Paused — Polish Backlog (ready to build)
+
+### P1 · SHOPbakēd follow-ups (new)
+
+- **SHOP min-order + shipping cost** — currently SHOP has no min-order gate and shipping is shown as "Calculated by seller". Wire per-seller shipping rules + optional min-order.
+- **Unified order-history view** — `/orders` currently shows MART only. Add a merged view mixing SHOP orders (`/shop/orders/me`).
+- **SHOP order tracking + notifications** — reuse SENDbakēd status pings for seller-shipped SHOP orders.
+- **Return/Refund flow for SHOP** — extend Slice H to cover marketplace returns (seller-approved RMA).
 
 ### P1 · MART Supplier & Fulfilment
 

@@ -257,8 +257,31 @@ export const CartProvider = ({ children }) => {
   const load = useCallback(async () => {
     if (customer) {
       try {
-        const { data } = await api.get("/carts/me");
-        setCart(data);
+        // Unified cart — merge MART (from /carts/me) + SHOP (from /shop/cart/me)
+        // into a single shape so the UI can render one list with per-item
+        // `module` tags. Backend keeps them in separate tables so fulfilment
+        // logic (MART darkstore vs SHOP seller shipping) stays isolated.
+        const [mart, shop] = await Promise.all([
+          api.get("/carts/me").then((r) => r.data).catch(() => ({ items: [], subtotal: 0, item_count: 0 })),
+          api.get("/shop/cart/me").then((r) => r.data).catch(() => ({ items: [], subtotal: 0, item_count: 0 })),
+        ]);
+        const martItems = (mart.items || []).map((i) => ({ ...i, module: i.module || "mart" }));
+        const shopItems = (shop.items || []).map((i) => ({
+          id: i.id, module: "shop", quantity: i.quantity,
+          line_total: i.line_total, currency: i.variant?.currency,
+          variant: i.variant, product: i.product,
+          // Give the row a "product-like" facade the existing UI can render.
+          product_id: i.variant?.id, sku: i.variant?.sku,
+          title: i.product?.title, images: i.product?.images || i.variant?.images || [],
+          unit_price: i.variant?.price,
+        }));
+        setCart({
+          items: [...martItems, ...shopItems],
+          subtotal: (mart.subtotal || 0) + (shop.subtotal || 0),
+          item_count: (mart.item_count || 0) + (shop.item_count || 0),
+          mart: { subtotal: mart.subtotal || 0, item_count: mart.item_count || 0 },
+          shop: { subtotal: shop.subtotal || 0, item_count: shop.item_count || 0 },
+        });
       } catch (e) { void e; }
     } else {
       await hydrateGuest();
@@ -284,28 +307,46 @@ export const CartProvider = ({ children }) => {
 
   const updateItem = useCallback(async (itemId, quantity) => {
     if (customer) {
-      const { data } = await api.patch(`/carts/me/items/${itemId}`, { quantity });
-      setCart(data);
-      return data;
+      const it = cart.items.find((i) => i.id === itemId);
+      if (it?.module === "shop") {
+        await api.patch(`/shop/cart/items/${itemId}`, { quantity });
+      } else {
+        await api.patch(`/carts/me/items/${itemId}`, { quantity });
+      }
+      await load();
+      return;
     }
     const g = readGuest();
     const it = g.items.find((i) => i.id === itemId);
     if (it) it.quantity = quantity;
     writeGuest(g);
     await hydrateGuest();
-  }, [customer, hydrateGuest]);
+  }, [customer, cart.items, hydrateGuest, load]);
 
   const removeItem = useCallback(async (itemId) => {
     if (customer) {
-      const { data } = await api.delete(`/carts/me/items/${itemId}`);
-      setCart(data);
-      return data;
+      const it = cart.items.find((i) => i.id === itemId);
+      if (it?.module === "shop") {
+        await api.delete(`/shop/cart/items/${itemId}`);
+      } else {
+        await api.delete(`/carts/me/items/${itemId}`);
+      }
+      await load();
+      return;
     }
     const g = readGuest();
     g.items = g.items.filter((i) => i.id !== itemId);
     writeGuest(g);
     await hydrateGuest();
-  }, [customer, hydrateGuest]);
+  }, [customer, cart.items, hydrateGuest, load]);
+
+  // Slice 6 helper — used by SHOP PDP. Adds a variant (not a product) to the
+  // shared cart via /api/shop/cart/items.
+  const addShopVariant = useCallback(async (variantId, quantity = 1) => {
+    if (!customer) throw new Error("Sign in to add SHOP items to your cart");
+    await api.post("/shop/cart/items", { variant_id: variantId, quantity });
+    await load();
+  }, [customer, load]);
 
   const clear = useCallback(async () => {
     if (customer) {
@@ -317,7 +358,7 @@ export const CartProvider = ({ children }) => {
     setCart({ items: [], subtotal: 0, item_count: 0 });
   }, [customer]);
 
-  const value = useMemo(() => ({ cart, loaded, addItem, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, updateItem, removeItem, clear, load]);
+  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);
