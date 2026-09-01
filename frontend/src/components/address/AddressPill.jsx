@@ -1,14 +1,21 @@
 import React from "react";
 import { MapPin, ChevronDown } from "lucide-react";
 import { useApp } from "../../contexts/BakedContexts";
+import { MODULES } from "../../lib/modules";
 
 /**
  * AddressPill — tap-target used in the top nav (desktop) and mobile header.
  * Opens the shared AddressSelector via AppContext. Falls back to a friendly
  * "Set delivery address" prompt when the user hasn't picked one yet.
+ *
+ * Icon colour follows the active BAKĒD module accent (Fixing_Prompt v3 §3).
  */
 export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
-  const { activeAddress, openAddressSelector, country } = useApp();
+  const { activeAddress, openAddressSelector, country, activeModule } = useApp();
+  const accent = React.useMemo(
+    () => (MODULES.find((m) => m.code === activeModule)?.color) || "#77BC1F",
+    [activeModule]
+  );
   const line1 = activeAddress?.formatted_address || activeAddress?.line1;
   const label = activeAddress?.label;
   const city = activeAddress?.city;
@@ -20,7 +27,7 @@ export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
         onClick={openAddressSelector}
         className="flex items-center gap-2 text-left min-w-0 w-full"
       >
-        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${accent}22`, color: accent }}>
           <MapPin size={15} />
         </div>
         <div className="flex-1 min-w-0">
@@ -43,7 +50,7 @@ export const AddressPill = ({ variant = "desktop", testid = "addr-pill" }) => {
       onClick={openAddressSelector}
       className="hidden md:flex items-center gap-2 px-3 py-2 baked-btn hover:bg-secondary motion-fast border border-border"
     >
-      <MapPin size={18} style={{ color: "#77BC1F" }} />
+      <MapPin size={18} style={{ color: accent }} />
       <div className="text-left min-w-0">
         <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
           {activeAddress ? (label ? `Deliver to · ${label}` : "Delivering to") : "Choose delivery"}

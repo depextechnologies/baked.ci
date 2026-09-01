@@ -293,9 +293,14 @@ export const CartProvider = ({ children }) => {
 
   const addItem = useCallback(async (product, quantity = 1) => {
     if (customer) {
-      const { data } = await api.post("/carts/me/items", { product_id: product.id, quantity, module: "mart" });
-      setCart(data);
-      return data;
+      // Post to MART cart endpoint, then reload the UNIFIED (MART + SHOP)
+      // cart so previously-added SHOP items aren't wiped from local state.
+      // (Regression fix — Fixing_Prompt v3 §4.2: the previous
+      // `setCart(data)` here replaced the merged state with a MART-only
+      // response, silently dropping SHOP lines.)
+      await api.post("/carts/me/items", { product_id: product.id, quantity, module: "mart" });
+      await load();
+      return;
     }
     const g = readGuest();
     const found = g.items.find((i) => i.product_id === product.id);
@@ -303,7 +308,7 @@ export const CartProvider = ({ children }) => {
     else g.items.push({ id: `g_${product.id}`, product_id: product.id, quantity, module: "mart" });
     writeGuest(g);
     await hydrateGuest();
-  }, [customer, hydrateGuest]);
+  }, [customer, hydrateGuest, load]);
 
   const updateItem = useCallback(async (itemId, quantity) => {
     if (customer) {
@@ -350,13 +355,15 @@ export const CartProvider = ({ children }) => {
 
   const clear = useCallback(async () => {
     if (customer) {
-      const { data } = await api.delete("/carts/me");
-      setCart(data);
-      return data;
+      // MART clear endpoint only. SHOP items are cleared server-side when
+      // /shop/checkout succeeds; if any remain they'll re-appear on reload.
+      await api.delete("/carts/me").catch(() => null);
+      await load();
+      return;
     }
     writeGuest({ items: [] });
     setCart({ items: [], subtotal: 0, item_count: 0 });
-  }, [customer]);
+  }, [customer, load]);
 
   const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;

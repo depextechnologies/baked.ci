@@ -8,6 +8,7 @@ import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, MapPin, Loader2, M
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/sheet";
 import { AddressPill } from "../address/AddressPill";
+import { MODULES } from "../../lib/modules";
 import { toast } from "sonner";
 
 const DETECT_REASON_COPY = {
@@ -22,12 +23,19 @@ const DETECT_REASON_COPY = {
 
 export const TopNav = () => {
   const { customer, logout, openLogin } = useAuth();
-  const { country, countries, setCountryCode, detectCountryByLocation, theme, toggleTheme, language, setLanguage } = useApp();
+  const { country, countries, setCountryCode, detectCountryByLocation, theme, toggleTheme, language, setLanguage, activeModule } = useApp();
   const { cart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [detecting, setDetecting] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  // Fixing_Prompt v3 §3 — module accent drives cart/AI/location icon colour so
+  // switching MART → SHOP flips green → gold without duplicating headers.
+  const moduleAccent = React.useMemo(
+    () => (MODULES.find((m) => m.code === activeModule)?.color) || "#77BC1F",
+    [activeModule]
+  );
 
   // Social.docx §12 — auto-close the mobile drawer whenever the route changes
   // (e.g. tapping "Orders" inside the drawer navigates away — the drawer
@@ -136,7 +144,7 @@ export const TopNav = () => {
           <button data-testid={NAV.aiAssistant} onClick={() => navigate("/ai-assistant")}
                   className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
                   title="AI Assistant" aria-label="AI Assistant">
-            <Sparkles size={18} style={{ color: "#77BC1F" }} />
+            <Sparkles size={18} style={{ color: moduleAccent }} />
           </button>
 
           {customer ? (
@@ -159,14 +167,16 @@ export const TopNav = () => {
             </button>
           )}
 
-          {/* Cart — always visible */}
+          {/* Cart — always visible. Icon + badge follow the active module accent. */}
           <button
             data-testid={NAV.cartButton}
             onClick={() => navigate("/cart")}
             className="relative baked-btn px-2 md:px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2 shrink-0"
           >
-            <ShoppingCart size={18} style={{ color: "#77BC1F" }} />
-            <span data-testid={NAV.cartCount} className="absolute -top-1.5 -right-1.5 text-[10px] bg-[hsl(var(--mart))] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none">
+            <ShoppingCart size={18} style={{ color: moduleAccent }} />
+            <span data-testid={NAV.cartCount}
+                  className="absolute -top-1.5 -right-1.5 text-[10px] text-black font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none"
+                  style={{ background: moduleAccent }}>
               {cart.item_count || 0}
             </span>
             <span data-testid={NAV.cartTotal} className="hidden lg:inline text-sm font-semibold whitespace-nowrap">
