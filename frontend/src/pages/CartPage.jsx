@@ -35,9 +35,8 @@ export const CartPage = () => {
     if (!customer) { toast("Please login to continue"); return; }
     if (hasUnavailable) { toast.error("Remove items marked 'Coming soon' before checking out"); return; }
     if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
-    // SHOP-only cart → route straight to the SHOP checkout. Otherwise the
-    // MART checkout handles MART fulfilment and (Slice 9) piggybacks SHOP.
-    if (hasShop && !hasMart) { navigate("/shop/checkout"); return; }
+    // Always route to the global /checkout — it now handles mixed and
+    // SHOP-only carts internally (per Fixing_Prompt.docx §2).
     navigate("/checkout");
   };
 

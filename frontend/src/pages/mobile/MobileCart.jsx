@@ -34,7 +34,8 @@ export const MobileCart = () => {
   }, 0);
 
   const goCheckout = () => {
-    if (hasShop && !hasMart) { nav("/shop/checkout"); return; }
+    // Always route to the unified /checkout (MobileCheckout) — it handles
+    // MART, SHOP and mixed carts internally.
     nav("/checkout");
   };
 

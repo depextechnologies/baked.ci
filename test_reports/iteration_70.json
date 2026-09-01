@@ -1,0 +1,25 @@
+{
+  "summary": "Iter70 — validated 3 SHOPbakēd fixes end-to-end (Fixing_Prompt.docx). Backend: iter69 regression suite still 3/3 (test_mixed_cart_iter69.py). Frontend Playwright vs live preview URL (customer via OTP JWT, seeded SHOP product TEST_Iter70b iPhone under DEMO Delta): (1) module-tab-shop click from MART → navigates to /shop with ZERO 'Coming soon' toast/text (SHOPbakēd shown as active in registry, ModuleTabs onTab guard `m.status !== active` no longer triggers). (2) /shop marketplace has NO shopbaked-home-checkout-cta element. (3) CRITICAL PDP add-to-cart fix VERIFIED: on /shop/p/{id}, after picking colour+storage, click shopbaked-pdp-add-to-cart → POST /api/shop/cart/items returns 201, success toast fires 'Added TEST-I70b-256 to your cart', top-nav-cart-count badge updates 0→1 IMMEDIATELY without refresh (was previously stuck at 0 — root cause: direct api.post bypassed CartContext.load; now routed via useCart().addShopVariant → await load()). (4) /cart page shows the SHOP line with data-testid=cart-module-badge-{id}='SHOP', variant attributes rendered ('colour: black · storage: 256'), price 1 299 XOF, cart-summary-shop-subtotal='SHOP subtotal (1 items)'. (5) Persistence: hard refresh of /cart keeps the SHOP item (server-side truth, no localStorage). (6) Module-switch persistence: MART tab → SHOP tab → /cart still shows SHOP item. (7) Guest add-to-cart on PDP triggers global sign-in dialog (role=dialog with 'Sign in to bakēd'), no crash. (8) Mixed cart (MART 3× Eau Minérale + SHOP iPhone) shows both cart-summary-mart-subtotal + cart-summary-shop-subtotal, both cart-module-badge=MART & SHOP. (9) Unified checkout routing: SHOP-only cart Checkout → /checkout (never /shop/checkout); mixed cart Checkout → /checkout with 'Place order' button + both line items in Order summary. NOTE: review-request referenced testid `nav-cart-count` but the actual attr in TopNav.jsx is `top-nav-cart-count` — cosmetic only, functionality green.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_mixed_cart_iter69.py",
+    "/app/test_reports/pytest/iter70_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ShopProduct.jsx addToCart correctly delegates to useCart().addShopVariant, which posts /shop/cart/items and awaits load() before returning — this is the exact fix required for the badge to increment. 401 fallback also calls openLogin() defensively in case the token expired mid-session.",
+    "BakedContexts.addShopVariant throws early if !customer, and PDP catches with a friendly toast + openLogin(); however the guard is currently pre-empted by the explicit `if (!customer) openLogin()` block in ShopProduct — good UX (avoids a flicker).",
+    "CartPage.doCheckout unconditionally routes to /checkout for both SHOP-only and mixed carts — matches Fixing_Prompt.docx §2. MobileCart.jsx mirrors the same logic; not re-tested this iteration but code parity holds.",
+    "Minor: cart-summary-{module}-subtotal shows '(N items)' using item_count (qty) not distinct lines — pre-existing behaviour, worth confirming with PM.",
+    "Minor: top-nav-cart-count testid name diverges from what Fixing_Prompt.docx references (`nav-cart-count`). Consider aligning to whichever the product spec expects — either update the doc or rename the attribute in TopNav.jsx line 169."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (3/3 iter69 regression)", "frontend": "100% (9/9 review-request bullets green)"},
+  "test_credentials": "Customer OTP +2250700909097 (dev_code inline). Supplier demo-delta-supplier@test.example / Supplier1234!. SA depexopenai@gmail.com / baked@2026#!$@.",
+  "seed_data_creation": "In-test seed: TEST_Iter70b iPhone SHOP product under DEMO Delta, variant TEST-I70b-256 (colour=black, storage=256, 1299 XOF, stock 25), approved by SA. MART cart uses live Eau Minérale (1700 CFA × 3).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter70 completes the SHOPbakēd cart-integration story (PDP → global cart → /cart → unified /checkout). If mobile viewport parity needs re-verification (MobileCart.goCheckout, MobileCheckout SHOP-only), spin 390x844 and reuse the same seed pattern. Full flow uses top-nav-cart-count (NOT nav-cart-count as some docs say).",
+  "rca of the issue": "SHOP PDP add-to-cart was calling api.post('/shop/cart/items') directly. The POST succeeded (201) and the toast fired, but the local React CartContext state was never refreshed → nav badge stayed at 0 and /cart appeared empty until manual reload. Fix routes the call through useCart().addShopVariant which internally does `await load()` (Promise.all of /carts/me + /shop/cart/me) so the merged cart state repopulates before returning. Verified working: badge 0→1 immediately, /cart populated without refresh."
+}

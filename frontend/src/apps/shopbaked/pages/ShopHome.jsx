@@ -40,13 +40,6 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-home">
       {error && <p className="text-red-400 mb-6" data-testid="shopbaked-home-error">Error: {error}</p>}
 
-      <div className="flex justify-end mb-4">
-        <Link to={`${basePath}/checkout`} className="pl-btn text-sm"
-              data-testid="shopbaked-home-checkout-cta">
-          Go to checkout →
-        </Link>
-      </div>
-
       {/* Admin-curated sections drive the layout. Fallback hero remains
           when the CMS returns nothing (fresh install / migration in flight). */}
       {(homepage || []).map((section) => (
