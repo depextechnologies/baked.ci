@@ -1,5 +1,14 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — Order History Merge (MART + SHOP) — COMPLETE
+- `MobileActivities.jsx` (which DesktopProfileShell also renders) now Promise.all's `/api/orders/me` (MART/FOOD) + `/api/shop/orders/me`. SHOP orders are normalised with `normaliseShopOrder()` (snapshot.lines → items[], delivery_address → address) and merged in place, sorted by created_at desc.
+- Filter chips are module-aware: ALL/MART green (#77BC1F), SHOP amber (#FCC44C), FOOD orange (#FF7043).
+- Row click is module-aware: SHOP → `/shop/order/{id}` (ShopOrderConfirmation), MART/FOOD → `/orders/{id}`.
+- Both endpoints have independent `.catch(() => [])`, so one transient 500 never hides the other module's orders.
+- Testing agent iter72 — 3/3 backend contract tests + all Playwright bullets green. Zero action items.
+
+
+
 ## 2026-03-01 — SHOPbakēd Fixing_Prompt v3 (Homepage / Images / Branding / Global Cart) — COMPLETE
 Four P0 issues from customer's v3 fixing prompt resolved:
 

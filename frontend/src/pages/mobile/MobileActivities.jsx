@@ -15,7 +15,28 @@ const TABS = [
 ];
 
 const MODULE_LOGO = { mart: ShoppingCart, food: Utensils, shop: ShoppingBag, express: Truck };
-const MODULE_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#1D9BF0", express: "#FCC44C" };
+const MODULE_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#FCC44C", express: "#FCC44C" };
+
+// SHOP orders live at /api/shop/orders/me — normalise them into the shared
+// row shape the Activities/Orders list understands (module, items, address).
+const normaliseShopOrder = (o) => ({
+  id: o.id,
+  number: o.number,
+  module: "shop",
+  status: o.status,
+  total: o.total,
+  currency: o.currency,
+  created_at: o.created_at,
+  address: o.delivery_address || {},
+  // Prefer the snapshot lines captured at checkout — cheapest source that
+  // doesn't need a per-order round-trip on the list view.
+  items: (o.snapshot?.lines || []).map((ln) => ({
+    id: ln.variant_id,
+    quantity: ln.quantity,
+    line_total: ln.line_total,
+    product: { name: ln.product_title, price: ln.unit_price },
+  })),
+});
 
 export const MobileActivities = () => {
   const nav = useNavigate();
@@ -28,7 +49,15 @@ export const MobileActivities = () => {
 
   useEffect(() => {
     if (!customer) return;
-    api.get("/orders/me").then((r) => setOrders(r.data || [])).catch(() => setOrders([]));
+    // Merge MART/FOOD orders (/orders/me) with SHOP orders (/shop/orders/me)
+    // so the customer sees every purchase in one place. Sort by most recent.
+    Promise.all([
+      api.get("/orders/me").then((r) => r.data || []).catch(() => []),
+      api.get("/shop/orders/me").then((r) => (r.data?.items || []).map(normaliseShopOrder)).catch(() => []),
+    ]).then(([mart, shop]) => {
+      const merged = [...mart, ...shop].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setOrders(merged);
+    });
   }, [customer]);
 
   const deliveries = useMemo(() => {
@@ -133,11 +162,17 @@ export const MobileActivities = () => {
       {tab === "orders" && (
         <div className="pt-3">
           <div className="px-4 flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {["all", "food", "mart", "shop"].map((m) => { const isAct = moduleFilter === m; return (
-              <button key={m} data-testid={`m-act-modf-${m}`} onClick={() => setModuleFilter(m)} className={`shrink-0 baked-chip px-3 py-1.5 text-[11px] font-bold uppercase motion-fast ${isAct ? "text-black" : "bg-secondary text-muted-foreground"}`} style={isAct ? { backgroundColor: "#77BC1F" } : {}}>
-                {m}
-              </button>
-            );})}
+            {["all", "food", "mart", "shop"].map((m) => {
+              const isAct = moduleFilter === m;
+              const tone = m === "all" ? "#77BC1F" : (MODULE_TONE[m] || "#77BC1F");
+              return (
+                <button key={m} data-testid={`m-act-modf-${m}`} onClick={() => setModuleFilter(m)}
+                        className={`shrink-0 baked-chip px-3 py-1.5 text-[11px] font-bold uppercase motion-fast ${isAct ? "text-black" : "bg-secondary text-muted-foreground"}`}
+                        style={isAct ? { backgroundColor: tone } : {}}>
+                  {m}
+                </button>
+              );
+            })}
           </div>
 
           <div className="px-4 mt-3">
@@ -155,13 +190,13 @@ export const MobileActivities = () => {
                 <div className="text-[11px] text-muted-foreground mt-1">Your recent orders across MART, FOOD & SHOP will appear here.</div>
                 <Button onClick={() => nav("/")} className="baked-btn mt-4 h-9 px-4 font-bold text-black text-xs" style={{ backgroundColor: "#77BC1F" }}>Browse Stores</Button>
               </div>
-            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; return (
-              <button key={o.id} data-testid={`m-act-ord-${o.id}`} onClick={() => nav(`/orders/${o.id}`)} className="w-full baked-card bg-card border border-border p-3.5 text-left flex items-center gap-3 motion-fast active:scale-[0.99]">
+            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; const orderRoute = o.module === "shop" ? `/shop/order/${o.id}` : `/orders/${o.id}`; return (
+              <button key={o.id} data-testid={`m-act-ord-${o.id}`} onClick={() => nav(orderRoute)} className="w-full baked-card bg-card border border-border p-3.5 text-left flex items-center gap-3 motion-fast active:scale-[0.99]">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${tone}22`, color: tone }}><M size={17} /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <div className="text-sm font-bold truncate">{(o.module || "mart").toUpperCase()}bakēd</div>
-                    <span className="baked-chip px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ backgroundColor: o.status === "delivered" ? "#77BC1F22" : "#1D9BF022", color: o.status === "delivered" ? "#77BC1F" : "#1D9BF0" }}>{o.status.replace(/_/g, " ")}</span>
+                    <span className="baked-chip px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ backgroundColor: o.status === "delivered" ? "#77BC1F22" : `${tone}22`, color: o.status === "delivered" ? "#77BC1F" : tone }}>{(o.status || "").replace(/_/g, " ")}</span>
                   </div>
                   <div className="text-[10px] text-muted-foreground truncate">{o.number} · {(o.items || []).length} items</div>
                   <div className="text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString([], { day: "2-digit", month: "short" })}</div>
