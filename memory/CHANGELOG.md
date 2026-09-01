@@ -1,5 +1,17 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Demo Products (Fixing_Prompt v8) — COMPLETE
+Populated every SHOP subcategory with a placeholder product so the storefront isn't empty before real sellers list inventory:
+
+- **New idempotent seed** `modules/shop/demo_products_seed.py` — one demo product per subcategory (181 rows total across 19 categories), each with 2 variants (362 variants) covering colour/size/capacity attribute overrides.
+- Uses Unsplash placeholder images from a per-category bank (fashion / apparel / electronics / home / etc.) so tile visuals stay on-theme.
+- Products carry `status='active'` (matches the public storefront endpoint filter `status == 'active'`), attached to the demo supplier `sup_demo_delta_seed`.
+- Deterministic ids (`shpprd_demo_{sub_slug}`, `shpvar_demo_{sub_slug}_{idx}`) so re-seeds skip existing rows and never touch real seller listings.
+- Wired into `run_seed()` after homepage seed. Backfilled existing rows via one-off SQL to flip `published → active`.
+- Verified: `/shop` Fresh drops rail now shows 2-up horizontal cards with real images; `/shop/c/mode-femme` shows 12 populated products across sub-categories with Mode Femme-appropriate imagery, left subcategory rail, and "Fresh drops in Mode Femme" promo strip.
+
+
+
 ## 2026-03-01 — SHOP Home Carousels + Category Landing Parity (Fixing_Prompt v7) — COMPLETE
 User asked for "view all" links, a 2-up horizontal product rail, and MART-style category landing:
 
