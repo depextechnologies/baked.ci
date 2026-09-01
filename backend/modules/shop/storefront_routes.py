@@ -11,6 +11,7 @@ Cart is auth-required (`get_current_customer`). Guest carts continue to
 live in the client (Slice 6 UX prompts sign-in on add-to-cart if needed).
 """
 from __future__ import annotations
+import logging
 import secrets
 from typing import Optional
 
@@ -24,7 +25,10 @@ from core.deps import get_current_customer
 from core.models import (
     Cart, Customer, ShopCartItem, ShopProduct, ShopVariant, new_id,
 )
+from core.providers.sms_provider import send_sms
 from modules.shop.attributes_resolver import resolve_shop_attributes
+
+logger = logging.getLogger("baked.shop")
 
 
 router = APIRouter(prefix="/shop", tags=["shop-storefront"])
@@ -437,7 +441,35 @@ async def shop_checkout(
 
     await session.commit()
     await session.refresh(order)
-    return _order_dict(order, expose_pin=True)
+
+    # Fire-and-forget PIN SMS. `send_sms` swallows errors and returns a
+    # status dict — the checkout response must NEVER fail because Twilio
+    # hiccupped. The PIN also stays visible in the customer's order pages
+    # (/shop/orders/{id}) so SMS is a nice-to-have, not the source of truth.
+    sms_status = {"attempted": False}
+    if customer.phone:
+        try:
+            body = (
+                f"BAKĒD SHOP · Order {order.number}\n"
+                f"Your delivery PIN is {delivery_pin}\n"
+                f"Share it with the delivery person at the door. Do not share otherwise."
+            )
+            sms_status = await send_sms(customer.phone, body, tag="shop_delivery_pin")
+            sms_status["attempted"] = True
+        except Exception as e:  # noqa: BLE001
+            logger.exception("shop.checkout.sms_failed order=%s err=%s", order.id, e)
+            sms_status = {"attempted": True, "delivered": False, "error": str(e)}
+
+    payload_out = _order_dict(order, expose_pin=True)
+    payload_out["delivery_pin_sms"] = {
+        "attempted": sms_status.get("attempted", False),
+        "delivered": bool(sms_status.get("delivered")),
+        "channel": sms_status.get("channel"),
+        # Never leak the PIN body via SMS status in production; the dev
+        # provider echoes it back so tests can assert.
+        "phone": customer.phone,
+    }
+    return payload_out
 
 
 def _order_dict(o: ShopOrder, *, expose_pin: bool = False) -> dict:

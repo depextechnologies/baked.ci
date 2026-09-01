@@ -150,6 +150,19 @@ export const CheckoutPage = () => {
       }
       await reloadCart();
       toast.success(language === "en" ? "Order placed!" : "Commande passée !");
+      // SHOP orders carry a delivery PIN. Toast the SMS status so the
+      // customer knows whether to check their SMS inbox or the order page.
+      if (shopOrder?.delivery_pin_sms?.delivered) {
+        toast.success(language === "en"
+          ? `Delivery PIN sent to ${shopOrder.delivery_pin_sms.phone}`
+          : `Code de livraison envoyé au ${shopOrder.delivery_pin_sms.phone}`,
+          { duration: 5000 });
+      } else if (shopOrder?.delivery_pin) {
+        toast(language === "en"
+          ? "Delivery PIN is on your order page"
+          : "Le code de livraison est sur votre page de commande",
+          { duration: 5000 });
+      }
       if (martOrder) navigate(`/orders/${martOrder.id}`);
       else if (shopOrder) navigate(`/shop/order/${shopOrder.id}`);
     } catch (e) {

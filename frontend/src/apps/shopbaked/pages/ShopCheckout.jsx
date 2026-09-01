@@ -199,6 +199,9 @@ export const ShopOrderConfirmation = ({ basePath = "/shop" }) => {
             <p className="text-xs text-neutral-400 mt-1">
               Share this PIN with the delivery person at the door. We won't mark the order delivered until it's entered.
             </p>
+            <p className="text-[11px] text-neutral-500 mt-1">
+              Also sent by SMS to your registered phone.
+            </p>
           </div>
         </section>
       )}

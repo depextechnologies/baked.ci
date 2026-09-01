@@ -122,6 +122,11 @@ export const MobileCheckout = () => {
       }
       toast.success(`Order placed!${martOrder?.points_earned ? ` +${martOrder.points_earned} baked Points earned` : ""}`);
       await clear();
+      if (shopOrder?.delivery_pin_sms?.delivered) {
+        toast.success(`Delivery PIN sent to ${shopOrder.delivery_pin_sms.phone}`, { duration: 5000 });
+      } else if (shopOrder?.delivery_pin) {
+        toast("Delivery PIN is on your order page", { duration: 5000 });
+      }
       if (martOrder) nav(`/orders/${martOrder.id}/confirmation`);
       else if (shopOrder) nav(`/shop/order/${shopOrder.id}`);
     } catch (e) {

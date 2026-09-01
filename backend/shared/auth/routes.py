@@ -59,11 +59,10 @@ class GoogleCredentialIn(BaseModel):
 
 # ---------- helpers ----------
 def _e164(country_code: str, phone: str) -> str:
-    cc = country_code.strip()
-    if not cc.startswith("+"):
-        cc = "+" + cc
-    digits = "".join(ch for ch in phone if ch.isdigit()).lstrip("0")
-    return f"{cc}{digits}"
+    """Thin wrapper around the shared `to_e164` util. Kept for backwards
+    compatibility with call sites in this file."""
+    from core.utils.phone import to_e164
+    return to_e164(country_code, phone)
 
 
 async def _find_or_create_customer_by_phone(session: AsyncSession, e164_phone: str) -> Customer:
