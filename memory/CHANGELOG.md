@@ -1,5 +1,16 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Home Carousels + Category Landing Parity (Fixing_Prompt v7) — COMPLETE
+User asked for "view all" links, a 2-up horizontal product rail, and MART-style category landing:
+
+- **ProductCarouselSection** (`ShopHome.jsx`): mobile now renders a horizontal snap-scroll rail (`sm:hidden overflow-x-auto snap-x`) showing ~2 product cards per screen; `≥ sm` falls back to the existing 2/3/4-col grid. "N live" counter replaced with an amber "View all →" link (`shopbaked-carousel-view-all`) that deep-links to `section.config.view_all_link || /shop/categories` so admins can retarget the CTA per rail.
+- **CategoryGridSection** (`ShopHome.jsx`): "N tiles" counter replaced with an amber "View all →" link (`shopbaked-category-view-all`) → `/shop/categories`.
+- **ShopCategory** rewrite (`apps/shopbaked/pages/ShopCategory.jsx`): full parity with MART's Blinkit-style detail page — back button + category title + layout toggle (grid/list) header row, in-page search box, LEFT vertical subcategory rail (with icons) + RIGHT 2-col product grid. SHOP amber accent (#FCC44C) instead of MART green. Uses `/shop/products?category&subcategory` and `/shop/catalogue` for data.
+- data-testids preserved: `shopbaked-category-back`, `shopbaked-category-search`, `shopbaked-sub-rail`, `shopbaked-sub-all`, `shopbaked-sub-{slug}`, `shopbaked-category-grid`, `shopbaked-category-empty`.
+- Smoke-verified on mobile 390×844.
+
+
+
 ## 2026-03-01 — SHOPbakēd Mobile Header + 3-Column Categories (Fixing_Prompt v6) — COMPLETE
 User-reported parity gap with MART mobile layout:
 

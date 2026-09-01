@@ -191,7 +191,12 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
             <p className="text-sm text-neutral-500 mt-1">{section.subtitle}</p>
           )}
         </div>
-        <span className="text-xs text-neutral-500">{enriched.length} tiles</span>
+        <Link to={`${basePath}/categories`}
+              data-testid="shopbaked-category-view-all"
+              className="text-xs font-semibold hover:underline flex items-center gap-1"
+              style={{ color: SHOP_ACCENT }}>
+          View all <ArrowRight size={12} />
+        </Link>
       </div>
       <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6"
            data-testid="shopbaked-category-rail">
@@ -228,9 +233,17 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
 };
 
 // --------------------------------------------------- PRODUCT CAROUSEL ----
+// Mobile-first horizontal rail. ~2 cards visible per screen at ≤ sm, wider
+// screens fall back to a proper grid. "View all" deep-links to the section's
+// configured target (defaults to /shop/categories when none is set).
 const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" }) => {
   const limit = section.config?.limit || 12;
   const items = (products || []).slice(0, limit);
+  const viewAllHref = section.config?.view_all_link
+    ? (section.config.view_all_link.startsWith("/shopbaked")
+        ? section.config.view_all_link.replace("/shopbaked", basePath)
+        : section.config.view_all_link)
+    : `${basePath}/categories`;
   return (
     <section className="mb-12" data-testid={testId}>
       <div className="flex items-baseline justify-between mb-4">
@@ -240,17 +253,35 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" 
             <p className="text-sm text-neutral-500 mt-1">{section.subtitle}</p>
           )}
         </div>
-        <span className="text-xs text-neutral-500">{items.length} live</span>
+        <Link to={viewAllHref}
+              data-testid="shopbaked-carousel-view-all"
+              className="text-xs font-semibold hover:underline flex items-center gap-1"
+              style={{ color: SHOP_ACCENT }}>
+          View all <ArrowRight size={12} />
+        </Link>
       </div>
       {items.length === 0 ? (
         <div className="text-sm text-neutral-500" data-testid="shopbaked-no-products">
           No approved SHOP products yet — check back once suppliers publish new listings.
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-             data-testid="shopbaked-fresh-drops">
-          {items.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
-        </div>
+        <>
+          {/* Mobile / small: horizontal swipe rail, 2 cards visible per screen.
+              `snap-x` keeps swipes anchored on card edges for a natural feel. */}
+          <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2 sm:hidden"
+               data-testid="shopbaked-fresh-drops-rail">
+            {items.map((p) => (
+              <div key={p.id} className="basis-[46%] shrink-0 snap-start">
+                <ProductCard product={p} basePath={basePath} />
+              </div>
+            ))}
+          </div>
+          {/* ≥ sm falls back to the responsive grid used on tablet/desktop. */}
+          <div className="hidden sm:grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+               data-testid="shopbaked-fresh-drops">
+            {items.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
+          </div>
+        </>
       )}
     </section>
   );
