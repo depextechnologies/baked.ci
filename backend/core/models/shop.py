@@ -236,6 +236,12 @@ class ShopOrder(Base):
     payment_status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending", server_default="pending")
     payment_provider: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
     payment_provider_ref: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    # 6-digit PIN minted at checkout, shared with the customer only. The
+    # delivery person must enter it at handoff to transition to `delivered`.
+    delivery_pin: Mapped[Optional[str]] = mapped_column(String(6), nullable=True)
+    # Brute-force guard on POST /shop/orders/{id}/deliver (max 5 fails).
+    delivery_pin_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     delivery_address: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     instructions: Mapped[Optional[str]] = mapped_column(String(400), nullable=True)

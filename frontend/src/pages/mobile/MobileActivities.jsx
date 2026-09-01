@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth, useApp } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
@@ -40,9 +40,15 @@ const normaliseShopOrder = (o) => ({
 
 export const MobileActivities = () => {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const { customer } = useAuth();
   const { country } = useApp();
-  const [tab, setTab] = useState("deliveries");
+  // Support deep-links like /profile/activities?tab=orders so mailers /
+  // notifications can jump straight to the merged order list.
+  const [tab, setTab] = useState(() => {
+    const t = searchParams.get("tab");
+    return ["deliveries", "orders", "property", "vehicle"].includes(t) ? t : "deliveries";
+  });
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("active");
   const [moduleFilter, setModuleFilter] = useState("all");
@@ -190,13 +196,23 @@ export const MobileActivities = () => {
                 <div className="text-[11px] text-muted-foreground mt-1">Your recent orders across MART, FOOD & SHOP will appear here.</div>
                 <Button onClick={() => nav("/")} className="baked-btn mt-4 h-9 px-4 font-bold text-black text-xs" style={{ backgroundColor: "#77BC1F" }}>Browse Stores</Button>
               </div>
-            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; const orderRoute = o.module === "shop" ? `/shop/order/${o.id}` : `/orders/${o.id}`; return (
+            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; const orderRoute = o.module === "shop" ? `/shop/order/${o.id}` : `/orders/${o.id}`;
+              // Green pill for terminal-success states across modules
+              // (MART: delivered · SHOP: shipped + delivered). Everything
+              // else stays module-tone to signal in-progress.
+              const isSuccess = o.status === "delivered" || (o.module === "shop" && o.status === "shipped");
+              const pillTone = isSuccess ? "#77BC1F" : tone;
+              return (
               <button key={o.id} data-testid={`m-act-ord-${o.id}`} onClick={() => nav(orderRoute)} className="w-full baked-card bg-card border border-border p-3.5 text-left flex items-center gap-3 motion-fast active:scale-[0.99]">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${tone}22`, color: tone }}><M size={17} /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <div className="text-sm font-bold truncate">{(o.module || "mart").toUpperCase()}bakēd</div>
-                    <span className="baked-chip px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ backgroundColor: o.status === "delivered" ? "#77BC1F22" : `${tone}22`, color: o.status === "delivered" ? "#77BC1F" : tone }}>{(o.status || "").replace(/_/g, " ")}</span>
+                    <span data-testid={`m-act-ord-status-${o.id}`}
+                          className="baked-chip px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                          style={{ backgroundColor: `${pillTone}22`, color: pillTone }}>
+                      {(o.status || "").replace(/_/g, " ")}
+                    </span>
                   </div>
                   <div className="text-[10px] text-muted-foreground truncate">{o.number} · {(o.items || []).length} items</div>
                   <div className="text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString([], { day: "2-digit", month: "short" })}</div>

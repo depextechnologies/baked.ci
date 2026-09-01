@@ -16,7 +16,7 @@ import axios from "axios";
 import { Routes, Route, NavLink, Navigate, useNavigate, useParams, Outlet, Link } from "react-router-dom";
 import {
   LayoutDashboard, Building2, PackageSearch, FileText, MapPinned, PlusSquare,
-  LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle, ShoppingBag, Receipt,
+  LogOut, ArrowRight, ArrowLeft, ShieldCheck, AlertTriangle, ShoppingBag, Receipt, Truck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BakedLogo } from "@/components/layout/BakedLogo";
@@ -27,6 +27,7 @@ import { PortalLocations } from "./portal/PortalLocations";
 import { PortalProductRequests } from "./portal/PortalProductRequests";
 import { PortalOrders } from "./portal/PortalOrders";
 import { PortalShop } from "./portal/PortalShop";
+import { PortalShopOrders } from "./portal/PortalShopOrders";
 import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
 import { NotificationBell } from "../../components/notifications/NotificationBell";
 
@@ -103,6 +104,7 @@ const NAV = [
   { to: "profile",           label: "Business Profile", icon: Building2 },
   { to: "catalogue",         label: "Catalogue",        icon: PackageSearch },
   { to: "shop",              label: "SHOPbakēd",        icon: ShoppingBag },
+  { to: "shop-orders",       label: "SHOP Orders",      icon: Truck },
   { to: "orders",            label: "Orders",           icon: ShoppingBag },
   { to: "invoices",          label: "Invoices",         icon: Receipt },
   { to: "product-requests",  label: "Product Requests", icon: PlusSquare },
@@ -225,6 +227,7 @@ export const SellerPortalApp = ({ legacy = false }) => {
         <Route path="profile" element={<PortalProfile />} />
         <Route path="catalogue" element={<PortalCatalogue />} />
         <Route path="shop" element={<PortalShop />} />
+        <Route path="shop-orders" element={<PortalShopOrders />} />
         <Route path="orders" element={<PortalOrders />} />
         <Route path="invoices" element={<SupplierInvoicesPage apiClient={portalApi} role="supplier" basePath="/supplier/me/invoices" />} />
         <Route path="documents" element={<PortalDocuments />} />

@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.models import (
-    ShopBrand, ShopCategory, ShopProduct, ShopSubcategory, ShopVariant, Supplier,
+    ShopBrand, ShopCategory, ShopOrder, ShopProduct, ShopSubcategory, ShopVariant, Supplier,
 )
 from modules.shop.attributes_resolver import resolve_shop_attributes
 from shared.admin.routes import get_current_admin
@@ -528,3 +528,32 @@ async def admin_bulk_reject(
         rejected.append(pid)
     await session.commit()
     return {"rejected": rejected, "blocked": blocked}
+
+
+# ---------------------------------------------------------------------------
+# SA order-status override (Fixing_Prompt v4). Lets Super Admin force any
+# status transition when a seller or the PIN flow gets stuck (lost PIN,
+# support case). Bypasses the linear graph — audited by the caller.
+# ---------------------------------------------------------------------------
+class _AdminOrderStatusIn(BaseModel):
+    status: str = Field(pattern="^(pending_payment|paid|packing|shipped|delivered|cancelled|refunded)$")
+
+
+@admin_router.post("/orders/{order_id}/status")
+async def admin_override_shop_order_status(
+    order_id: str,
+    payload: _AdminOrderStatusIn,
+    session: AsyncSession = Depends(get_session),
+):
+    o = await session.get(ShopOrder, order_id)
+    if not o:
+        raise HTTPException(404, "Order not found")
+    o.status = payload.status
+    if payload.status == "delivered" and o.delivered_at is None:
+        o.delivered_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(o)
+    return {
+        "id": o.id, "number": o.number, "status": o.status,
+        "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
+    }

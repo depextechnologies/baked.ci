@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { ShoppingBag, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ShoppingBag, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
 
 export const ShopCheckout = ({ basePath = "/shop" }) => {
   const [cart, setCart] = useState(null);
@@ -179,6 +179,43 @@ export const ShopOrderConfirmation = ({ basePath = "/shop" }) => {
           </div>
         </div>
       </section>
+
+      {order.delivery_pin && order.status !== "delivered" && (
+        <section
+          className="border rounded-xl p-5 mb-6 flex items-center gap-4"
+          style={{ borderColor: "rgba(252,196,76,.5)", background: "rgba(252,196,76,.08)" }}
+          data-testid="shopbaked-order-pin-card"
+        >
+          <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+               style={{ background: "rgba(252,196,76,.2)", color: "#FCC44C" }}>
+            <ShieldCheck size={22} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#FCC44C" }}>
+              Delivery PIN
+            </div>
+            <div className="text-3xl font-black tracking-[0.3em] text-neutral-100 mt-1"
+                 data-testid="shopbaked-order-pin">{order.delivery_pin}</div>
+            <p className="text-xs text-neutral-400 mt-1">
+              Share this PIN with the delivery person at the door. We won't mark the order delivered until it's entered.
+            </p>
+          </div>
+        </section>
+      )}
+      {order.status === "delivered" && (
+        <section className="border rounded-xl p-5 mb-6 flex items-center gap-3"
+                 style={{ borderColor: "rgba(119,188,31,.5)", background: "rgba(119,188,31,.08)" }}>
+          <CheckCircle2 size={22} className="text-emerald-400" />
+          <div>
+            <div className="text-sm font-semibold text-neutral-100">Delivered</div>
+            {order.delivered_at && (
+              <div className="text-xs text-neutral-400">
+                {new Date(order.delivered_at).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="border border-neutral-800 rounded-xl p-5 mb-6">
         <h2 className="text-sm font-semibold text-neutral-200 mb-3">Items</h2>

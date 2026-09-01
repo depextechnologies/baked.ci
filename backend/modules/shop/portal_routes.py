@@ -17,16 +17,19 @@ Guardrails:
     add the admin approval drawer that flips it to `active`.
 """
 from __future__ import annotations
+import secrets
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.models import (
-    ShopCategory, ShopProduct, ShopSubcategory, ShopVariant, Supplier, new_id,
+    ShopCategory, ShopOrder, ShopOrderItem, ShopProduct, ShopSubcategory,
+    ShopVariant, Supplier, new_id,
 )
 from modules.shop.attributes_resolver import resolve_shop_attributes
 from shared.suppliers.portal_routes import get_current_supplier
@@ -348,3 +351,191 @@ async def delete_variant(
         prod.status = "pending_review"
     await session.commit()
     return
+
+
+# ---------------------------------------------------------------------------
+# Seller-facing SHOP order fulfilment (Fixing_Prompt v4).
+# The seller drives status paid → packing → shipped; the PIN gate blocks
+# `delivered` from being set until the customer's PIN is entered at the door.
+# ---------------------------------------------------------------------------
+
+# Forward status graph the seller may traverse. `delivered` is intentionally
+# NOT here — only the PIN-validated deliver endpoint can set it.
+_SELLER_TRANSITIONS = {
+    "paid": {"packing"},
+    "packing": {"shipped"},
+}
+
+
+async def _order_owned_by(session: AsyncSession, order_id: str, supplier_id: str) -> Optional[ShopOrder]:
+    """Return the order iff it contains at least one line owned by supplier.
+
+    SHOP orders can technically span suppliers (marketplace). For v1 any
+    supplier with a line on the order can drive the transitions — the PIN
+    gate still protects final delivery.
+    """
+    o = await session.get(ShopOrder, order_id)
+    if not o:
+        return None
+    row = await session.execute(
+        select(ShopOrderItem.id).where(
+            ShopOrderItem.order_id == o.id,
+            ShopOrderItem.supplier_id == supplier_id,
+        ).limit(1)
+    )
+    return o if row.scalar_one_or_none() else None
+
+
+def _seller_order_dict(o: ShopOrder) -> dict:
+    """Serialiser — never surfaces the delivery PIN to the seller/portal."""
+    return {
+        "id": o.id, "number": o.number, "status": o.status,
+        "customer_id": o.customer_id, "country": o.country,
+        "subtotal": float(o.subtotal), "delivery_fee": float(o.delivery_fee),
+        "total": float(o.total), "currency": o.currency,
+        "payment_status": o.payment_status, "payment_provider": o.payment_provider,
+        "delivery_address": o.delivery_address, "instructions": o.instructions,
+        "snapshot": o.snapshot or {},
+        "placed_at": o.placed_at.isoformat() if o.placed_at else None,
+        "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
+        "created_at": o.created_at.isoformat() if o.created_at else None,
+        "delivery_pin_attempts": o.delivery_pin_attempts or 0,
+    }
+
+
+@router.get("/orders")
+async def seller_list_shop_orders(
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    limit: int = Query(50, ge=1, le=200),
+    supplier: Supplier = Depends(get_shop_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    """List SHOP orders that include at least one line from this supplier."""
+    stmt = (
+        select(ShopOrder).join(ShopOrderItem, ShopOrderItem.order_id == ShopOrder.id)
+        .where(ShopOrderItem.supplier_id == supplier.id)
+        .order_by(ShopOrder.created_at.desc()).limit(limit)
+    )
+    if status:
+        stmt = stmt.where(ShopOrder.status == status)
+    rows = (await session.execute(stmt)).scalars().unique().all()
+
+    # Per-status counters for the bucket bar (matches PortalOrders MART UX).
+    bucket_rows = (
+        await session.execute(
+            select(ShopOrder.status, func.count(ShopOrder.id.distinct()))
+            .join(ShopOrderItem, ShopOrderItem.order_id == ShopOrder.id)
+            .where(ShopOrderItem.supplier_id == supplier.id)
+            .group_by(ShopOrder.status)
+        )
+    ).all()
+    buckets = {s: n for s, n in bucket_rows}
+
+    return {"items": [_seller_order_dict(o) for o in rows], "buckets": buckets}
+
+
+@router.get("/orders/{order_id}")
+async def seller_get_shop_order(
+    order_id: str,
+    supplier: Supplier = Depends(get_shop_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    o = await _order_owned_by(session, order_id, supplier.id)
+    if not o:
+        raise HTTPException(404, "Order not found")
+    items = (
+        await session.execute(
+            select(ShopOrderItem).where(ShopOrderItem.order_id == o.id)
+            .order_by(ShopOrderItem.created_at)
+        )
+    ).scalars().all()
+    return {
+        **_seller_order_dict(o),
+        "items": [
+            {
+                "id": it.id, "sku": it.sku, "title": it.title,
+                "attributes": it.attributes or {},
+                "unit_price": float(it.unit_price), "quantity": it.quantity,
+                "line_total": float(it.line_total), "currency": it.currency,
+                "variant_id": it.variant_id, "product_id": it.product_id,
+                "supplier_id": it.supplier_id,
+                "is_mine": it.supplier_id == supplier.id,
+            } for it in items
+        ],
+    }
+
+
+class _StatusPayload(BaseModel):
+    status: str = Field(pattern="^(packing|shipped)$")
+
+
+@router.post("/orders/{order_id}/status")
+async def seller_update_shop_order_status(
+    order_id: str,
+    payload: _StatusPayload,
+    supplier: Supplier = Depends(get_shop_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    """Seller portal — `paid → packing → shipped`. `delivered` is PIN-gated."""
+    o = await _order_owned_by(session, order_id, supplier.id)
+    if not o:
+        raise HTTPException(404, "Order not found")
+    allowed = _SELLER_TRANSITIONS.get(o.status, set())
+    if payload.status not in allowed:
+        raise HTTPException(409, {
+            "code": "invalid_transition",
+            "message": f"Cannot move {o.status} → {payload.status}",
+            "allowed": sorted(allowed),
+        })
+    o.status = payload.status
+    await session.commit()
+    await session.refresh(o)
+    return _seller_order_dict(o)
+
+
+class _DeliverPayload(BaseModel):
+    pin: str = Field(min_length=4, max_length=6)
+
+
+@router.post("/orders/{order_id}/deliver")
+async def seller_deliver_shop_order(
+    order_id: str,
+    payload: _DeliverPayload,
+    supplier: Supplier = Depends(get_shop_supplier),
+    session: AsyncSession = Depends(get_session),
+):
+    """Final delivery confirmation — seller enters the customer's PIN.
+
+    * Rate-limited to 5 wrong attempts per order.
+    * Idempotent: if already delivered we return 200 without incrementing.
+    * On success: order.status='delivered', delivered_at=now().
+    """
+    o = await _order_owned_by(session, order_id, supplier.id)
+    if not o:
+        raise HTTPException(404, "Order not found")
+    if o.status == "delivered":
+        return _seller_order_dict(o)
+    if o.status != "shipped":
+        raise HTTPException(409, {
+            "code": "invalid_transition",
+            "message": f"Order is {o.status}; mark it shipped before delivering",
+        })
+    if (o.delivery_pin_attempts or 0) >= 5:
+        raise HTTPException(429, {
+            "code": "pin_locked",
+            "message": "Too many wrong PIN attempts. Ask Super Admin to unlock.",
+        })
+    if not o.delivery_pin or not secrets.compare_digest(payload.pin, o.delivery_pin):
+        o.delivery_pin_attempts = (o.delivery_pin_attempts or 0) + 1
+        await session.commit()
+        remaining = max(0, 5 - o.delivery_pin_attempts)
+        raise HTTPException(400, {
+            "code": "wrong_pin",
+            "message": "Incorrect delivery PIN",
+            "attempts_remaining": remaining,
+        })
+    o.status = "delivered"
+    o.delivered_at = datetime.now(timezone.utc)
+    await session.commit()
+    await session.refresh(o)
+    return _seller_order_dict(o)

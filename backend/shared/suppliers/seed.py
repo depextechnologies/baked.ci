@@ -33,6 +33,7 @@ DEMO_SUPPLIERS = [
         "status": "approved",
         "portal_active": True,
         "password": "Supplier1234!",
+        "seller_slug": "delta",
         "categories": ["Boissons", "Boulangerie"],
         "location": {"label": "Delta HQ, Cocody", "city": "Abidjan",
                      "latitude": 5.3591, "longitude": -3.9880, "radius": 25},
@@ -103,6 +104,10 @@ async def seed_demo_suppliers(session: AsyncSession) -> None:
             supplier_portal_active=d["portal_active"],
             password_hash=hash_password(d["password"]) if d["password"] else None,
             phone_verified=True,
+            # Backfill the URL slug on seed for approved suppliers so demo
+            # portal deep-links (/martbaked/{slug}/portal/...) resolve
+            # immediately without waiting for the SA-approval slug minting.
+            seller_slug=d.get("seller_slug") if d["status"] == "approved" else None,
             approved_at=datetime.now(timezone.utc) if d["status"] == "approved" else None,
         )
         session.add(supplier)

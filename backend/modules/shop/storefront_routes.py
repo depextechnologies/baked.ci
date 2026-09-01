@@ -11,6 +11,7 @@ Cart is auth-required (`get_current_customer`). Guest carts continue to
 live in the client (Slice 6 UX prompts sign-in on add-to-cart if needed).
 """
 from __future__ import annotations
+import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -378,6 +379,10 @@ async def shop_checkout(
     number = await _next_shop_order_number(session)
     now = datetime.now(timezone.utc)
     is_cod = payload.payment_method == "cash_on_delivery"
+    # Delivery PIN — cryptographically random 6 digits shared with the
+    # CUSTOMER only. Delivery person enters it at handoff to move the
+    # order to `delivered` (see POST /shop/orders/{id}/deliver).
+    delivery_pin = f"{secrets.randbelow(1_000_000):06d}"
 
     order = ShopOrder(
         id=new_id("shpord"), number=number,
@@ -389,6 +394,7 @@ async def shop_checkout(
         currency=hydrated["currency"],
         payment_status="paid" if is_cod else "pending",
         payment_provider=payload.payment_method,
+        delivery_pin=delivery_pin,
         snapshot={
             "cart_id": cart.id, "module": "shop",
             "subtotal": hydrated["subtotal"], "item_count": hydrated["item_count"],
@@ -431,11 +437,11 @@ async def shop_checkout(
 
     await session.commit()
     await session.refresh(order)
-    return _order_dict(order, session=None)
+    return _order_dict(order, expose_pin=True)
 
 
-def _order_dict(o: ShopOrder, session=None) -> dict:
-    return {
+def _order_dict(o: ShopOrder, *, expose_pin: bool = False) -> dict:
+    d = {
         "id": o.id, "number": o.number,
         "customer_id": o.customer_id, "country": o.country, "module": o.module,
         "status": o.status, "subtotal": float(o.subtotal),
@@ -447,8 +453,14 @@ def _order_dict(o: ShopOrder, session=None) -> dict:
         "delivery_address": o.delivery_address,
         "instructions": o.instructions,
         "placed_at": o.placed_at.isoformat() if o.placed_at else None,
+        "delivered_at": o.delivered_at.isoformat() if o.delivered_at else None,
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
+    if expose_pin:
+        # Only surface the delivery PIN in the CUSTOMER's own responses.
+        # Sellers / drivers never receive it — they must enter it manually.
+        d["delivery_pin"] = o.delivery_pin
+    return d
 
 
 @router.get("/orders/me")
@@ -462,7 +474,7 @@ async def list_my_shop_orders(
             .order_by(ShopOrder.created_at.desc())
         )
     ).scalars().all()
-    return {"items": [_order_dict(o) for o in rows]}
+    return {"items": [_order_dict(o, expose_pin=True) for o in rows]}
 
 
 @router.get("/orders/{order_id}")
@@ -481,7 +493,7 @@ async def get_my_shop_order(
         )
     ).scalars().all()
     return {
-        **_order_dict(o),
+        **_order_dict(o, expose_pin=True),
         "items": [
             {
                 "id": it.id, "sku": it.sku, "title": it.title,
@@ -492,4 +504,22 @@ async def get_my_shop_order(
             } for it in items
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Delivery lifecycle (Fixing_Prompt v4)
+#
+# Status graph (linear):
+#   pending_payment → paid → packing → shipped → delivered
+#                                                  ▲
+#                                     PIN validated here only
+#
+# Actors:
+#   * Seller/Supplier: paid → packing → shipped   (portal_routes.py)
+#   * Seller/Supplier: shipped → delivered        (portal_routes.py — PIN gate)
+#   * Super Admin: override any transition        (routes.py admin_router)
+#
+# The customer receives their PIN via GET /shop/orders/me + /shop/orders/{id}
+# and reads it aloud at the door. See `expose_pin` in `_order_dict`.
+# ---------------------------------------------------------------------------
 
