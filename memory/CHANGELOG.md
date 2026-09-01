@@ -1,5 +1,13 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Product Grid Responsive Columns — COMPLETE
+Per user spec (mobile: 2 / laptop: 4 / desktop: 5):
+- `ShopCategory` product grid → `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`.
+- `ShopHome` ProductCarousel `≥ sm` fallback grid → `sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5` (mobile still uses the 2-up snap-scroll rail).
+- Verified: 1440×900 shows 5 cards per row on /shop/c/mode-femme; 390×844 shows 2 cards per row.
+
+
+
 ## 2026-03-01 — SHOP Categories responsive grid — COMPLETE
 - `ShopCategoriesIndex.jsx` grid → `grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 md:gap-4` — mobile keeps its 3-up layout, tablet is 4, desktop shows 6 tiles per row per user spec. Verified at 1440×900 → 19 tiles render in a clean 6-column layout.
 

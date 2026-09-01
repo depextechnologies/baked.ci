@@ -276,8 +276,9 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" 
               </div>
             ))}
           </div>
-          {/* ≥ sm falls back to the responsive grid used on tablet/desktop. */}
-          <div className="hidden sm:grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          {/* ≥ sm falls back to the responsive grid — 3/4/5 per row so
+              laptops see 4 cards and wide desktops 5, per Fixing_Prompt v9. */}
+          <div className="hidden sm:grid gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
                data-testid="shopbaked-fresh-drops">
             {items.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
           </div>

@@ -148,7 +148,8 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
               No products match. Try clearing filters.
             </div>
           ) : layout === "grid" ? (
-            <div className="grid grid-cols-2 gap-3" data-testid="shopbaked-category-grid">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-4"
+                 data-testid="shopbaked-category-grid">
               {filtered.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
             </div>
           ) : (
