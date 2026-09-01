@@ -5,6 +5,7 @@ import {
   Store, Package, Truck, Info, Newspaper, Tag, HelpCircle, MessageCircle,
 } from "lucide-react";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
+import { MODULES } from "../../lib/modules";
 import { BakedLogo } from "../layout/BakedLogo";
 import { t } from "../../lib/i18n";
 import { AddressPill } from "../address/AddressPill";
@@ -36,12 +37,19 @@ const DRAWER_LINKS = [
  * Auto-closes on route change (Social.docx §12).
  */
 export const MobileHeader = ({ variant = "home", title }) => {
-  const { country, language, countries, setCountryCode, theme, toggleTheme, setLanguage } = useApp();
+  const { country, language, countries, setCountryCode, theme, toggleTheme, setLanguage, activeModule } = useApp();
   const { customer, logout, openLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const locale = `${language}-${country?.code || "CI"}`;
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  // Module-aware accent so the mobile top header re-tints when the customer
+  // switches marketplaces (Fixing_Prompt v6 — SHOPbakēd branding in header).
+  const accent = React.useMemo(
+    () => (MODULES.find((m) => m.code === activeModule)?.color) || "#77BC1F",
+    [activeModule]
+  );
 
   React.useEffect(() => { setDrawerOpen(false); }, [location.pathname, location.search]);
 
@@ -123,7 +131,7 @@ export const MobileHeader = ({ variant = "home", title }) => {
                     onClick={() => goto(to)}
                     className="w-full flex items-center gap-3 px-3 py-3.5 rounded-lg hover:bg-secondary motion-fast text-left"
                   >
-                    <Icon size={18} style={{ color: "#77BC1F" }} />
+                    <Icon size={18} style={{ color: accent }} />
                     <span className="text-[15px] font-medium">{label}</span>
                   </button>
                 ))}
@@ -202,14 +210,15 @@ export const MobileHeader = ({ variant = "home", title }) => {
           <AddressPill variant="mobile" testid="m-header-address" />
         </div>
 
-        {/* D. Notification bell — 44×44 tap target, far right */}
+        {/* D. Notification bell — 44×44 tap target, far right. Bell tint +
+             dot follow the active module so the header truly re-brands. */}
         <button
           data-testid="m-header-notifications"
           className="shrink-0 relative w-11 h-11 rounded-xl flex items-center justify-center hover:bg-secondary motion-fast"
           aria-label="Notifications"
         >
-          <Bell size={20} />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: "#FF4C52" }} />
+          <Bell size={20} style={{ color: accent }} />
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: accent }} />
         </button>
       </div>
 
@@ -218,7 +227,7 @@ export const MobileHeader = ({ variant = "home", title }) => {
         <div className="px-4 pb-3">
           <button
             data-testid="m-header-search"
-            onClick={() => navigate("/products")}
+            onClick={() => navigate(activeModule === "shop" ? "/shop/categories" : "/products")}
             className="w-full flex items-center gap-2 px-3.5 py-2.5 baked-input bg-secondary text-xs text-muted-foreground"
           >
             <Search size={14} />

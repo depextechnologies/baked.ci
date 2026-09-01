@@ -193,7 +193,7 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
         </div>
         <span className="text-xs text-neutral-500">{enriched.length} tiles</span>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+      <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6"
            data-testid="shopbaked-category-rail">
         {enriched.map((c) => {
           const img = abs(c.image);

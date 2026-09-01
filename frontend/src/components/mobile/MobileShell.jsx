@@ -16,12 +16,13 @@ export const MobileShell = ({ children }) => {
   const loc = useLocation();
 
   // Header variant per route
-  const isHome = loc.pathname === "/";
-  const isCategory = loc.pathname.startsWith("/categories/") || loc.pathname === "/categories";
-  const isProduct = loc.pathname.startsWith("/products");
+  const isHome = loc.pathname === "/" || loc.pathname === "/shop";
+  const isCategory = loc.pathname.startsWith("/categories/") || loc.pathname === "/categories"
+                     || loc.pathname === "/shop/categories" || loc.pathname.startsWith("/shop/c/");
+  const isProduct = loc.pathname.startsWith("/products") || loc.pathname.startsWith("/shop/p/");
   const isCart = loc.pathname.startsWith("/cart");
-  const isCheckout = loc.pathname.startsWith("/checkout");
-  const isOrder = loc.pathname.startsWith("/orders");
+  const isCheckout = loc.pathname.startsWith("/checkout") || loc.pathname === "/shop/checkout";
+  const isOrder = loc.pathname.startsWith("/orders") || loc.pathname.startsWith("/shop/order");
   const isProfile = loc.pathname.startsWith("/profile") || loc.pathname === "/wallet";
   const isExpressWizard = loc.pathname.startsWith("/express/book/") || loc.pathname.startsWith("/express/movers/wizard") || loc.pathname.startsWith("/express/booking/");
   const isExpress = loc.pathname === "/express" || loc.pathname.startsWith("/express/");

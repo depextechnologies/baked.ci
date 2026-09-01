@@ -64,7 +64,7 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
           <p className="text-xs text-muted-foreground">No SHOP categories published yet.</p>
         </div>
       ) : (
-        <div className="px-4 grid grid-cols-2 gap-3">
+        <div className="px-4 grid grid-cols-3 gap-3">
           {tree.map((c) => {
             const img = abs(c.image);
             return (
@@ -74,7 +74,7 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
                 data-testid={`shopbaked-cat-${c.slug}`}
                 className="group rounded-2xl border border-border overflow-hidden bg-card hover:border-amber-400/60 transition-colors flex flex-col"
               >
-                <div className="aspect-[4/3] bg-secondary/40 relative overflow-hidden">
+                <div className="aspect-square bg-secondary/40 relative overflow-hidden">
                   {img ? (
                     <img
                       src={img}
@@ -85,17 +85,16 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"
                          style={{ background: `${SHOP_ACCENT}18` }}>
-                      <ShoppingBag size={24} style={{ color: SHOP_ACCENT }} />
+                      <ShoppingBag size={22} style={{ color: SHOP_ACCENT }} />
                     </div>
                   )}
                 </div>
-                <div className="p-3">
-                  <div className="text-sm font-semibold text-foreground line-clamp-2">
+                <div className="p-2">
+                  <div className="text-[11px] font-semibold text-foreground line-clamp-2 leading-tight">
                     {l(c, locale)}
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                    <span>{c.subcategories?.length || 0} subcategories</span>
-                    <ChevronRight size={12} />
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {c.subcategories?.length || 0} sub
                   </div>
                 </div>
               </Link>

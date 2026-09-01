@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOPbakēd Mobile Header + 3-Column Categories (Fixing_Prompt v6) — COMPLETE
+User-reported parity gap with MART mobile layout:
+
+- **§Header missing on /shop**: `MobileShell.jsx` didn't include `/shop*` routes in `showHeader`. Fixed by extending `isHome`, `isCategory`, `isProduct`, `isCheckout`, `isOrder` route matchers to also match SHOP paths (`/shop`, `/shop/categories`, `/shop/c/*`, `/shop/p/*`, `/shop/checkout`, `/shop/order/*`). Header now renders on every SHOP screen.
+- **§Header branding**: `MobileHeader.jsx` reads `activeModule` from `useApp()` and drives the notification bell tint/dot + drawer link icons + search-bar target from `MODULES[activeModule].color`. On /shop everything paints SHOP amber (#FCC44C); on / back to MART green (#77BC1F).
+- **§3 tiles/row on mobile**: `ShopHome.jsx` `CategoryGridSection` grid changed to `grid-cols-3 md:grid-cols-4 lg:grid-cols-6` (was single-column below `sm`). `ShopCategoriesIndex.jsx` grid changed to `grid-cols-3` with tighter tile sizing (aspect-square + text-[11px]). Matches MART's 3-per-row mobile pattern.
+- Verified on 390×844 viewport: header renders, bell/map pin amber, ShopHome category rail 3-per-row, /shop/categories 3-per-row.
+
+
+
 ## 2026-03-01 — SHOPbakēd Module Context / Navigation / Branding (Fixing_Prompt v5) — COMPLETE
 Fixed the mobile SHOPbakēd "context leak" reported with 3 screenshots:
 
