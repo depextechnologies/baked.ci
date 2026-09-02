@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Hero Inline Editor (Fixing_Prompt v12) — COMPLETE
+- Extended the existing schema-driven `SectionEditor` in `pages/admin/AdminHomepageManagement.jsx` with two new field kinds — `group` (nested object) and `bool` (checkbox) — and a schema-level `tabs` option so section types can split their config across multiple focused surfaces.
+- Hero schema now declares 4 tabs: **Basics**, **Slides**, **Right Banners**, **USP Strip**. Each maps to the exact JSONB slices the frontend renderer already consumes (`slides[]`, `right_top`, `right_bottom`, `usp[]`) — zero new endpoints.
+- `_SLIDE_FIELDS` / `_PROMO_FIELDS` / `_USP_FIELDS` builder constants give admins per-item form controls (eyebrow, headline, description, image w/ upload, badge, primary + secondary CTAs; enabled toggle for right banners; icon key + title + subtitle for USP tiles).
+- `setGroupField` state helper handles nested `config[groupName][subField]` writes so `right_top`/`right_bottom` edits round-trip through the existing PATCH endpoint intact.
+- data-testids added: `hp-editor-tab-{basics|slides|right|usp}`, `hp-editor-group-right_top`, `hp-editor-group-right_bottom`, `hp-editor-list-item-slides-{i}`, `hp-editor-list-item-usp-{i}`, `hp-editor-list-add-{name}`.
+- Verified in the deployed admin UI on desktop 1440: all 4 tabs render, slides list shows 3 pre-seeded entries with image previews + Upload buttons, right banners show the two grouped forms with Enabled checkboxes, USP shows 4 tiles.
+
+
+
 ## 2026-03-01 — SHOP Hero Carousel + Right Promos + USP Strip (Fixing_Prompt v11) — COMPLETE
 Redesigned the SHOPbakēd homepage hero per Fixing_Prompt v11:
 
