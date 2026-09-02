@@ -111,65 +111,223 @@ const SectionRenderer = ({ section, tree, products, locale, basePath = "/shop" }
 };
 
 // -------------------------------------------------------------- HERO ------
+// Fixing_Prompt v11: three-part hero + USP strip.
+//   Desktop  → LEFT carousel (65-70%) + RIGHT top/bottom stacked promos,
+//              followed by a 4-tile USP strip beneath.
+//   Mobile   → ONLY the carousel. Right promos + USP strip are hidden
+//              (they never mount, so no image bandwidth is wasted either).
+// The whole block is driven by the CMS `hero` section's config JSONB:
+//   config.slides[]        — array of {eyebrow, headline, description,
+//                              image, badge, cta_label/cta_link,
+//                              secondary_cta_label/secondary_cta_link}
+//   config.right_top/bottom — {enabled, image, label, heading, description,
+//                              cta_label, cta_link, badge}
+//   config.usp[]           — [{icon, title, subtitle}, …]
+// If `slides[]` is missing, the renderer falls back to the legacy single-
+// hero fields so older seeds keep working.
 const HeroSection = ({ section, testId, basePath = "/shop" }) => {
-  const { title, subtitle, config = {} } = section;
-  const bg = abs(config.background_image);
-  const resolveLink = (l) => (l && l.startsWith("/shopbaked") ? l.replace("/shopbaked", basePath) : (l || basePath));
+  const cfg = section.config || {};
+  const resolveLink = (l) => (l && l.startsWith("/shopbaked")
+    ? l.replace("/shopbaked", basePath)
+    : (l || basePath));
+
+  // Normalise: prefer slides[], else synthesise one from legacy fields.
+  const rawSlides = Array.isArray(cfg.slides) && cfg.slides.length
+    ? cfg.slides
+    : [{
+        eyebrow: "THE BAKĒD MARKETPLACE",
+        headline: section.title,
+        description: section.subtitle,
+        image: cfg.background_image,
+        cta_label: cfg.cta_label, cta_link: cfg.cta_link,
+        secondary_cta_label: cfg.secondary_cta_label,
+        secondary_cta_link: cfg.secondary_cta_link,
+      }];
+  const slides = rawSlides.filter((s) => s && (s.headline || s.image));
+  const rightTop = cfg.right_top?.enabled === false ? null : cfg.right_top;
+  const rightBottom = cfg.right_bottom?.enabled === false ? null : cfg.right_bottom;
+  const usps = Array.isArray(cfg.usp) ? cfg.usp : [];
+
   return (
-    <section
-      className="relative overflow-hidden rounded-2xl mb-10 border border-neutral-800 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black"
-      data-testid={testId}
+    <section className="mb-10" data-testid={testId}>
+      {/* Row 1: carousel + right stack. Right column hidden < lg per spec. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+        <HeroCarousel slides={slides} resolveLink={resolveLink} />
+        <div className="hidden lg:flex flex-col gap-4">
+          {rightTop && <RightPromo promo={rightTop} resolveLink={resolveLink} testid="shopbaked-hero-right-top" />}
+          {rightBottom && <RightPromo promo={rightBottom} resolveLink={resolveLink} testid="shopbaked-hero-right-bottom" />}
+        </div>
+      </div>
+
+      {/* USP strip — desktop only. Never renders on mobile per spec §9. */}
+      {usps.length > 0 && (
+        <div className="hidden lg:grid gap-4 grid-cols-4 mt-6 pt-6 border-t border-neutral-800"
+             data-testid="shopbaked-hero-usp">
+          {usps.map((u, i) => <UspTile key={i} u={u} />)}
+        </div>
+      )}
+    </section>
+  );
+};
+
+// ---------------------------------------------------------------- carousel
+const HeroCarousel = ({ slides, resolveLink }) => {
+  const [idx, setIdx] = React.useState(0);
+  const [paused, setPaused] = React.useState(false);
+  // touch swipe state
+  const touch = React.useRef({ x0: null, x1: null });
+
+  React.useEffect(() => {
+    if (paused || slides.length <= 1) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % slides.length), 5500);
+    return () => clearInterval(t);
+  }, [paused, slides.length]);
+
+  if (!slides.length) return null;
+  const s = slides[idx];
+  const bg = abs(s.image);
+
+  const onTouchStart = (e) => { touch.current.x0 = e.touches[0].clientX; };
+  const onTouchMove  = (e) => { touch.current.x1 = e.touches[0].clientX; };
+  const onTouchEnd = () => {
+    const { x0, x1 } = touch.current;
+    if (x0 != null && x1 != null && Math.abs(x1 - x0) > 40) {
+      setIdx((i) => (x1 < x0 ? (i + 1) % slides.length : (i - 1 + slides.length) % slides.length));
+    }
+    touch.current = { x0: null, x1: null };
+  };
+
+  return (
+    <div
+      data-testid="shopbaked-hero-carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 aspect-[16/10] lg:aspect-[16/9]"
       style={bg ? {
         background: `linear-gradient(90deg, rgba(0,0,0,.85) 0%, rgba(0,0,0,.55) 45%, rgba(0,0,0,.15) 100%), url(${bg}) center/cover`,
       } : undefined}
     >
-      {!bg && (
-        <div className="absolute inset-0 opacity-20 pointer-events-none"
-             style={{ background: `radial-gradient(ellipse at top right, ${SHOP_ACCENT}99, transparent 55%)` }} />
-      )}
-      <div className="relative px-8 py-14 md:px-14 md:py-20">
-        <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest mb-4"
-             style={{ color: SHOP_ACCENT }}>
-          <Sparkles size={14} /> The BAKĒD marketplace
-        </div>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-50 max-w-3xl">
-          {title}
+      {slides.map((sl, i) => (
+        <img key={i} src={abs(sl.image)} alt="" aria-hidden={i !== idx}
+             loading={i === 0 ? "eager" : "lazy"}
+             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i === idx ? "opacity-100" : "opacity-0"}`}
+             style={{ zIndex: 0 }}
+             onError={(e) => { e.currentTarget.style.display = "none"; }} />
+      ))}
+      <div className="absolute inset-0 pointer-events-none"
+           style={{ background: "linear-gradient(90deg, rgba(0,0,0,.85) 0%, rgba(0,0,0,.5) 45%, rgba(0,0,0,.05) 100%)" }} />
+
+      <div className="relative z-10 h-full flex flex-col justify-center px-6 sm:px-10 lg:px-14 py-8 max-w-3xl"
+           data-testid={`shopbaked-hero-slide-${idx}`}>
+        {s.eyebrow && (
+          <div className="inline-flex items-center gap-2 text-[10px] sm:text-xs uppercase tracking-widest mb-3"
+               style={{ color: SHOP_ACCENT }}>
+            <Sparkles size={12} /> {s.eyebrow}
+          </div>
+        )}
+        {s.badge && (
+          <span className="self-start inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded mb-3"
+                style={{ background: SHOP_ACCENT, color: "#0a0a0a" }}>
+            {s.badge}
+          </span>
+        )}
+        <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
+          {s.headline}
         </h1>
-        {subtitle && <p className="mt-5 text-neutral-300 max-w-xl">{subtitle}</p>}
-        <div className="mt-8 flex flex-wrap gap-3">
-          {config.cta_label && (
-            <Link to={resolveLink(config.cta_link)}
-                  className="h-11 px-5 rounded-xl font-semibold text-sm text-neutral-900 inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
-                  style={{ background: SHOP_ACCENT }}
-                  data-testid="shopbaked-hero-cta">
-              {config.cta_label} <ArrowRight size={14} />
+        {s.description && (
+          <p className="mt-3 sm:mt-5 text-neutral-300 max-w-xl text-sm sm:text-base">{s.description}</p>
+        )}
+        <div className="mt-5 flex flex-wrap gap-3">
+          {s.cta_label && (
+            <Link to={resolveLink(s.cta_link)}
+                  className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+                  style={{ background: SHOP_ACCENT, color: "#0a0a0a" }}
+                  data-testid={`shopbaked-hero-cta-${idx}`}>
+              {s.cta_label} <ArrowRight size={14} />
             </Link>
           )}
-          {config.secondary_cta_label && (
-            <Link to={resolveLink(config.secondary_cta_link)}
-                  className="h-11 px-5 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/20 backdrop-blur border border-white/25 text-white inline-flex items-center gap-2"
-                  data-testid="shopbaked-hero-secondary">
-              {config.secondary_cta_label}
+          {s.secondary_cta_label && (
+            <Link to={resolveLink(s.secondary_cta_link)}
+                  className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/20 backdrop-blur border border-white/25 text-white inline-flex items-center gap-2">
+              {s.secondary_cta_label}
             </Link>
           )}
-        </div>
-        <div className="mt-10 grid gap-4 sm:grid-cols-3 max-w-2xl">
-          {[
-            { icon: ShieldCheck, label: "Vetted sellers", tag: "Every listing reviewed" },
-            { icon: Truck, label: "Same-day CI", tag: "Abidjan express" },
-            { icon: Sparkles, label: "Fresh drops", tag: "New arrivals weekly" },
-          ].map(({ icon: Icon, label, tag }) => (
-            <div key={label} className="flex items-start gap-3">
-              <Icon size={16} className="mt-0.5" style={{ color: SHOP_ACCENT }} />
-              <div>
-                <div className="text-sm font-semibold text-neutral-100">{label}</div>
-                <div className="text-xs text-neutral-500">{tag}</div>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
-    </section>
+
+      {/* Indicators */}
+      {slides.length > 1 && (
+        <div className="absolute z-10 bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2"
+             data-testid="shopbaked-hero-indicators">
+          {slides.map((_, i) => (
+            <button key={i} onClick={() => setIdx(i)}
+                    aria-label={`Go to slide ${i + 1}`}
+                    data-testid={`shopbaked-hero-dot-${i}`}
+                    className="motion-fast rounded-full"
+                    style={{
+                      width: i === idx ? 24 : 8, height: 8,
+                      background: i === idx ? SHOP_ACCENT : "rgba(255,255,255,.5)",
+                    }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const RightPromo = ({ promo, resolveLink, testid }) => {
+  const img = abs(promo.image);
+  return (
+    <Link to={resolveLink(promo.cta_link)}
+          data-testid={testid}
+          className="relative rounded-2xl overflow-hidden border border-neutral-800 flex-1 min-h-[180px] flex flex-col justify-between p-5 group"
+          style={{
+            background: img
+              ? `linear-gradient(180deg, rgba(0,0,0,.1) 0%, rgba(0,0,0,.7) 100%), url(${img}) center/cover`
+              : `linear-gradient(160deg, ${SHOP_ACCENT_DEEP}44, #0a0a0a)`,
+          }}>
+      <div>
+        {promo.badge && (
+          <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded mb-2"
+                style={{ background: "#FF4C52", color: "white" }}>
+            {promo.badge}
+          </span>
+        )}
+        {promo.label && (
+          <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: SHOP_ACCENT }}>
+            {promo.label}
+          </div>
+        )}
+        <h3 className="text-lg font-bold text-white mt-1 leading-tight">{promo.heading}</h3>
+        {promo.description && <p className="text-xs text-neutral-300 mt-1">{promo.description}</p>}
+      </div>
+      {promo.cta_label && (
+        <span className="self-start mt-3 h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 group-hover:opacity-90 transition-opacity"
+              style={{ background: SHOP_ACCENT, color: "#0a0a0a" }}>
+          {promo.cta_label} <ArrowRight size={12} />
+        </span>
+      )}
+    </Link>
+  );
+};
+
+const _USP_ICONS = { shield: ShieldCheck, truck: Truck, sparkles: Sparkles, tag: Tag };
+const UspTile = ({ u }) => {
+  const Icon = _USP_ICONS[u.icon] || Sparkles;
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+           style={{ background: `${SHOP_ACCENT}22`, color: SHOP_ACCENT }}>
+        <Icon size={18} />
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-neutral-100">{u.title}</div>
+        <div className="text-xs text-neutral-500 mt-0.5">{u.subtitle}</div>
+      </div>
+    </div>
   );
 };
 

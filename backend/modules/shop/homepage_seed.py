@@ -33,11 +33,74 @@ def _shop_shape(country: str) -> list[dict]:
             "title": "Fashion, tech & home — from vetted BAKĒD sellers",
             "subtitle": "Every listing reviewed. Shipped across Côte d'Ivoire.",
             "config": {
+                # Legacy single-hero fields — kept for backward compat with
+                # earlier renderers, but the new HeroSection prefers
+                # `slides[]` when present (Fixing_Prompt v11).
                 "cta_label": "Browse categories",
                 "cta_link": "/shopbaked",
                 "secondary_cta_label": "Fresh drops",
                 "secondary_cta_link": "/shopbaked#shop-catalogue",
                 "background_image": _SHOP_HERO_BG,
+                # Carousel: 3-4 slides shown on both desktop + mobile.
+                "slides": [
+                    {
+                        "eyebrow": "THE BAKĒD MARKETPLACE",
+                        "headline": "Fashion, tech & home — from vetted BAKĒD sellers",
+                        "description": "Every listing reviewed. Shipped across Côte d'Ivoire.",
+                        "image": _SHOP_HERO_BG,
+                        "badge": None,
+                        "cta_label": "Browse categories",
+                        "cta_link": "/shop/categories",
+                        "secondary_cta_label": "Fresh drops",
+                        "secondary_cta_link": "/shop#shop-catalogue",
+                    },
+                    {
+                        "eyebrow": "SEASONAL DROP",
+                        "headline": "New arrivals every Friday",
+                        "description": "Handpicked pieces from CI's best sellers — restocked weekly.",
+                        "image": "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=70",
+                        "badge": "NEW",
+                        "cta_label": "Shop the drop",
+                        "cta_link": "/shop/c/mode-femme",
+                    },
+                    {
+                        "eyebrow": "TECH RESTOCK",
+                        "headline": "Everyday tech · unbeatable prices",
+                        "description": "Phones, audio and accessories — same-day Abidjan express.",
+                        "image": "https://images.unsplash.com/photo-1512499617640-c74ae3a79d37?w=1600&q=70",
+                        "badge": "Up to 30% off",
+                        "cta_label": "Shop tech",
+                        "cta_link": "/shop/c/smartphones-telephones",
+                    },
+                ],
+                # Desktop-only right column stacked promos.
+                "right_top": {
+                    "enabled": True,
+                    "label": "NEW ARRIVALS",
+                    "heading": "Discover the latest tech",
+                    "description": "Phones · audio · wearables",
+                    "cta_label": "Shop now",
+                    "cta_link": "/shop/c/smartphones-telephones",
+                    "image": "https://images.unsplash.com/photo-1518444065439-e933c06ce9cd?w=800&q=70",
+                    "badge": None,
+                },
+                "right_bottom": {
+                    "enabled": True,
+                    "label": "STARTING AT 24,900 XOF",
+                    "heading": "Sneakers, freshly restocked",
+                    "description": "Everyday drops from vetted brands",
+                    "cta_label": "Shop now",
+                    "cta_link": "/shop/c/chaussures-sneakers",
+                    "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=70",
+                    "badge": "Up to 25% off",
+                },
+                # USP strip — desktop-only. 4 tiles.
+                "usp": [
+                    {"icon": "shield",    "title": "Vetted sellers",    "subtitle": "Every listing reviewed"},
+                    {"icon": "truck",     "title": "Same-day CI",       "subtitle": "Abidjan express"},
+                    {"icon": "sparkles",  "title": "Fresh drops",       "subtitle": "New arrivals weekly"},
+                    {"icon": "tag",       "title": "Affordable Pricing","subtitle": "Guaranteed best price"},
+                ],
             },
             "display_order": 10,
             "is_enabled": True,

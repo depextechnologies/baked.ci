@@ -1,5 +1,24 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Hero Carousel + Right Promos + USP Strip (Fixing_Prompt v11) — COMPLETE
+Redesigned the SHOPbakēd homepage hero per Fixing_Prompt v11:
+
+- **Data model — reused existing CMS** (`HomepageSection` config JSONB, no schema change). Seeded `hps_ci_shop_010_hero.config` with:
+  * `slides[]` — array of {eyebrow, headline, description, image, badge, cta_label/cta_link, secondary_cta_label/secondary_cta_link}
+  * `right_top` + `right_bottom` — {enabled, image, label, heading, description, cta_label, cta_link, badge}
+  * `usp[]` — 4 tiles {icon, title, subtitle}: Vetted sellers · Same-day CI · Fresh drops · Affordable Pricing
+  All editable from existing `/admin/homepage-management`. No hard-coded frontend content.
+- **Frontend rewrite** (`apps/shopbaked/pages/ShopHome.jsx::HeroSection`):
+  * Grid `lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]` — LEFT carousel + RIGHT stacked promos (hidden `< lg` for mobile).
+  * `HeroCarousel` — auto-rotates every 5.5s, pauses on hover, touch swipe on mobile, keyboard-accessible indicators, staggered opacity transitions, per-slide badge/eyebrow/secondary CTA support. First slide `loading=eager`, rest lazy per spec §12.
+  * `RightPromo` — image-cover card with optional badge, label, heading, description, amber CTA button.
+  * `UspTile` — icon-mapped tiles (`shield/truck/sparkles/tag` → lucide icons). Row hidden below `lg` per spec §9.
+  * Falls back to legacy single-hero fields (`cfg.background_image/cta_label/…`) when `slides[]` is absent for older seeds.
+- data-testids: `shopbaked-hero-carousel`, `shopbaked-hero-slide-{i}`, `shopbaked-hero-cta-{i}`, `shopbaked-hero-dot-{i}`, `shopbaked-hero-right-top`, `shopbaked-hero-right-bottom`, `shopbaked-hero-usp`, `shopbaked-hero-indicators`.
+- Verified: Desktop 1440 shows carousel + 2 right promos + 4 USP tiles + 3 pagination dots. Mobile 390 shows carousel only (`right_top_visible=False, usp_visible=False`).
+
+
+
 ## 2026-03-01 — SHOP Card/Image/Zoom/Filters (Fixing_Prompt v10) — COMPLETE
 Four asks shipped:
 
