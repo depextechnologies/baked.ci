@@ -1,5 +1,16 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOPbakēd Seller Routes + Sell-on-BAKĒD Link — COMPLETE
+- New route `/shopbaked/sellers/*` in `App.js` mounts `<SellerApp module="shop" />` — reuses the entire MART seller flow (landing / apply wizard / login / activate / application-status) with a SHOP-branded skin. No component duplication.
+- `SellerApp.jsx` gained a `SellerModuleContext` + `SELLER_MODULE_PROFILES` registry keyed on `mart | shop`. Each profile carries `{code, label, accent, basePath, tagline, hero_desc, code_prefix}` so nested components read the right module without extra prop threading.
+- Injected the module's accent as a scoped CSS custom-property override (`--pl-accent`, `--pl-accent-soft`) on the SellerApp root, so the entire partner-landing stylesheet re-tints without a stylesheet fork. Also swaps `<title>` to "SHOPbakēd Sellers — Grow with BAKĒD".
+- `SellerHeader`, `SellerFooter`, `SellerLanding` (hero copy, CTAs, "Check my application status" link) all consume `useSellerModule()` and drive their links off `mod.basePath`.
+- `PartnerLandingApp.jsx` SHOPbakēd card recoloured to SHOP amber `#FCC44C` and rewired: `cardHref: "/shopbaked/sellers"`, `applyHref: "/shopbaked/sellers/apply"`, `internal: true` (no more external `shop.partner.baked.ci`). Outer atom + card gradients + copy all module-consistent.
+- Seller data model is intentionally unified — Supplier records still live under `/api/suppliers`, so a seller who applied via `/shopbaked/sellers/apply` and gets approved lands in the same `/martbaked/{slug}/portal/...` post-login. Their `modules[]` array gates the SHOP tab there (already implemented iter71).
+- Verified: `/shopbaked/sellers` shows "Become a SHOPbakēd Seller." with amber CTAs; `/shopbaked/sellers/login` shows the amber Sign in button and "SHOPbakēd Seller Program" footer; `/Sell-on-baked` SHOPbakēd card is now amber and routes internally to /shopbaked/sellers.
+
+
+
 ## 2026-03-01 — SHOP Hero Inline Editor (Fixing_Prompt v12) — COMPLETE
 - Extended the existing schema-driven `SectionEditor` in `pages/admin/AdminHomepageManagement.jsx` with two new field kinds — `group` (nested object) and `bool` (checkbox) — and a schema-level `tabs` option so section types can split their config across multiple focused surfaces.
 - Hero schema now declares 4 tabs: **Basics**, **Slides**, **Right Banners**, **USP Strip**. Each maps to the exact JSONB slices the frontend renderer already consumes (`slides[]`, `right_top`, `right_bottom`, `usp[]`) — zero new endpoints.

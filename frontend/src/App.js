@@ -61,7 +61,11 @@ const App = () => (
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />
-          <Route path="/martbaked/sellers/*" element={<SellerApp />} />
+          <Route path="/martbaked/sellers/*" element={<SellerApp module="mart" />} />
+          {/* SHOPbakēd sellers — reuses SellerApp with SHOP branding. Seller
+              portal itself (post-login) lives under /martbaked/{slug}/portal
+              since Supplier records are unified across modules. */}
+          <Route path="/shopbaked/sellers/*" element={<SellerApp module="shop" />} />
           <Route path="/shopbaked" element={<Navigate to="/shop" replace />} />
           <Route path="/shopbaked/*" element={<ShopbakedRedirect />} />
           <Route path="/*" element={<CustomerApp />} />

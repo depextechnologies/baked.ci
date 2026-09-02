@@ -268,7 +268,7 @@ const HeroEcosystemIllustration = () => {
   const modules = [
     { code: "MART", icon: ShoppingBasket, color: "#77BC1F", angle: -90  },
     { code: "FOOD", icon: Utensils,       color: "#FF6B6B", angle: -30  },
-    { code: "SHOP", icon: ShoppingBag,    color: "#3B82F6", angle:  30  },
+    { code: "SHOP", icon: ShoppingBag,    color: "#FCC44C", angle:  30  },
     { code: "EXPRESS", icon: Truck,       color: "#FCC44C", angle:  90  },
     { code: "AUTO", icon: Car,            color: "#9B87F5", angle: 150  },
     { code: "IMMO", icon: HomeIcon,       color: "#F97316", angle: 210  },
@@ -385,12 +385,13 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FF6B6B55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FF6B6B33, transparent 60%)",
   },
   {
-    code: "SHOP", label: "SHOPbakēd", color: "#3B82F6", icon: ShoppingBag,
-    tagline: "Online retail",
-    desc: "Reach buyers across Africa with your online store. Fashion, electronics, home goods — we handle payments and logistics.",
-    cardHref: "https://shop.partner.baked.ci",
-    applyHref: "https://shop.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #3B82F655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #3B82F633, transparent 60%)",
+    code: "SHOP", label: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag,
+    tagline: "Marketplace sellers",
+    desc: "List your fashion, electronics and home goods on the BAKĒD marketplace. Vetted sellers, national reach, PIN-gated delivery — you focus on product, we handle discovery.",
+    cardHref: "/shopbaked/sellers",
+    applyHref: "/shopbaked/sellers/apply",
+    internal: true,
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
     code: "EXPRESS", label: "SENDbakēd", color: "#FCC44C", icon: Truck,
