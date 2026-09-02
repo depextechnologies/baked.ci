@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-02 — Driver OTP wired to Twilio SMS (was mocked) — COMPLETE
+- `POST /api/driver/auth/request-otp` now calls `core.providers.otp_provider.get_otp_provider().send_code(phone, code, locale)` — the same integration path already used by customer login (`shared/auth/routes.py`) and supplier onboarding (`shared/suppliers/routes.py`).
+- Previously the endpoint only generated the code + printed it to the backend log — no SMS was ever dispatched, which is why baked.ci `/driver/login` never received a text.
+- Provider selection remains env-driven (`OTP_PROVIDER=twilio` uses `TwilioSmsProvider` with `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_MESSAGING_SERVICE_SID` or `TWILIO_FROM_PHONE`). Preview env still falls back to dev-echo and surfaces `dev_hint` when `APP_ENV != production`.
+- Locale routing: `country == "CI"` sends the French SMS body; every other country gets the English body — matches the customer OTP behaviour.
+- Verified in preview: `curl POST /api/driver/auth/request-otp {phone_e164:"+919990004321", country:"IN"}` returned `{otp_id, dev_hint:"098126"}` and the backend log confirmed `otp.dev_send` provider dispatch.
+
+
+
+
 ## 2026-03-01 — SHOPbakēd Seller Routes + Sell-on-BAKĒD Link — COMPLETE
 - New route `/shopbaked/sellers/*` in `App.js` mounts `<SellerApp module="shop" />` — reuses the entire MART seller flow (landing / apply wizard / login / activate / application-status) with a SHOP-branded skin. No component duplication.
 - `SellerApp.jsx` gained a `SellerModuleContext` + `SELLER_MODULE_PROFILES` registry keyed on `mart | shop`. Each profile carries `{code, label, accent, basePath, tagline, hero_desc, code_prefix}` so nested components read the right module without extra prop threading.

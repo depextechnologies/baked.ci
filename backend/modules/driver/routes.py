@@ -37,6 +37,7 @@ from core.models import (
     DriverOtp, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
+from core.providers.otp_provider import get_otp_provider
 from core.mailer import send_email_async
 from core.security import create_access_token, decode_token, hash_password, verify_password
 from shared.admin.routes import get_current_admin
@@ -107,8 +108,9 @@ class RequestOtpIn(BaseModel):
 
 @router.post("/auth/request-otp")
 async def request_otp(payload: RequestOtpIn, session: AsyncSession = Depends(get_session)):
-    """Generate + 'send' an OTP. In dev the code is returned in `dev_hint`
-    so QA can log in without a real SMS gateway."""
+    """Generate + send an OTP via the configured OTP provider (Twilio in prod,
+    dev-echo when unconfigured). The code is also returned in `dev_hint` for
+    non-production environments so QA can log in without a real SMS gateway."""
     code = f"{random.randint(0, 999_999):06d}"
     row = DriverOtp(
         phone_e164=payload.phone_e164, code=code,
@@ -122,12 +124,23 @@ async def request_otp(payload: RequestOtpIn, session: AsyncSession = Depends(get
     if not d:
         session.add(Driver(phone_e164=payload.phone_e164, country=payload.country.upper()))
     await session.commit()
-    print(f"[driver.otp] {payload.phone_e164} → {code} (dev)")   # mocked SMS
-    return {
+
+    # Send via configured OTP provider (Twilio SMS / Twilio Verify / dev-echo).
+    # French locale for CI, English elsewhere — matches the customer OTP flow.
+    locale = "fr-CI" if payload.country.upper() == "CI" else "en"
+    provider = get_otp_provider()
+    delivery = await provider.send_code(payload.phone_e164, code, locale=locale)
+    print(f"[driver.otp] {payload.phone_e164} → {code} (channel={delivery.get('channel')})")
+
+    resp = {
         "otp_id": row.id,
         "expires_in_seconds": OTP_TTL_MIN * 60,
-        "dev_hint": code if _dev_mode() else None,
     }
+    # Surface the code in non-production only so QA/preview can log in
+    # without a real SMS gateway. Never leak in production.
+    if _dev_mode():
+        resp["dev_hint"] = delivery.get("dev_code") or code
+    return resp
 
 
 class VerifyOtpIn(BaseModel):
