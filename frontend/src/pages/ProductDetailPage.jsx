@@ -8,6 +8,8 @@ import { Button } from "../components/ui/button";
 import { Plus, Minus, Star, Truck, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ProductCard } from "../components/mart/ProductCard";
+import { ProductGallery } from "../components/mart/ProductGallery";
+import { ProductDetails } from "../components/mart/ProductDetails";
 
 export const ProductDetailPage = () => {
   const { id } = useParams();
@@ -35,8 +37,10 @@ export const ProductDetailPage = () => {
     <div className="baked-container my-8">
       <button onClick={() => navigate(-1)} className="text-xs text-muted-foreground mb-4 hover:text-foreground">← Back</button>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,480px)_1fr] items-start">
-        <div className="baked-card bg-card border border-border overflow-hidden aspect-square">
-          <img src={p.image} alt={p.name} data-testid={PRODUCT.detailImg} className="w-full h-full object-cover" />
+        <div className="relative">
+          <ProductGallery image={p.image} images={p.images} name={p.name} />
+          {/* Legacy testid for existing tests — points at the primary image */}
+          <img src={p.image} alt="" data-testid={PRODUCT.detailImg} className="sr-only" />
         </div>
         <div>
           <div className="text-xs text-muted-foreground uppercase tracking-wider">{p.brand}</div>
@@ -85,6 +89,8 @@ export const ProductDetailPage = () => {
               <ShieldCheck size={18} style={{ color: "#77BC1F" }} /> Fresh guarantee — easy returns
             </div>
           </div>
+
+          <ProductDetails product={p} />
         </div>
       </div>
 

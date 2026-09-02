@@ -27,20 +27,46 @@ const TABS = [
 
 /* ---------------------------- Category Manager ---------------------------- */
 
+// Fixing_Prompt v8 — whitelist of admin-editable category fields.
+// System-managed fields (id, created_at, updated_at, created_by, updated_by,
+// deleted_at, version, module, country, slug) MUST NOT be sent in a PATCH
+// body — the backend's `CategoryUpdate` DTO forbids extras on purpose so
+// mistakes are caught early.
+const CATEGORY_EDITABLE = ["name_en", "name_fr", "icon", "image", "order", "is_active"];
+const SUBCATEGORY_EDITABLE = ["name_en", "name_fr", "image", "order"];
+
+const pickEditable = (obj, keys) => {
+  const out = {};
+  for (const k of keys) if (obj[k] !== undefined) out[k] = obj[k];
+  return out;
+};
+
 const CategoriesTab = () => {
   const [items, setItems] = useState([]);
   const [country, setCountry] = useState("CI");
   const [editing, setEditing] = useState(null);
-  const load = async () => setItems((await adminApi.get(`/admin/mart/categories?country=${country}`)).data);
+  // Fixing_Prompt v8 — bulk selection state
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const load = async () => {
+    setItems((await adminApi.get(`/admin/mart/categories?country=${country}`)).data);
+    setSelected(new Set());
+  };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [country]);
   const save = async () => {
     if (!editing.slug || !editing.name_en) return toast.error("Slug and English name required");
     try {
       if (editing.id) {
-        const { id, country: _c, slug, ...rest } = editing;
-        await adminApi.patch(`/admin/mart/categories/${id}`, rest);
+        // PATCH — only editable fields (fix for "Extra inputs are not permitted")
+        await adminApi.patch(`/admin/mart/categories/${editing.id}`,
+                             pickEditable(editing, CATEGORY_EDITABLE));
       } else {
-        await adminApi.post("/admin/mart/categories", { ...editing, country });
+        // POST — new row still needs slug/country/module etc.
+        const body = {
+          slug: editing.slug.trim(), country, module: editing.module || "mart",
+          ...pickEditable(editing, CATEGORY_EDITABLE),
+        };
+        await adminApi.post("/admin/mart/categories", body);
       }
       toast.success("Saved");
       setEditing(null);
@@ -53,6 +79,35 @@ const CategoriesTab = () => {
       await adminApi.delete(`/admin/mart/categories/${id}`);
       toast.success("Deleted"); load();
     } catch (e) { toast.error(errMsg(e)); }
+  };
+  const toggleOne = (id) => {
+    const n = new Set(selected);
+    n.has(id) ? n.delete(id) : n.add(id);
+    setSelected(n);
+  };
+  const toggleAll = () => {
+    if (selected.size === items.length) setSelected(new Set());
+    else setSelected(new Set(items.map(x => x.id)));
+  };
+  const bulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!window.confirm(
+      `Delete selected categories?\n\nYou are about to delete ${ids.length} categor${ids.length === 1 ? "y" : "ies"}. ` +
+      "This action may affect associated subcategories, products, homepage sections and attribute assignments."
+    )) return;
+    setBulkBusy(true);
+    try {
+      const { data } = await adminApi.post("/admin/mart/categories/bulk-delete", { ids });
+      const done = (data.deleted || []).length;
+      const blocked = (data.blocked || []).length;
+      toast.success(`Deleted ${done}${blocked ? ` · ${blocked} blocked by dependents` : ""}`);
+      if (blocked) toast.error(`${blocked} skipped — see console for details`);
+      // eslint-disable-next-line no-console
+      if (blocked) console.warn("Blocked deletions:", data.blocked);
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setBulkBusy(false); }
   };
   return (
     <div className="space-y-4" data-testid="admin-catalog-categories">
@@ -69,6 +124,20 @@ const CategoriesTab = () => {
                   className="baked-btn bg-primary text-primary-foreground"><PlusCircle size={14} className="mr-1" /> New</Button>
         </div>
       </div>
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(29,155,240,.08)", border: "1px solid rgba(29,155,240,.3)" }}
+             data-testid="categories-bulk-bar">
+          <span className="text-xs font-medium">{selected.size} selected</span>
+          <Button onClick={bulkDelete} disabled={bulkBusy}
+                  data-testid="categories-bulk-delete"
+                  className="baked-btn bg-red-500 text-white text-xs">
+            Delete Selected
+          </Button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+            Clear
+          </button>
+        </div>
+      )}
       {editing && (
         <div className="baked-card bg-card border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -103,6 +172,10 @@ const CategoriesTab = () => {
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground">
             <tr>
+              <th className="p-3 w-8">
+                <input type="checkbox" checked={items.length > 0 && selected.size === items.length}
+                       onChange={toggleAll} data-testid="cat-select-all" />
+              </th>
               <th className="text-left p-3">Slug</th>
               <th className="text-left p-3">Name</th>
               <th className="text-left p-3">Country</th>
@@ -111,9 +184,14 @@ const CategoriesTab = () => {
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No categories yet.</td></tr>
+            {items.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No categories yet.</td></tr>
               : items.map(c => (
                 <tr key={c.id} className="border-t border-border" data-testid={`cat-row-${c.slug}`}>
+                  <td className="p-3">
+                    <input type="checkbox" checked={selected.has(c.id)}
+                           onChange={() => toggleOne(c.id)}
+                           data-testid={`cat-select-${c.slug}`} />
+                  </td>
                   <td className="p-3 font-mono text-xs">{c.slug}</td>
                   <td className="p-3">{c.name_en || c.name}<div className="text-[10px] text-muted-foreground">{c.name_fr}</div></td>
                   <td className="p-3 text-xs">{c.country}</td>
@@ -139,10 +217,13 @@ const SubcategoriesTab = () => {
   const [country, setCountry] = useState("CI");
   const [categoryId, setCategoryId] = useState("");
   const [editing, setEditing] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const loadCats = async () => setCats((await adminApi.get(`/admin/mart/categories?country=${country}`)).data);
   const load = async () => {
     const url = `/admin/mart/subcategories?country=${country}${categoryId ? `&category_id=${categoryId}` : ""}`;
     setItems((await adminApi.get(url)).data);
+    setSelected(new Set());
   };
   useEffect(() => { loadCats(); }, [country]);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [country, categoryId]);
@@ -152,10 +233,16 @@ const SubcategoriesTab = () => {
     if (!editing.slug || !editing.category_id || !editing.name_en) return toast.error("Slug, category, name required");
     try {
       if (editing.id) {
-        const { id, slug, country: _c, category_id, ...rest } = editing;
-        await adminApi.patch(`/admin/mart/subcategories/${id}`, rest);
+        // Fixing_Prompt v8 — send only editable fields on PATCH
+        await adminApi.patch(`/admin/mart/subcategories/${editing.id}`,
+                             pickEditable(editing, SUBCATEGORY_EDITABLE));
       } else {
-        await adminApi.post("/admin/mart/subcategories", { ...editing, country });
+        const body = {
+          slug: editing.slug.trim(), category_id: editing.category_id, country,
+          module: editing.module || "mart",
+          ...pickEditable(editing, SUBCATEGORY_EDITABLE),
+        };
+        await adminApi.post("/admin/mart/subcategories", body);
       }
       toast.success("Saved"); setEditing(null); load();
     } catch (e) { toast.error(errMsg(e)); }
@@ -163,6 +250,34 @@ const SubcategoriesTab = () => {
   const del = async (id) => {
     if (!window.confirm("Delete this subcategory?")) return;
     await adminApi.delete(`/admin/mart/subcategories/${id}`); toast.success("Deleted"); load();
+  };
+  const toggleOne = (id) => {
+    const n = new Set(selected);
+    n.has(id) ? n.delete(id) : n.add(id);
+    setSelected(n);
+  };
+  const toggleAll = () => {
+    if (selected.size === items.length) setSelected(new Set());
+    else setSelected(new Set(items.map(x => x.id)));
+  };
+  const bulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!window.confirm(
+      `Delete selected subcategories?\n\nYou are about to delete ${ids.length} subcategor${ids.length === 1 ? "y" : "ies"}. ` +
+      "This action may affect associated products, attribute assignments and supplier product requests."
+    )) return;
+    setBulkBusy(true);
+    try {
+      const { data } = await adminApi.post("/admin/mart/subcategories/bulk-delete", { ids });
+      const done = (data.deleted || []).length;
+      const blocked = (data.blocked || []).length;
+      toast.success(`Deleted ${done}${blocked ? ` · ${blocked} blocked by dependents` : ""}`);
+      // eslint-disable-next-line no-console
+      if (blocked) console.warn("Blocked deletions:", data.blocked);
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setBulkBusy(false); }
   };
 
   return (
@@ -182,6 +297,16 @@ const SubcategoriesTab = () => {
                   className="baked-btn bg-primary text-primary-foreground" data-testid="subcat-add"><PlusCircle size={14} className="mr-1" /> New</Button>
         </div>
       </div>
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(29,155,240,.08)", border: "1px solid rgba(29,155,240,.3)" }}
+             data-testid="subcategories-bulk-bar">
+          <span className="text-xs font-medium">{selected.size} selected</span>
+          <Button onClick={bulkDelete} disabled={bulkBusy}
+                  data-testid="subcategories-bulk-delete"
+                  className="baked-btn bg-red-500 text-white text-xs">Delete Selected</Button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
+        </div>
+      )}
       {editing && (
         <div className="baked-card bg-card border border-border p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -208,12 +333,22 @@ const SubcategoriesTab = () => {
       <div className="baked-card bg-card border border-border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground">
-            <tr><th className="text-left p-3">Slug</th><th className="text-left p-3">Name</th><th className="text-left p-3">Category</th><th className="p-3"></th></tr>
+            <tr>
+              <th className="p-3 w-8">
+                <input type="checkbox" checked={items.length > 0 && selected.size === items.length}
+                       onChange={toggleAll} data-testid="subcat-select-all" />
+              </th>
+              <th className="text-left p-3">Slug</th><th className="text-left p-3">Name</th><th className="text-left p-3">Category</th><th className="p-3"></th>
+            </tr>
           </thead>
           <tbody>
-            {items.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No subcategories.</td></tr>
+            {items.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No subcategories.</td></tr>
               : items.map(s => (
-                <tr key={s.id} className="border-t border-border">
+                <tr key={s.id} className="border-t border-border" data-testid={`subcat-row-${s.slug}`}>
+                  <td className="p-3">
+                    <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleOne(s.id)}
+                           data-testid={`subcat-select-${s.slug}`} />
+                  </td>
                   <td className="p-3 font-mono text-xs">{s.slug}</td>
                   <td className="p-3">{s.name_en || s.name}</td>
                   <td className="p-3 text-xs">{catName(s.category_id)}</td>

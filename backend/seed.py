@@ -935,6 +935,19 @@ async def run_seed():
         # Homepage CMS default stack (CI + IN) — insert-only, admin edits preserved.
         from modules.homepage.seed import seed_homepage
         await seed_homepage(session)
+        # SHOPbakēd catalogue (Slice 2) — 19 categories × subcategory tree per country.
+        from modules.shop.seed import seed_shop_catalogue
+        await seed_shop_catalogue(session)
+        # SHOPbakēd attributes (Slice 3) — 6 attrs + subcategory-scoped inheritance.
+        from modules.shop.attributes_seed import seed_shop_attributes
+        await seed_shop_attributes(session)
+        # SHOPbakēd homepage (Slice 7) — module-scoped rails for /shopbaked.
+        from modules.shop.homepage_seed import seed_shop_homepage
+        await seed_shop_homepage(session)
+        # SHOPbakēd demo products — one placeholder per subcategory so
+        # /shop and /shop/c/{slug} render populated tiles out-of-the-box.
+        from modules.shop.demo_products_seed import seed_shop_demo_products
+        await seed_shop_demo_products(session)
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars

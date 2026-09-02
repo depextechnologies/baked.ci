@@ -1,0 +1,35 @@
+{
+  "summary": "Full end-to-end frontend testing of the guest-cart + login-at-checkout flow for SHOPbaked / MARTbaked per Fixing_Prompt.docx. All 10 requested scenarios (TEST 1 through TEST 10) PASSED on both desktop (1920x1080) and mobile (390x844) viewports. Guest can browse, add, view, mutate quantities, and remove items on both /shopbaked cards, /shopbaked PDP, and /cart page without any auth prompt. Login is only triggered on the CartPage's 'Login to Proceed' button, which stashes sessionStorage.baked_post_login=/checkout, opens the shared phone-OTP/Google/Email dialog, and preserves localStorage.baked_guest_cart on cancel. On successful login the guest cart is merged into the server cart via /api/shop/cart/items (upsert on duplicate variant confirmed by TEST 6 — item A qty preserved + item B added), guest cart drained to {items:[]}, and the customer lands on /checkout with a populated order summary. Authenticated regression (TEST 9): + button on ShopHome card correctly hits POST /api/shop/cart/items (server cart, no localStorage write), and /cart 'Checkout' button navigates straight to /checkout with no login modal.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BakedContexts.jsx line 274 sets `product_id: it.variant_id` for the guest SHOP row (used as the outward product_id when hydrating) — this looks intentional (so cart page can dedupe against variant_id) but is confusing given the guest row structure also carries product_id at the top level. Consider renaming to `sku_id` or documenting the shadowing.",
+    "BakedContexts.jsx mergeGuestIntoServer swallows individual line failures silently (`catch (e) { void e; }`). Fine per Fixing_Prompt §11 (server revalidates), but at minimum log a warning so support can trace lost lines during login-merge.",
+    "CartPage.jsx line 165 — the checkout button is disabled ONLY when customer && (!minOrderOk || hasUnavailable). For guests the button is always enabled which is correct (need to open login), but consider disabling if items.length===0. Currently empty-cart branch renders a different UI so it's ok, just noting."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only run)", "frontend": "100% (10/10 scenarios)"},
+  "test_credentials": "Phone OTP: +91 9990001234 (dev_code echoed via /api/auth/otp/request dev_code field). Same account used for TEST5, TEST6, TEST9. baked_post_login sessionStorage redirect verified end-to-end.",
+  "seed_data_creation": "None. Used seeded demo SHOP products shpprd_demo_pieces-accessoires-moto, shpprd_demo_outils-entretien, shpprd_demo_pieces-voiture.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Guest cart uses localStorage key `baked_guest_cart` with items shape { id: 'gs_<variantId>', module: 'shop', variant_id, product_id, quantity, snapshot: {title,image,price,compare_at_price,currency,sku,variant_attributes,product_id} }. Auth uses PhoneLoginDialog testids auth-phone-input, auth-country-code-select (native <select>, use select_option), auth-send-code-btn, auth-otp-input-0..5, auth-verify-code-btn. dev OTP returned as `dev_code` in /api/auth/otp/request JSON. Desktop top nav has auth-open-login-btn; mobile uses the profile tab or 'Login to Proceed' on MobileCart sticky CTA (text-based, not testid). SHOP PDP add-to-cart testid = shopbaked-pdp-add-to-cart. SHOP card add testid = shopbaked-card-add-<productId>. CartPage checkout testid = cart-checkout-btn; label switches: 'Login to Proceed' (guest) / 'Checkout' (authed).",
+  "test_results": {
+    "TEST1_guest_add_shop_card": "PASS — no login modal, no 'Please sign in' toast, guest_cart persists item with full snapshot, sonner success toast shows.",
+    "TEST2_multi_add_view_cart": "PASS — 3 rows render with correct titles/prices, cart badge shows 3.",
+    "TEST3_guest_qty_stepper": "PASS — + increments (localStorage updates to qty:2), - decrements, second - at qty=1 removes the row.",
+    "TEST4_login_to_proceed_click": "PASS — modal opens, sessionStorage.baked_post_login==='/checkout', localStorage.baked_guest_cart unchanged.",
+    "TEST5_full_guest_to_checkout": "PASS — after OTP verify, redirected to /checkout, guest_cart drained to {items:[]}, order summary shows 'Premium Motorcycle Parts & Ac...' 1x 9,900 CFA.",
+    "TEST6_cart_merge_across_logins": "PASS — item A survived from prior server cart, item B (Everyday Tools) added as guest then merged on login. Both present in server cart after login. guest_cart drained.",
+    "TEST7_cancel_login": "PASS — Esc closes modal, remains on /cart, 2 rows still present.",
+    "TEST8_mobile_390x844": "PASS — mobile shop card add-to-cart triggers no modal, guest cart persists, MobileCart shows 'Login to Proceed' sticky CTA, clicking it opens login modal + sets baked_post_login=/checkout.",
+    "TEST9_authenticated_regression": "PASS — POST /api/shop/cart/items called (server cart write, 0 localStorage entries), CartPage button reads 'Checkout' when authed, clicking it navigates to /checkout with no modal opened.",
+    "TEST10_pdp_guest_add": "PASS — /shop/p/<productId> 'Add to cart' button (data-testid shopbaked-pdp-add-to-cart) adds guest item with SKU-suffixed snapshot (title '… — Option A', sku 'DEMO-PIECES-ACCES-1'), no login prompt."
+  }
+}

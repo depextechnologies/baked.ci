@@ -200,7 +200,7 @@ export const PortalProductRequests = () => {
 /* -------------------------------------------------------------------------- */
 
 const emptyForm = {
-  proposed_name: "", proposed_category_id: "",
+  proposed_name: "", proposed_category_id: "", proposed_subcategory_id: "",
   proposed_ean_upc: "", proposed_manufacturer: "",
   proposed_pack_size: "", proposed_net_qty: "",
   proposed_short_description: "",
@@ -215,6 +215,7 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
     return {
       proposed_name: initial.proposed_name || "",
       proposed_category_id: initial.proposed_category_id || "",
+      proposed_subcategory_id: initial.proposed_subcategory_id || "",
       proposed_ean_upc: initial.proposed_ean_upc || "",
       proposed_manufacturer: initial.proposed_manufacturer || "",
       proposed_pack_size: initial.proposed_pack_size || "",
@@ -230,9 +231,81 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
   const [busy, setBusy] = useState(false);
   const [imgUploading, setImgUploading] = useState(false);
 
+  // Fixing_Prompt v6 · Slice 2 — dynamic attribute state
+  const [subcategories, setSubcategories] = useState([]);
+  const [attributes, setAttributes] = useState([]);   // resolved list
+  const [attrLoading, setAttrLoading] = useState(false);
+  const [attrValues, setAttrValues] = useState(() => {
+    // Pre-fill from initial.attributes on revise
+    const seed = {};
+    for (const [k, v] of Object.entries(initial?.attributes || {})) {
+      seed[k] = v?.v ?? v;
+    }
+    return seed;
+  });
+  const [attrErrors, setAttrErrors] = useState({});
+
+  // When the category changes, load subcategories.
+  useEffect(() => {
+    if (!f.proposed_category_id) { setSubcategories([]); return; }
+    const cat = categories.find(c => c.id === f.proposed_category_id);
+    if (!cat) return;
+    (async () => {
+      try {
+        const { data } = await portalApi.get(
+          `/supplier/me/subcategories?category=${cat.slug}`
+        );
+        setSubcategories(Array.isArray(data) ? data : (data.items || []));
+      } catch { setSubcategories([]); }
+    })();
+  }, [f.proposed_category_id, categories]);
+
+  // When category / subcategory changes, refetch resolved attributes.
+  useEffect(() => {
+    if (!f.proposed_category_id) { setAttributes([]); return; }
+    let mounted = true;
+    (async () => {
+      setAttrLoading(true);
+      try {
+        const p = new URLSearchParams();
+        if (f.proposed_subcategory_id) p.set("subcategory_id", f.proposed_subcategory_id);
+        const { data } = await portalApi.get(
+          `/mart/categories/${f.proposed_category_id}/attributes?${p.toString()}`
+        );
+        if (mounted) {
+          // Filter to supplier-editable attributes.
+          const editable = (data.attributes || []).filter(a => a.supplier_editable);
+          setAttributes(editable);
+        }
+      } catch { if (mounted) setAttributes([]); }
+      finally { if (mounted) setAttrLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, [f.proposed_category_id, f.proposed_subcategory_id]);
+
+  const setAttrValue = (key, value) => {
+    setAttrValues(v => ({ ...v, [key]: value }));
+    setAttrErrors(e => ({ ...e, [key]: null }));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (!f.proposed_name.trim() || f.proposed_name.trim().length < 2) return toast.error("Product name is required");
+
+    // Client-side required check — server also enforces, but this saves a round-trip.
+    const clientErrs = {};
+    for (const a of attributes) {
+      if (!a.is_required) continue;
+      const v = attrValues[a.key];
+      const empty = v === undefined || v === null || v === ""
+        || (Array.isArray(v) && v.length === 0);
+      if (empty) clientErrs[a.key] = `${a.name} is required`;
+    }
+    if (Object.keys(clientErrs).length) {
+      setAttrErrors(clientErrs);
+      return toast.error("Please fill all required category fields");
+    }
+
     setBusy(true);
     try {
       const payload = {};
@@ -242,6 +315,16 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
         else if (["proposed_moq", "proposed_lead_time_days"].includes(k)) payload[k] = parseInt(v, 10);
         else payload[k] = v;
       });
+      // Ship only attributes that have a value
+      const attrs = {};
+      for (const a of attributes) {
+        const val = attrValues[a.key];
+        if (val === undefined || val === null || val === "" ||
+            (Array.isArray(val) && val.length === 0)) continue;
+        attrs[a.key] = val;
+      }
+      if (Object.keys(attrs).length) payload.attributes = attrs;
+
       if (isRevising) {
         await portalApi.patch(`/supplier/me/product-requests/${initial.id}`, payload);
         toast.success("Request resubmitted");
@@ -250,7 +333,18 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
         toast.success("Product request submitted");
       }
       onSaved();
-    } catch (e) { toast.error(errMsg(e)); }
+    } catch (e) {
+      // Surface server-side attribute errors under each field.
+      const errs = e?.response?.data?.detail?.errors;
+      if (Array.isArray(errs)) {
+        const map = {};
+        for (const er of errs) map[er.field] = er.message;
+        setAttrErrors(map);
+        toast.error("Category fields need attention");
+      } else {
+        toast.error(errMsg(e));
+      }
+    }
     finally { setBusy(false); }
   };
 
@@ -295,7 +389,8 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
         <FormField label="Product name *"><input required value={f.proposed_name} onChange={(e) => setF({ ...f, proposed_name: e.target.value })} className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid="prod-req-name" /></FormField>
         <FormField label="Category">
           <div className="flex items-center gap-2">
-            <select value={f.proposed_category_id} onChange={(e) => setF({ ...f, proposed_category_id: e.target.value })}
+            <select value={f.proposed_category_id}
+              onChange={(e) => setF({ ...f, proposed_category_id: e.target.value, proposed_subcategory_id: "" })}
               className="flex-1 px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid="prod-req-category">
               <option value="">Select category…</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -315,6 +410,17 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
             Can&apos;t find a good match? Tap <em>New</em> to request one.
           </div>
         </FormField>
+        {subcategories.length > 0 && (
+          <FormField label="Subcategory">
+            <select value={f.proposed_subcategory_id}
+              onChange={(e) => setF({ ...f, proposed_subcategory_id: e.target.value })}
+              className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle}
+              data-testid="prod-req-subcategory">
+              <option value="">— parent scope —</option>
+              {subcategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
+            </select>
+          </FormField>
+        )}
         <FormField label="Manufacturer / brand"><input value={f.proposed_manufacturer} onChange={(e) => setF({ ...f, proposed_manufacturer: e.target.value })} className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid="prod-req-mfr" /></FormField>
         <FormField label="EAN / UPC"><input value={f.proposed_ean_upc} onChange={(e) => setF({ ...f, proposed_ean_upc: e.target.value })} className="w-full px-4 h-11 rounded-xl text-sm font-mono" style={inputStyle} data-testid="prod-req-ean" /></FormField>
         <FormField label="Pack size"><input value={f.proposed_pack_size} onChange={(e) => setF({ ...f, proposed_pack_size: e.target.value })} placeholder="12x500ml" className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid="prod-req-pack" /></FormField>
@@ -331,6 +437,16 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
           </div>
         </FormField>
       </div>
+
+      {/* Dynamic category attributes — required + optional fields specific to
+          the chosen category / subcategory. Rendered as typed inputs. */}
+      {f.proposed_category_id && (
+        <DynamicAttributesPanel
+          loading={attrLoading} attributes={attributes}
+          values={attrValues} onChange={setAttrValue}
+          errors={attrErrors} />
+      )}
+
       <FormField label="Short description">
         <textarea rows={2} value={f.proposed_short_description} onChange={(e) => setF({ ...f, proposed_short_description: e.target.value })}
           className="w-full px-4 py-3 rounded-xl text-sm" style={inputStyle} data-testid="prod-req-desc" />
@@ -346,6 +462,130 @@ const RequestForm = ({ categories, onCancel, onSaved, initial, onRequestCategory
         </button>
       </div>
     </form>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/*                        Dynamic Attribute Panel (Slice 2)                    */
+/* -------------------------------------------------------------------------- */
+
+const DynamicAttributesPanel = ({ loading, attributes, values, onChange, errors }) => {
+  if (loading) {
+    return (
+      <div className="pl-card p-4" style={{ background: "var(--pl-bg-elevated)" }} data-testid="prod-req-attrs-loading">
+        <div className="text-xs" style={{ color: "var(--pl-fg-muted)" }}>Loading category fields…</div>
+      </div>
+    );
+  }
+  if (!attributes.length) return null;
+  return (
+    <div className="pl-card p-4 space-y-4"
+         style={{ background: "var(--pl-bg-elevated)" }}
+         data-testid="prod-req-attrs-panel">
+      <div className="flex items-center gap-2">
+        <div className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "var(--pl-accent)" }}>
+          Category-specific fields
+        </div>
+        <div className="text-xs" style={{ color: "var(--pl-fg-muted)" }}>
+          ({attributes.length}) — required for this category
+        </div>
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        {attributes.map(a => (
+          <AttributeInput key={a.key} attr={a}
+            value={values[a.key]} onChange={(v) => onChange(a.key, v)}
+            error={errors[a.key]} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const AttributeInput = ({ attr, value, onChange, error }) => {
+  const label = (
+    <>
+      {attr.name}
+      {attr.unit && <span className="ml-1" style={{ color: "var(--pl-fg-muted)" }}>({attr.unit})</span>}
+      {attr.is_required && <span className="ml-1" style={{ color: "#FF4C52" }}>*</span>}
+    </>
+  );
+  const testid = `prod-req-attr-${attr.key}`;
+  let field;
+  switch (attr.type) {
+    case "long_text":
+      field = <textarea rows={2} value={value ?? ""} onChange={(e) => onChange(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl text-sm" style={inputStyle} data-testid={testid} />;
+      break;
+    case "integer":
+      field = <input type="number" step="1" value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                     className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid={testid} />;
+      break;
+    case "decimal":
+      field = <input type="number" step="0.01" value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+                     className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid={testid} />;
+      break;
+    case "boolean":
+      field = (
+        <select value={value === true ? "true" : value === false ? "false" : ""}
+                onChange={(e) => onChange(e.target.value === "" ? null : e.target.value === "true")}
+                className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid={testid}>
+          <option value="">—</option>
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      );
+      break;
+    case "date":
+      field = <input type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}
+                     className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid={testid} />;
+      break;
+    case "select":
+      field = (
+        <select value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}
+                className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid={testid}>
+          <option value="">Select…</option>
+          {(attr.options || []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      );
+      break;
+    case "multi_select": {
+      const arr = Array.isArray(value) ? value : [];
+      field = (
+        <div className="flex flex-wrap gap-2" data-testid={testid}>
+          {(attr.options || []).map(o => {
+            const on = arr.includes(o.value);
+            return (
+              <button type="button" key={o.value}
+                onClick={() => onChange(on ? arr.filter(x => x !== o.value) : [...arr, o.value])}
+                data-testid={`${testid}-opt-${o.value}`}
+                className="text-xs px-3 h-8 rounded-full"
+                style={{
+                  background: on ? "var(--pl-accent-soft)" : "transparent",
+                  color: on ? "var(--pl-accent)" : "var(--pl-fg-muted)",
+                  border: `1px solid ${on ? "var(--pl-accent)" : "var(--pl-border-strong)"}`,
+                }}>{o.label}</button>
+            );
+          })}
+        </div>
+      );
+      break;
+    }
+    case "short_text":
+    default:
+      field = <input value={value ?? ""} onChange={(e) => onChange(e.target.value)}
+                     className="w-full px-4 h-11 rounded-xl text-sm" style={inputStyle} data-testid={testid} />;
+  }
+  return (
+    <div>
+      <label className="text-xs uppercase tracking-widest" style={{ color: "var(--pl-fg-muted)" }}>{label}</label>
+      <div className="mt-2">{field}</div>
+      {attr.description && !error && (
+        <div className="text-[11px] mt-1" style={{ color: "var(--pl-fg-muted)" }}>{attr.description}</div>
+      )}
+      {error && (
+        <div className="text-[11px] mt-1" style={{ color: "#FF4C52" }} data-testid={`${testid}-error`}>{error}</div>
+      )}
+    </div>
   );
 };
 

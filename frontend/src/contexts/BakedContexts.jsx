@@ -226,7 +226,18 @@ export const useApp = () => useContext(AppCtx);
 
 
 // ------- CartProvider -------
-// Guest cart lives in localStorage. On login → hydrated from server. Modifications post to server if authed.
+// Guest cart lives in localStorage. On login → guest items are auto-merged
+// into the server cart, then hydrated from server. Modifications post to
+// server if authed, otherwise mutate the localStorage guest cart in place.
+//
+// Guest item shape:
+//   MART:  { id: "g_<pid>",  product_id, quantity, module: "mart" }
+//   SHOP:  { id: "gs_<vid>", variant_id, product_id, quantity, module: "shop",
+//            snapshot: { title, image, price, compare_at_price, currency,
+//                        variant_attributes, sku } }
+// MART entries fetch the product on hydrate (light payload). SHOP entries
+// snapshot product/variant info at add-time so hydrate is offline-friendly —
+// the backend re-validates authoritatively at checkout (Fixing_Prompt §25).
 const GUEST_KEY = "baked_guest_cart";
 
 const readGuest = () => { try { return JSON.parse(localStorage.getItem(GUEST_KEY)) || { items: [] }; } catch { return { items: [] }; } };
@@ -236,43 +247,130 @@ export const CartProvider = ({ children }) => {
   const { customer } = useAuth() || {};
   const [cart, setCart] = useState({ items: [], subtotal: 0, item_count: 0 });
   const [loaded, setLoaded] = useState(false);
+  // Track auth transitions so we only run merge exactly once per login.
+  const prevCustomerId = useRef(null);
 
   const hydrateGuest = useCallback(async () => {
     const g = readGuest();
     if (!g.items?.length) { setCart({ items: [], subtotal: 0, item_count: 0 }); return; }
-    // Fetch product info for each id
     const items = [];
-    let subtotal = 0;
+    let martSubtotal = 0;
+    let shopSubtotal = 0;
+    for (const it of g.items) {
+      if (it.module === "shop") {
+        // Guest SHOP row — render from the snapshot captured at add-time so
+        // we don't pay 1 network round-trip per item on every page load.
+        const s = it.snapshot || {};
+        const price = Number(s.price) || 0;
+        const line = price * it.quantity;
+        shopSubtotal += line;
+        items.push({
+          id: it.id, module: "shop", quantity: it.quantity,
+          line_total: line, currency: s.currency || "XOF",
+          variant: { id: it.variant_id, price, currency: s.currency || "XOF",
+                     sku: s.sku, attributes: s.variant_attributes || {},
+                     images: s.image ? [s.image] : [] },
+          product: { id: it.product_id, title: s.title, images: s.image ? [s.image] : [] },
+          product_id: it.variant_id, sku: s.sku, title: s.title,
+          images: s.image ? [s.image] : [], unit_price: price,
+        });
+      } else {
+        // Guest MART row — fetch product info from the storefront.
+        try {
+          const { data: p } = await api.get(`/mart/products/${it.product_id}`);
+          const line = (Number(p.price) || 0) * it.quantity;
+          martSubtotal += line;
+          items.push({ ...it, product: p, line_total: line, module: "mart" });
+        } catch (e) { void e; }
+      }
+    }
+    const item_count = items.reduce((s, i) => s + i.quantity, 0);
+    setCart({
+      items, subtotal: martSubtotal + shopSubtotal, item_count,
+      mart: { subtotal: martSubtotal, item_count: items.filter((i) => i.module !== "shop").reduce((s, i) => s + i.quantity, 0) },
+      shop: { subtotal: shopSubtotal, item_count: items.filter((i) => i.module === "shop").reduce((s, i) => s + i.quantity, 0) },
+    });
+  }, []);
+
+  // Replay every guest item into the server cart via the standard add
+  // endpoints (which upsert on duplicates → natural quantity merging), then
+  // clear the guest cart. Called exactly once on the null→customer edge.
+  const mergeGuestIntoServer = useCallback(async () => {
+    const g = readGuest();
+    if (!g.items?.length) return;
     for (const it of g.items) {
       try {
-        const { data: p } = await api.get(`/mart/products/${it.product_id}`);
-        const line = p.price * it.quantity;
-        subtotal += line;
-        items.push({ ...it, product: p, line_total: line });
-      } catch (e) { void e; }
+        if (it.module === "shop") {
+          await api.post("/shop/cart/items", { variant_id: it.variant_id, quantity: it.quantity });
+        } else {
+          await api.post("/carts/me/items", { product_id: it.product_id, quantity: it.quantity, module: "mart" });
+        }
+      } catch (e) {
+        // Server revalidates authoritatively at checkout so a single failed
+        // line here doesn't break the flow, but surface a warning so support
+        // can trace lost lines from the login-merge (Fixing_Prompt §11).
+        console.warn("[cart.merge] guest item skipped", { item: it, error: e?.message });
+      }
     }
-    setCart({ items, subtotal, item_count: items.reduce((s, i) => s + i.quantity, 0) });
+    writeGuest({ items: [] });
   }, []);
 
   const load = useCallback(async () => {
     if (customer) {
+      // First time we see a customer after being logged-out → drain any
+      // pending guest cart into the server cart before hydrating so the
+      // customer's basket returns intact after login (Fixing_Prompt §11).
+      const cid = customer.id;
+      if (prevCustomerId.current !== cid) {
+        await mergeGuestIntoServer();
+        prevCustomerId.current = cid;
+      }
       try {
-        const { data } = await api.get("/carts/me");
-        setCart(data);
+        // Unified cart — merge MART (from /carts/me) + SHOP (from /shop/cart/me)
+        // into a single shape so the UI can render one list with per-item
+        // `module` tags. Backend keeps them in separate tables so fulfilment
+        // logic (MART darkstore vs SHOP seller shipping) stays isolated.
+        const [mart, shop] = await Promise.all([
+          api.get("/carts/me").then((r) => r.data).catch(() => ({ items: [], subtotal: 0, item_count: 0 })),
+          api.get("/shop/cart/me").then((r) => r.data).catch(() => ({ items: [], subtotal: 0, item_count: 0 })),
+        ]);
+        const martItems = (mart.items || []).map((i) => ({ ...i, module: i.module || "mart" }));
+        const shopItems = (shop.items || []).map((i) => ({
+          id: i.id, module: "shop", quantity: i.quantity,
+          line_total: i.line_total, currency: i.variant?.currency,
+          variant: i.variant, product: i.product,
+          // Give the row a "product-like" facade the existing UI can render.
+          product_id: i.variant?.id, sku: i.variant?.sku,
+          title: i.product?.title, images: i.product?.images || i.variant?.images || [],
+          unit_price: i.variant?.price,
+        }));
+        setCart({
+          items: [...martItems, ...shopItems],
+          subtotal: (mart.subtotal || 0) + (shop.subtotal || 0),
+          item_count: (mart.item_count || 0) + (shop.item_count || 0),
+          mart: { subtotal: mart.subtotal || 0, item_count: mart.item_count || 0 },
+          shop: { subtotal: shop.subtotal || 0, item_count: shop.item_count || 0 },
+        });
       } catch (e) { void e; }
     } else {
+      prevCustomerId.current = null;
       await hydrateGuest();
     }
     setLoaded(true);
-  }, [customer, hydrateGuest]);
+  }, [customer, hydrateGuest, mergeGuestIntoServer]);
 
   useEffect(() => { setLoaded(false); load(); }, [load]);
 
   const addItem = useCallback(async (product, quantity = 1) => {
     if (customer) {
-      const { data } = await api.post("/carts/me/items", { product_id: product.id, quantity, module: "mart" });
-      setCart(data);
-      return data;
+      // Post to MART cart endpoint, then reload the UNIFIED (MART + SHOP)
+      // cart so previously-added SHOP items aren't wiped from local state.
+      // (Regression fix — Fixing_Prompt v3 §4.2: the previous
+      // `setCart(data)` here replaced the merged state with a MART-only
+      // response, silently dropping SHOP lines.)
+      await api.post("/carts/me/items", { product_id: product.id, quantity, module: "mart" });
+      await load();
+      return;
     }
     const g = readGuest();
     const found = g.items.find((i) => i.product_id === product.id);
@@ -280,44 +378,85 @@ export const CartProvider = ({ children }) => {
     else g.items.push({ id: `g_${product.id}`, product_id: product.id, quantity, module: "mart" });
     writeGuest(g);
     await hydrateGuest();
-  }, [customer, hydrateGuest]);
+  }, [customer, hydrateGuest, load]);
 
   const updateItem = useCallback(async (itemId, quantity) => {
     if (customer) {
-      const { data } = await api.patch(`/carts/me/items/${itemId}`, { quantity });
-      setCart(data);
-      return data;
+      const it = cart.items.find((i) => i.id === itemId);
+      if (it?.module === "shop") {
+        await api.patch(`/shop/cart/items/${itemId}`, { quantity });
+      } else {
+        await api.patch(`/carts/me/items/${itemId}`, { quantity });
+      }
+      await load();
+      return;
     }
     const g = readGuest();
     const it = g.items.find((i) => i.id === itemId);
     if (it) it.quantity = quantity;
     writeGuest(g);
     await hydrateGuest();
-  }, [customer, hydrateGuest]);
+  }, [customer, cart.items, hydrateGuest, load]);
 
   const removeItem = useCallback(async (itemId) => {
     if (customer) {
-      const { data } = await api.delete(`/carts/me/items/${itemId}`);
-      setCart(data);
-      return data;
+      const it = cart.items.find((i) => i.id === itemId);
+      if (it?.module === "shop") {
+        await api.delete(`/shop/cart/items/${itemId}`);
+      } else {
+        await api.delete(`/carts/me/items/${itemId}`);
+      }
+      await load();
+      return;
     }
     const g = readGuest();
     g.items = g.items.filter((i) => i.id !== itemId);
     writeGuest(g);
     await hydrateGuest();
-  }, [customer, hydrateGuest]);
+  }, [customer, cart.items, hydrateGuest, load]);
+
+  // Slice 6 helper — used by SHOP product cards + PDP. Adds a variant to the
+  // shared cart via /api/shop/cart/items when authed, or to the localStorage
+  // guest cart when not. Callers pass a `snapshot` object so the guest cart
+  // can render the line offline (Fixing_Prompt §3, §13).
+  const addShopVariant = useCallback(async (variantId, quantity = 1, snapshot = null) => {
+    if (customer) {
+      await api.post("/shop/cart/items", { variant_id: variantId, quantity });
+      await load();
+      return;
+    }
+    // Guest path — merge into localStorage. `snapshot` is optional but
+    // strongly recommended so the cart drawer/page renders a proper line.
+    const g = readGuest();
+    const id = `gs_${variantId}`;
+    const found = g.items.find((i) => i.id === id);
+    if (found) {
+      found.quantity = Math.min(99, found.quantity + quantity);
+      if (snapshot) found.snapshot = { ...(found.snapshot || {}), ...snapshot };
+    } else {
+      g.items.push({
+        id, module: "shop", variant_id: variantId,
+        product_id: snapshot?.product_id, quantity,
+        snapshot: snapshot || {},
+      });
+    }
+    writeGuest(g);
+    await hydrateGuest();
+  }, [customer, hydrateGuest, load]);
 
   const clear = useCallback(async () => {
     if (customer) {
-      const { data } = await api.delete("/carts/me");
-      setCart(data);
-      return data;
+      // MART clear endpoint only. SHOP items are cleared server-side when
+      // /shop/checkout succeeds; if any remain they'll re-appear on reload.
+      await api.delete("/carts/me").catch(() => null);
+      await load();
+      return;
     }
     writeGuest({ items: [] });
     setCart({ items: [], subtotal: 0, item_count: 0 });
-  }, [customer]);
+  }, [customer, load]);
 
-  const value = useMemo(() => ({ cart, loaded, addItem, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, updateItem, removeItem, clear, load]);
+  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);

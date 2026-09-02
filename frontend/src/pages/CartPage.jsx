@@ -11,19 +11,36 @@ import { toast } from "sonner";
 export const CartPage = () => {
   const { country } = useApp();
   const { cart, updateItem, removeItem, clear } = useCart();
-  const { customer } = useAuth();
+  const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
   const items = cart.items || [];
-  const subtotal = cart.subtotal || 0;
   const unavailable = cart.unavailable_items || [];
   const hasUnavailable = unavailable.length > 0;
-  const elig = checkOrderEligibility(subtotal, country);
-  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
+  // Split by module: min-order + delivery fee are MART-only concerns.
+  // SHOP items ship from sellers and don't count toward the MART min-order.
+  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
+  const martCount = cart.mart?.item_count ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + i.quantity, 0);
+  const shopCount = cart.shop?.item_count ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + i.quantity, 0);
+  const hasMart = martCount > 0;
+  const hasShop = shopCount > 0;
+  const elig = checkOrderEligibility(martSubtotal, country);
+  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
+  // If cart is SHOP-only we skip the MART min-order gate (SHOP has no min).
+  const minOrderOk = hasMart ? martEligible : true;
+  const total = (hasMart ? elig.total : 0) + shopSubtotal;
+  const subtotal = martSubtotal + shopSubtotal;
 
   const doCheckout = () => {
-    if (!customer) { toast("Please login to continue"); return; }
+    // Guests can review the cart freely — login is required only at the
+    // checkout step (Fixing_Prompt §7). `openLogin('/checkout')` stashes the
+    // return path in sessionStorage so the customer lands on /checkout with
+    // their (now merged) cart intact.
+    if (!customer) { openLogin?.("/checkout"); return; }
     if (hasUnavailable) { toast.error("Remove items marked 'Coming soon' before checking out"); return; }
     if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
+    // Always route to the global /checkout — it now handles mixed and
+    // SHOP-only carts internally (per Fixing_Prompt.docx §2).
     navigate("/checkout");
   };
 
@@ -48,19 +65,51 @@ export const CartPage = () => {
         <h1 className="text-3xl font-bold mb-6">Your Cart <span className="text-muted-foreground text-lg font-normal">({cart.item_count} items)</span></h1>
         <div className="baked-card bg-card border border-border divide-y divide-border">
           {items.map((it) => {
-            const stockedLocal = it.product.is_stocked_locally !== false;
-            const masterPrice = it.product.master_price;
-            const showStrikethrough = masterPrice && Number(masterPrice) > Number(it.product.price);
+            const isShop = it.module === "shop";
+            const productLike = isShop
+              ? {
+                  name: it.title || it.product?.title,
+                  image: it.images?.[0] || "",
+                  unit: it.variant?.sku || "",
+                  brand: "SHOPbakēd seller",
+                  price: it.unit_price ?? it.variant?.price ?? 0,
+                  currency: it.currency || it.variant?.currency,
+                  currency_symbol: it.currency || "XOF",
+                  is_stocked_locally: true,
+                  master_price: null,
+                }
+              : it.product;
+            const stockedLocal = productLike?.is_stocked_locally !== false;
+            const masterPrice = productLike?.master_price;
+            const showStrikethrough = masterPrice && Number(masterPrice) > Number(productLike?.price);
             return (
             <div key={it.id} data-testid={CART.itemRow(it.id)} className="p-4 flex items-center gap-4" style={{ opacity: stockedLocal ? 1 : 0.65 }}>
-              <img src={it.product.image} alt={it.product.name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
+              <img src={productLike?.image} alt={productLike?.name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate">{it.product.name}</div>
-                <div className="text-[11px] text-muted-foreground">{it.product.unit} · {it.product.brand}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-semibold truncate">{productLike?.name}</div>
+                  <span
+                    className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded"
+                    style={{
+                      background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
+                      color: isShop ? "#F59E0B" : "#77BC1F",
+                      border: `1px solid ${isShop ? "rgba(251,191,36,.3)" : "rgba(119,188,31,.3)"}`,
+                    }}
+                    data-testid={`cart-module-badge-${it.id}`}
+                  >
+                    {isShop ? "SHOP" : "MART"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">{productLike?.unit} · {productLike?.brand}</div>
+                {isShop && it.variant?.attributes && Object.keys(it.variant.attributes).length > 0 && (
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {Object.entries(it.variant.attributes).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="text-sm font-bold">{formatMoney(it.product.price, it.product.currency, it.product.currency_symbol)}</div>
+                  <div className="text-sm font-bold">{formatMoney(productLike?.price, productLike?.currency, productLike?.currency_symbol)}</div>
                   {showStrikethrough && (
-                    <div className="text-[11px] text-muted-foreground line-through">{formatMoney(masterPrice, it.product.currency, it.product.currency_symbol)}</div>
+                    <div className="text-[11px] text-muted-foreground line-through">{formatMoney(masterPrice, productLike?.currency, productLike?.currency_symbol)}</div>
                   )}
                 </div>
                 {!stockedLocal && (
@@ -74,7 +123,7 @@ export const CartPage = () => {
                 <span className="text-xs font-bold text-[#0a1200] min-w-[20px] text-center">{it.quantity}</span>
                 <button onClick={() => updateItem(it.id, it.quantity + 1)} className="px-2 py-1.5 text-[#0a1200] hover:bg-black/10"><Plus size={14} /></button>
               </div>
-              <div className="text-sm font-bold min-w-[80px] text-right">{formatMoney(it.line_total, it.product.currency, it.product.currency_symbol)}</div>
+              <div className="text-sm font-bold min-w-[80px] text-right">{formatMoney(it.line_total, productLike?.currency, productLike?.currency_symbol)}</div>
               <button onClick={() => removeItem(it.id)} className="text-muted-foreground hover:text-red-500 motion-fast"><Trash2 size={16} /></button>
             </div>
             );
@@ -87,8 +136,19 @@ export const CartPage = () => {
         <div className="baked-card bg-card border border-border p-5 sticky top-24">
           <div className="text-sm font-semibold mb-4">Order Summary</div>
           <div className="grid gap-2 text-sm">
+            {hasMart && (
+              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-mart-subtotal">MART subtotal <span className="text-[10px] text-muted-foreground">({martCount} items)</span></span><span className="font-medium">{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
+            )}
+            {hasShop && (
+              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-shop-subtotal">SHOP subtotal <span className="text-[10px] text-muted-foreground">({shopCount} items)</span></span><span className="font-medium">{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground" data-testid={CART.subtotal}>Subtotal</span><span className="font-medium">{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span className="font-medium">{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+            {hasMart && (
+              <div className="flex justify-between"><span className="text-muted-foreground">Delivery (MART)</span><span className="font-medium">{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+            )}
+            {hasShop && (
+              <div className="flex justify-between"><span className="text-muted-foreground">Shipping (SHOP)</span><span className="text-[11px] text-muted-foreground">Calculated by seller</span></div>
+            )}
             <div className="h-px bg-border my-2" />
             <div className="flex justify-between text-base"><span className="font-semibold">Total</span><span className="font-bold">{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           </div>
@@ -102,8 +162,8 @@ export const CartPage = () => {
               Add <b>{formatMoney(shortfall, country.currency, country.currency_symbol)}</b> more to reach the {formatMoney(minOrder, country.currency, country.currency_symbol)} minimum.
             </div>
           )}
-          <Button data-testid={CART.checkoutBtn} disabled={!minOrderOk || hasUnavailable} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
-            Checkout
+          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
+            {customer ? "Checkout" : "Login to Proceed"}
           </Button>
         </div>
       </aside>

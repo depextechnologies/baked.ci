@@ -1,0 +1,36 @@
+{
+  "summary": "Iter73 — SHOP delivery lifecycle (PIN gate + SA override) FULLY VERIFIED. Backend: 19/19 tests pass in new /app/backend/tests/test_shop_delivery_pin_iter73.py covering (1) migration 0045 columns present + alembic head ≥ 0045, (2) 6-digit delivery_pin minted at /shop/checkout and exposed on /shop/orders/me and /shop/orders/{id}, (3) delivery_pin NEVER surfaced on /shop/portal/orders or /shop/portal/orders/{id} while delivery_pin_attempts IS visible to seller, (4) seller status graph paid→packing→shipped works; skip paid→shipped returns 409 invalid_transition with allowed=['packing']; attempting delivered via /status is rejected 422 by Pydantic pattern, (5) 404 ownership guard on unknown order id on both GET and POST/status, (6) /deliver wrong PIN → 400 wrong_pin with attempts_remaining decrementing; correct PIN → 200 status=delivered with delivered_at populated; re-hit is idempotent (200 even with garbage PIN once delivered), (7) /deliver on paid order → 409 invalid_transition, (8) five wrong PINs increments counter to 5 and 6th (even correct) → 429 pin_locked, (9) SA override /api/admin/modules/shop/orders/{id}/status accepts any status incl delivered/cancelled without PIN and sets delivered_at, rejects unknown status 422. Frontend Playwright at 1440x900 verified end-to-end: (a) /shop/order/{id} renders data-testid `shopbaked-order-pin-card` with `shopbaked-order-pin` == the exact 6-digit code returned by checkout, (b) /profile/activities (Orders tab) → status pill `m-act-ord-status-{id}` computes color rgb(119, 188, 31) #77BC1F for a SHOP order in `shipped` AND in `delivered` (regression: SHOP `paid` order pill did NOT show up in Deliveries tab, orders tab requires clicking m-act-tab-orders — the ?tab=orders query param is currently NOT wired to state; minor), (c) seller portal at /martbaked/sellers/portal/shop-orders loads with data-testid `portal-shop-orders` and 5 bucket chips `sp-shop-bucket-{paid|packing|shipped|delivered|cancelled}`, order rows `sp-shop-order-{id}` open `sp-shop-order-detail`, `sp-shop-pin-input` + `sp-shop-deliver-btn` behave as expected (wrong PIN toasts 'attempts remaining', correct PIN yields green 'Delivered successfully' banner), (d) PIN string does NOT appear anywhere in seller DOM.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "/profile/activities?tab=orders deep-link", "issue": "The URL query param `?tab=orders` is not read by MobileActivities — the page defaults to Deliveries and requires an explicit click on data-testid=m-act-tab-orders to switch. Not blocking the SHOP lifecycle, but the review-request phrasing implies deep-link support.", "affected_selectors": ["m-act-tab-orders"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_shop_delivery_pin_iter73.py",
+    "/app/test_reports/pytest/iter73_shop_pin.xml"
+  ],
+  "action_items": [
+    "(Minor / nice-to-have) MobileActivities.jsx: read the `tab` search-param on mount so deep-links like /profile/activities?tab=orders open the Orders tab directly. Today users always land on Deliveries.",
+    "(Docs) test_credentials.md says Delta slug is 'delta' but suppliers.seller_slug is actually NULL for sup_demo_delta_seed — the working seller portal URL is the legacy /martbaked/sellers/portal/shop-orders, not /martbaked/sellers/demo-delta-supplier/portal/shop-orders (the latter 404s via the wrong-slug redirect if seller_slug is unset). Consider populating seller_slug='delta' in the demo seed."
+  ],
+  "critical_code_review_comments": [
+    "portal_routes._SELLER_TRANSITIONS deliberately omits `delivered` and the Pydantic pattern on _StatusPayload enforces (packing|shipped) — defence in depth. Good.",
+    "seller_deliver_shop_order uses secrets.compare_digest for constant-time PIN comparison and rate-limits at 5 with idempotent 200 on already-delivered. Solid.",
+    "_seller_order_dict never dumps `delivery_pin` — confirmed both in code and via runtime DOM check. `delivery_pin_attempts` is surfaced so the UI can show 'N wrong attempt(s). Locked after 5.'",
+    "storefront_routes._order_dict gates PIN behind expose_pin=True flag; only /shop/checkout, /shop/orders/me and /shop/orders/{id} (all under get_current_customer) pass it. Good separation.",
+    "admin_override_shop_order_status auto-populates delivered_at when SA flips to delivered. Also allows cancelled/refunded/etc. via Pydantic pattern — the pattern acts as an allowlist. LGTM.",
+    "MobileActivities pillTone uses `o.status === 'delivered' || (o.module === 'shop' && o.status === 'shipped')` to force #77BC1F — matches the product intent (SHOP shipped and delivered both count as 'good' green pills).",
+    "Missing seller_slug for sup_demo_delta_seed means the review-request seller URL (/martbaked/sellers/demo-delta-supplier/portal/shop-orders) 404s and redirects to login. Legacy /martbaked/sellers/portal/shop-orders works because the portal falls back to that path when supplier.seller_slug is empty. Recommend backfilling seller_slug in the demo seed."
+  ],
+  "updated_files": ["/app/backend/tests/test_shop_delivery_pin_iter73.py (new)"],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all acceptance criteria green)"},
+  "test_credentials": "Customer OTP +2250700900790-793 (dev_code inline). SA depexopenai@gmail.com / baked@2026#!$@. Supplier demo-delta-supplier@test.example / Supplier1234!. Auth via localStorage keys `baked_access_token` (customer) and `supplier_token` (seller).",
+  "seed_data_creation": "Multiple TEST_Iter73 iPhone SHOP products with variant TEST-I73-256 (price 1500 XOF, stock 100) auto-created + auto-approved via SA endpoint. Seven SHOP orders created (SHOP-CI-2026-0000x) under seven fresh customer phones. All prefixed TEST_ where possible.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Full SHOP delivery lifecycle is live. Key testids: shopbaked-order-pin-card, shopbaked-order-pin (customer), m-act-ord-status-{id} (activities pill), portal-shop-orders, sp-shop-bucket-{code}, sp-shop-order-{id}, sp-shop-order-detail, sp-shop-action-{packing|shipped}, sp-shop-pin-input, sp-shop-deliver-btn (seller portal). Seller portal URL: /martbaked/sellers/portal/shop-orders (legacy; slug variant does NOT resolve because sup_demo_delta_seed.seller_slug is NULL). Backend endpoints: POST /api/shop/portal/orders/{id}/status {packing|shipped}, POST /api/shop/portal/orders/{id}/deliver {pin}, POST /api/admin/modules/shop/orders/{id}/status {any status}. PIN gate: 5 wrong attempts → 429 pin_locked (persists via delivery_pin_attempts column).",
+  "rca of the issue": "N/A — implementation correct across backend + frontend. Only minor doc / UX polish: (1) MobileActivities ignores `?tab=orders` search param, (2) demo-delta-supplier seller_slug is NULL so slug-based portal URL 404s (legacy path works)."
+}

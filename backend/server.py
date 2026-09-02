@@ -126,9 +126,12 @@ api_router.include_router(admin_category_req_router)
 api_router.include_router(partner_category_req_router)
 api_router.include_router(supplier_category_req_router)
 api_router.include_router(supplier_public_router)
+# Register the product-requests router BEFORE admin_supplier_router so that
+# GET /admin/modules/mart/suppliers/product-requests doesn't get swallowed by
+# admin_supplier_router's `/{sid}` catch-all. (Fixing_Prompt v5 — 2026-02)
+api_router.include_router(admin_supplier_prodreq_router)
 api_router.include_router(admin_supplier_router)
 api_router.include_router(supplier_portal_router)
-api_router.include_router(admin_supplier_prodreq_router)
 api_router.include_router(po_partner_router)
 api_router.include_router(po_supplier_router)
 api_router.include_router(po_admin_router)
@@ -152,6 +155,18 @@ api_router.include_router(partner_portal_router)
 from modules.homepage import router as homepage_public_router, admin_router as homepage_admin_router  # noqa: E402
 api_router.include_router(homepage_public_router)
 api_router.include_router(homepage_admin_router)
+
+# Dynamic Category Attribute Engine (Fixing_Prompt v6 — 2026-02-28)
+from modules.mart_attributes.routes import (  # noqa: E402
+    public_router as mart_attr_public_router,
+    admin_router as mart_attr_admin_router,
+)
+api_router.include_router(mart_attr_public_router)
+api_router.include_router(mart_attr_admin_router)
+
+# Storage migration (Fixing_Prompt v7) — Super Admin cutover tool
+from shared.admin.storage_migration_routes import router as admin_storage_router  # noqa: E402
+api_router.include_router(admin_storage_router)
 api_router.include_router(partner_staff_router)
 api_router.include_router(partner_inventory_router)
 api_router.include_router(partner_inventory_ops_router)
@@ -161,9 +176,38 @@ api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
 api_router.include_router(driver_track_router)
 api_router.include_router(realtime_router)
-# TODO: food, shop, express, auto, immo
+
+# --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
+# Marketplace module. Isolated tables (shop_*), shared supplier identity
+# via `suppliers.modules` JSONB. Slices 2-8 will flesh out catalogue,
+# attributes, seller portal, approvals and storefront on top of these
+# stub endpoints.
+from modules.shop import (  # noqa: E402
+    public_router as shop_public_router,
+    portal_router as shop_portal_router,
+    admin_router as shop_admin_router,
+    portal_seller_router as shop_portal_seller_router,
+    storefront_router as shop_storefront_router,
+)
+api_router.include_router(shop_public_router)
+api_router.include_router(shop_portal_router)
+api_router.include_router(shop_portal_seller_router)
+api_router.include_router(shop_storefront_router)
+api_router.include_router(shop_admin_router)
+# TODO: food, auto, immo
 
 app.include_router(api_router)
+
+# ---- Static file serving for LocalStorageProvider (Fixing_Prompt v7) ----
+# When STORAGE_PROVIDER=local, files land under STORAGE_LOCAL_PATH and are
+# served by StaticFiles at /uploads/... — the same URL the storage
+# provider returns from `.public_url()`. Under STORAGE_PROVIDER=s3 the
+# mount still exists but nothing ever gets written into it.
+from starlette.staticfiles import StaticFiles  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+_uploads_root = _Path(os.environ.get("STORAGE_LOCAL_PATH") or "/app/backend/uploads").resolve()
+_uploads_root.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_uploads_root)), name="uploads")
 
 # ---- Postgres-outage-friendly middleware ----
 # When Postgres goes briefly unreachable (container restart, VM reschedule),

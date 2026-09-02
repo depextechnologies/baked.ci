@@ -1,0 +1,24 @@
+{
+  "summary": "Iter68 — MARTbaked supplier-centric admin workflow (Fixing_Prompt v5). Both backend + frontend all green. Backend pytest test_supplier_centric_workflow.py: 9/9 pass in 4s. Regression suites test_supplier_portal_phase2b.py + test_homepage_cms.py: 21/21 pass. Frontend Playwright coverage against live preview URL confirms every review-request bullet: (1) old routes /admin/mart-partner-approvals and /admin/partner-image-reviews redirect to /admin/modules/mart/approvals and /admin/modules/mart/suppliers respectively; (2) 'Darkstore Approvals' and 'Partner Image Reviews' items are gone from the AdminLayout left nav; (3) supplier detail workspace at /admin/modules/mart/suppliers/sup_demo_delta_seed loads Overview with supplier header, APPROVED status chip, warehouse allocation card, and audit trail; (4) Products tab shows All(23)/Pending(1)/Approved(8)/Rejected(14)/Withdrawn(0) buckets with category + subcategory + search filters (server-side — 'AUTOAPP' search returns empty because those seeded requests were auto-cleaned); (5) Review drawer opens with 'All Submitted Images (n)' gallery header + product info fields + Reject/Approve buttons; (6) Selecting a pending row reveals the floating bar with 'Bulk approve' + 'Bulk reject' buttons; bulk-approve modal exposes category-fallback dropdown + notes textarea; bulk-reject modal shows notes textarea; (7) 'Open workspace' button on approved supplier row in Applications tab correctly navigates to /admin/modules/mart/suppliers/{sid}; (8) AdminHomepageManagement Product Carousel editor exposes 'Subcategory slug (optional)' field alongside Category slug + Number of products + See-all link; (9) Homepage leak check via /api/mart/products?country=CI&category=<slug> for fruits-vegetables, dairy-eggs, snacks, bakery returns zero cross-category leaks. Router ordering fix (admin_supplier_prodreq_router registered BEFORE admin_supplier_router) verified indirectly — /suppliers/{sid} snapshot works AND /suppliers/product-requests/bulk-* endpoints resolve correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_supplier_centric_workflow.py",
+    "/app/test_reports/pytest/iter68_supplier_centric.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminSupplierDetail.jsx is well structured with granular data-testids (supplier-detail-tab-<code>, supplier-products-bucket-<code>, supplier-product-check-<id>, supplier-products-bulk-approve/reject/cancel/confirm, product-review-drawer). Excellent testability.",
+    "Router ordering (admin_supplier_prodreq_router before admin_supplier_router) is critical — a regression test that specifically hits /admin/modules/mart/suppliers/product-requests/bulk-approve AND /admin/modules/mart/suppliers/{sid} in the same suite (already covered by test_supplier_centric_workflow.py) provides the necessary safety net.",
+    "Bulk-approve endpoint's 'skipped' response (reason='not_pending') is verified. Recommend also covering 'missing_category' skip reason in a future test for full parity with the endpoint's advertised contract.",
+    "AdminHomepageManagement product_carousel now supports both category slug + subcategory. The field is optional and blank-safe."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (9/9 new + 21/21 regression)", "frontend": "100% (all review bullets green)"},
+  "test_credentials": "Super admin depexopenai@gmail.com / baked@2026#!$@ and supplier demo-delta-supplier@test.example / Supplier1234! both working.",
+  "seed_data_creation": "test_supplier_centric_workflow creates transient AUTOTEST-/AUTOAPP-/AUTOREJ-/AUTOSKIP- product-requests under DEMO Delta and cleans them up (rejects the AUTOTEST one). AUTOAPP items become approved master products — not cleaned but not blocking. Playwright seeded one UITEST- pending request to exercise the review drawer + bulk bar path.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The DEMO Delta workspace at /admin/modules/mart/suppliers/sup_demo_delta_seed is the reference happy-path fixture. For fresh-drawer testing, seed via POST /api/supplier/me/product-requests with the DEMO Delta supplier session, then reload the Products tab and open the Pending bucket. Router-ordering regression is guaranteed by the new pytest — if any admin_supplier_router route ever gets included before admin_supplier_prodreq_router, TestBulkActions will fail with 405/404 immediately.",
+  "rca of the issue": "N/A — no regressions."
+}

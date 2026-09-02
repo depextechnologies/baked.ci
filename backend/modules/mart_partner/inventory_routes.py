@@ -423,6 +423,24 @@ async def assign_location(
     if not (zone and (await _assert_owns_warehouse(session, partner, zone.warehouse_id))):
         raise HTTPException(403, "Bin does not belong to your warehouse")
 
+    # Fixing_Prompt (2026-02-27) — enforce the Category/Subcategory cascade
+    # at assignment time so a "Mango Kent" (Fresh Fruits) cannot be pinned
+    # to a Rack tagged "Dairy > Milk". Only enforced when the Aisle/Rack
+    # actually carries the tag — untagged Aisles/Racks accept any product
+    # for back-compat with pre-cascade darkstores.
+    prod_cat = getattr(prod, "category_slug",    None)
+    prod_sub = getattr(prod, "subcategory_slug", None)
+    for parent, level in ((rack, "Rack"), (aisle, "Aisle")):
+        if parent is None: continue
+        p_cat = getattr(parent, "category_slug",    None)
+        p_sub = getattr(parent, "subcategory_slug", None)
+        if p_cat and prod_cat and p_cat != prod_cat:
+            raise HTTPException(400, {"code": "invalid_cascade",
+                "message": f"Product category '{prod_cat}' does not match {level} '{parent.code}' category '{p_cat}'."})
+        if p_sub and prod_sub and p_sub != prod_sub:
+            raise HTTPException(400, {"code": "invalid_cascade",
+                "message": f"Product subcategory '{prod_sub}' does not match {level} '{parent.code}' subcategory '{p_sub}'."})
+
     # If is_primary, clear existing primaries for this SKU
     if payload.is_primary:
         existing_primaries = (await session.execute(
@@ -449,6 +467,135 @@ async def assign_location(
         raise HTTPException(409, "This bin is already assigned to that product")
     await session.refresh(row)
     return _ppl_dict(row, await _build_bin_path(session, row.bin_id))
+
+
+class BulkLocationIn(BaseModel):
+    """Bulk-assign N products to ONE bin in a single call.
+
+    Backend still validates the cascade + darkstore ownership *per product*
+    so a mixed batch (some pass, some fail on cascade) returns a per-product
+    verdict; the transaction is committed on a best-effort basis so the
+    caller can retry only the failed rows without losing the successful ones.
+    """
+    model_config = ConfigDict(extra="forbid")
+    partner_product_ids: list[str] = Field(..., min_length=1, max_length=200)
+    bin_id: str
+    quantity_at_location: int = Field(0, ge=0)
+    is_primary: bool = False
+
+
+@router.post("/locations-bulk", status_code=200,
+             dependencies=[Depends(require_role("owner", "manager", "inventory_manager", "warehouse_manager"))])
+async def bulk_assign_location(
+    payload: BulkLocationIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    # Resolve the bin path ONCE (all products share the same target).
+    b = await session.get(WarehouseBin, payload.bin_id)
+    if not b:
+        raise HTTPException(404, "Bin not found")
+    shelf = await session.get(WarehouseShelf, b.shelf_id)
+    rack  = await session.get(WarehouseRack,  shelf.rack_id) if shelf else None
+    aisle = await session.get(WarehouseAisle, rack.aisle_id) if rack else None
+    zone  = await session.get(WarehouseZone,  aisle.zone_id) if aisle else None
+    if not (zone and (await _assert_owns_warehouse(session, partner, zone.warehouse_id))):
+        raise HTTPException(403, "Bin does not belong to your warehouse")
+
+    # De-dupe the id list — a manager might multi-tick the same product row.
+    ids = list(dict.fromkeys(payload.partner_product_ids))
+    prods = (await session.execute(
+        select(PartnerProduct).where(
+            PartnerProduct.id.in_(ids),
+            PartnerProduct.partner_id == partner.id,
+        )
+    )).scalars().all()
+    by_id = {p.id: p for p in prods}
+
+    results: list[dict] = []
+    ok = 0
+    for pid in ids:
+        prod = by_id.get(pid)
+        if prod is None:
+            results.append({"partner_product_id": pid, "status": "error",
+                            "code": "not_found", "message": "Product not found for this partner"})
+            continue
+
+        # Per-product cascade guard — same rules as single assign_location.
+        # Capture attribute values BEFORE any potential rollback so we don't
+        # trigger a lazy reload on an expired ORM instance (see MissingGreenlet).
+        sku_code = prod.sku_code
+        prod_cat = getattr(prod, "category_slug", None)
+        prod_sub = getattr(prod, "subcategory_slug", None)
+        conflict = None
+        for parent, level in ((rack, "Rack"), (aisle, "Aisle")):
+            if parent is None: continue
+            p_cat = getattr(parent, "category_slug", None)
+            p_sub = getattr(parent, "subcategory_slug", None)
+            if p_cat and prod_cat and p_cat != prod_cat:
+                conflict = f"Product category '{prod_cat}' does not match {level} '{parent.code}' category '{p_cat}'."
+                break
+            if p_sub and prod_sub and p_sub != prod_sub:
+                conflict = f"Product subcategory '{prod_sub}' does not match {level} '{parent.code}' subcategory '{p_sub}'."
+                break
+        if conflict:
+            results.append({"partner_product_id": pid, "sku_code": sku_code, "status": "error",
+                            "code": "invalid_cascade", "message": conflict})
+            continue
+
+        # Preflight the uniqueness constraint with a SELECT so we can produce
+        # a per-row "conflict" verdict WITHOUT triggering an exception during
+        # flush (which corrupts the async session's transaction state and
+        # cascades into a MissingGreenlet on the next request).
+        already = (await session.execute(
+            select(PartnerProductLocation.id).where(
+                PartnerProductLocation.partner_product_id == pid,
+                PartnerProductLocation.bin_id == payload.bin_id,
+            )
+        )).scalar_one_or_none()
+        if already is not None:
+            results.append({"partner_product_id": pid, "sku_code": sku_code,
+                            "status": "error", "code": "conflict",
+                            "message": "This bin is already assigned to that product"})
+            continue
+
+        # Primary flip — clear any existing primary for THIS SKU first.
+        if payload.is_primary:
+            existing = (await session.execute(
+                select(PartnerProductLocation).where(
+                    PartnerProductLocation.partner_product_id == pid,
+                    PartnerProductLocation.is_primary == True,  # noqa: E712
+                )
+            )).scalars().all()
+            for ep in existing:
+                ep.is_primary = False
+            await session.flush()
+
+        row = PartnerProductLocation(
+            partner_product_id=pid, bin_id=payload.bin_id,
+            quantity_at_location=payload.quantity_at_location,
+            is_primary=payload.is_primary,
+        )
+        session.add(row)
+        await session.flush()
+        results.append({"partner_product_id": pid, "sku_code": sku_code,
+                        "status": "ok", "location_id": row.id})
+        ok += 1
+
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(500, "Bulk assignment could not be committed")
+
+    return {
+        "bin_id": payload.bin_id,
+        "bin_path": await _build_bin_path(session, payload.bin_id),
+        "requested": len(ids),
+        "assigned":  ok,
+        "failed":    len(ids) - ok,
+        "results":   results,
+    }
 
 
 @router.patch("/locations/{location_id}",

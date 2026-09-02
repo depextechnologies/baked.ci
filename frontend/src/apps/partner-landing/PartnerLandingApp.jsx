@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Sun,
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
@@ -268,7 +268,7 @@ const HeroEcosystemIllustration = () => {
   const modules = [
     { code: "MART", icon: ShoppingBasket, color: "#77BC1F", angle: -90  },
     { code: "FOOD", icon: Utensils,       color: "#FF6B6B", angle: -30  },
-    { code: "SHOP", icon: ShoppingBag,    color: "#3B82F6", angle:  30  },
+    { code: "SHOP", icon: ShoppingBag,    color: "#FCC44C", angle:  30  },
     { code: "EXPRESS", icon: Truck,       color: "#FCC44C", angle:  90  },
     { code: "AUTO", icon: Car,            color: "#9B87F5", angle: 150  },
     { code: "IMMO", icon: HomeIcon,       color: "#F97316", angle: 210  },
@@ -369,54 +369,86 @@ const OPPORTUNITIES = [
     code: "MART", label: "MARTbakēd", color: "#77BC1F", icon: ShoppingBasket,
     tagline: "Groceries & essentials",
     desc: "List and sell groceries, fresh produce and daily essentials to your neighbourhood — same-day dispatch built in.",
-    href: "https://mart.partner.baked.ci",
+    // Fixing_Prompt v9 — internal SPA routes so the card and its CTA
+    // go to two different pages within the same app (no target=_blank).
+    cardHref: "/martbaked/sellers",
+    applyHref: "/martbaked/sellers/apply",
+    internal: true,
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #77BC1F55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #77BC1F33, transparent 60%)",
   },
   {
     code: "FOOD", label: "FOODbakēd", color: "#FF6B6B", icon: Utensils,
     tagline: "Restaurants & kitchens",
     desc: "Bring your restaurant, cloud kitchen or bakery online with dine-in tables, delivery and pickup — one dashboard.",
-    href: "https://food.partner.baked.ci",
+    cardHref: "https://food.partner.baked.ci",
+    applyHref: "https://food.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FF6B6B55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FF6B6B33, transparent 60%)",
   },
   {
-    code: "SHOP", label: "SHOPbakēd", color: "#3B82F6", icon: ShoppingBag,
-    tagline: "Online retail",
-    desc: "Reach buyers across Africa with your online store. Fashion, electronics, home goods — we handle payments and logistics.",
-    href: "https://shop.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #3B82F655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #3B82F633, transparent 60%)",
+    code: "SHOP", label: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag,
+    tagline: "Marketplace sellers",
+    desc: "List your fashion, electronics and home goods on the BAKĒD marketplace. Vetted sellers, national reach, PIN-gated delivery — you focus on product, we handle discovery.",
+    cardHref: "/shopbaked/sellers",
+    applyHref: "/shopbaked/sellers/apply",
+    internal: true,
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
     code: "EXPRESS", label: "SENDbakēd", color: "#FCC44C", icon: Truck,
     tagline: "Logistics network",
     desc: "Move parcels, freight and home shifts through the BAKĒD dispatch network. Live tracking and pricing engine baked in.",
-    href: "https://express.partner.baked.ci",
+    // Apply Now goes to the internal Driver landing (per Fixing_Prompt v9);
+    // card itself takes the user there too since there's no separate module page yet.
+    cardHref: "/driver",
+    applyHref: "/driver",
+    internal: true,
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
     code: "AUTO", label: "AUTObakēd", color: "#9B87F5", icon: Car,
     tagline: "Vehicles & dealerships",
     desc: "Sell vehicles, list your dealership or manage a fleet — with financing partners and paperwork handled for you.",
-    href: "https://auto.partner.baked.ci",
+    cardHref: "https://auto.partner.baked.ci",
+    applyHref: "https://auto.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #9B87F555, transparent 60%), radial-gradient(500px 300px at 80% 70%, #9B87F533, transparent 60%)",
   },
   {
     code: "IMMO", label: "IMMObakēd", color: "#F97316", icon: HomeIcon,
     tagline: "Real estate",
     desc: "Agents and brokers close deals faster with verified listings, digital contracts, and buyer matching powered by AI.",
-    href: "https://immo.partner.baked.ci",
+    cardHref: "https://immo.partner.baked.ci",
+    applyHref: "https://immo.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #F9731655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #F9731633, transparent 60%)",
   },
 ];
 
 const OpportunityCard = ({ opp, index }) => {
   const Icon = opp.icon;
+  const nav = useNavigate();
+  const openCard = (e) => {
+    if (opp.internal) {
+      e.preventDefault();
+      nav(opp.cardHref);
+    }
+    // External href — default anchor behaviour handles it.
+  };
+  const openApply = (e) => {
+    // Apply CTA MUST win over the parent card link (Fixing_Prompt v9 §7).
+    e.preventDefault();
+    e.stopPropagation();
+    if (opp.internal || opp.applyHref.startsWith("/")) {
+      nav(opp.applyHref);
+    } else {
+      window.location.href = opp.applyHref;
+    }
+  };
   return (
     <Reveal delay={index * 70}>
       <a
-        href={opp.href}
-        target="_blank"
-        rel="noopener noreferrer"
+        href={opp.cardHref}
+        onClick={openCard}
+        target={opp.internal ? undefined : "_blank"}
+        rel={opp.internal ? undefined : "noopener noreferrer"}
         className="pl-card pl-opp-card"
         data-testid={`partner-opportunity-${opp.code.toLowerCase()}`}
       >
@@ -441,9 +473,15 @@ const OpportunityCard = ({ opp, index }) => {
           <h3 className="pl-h2 mt-2" style={{ color: "var(--pl-fg)", fontWeight: 700 }}>{opp.label}</h3>
           <p className="pl-body mt-3">{opp.desc}</p>
 
-          <div className="mt-6 inline-flex items-center gap-2 font-semibold" style={{ color: opp.color }}>
+          <button
+            type="button"
+            onClick={openApply}
+            className="mt-6 inline-flex items-center gap-2 font-semibold bg-transparent border-0 p-0 cursor-pointer"
+            style={{ color: opp.color }}
+            data-testid={`partner-opportunity-${opp.code.toLowerCase()}-apply`}
+          >
             Apply Now <ArrowUpRight size={16} />
-          </div>
+          </button>
         </div>
       </a>
     </Reveal>

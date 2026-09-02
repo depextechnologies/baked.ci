@@ -31,6 +31,9 @@ class HomepageSection(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("hps"))
     country: Mapped[str] = mapped_column(String(2), nullable=False)
+    # Slice 7 — which BAKĒD app this section belongs to ("mart", "shop", ...).
+    # Existing rows default to "mart" so the migration is backwards compatible.
+    module: Mapped[str] = mapped_column(String(16), nullable=False, default="mart", server_default="mart")
     section_type: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     subtitle: Mapped[Optional[str]] = mapped_column(String(400), nullable=True)

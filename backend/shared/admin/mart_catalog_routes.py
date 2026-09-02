@@ -67,6 +67,8 @@ class CategoryUpdate(BaseModel):
     icon: Optional[str] = None
     image: Optional[str] = None
     order: Optional[int] = None
+    # Fixing_Prompt v6 — soft-delete toggle for admin UI (activate / deactivate)
+    is_active: Optional[bool] = None
 
 
 @router.get("/categories")
@@ -110,13 +112,18 @@ async def update_category(
     row = await session.get(MartCategory, cat_id)
     if not row:
         raise HTTPException(404, "Category not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    is_active = data.pop("is_active", None)
+    for k, v in data.items():
         setattr(row, k, v)
+    if is_active is not None:
+        from datetime import datetime, timezone
+        row.deleted_at = None if is_active else datetime.now(timezone.utc)
     row.updated_by = admin.id
     await session.commit()
     await session.refresh(row)
     await _audit(session, admin, "mart.category.update", cat_id)
-    return row_to_dict(row)
+    return {**row_to_dict(row), "is_active": row.deleted_at is None}
 
 
 @router.delete("/categories/{cat_id}", status_code=204)
@@ -229,6 +236,97 @@ async def delete_subcategory(
     await session.delete(row)
     await session.commit()
     await _audit(session, admin, "mart.subcategory.delete", sub_id)
+
+
+# ============================================================================
+# Fixing_Prompt v8 — Bulk delete for categories + subcategories
+#
+# Both endpoints iterate the id list, inspect dependents, and soft-delete
+# via `deleted_at` (categories) or hard-delete (subcategories) inside a
+# single transaction. If any row is blocked by dependents we DO NOT abort
+# the whole batch — instead each id lands in either `deleted` or `blocked`
+# in the response, letting the UI surface partial results.
+# ============================================================================
+
+class BulkDeleteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ids: list[str] = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/categories/bulk-delete")
+async def bulk_delete_categories(
+    payload: BulkDeleteIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Soft-delete each category via `deleted_at`. Refuses individual
+    rows that still have subcategories — those are returned under
+    `blocked` so the UI can surface them without failing the batch."""
+    from datetime import datetime, timezone
+    from core.models import MartProduct
+    deleted, blocked = [], []
+    for cid in payload.ids:
+        row = await session.get(MartCategory, cid)
+        if not row:
+            blocked.append({"id": cid, "reason": "not_found"})
+            continue
+        sub_count = await session.scalar(
+            select(func.count(MartSubcategory.id)).where(MartSubcategory.category_id == cid)
+        )
+        if sub_count:
+            blocked.append({"id": cid, "reason": "has_subcategories", "count": int(sub_count)})
+            continue
+        prod_count = await session.scalar(
+            select(func.count(MartProduct.id)).where(
+                MartProduct.category_slug == row.slug,
+                MartProduct.deleted_at.is_(None),
+            )
+        )
+        if prod_count:
+            blocked.append({"id": cid, "reason": "has_products", "count": int(prod_count)})
+            continue
+        # Safe to soft-delete
+        row.deleted_at = datetime.now(timezone.utc)
+        row.updated_by = admin.id
+        deleted.append(cid)
+        await _audit(session, admin, "mart.category.bulk_delete", cid)
+    await _audit(session, admin, "mart.category.bulk_delete.batch",
+                 f"count={len(deleted)}/{len(payload.ids)}")
+    await session.commit()
+    return {"deleted": deleted, "blocked": blocked}
+
+
+@router.post("/subcategories/bulk-delete")
+async def bulk_delete_subcategories(
+    payload: BulkDeleteIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Hard-delete each subcategory. Rows referenced by an active
+    MartProduct are moved to `blocked` and skipped."""
+    from core.models import MartProduct
+    deleted, blocked = [], []
+    for sid in payload.ids:
+        row = await session.get(MartSubcategory, sid)
+        if not row:
+            blocked.append({"id": sid, "reason": "not_found"})
+            continue
+        prod_count = await session.scalar(
+            select(func.count(MartProduct.id)).where(
+                MartProduct.subcategory_slug == row.slug,
+                MartProduct.deleted_at.is_(None),
+            )
+        )
+        if prod_count:
+            blocked.append({"id": sid, "reason": "has_products", "count": int(prod_count)})
+            continue
+        await session.delete(row)
+        deleted.append(sid)
+        await _audit(session, admin, "mart.subcategory.bulk_delete", sid)
+    await _audit(session, admin, "mart.subcategory.bulk_delete.batch",
+                 f"count={len(deleted)}/{len(payload.ids)}")
+    await session.commit()
+    return {"deleted": deleted, "blocked": blocked}
 
 
 # ============================================================================

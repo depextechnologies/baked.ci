@@ -1,0 +1,36 @@
+{
+  "summary": "Iter65 — Backend regression for Fixing_Prompt v3 Category→Subcategory→Product→Storage cascade. Wrote /app/backend/tests/test_warehouse_cascade.py with 15 tests spanning products-filter, cascade persistence on aisle+rack, cascade validation (a-d), location assignment enforcement, untagged back-compat, and darkstore isolation. Result: 5 passed / 10 errored due to TWO critical backend bugs in _validate_category_cascade() (routes.py:981-1025) that fire on ANY tagged Aisle create. Frontend NOT tested because backend cascade endpoint is unusable — all frontend flows that call POST /partner/warehouse/{wh}/nodes with a category_slug will 500.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/partner/warehouse/{wh}/nodes (level=aisle|rack, with category_slug)", "issue": "500 Internal Server Error — sqlalchemy MultipleResultsFound. _validate_category_cascade at routes.py:1000 does `select(MartCategory).where(MartCategory.slug == category_slug).scalar_one_or_none()` but mart_categories has UniqueConstraint('slug','country') → 3 rows per slug (CI/IN/LR) in seed. Must filter by partner.country. Same defect for MartSubcategory at line 1006.", "priority": "CRITICAL"},
+      {"endpoint": "POST /api/partner/warehouse/{wh}/nodes (level=aisle|rack, with valid category+subcategory)", "issue": "After bug#1 is fixed, will still fail: routes.py:1013 reads `getattr(sub, 'category_slug', None)` but MartSubcategory model has NO category_slug column (only category_id + country + slug — see core/models/mart.py:43-56). So the check `sub.category_slug != category_slug` is ALWAYS `None != <slug>` → every valid (fruits-vegetables, fresh-fruits) pair raises invalid_cascade. Fix: join MartSubcategory→MartCategory and compare cat.slug, or store category_slug on MartSubcategory.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_warehouse_cascade.py",
+    "/app/test_reports/pytest/cascade_results.xml"
+  ],
+  "action_items": [
+    "Fix _validate_category_cascade() in /app/backend/modules/mart_partner/routes.py (~line 981): scope MartCategory + MartSubcategory lookups by partner.country (pass `partner` in, add `.where(MartCategory.country == partner.country)`).",
+    "Fix subcategory→category ownership check at routes.py:1013: MartSubcategory has no category_slug attr; either add join to MartCategory and compare .slug, or resolve via MartSubcategory.category_id → MartCategory row.",
+    "Same defects exist in inventory_routes.py assign_location cascade check ONLY at the read-side (uses Aisle/Rack.category_slug which are stored strings — that's fine). Verified with the untagged-branch test which passes.",
+    "Once fixed, re-run `python -m pytest backend/tests/test_warehouse_cascade.py -v -o addopts=''` — should go 15/15 green with no other changes.",
+    "Frontend UI not yet exercised (blocked by backend). After backend fix, retest ProductsPage cascading filters + WarehouseEditor category selects + LocationModal tree filter."
+  ],
+  "critical_code_review_comments": [
+    "_validate_category_cascade lacks country scoping — mart_categories/mart_subcategories are per-country. Signature should accept `country` (or a `Partner`) and filter every lookup.",
+    "MartSubcategory has `category_id`, not `category_slug`. The current cascade check silently compares `None != slug` and would reject every valid pair the moment the MultipleResults bug is fixed. Add a proper join or store a denormalised category_slug on MartSubcategory.",
+    "The Aisle/Rack cascade fields on the row itself are freeform strings — no FK integrity guarantees the category_slug still exists after country delete. Consider FK to (country, slug) or validation at boot.",
+    "assign_location correctly guards with `if p_cat and prod_cat` (untagged back-compat verified by test_untagged_aisle_rack_still_accepts_any_product ✓)."
+  ],
+  "updated_files": ["/app/backend/tests/test_warehouse_cascade.py"],
+  "success_rate": {"backend": "33% (5/15) — 10 errors traced to two backend bugs above, not test defects", "frontend": "not tested (blocked)"},
+  "test_credentials": "partner-alpha-store@test.example / Alpha1234!Beta, warehouse wh_alpha_demo_seed (CI). Country slugs verified via GET /api/mart/categories?country=CI: fruits-vegetables + fresh-fruits, dairy-eggs + milk (note: seed uses `dairy-eggs`, not `dairy` as the review prompt mentioned).",
+  "seed_data_creation": "Each test run creates fresh Zone/Aisle/Rack/Shelf/Bin nodes with uuid4-hex suffixes so tests are idempotent. Two TEST_Cascade custom products created per successful matching-path test — pending approval, will not pollute live catalog.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_warehouse_cascade.py is complete and correct. After main-agent fix, run `python -m pytest backend/tests/test_warehouse_cascade.py -v -o addopts=''` — expect 15 passed. The `-o addopts=''` is needed to disable the repo-wide xdist plugin which does not like the module-scoped `tree` fixture. TestDarkstoreIsolation currently asserts 404 for a fake warehouse id — verified as the correct behaviour of _assert_owns_warehouse. Then move on to Playwright frontend suite: ProductsPage cascading filters (data-testid=products-category-filter / products-subcategory-filter), WarehouseEditor category selects on Aisle rows, LocationModal filtered tree.",
+  "rca of the issue": "ROOT CAUSE 1 — routes.py:998-1001 SELECTs MartCategory by slug alone. mart_categories has UniqueConstraint(slug,country) — 3 rows exist per slug in seed (CI/IN/LR). scalar_one_or_none() therefore raises MultipleResultsFound → 500. ROOT CAUSE 2 — routes.py:1013 references MartSubcategory.category_slug, but the ORM model (core/models/mart.py:43-56) only has category_id + country + slug. getattr(sub, 'category_slug', None) is always None, so once bug#1 is resolved every valid category+subcategory tuple will erroneously be rejected as invalid_cascade. REPRODUCTION: POST /api/partner/warehouse/wh_alpha_demo_seed/nodes with body {level:aisle, parent_id:<zone>, code:X, name:Y, category_slug:'fruits-vegetables', subcategory_slug:'fresh-fruits'} → 500. Untagged variant → 201. MITIGATION: (a) pass partner into helper, scope both lookups with `and .country == partner.country`; (b) resolve subcategory ownership via a join `SELECT MartSubcategory JOIN MartCategory ON category_id=id WHERE MartSubcategory.slug=? AND MartCategory.country=?` and compare MartCategory.slug."
+}

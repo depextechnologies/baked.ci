@@ -55,11 +55,9 @@ BAKED_ENV = None  # dev-code echo is decided per-provider
 
 
 def _e164(country_code: str, phone: str) -> str:
-    cc = country_code.strip()
-    if not cc.startswith("+"):
-        cc = "+" + cc
-    digits = "".join(ch for ch in phone if ch.isdigit()).lstrip("0")
-    return f"{cc}{digits}"
+    """Thin wrapper around the shared `to_e164` util."""
+    from core.utils.phone import to_e164
+    return to_e164(country_code, phone)
 
 
 async def _next_application_code(session: AsyncSession) -> str:
@@ -83,7 +81,7 @@ def _supplier_dict(s: Supplier) -> dict:
         "business_email": s.business_email, "business_phone": s.business_phone,
         "website": s.website, "years_in_operation": s.years_in_operation,
         "country": s.country, "default_currency": s.default_currency,
-        "module": s.module, "status": s.status,
+        "module": s.module, "modules": s.modules or [], "status": s.status,
         "supplier_portal_active": s.supplier_portal_active,
         "phone_verified": s.phone_verified, "email_verified": s.email_verified,
         "approved_at": s.approved_at.isoformat() if s.approved_at else None,
@@ -885,6 +883,247 @@ async def admin_unsuspend_supplier(
     ))
     await session.commit()
     return _supplier_dict(supplier)
+
+
+# ===========================================================================
+# Fixing_Prompt v5 — Supplier-centric detail view + products
+#
+#   GET /api/admin/modules/mart/suppliers/{sid}                     — snapshot
+#   GET /api/admin/modules/mart/suppliers/{sid}/products            — products
+#     ?status=&category=&subcategory=&q=&limit=
+# ===========================================================================
+
+
+# ===========================================================================
+# Slice 5 — Modules toggle: enable/disable module access per supplier.
+# ===========================================================================
+
+_SUPPORTED_MODULES = {"MART", "SHOP"}
+
+
+class ModulesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    modules: List[str] = Field(..., min_length=1)
+
+
+@admin_router.patch("/{sid}/modules")
+async def admin_set_supplier_modules(
+    sid: str,
+    payload: ModulesIn,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Overwrite the supplier's `modules` array (e.g. `["MART","SHOP"]`).
+
+    * Every value must belong to the supported-modules whitelist.
+    * `MART` is always kept — a supplier without any module is meaningless.
+    * Audit-logged as `supplier.modules_updated` with before/after diff.
+    """
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    incoming = [m.upper().strip() for m in payload.modules if m and m.strip()]
+    unknown = [m for m in incoming if m not in _SUPPORTED_MODULES]
+    if unknown:
+        raise HTTPException(400, {"code": "unsupported_module",
+                                  "message": f"Unknown modules: {', '.join(unknown)}"})
+    if "MART" not in incoming:
+        incoming = ["MART"] + incoming  # always retain MART
+    # De-duplicate while preserving order.
+    seen, ordered = set(), []
+    for m in incoming:
+        if m not in seen:
+            ordered.append(m); seen.add(m)
+
+    before = list(supplier.modules or [])
+    if before == ordered:
+        return {"id": supplier.id, "modules": ordered, "changed": False}
+
+    supplier.modules = ordered
+    session.add(SupplierReviewAudit(
+        supplier_id=supplier.id, actor_admin_id=admin.id,
+        action="supplier.modules_updated",
+        from_status=",".join(before) or None,
+        to_status=",".join(ordered),
+        notes=None,
+    ))
+    await session.commit()
+    return {"id": supplier.id, "modules": ordered, "changed": True,
+            "before": before, "after": ordered}
+
+
+@admin_router.get("/{sid}")
+async def admin_get_supplier_detail(
+    sid: str,
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """Full supplier snapshot for the supplier-detail workspace. Groups
+    supplier profile, warehouse assignments, audit trail and product-count
+    summary so the frontend can hydrate the whole Overview tab in one call."""
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+    snapshot = await _load_full_snapshot(session, supplier)
+
+    # Audit trail
+    audits = (await session.execute(
+        select(SupplierReviewAudit).where(SupplierReviewAudit.supplier_id == sid)
+        .order_by(SupplierReviewAudit.created_at.desc()).limit(50)
+    )).scalars().all()
+
+    # Latest application row (for the application_code chip)
+    latest_app = (await session.execute(
+        select(SupplierApplication).where(SupplierApplication.supplier_id == sid)
+        .order_by(SupplierApplication.created_at.desc()).limit(1)
+    )).scalar_one_or_none()
+
+    # Warehouse assignments (inherited allocation for products)
+    from core.models import SupplierWarehouseAssignment, Warehouse
+    assigns = (await session.execute(
+        select(SupplierWarehouseAssignment, Warehouse)
+        .join(Warehouse, Warehouse.id == SupplierWarehouseAssignment.warehouse_id)
+        .where(SupplierWarehouseAssignment.supplier_id == sid)
+        .order_by(SupplierWarehouseAssignment.is_primary.desc())
+    )).all()
+
+    # Product summary buckets — used for the "Products (N)" tab badge
+    from core.models import SupplierProductRequest
+    bstmt = (
+        select(SupplierProductRequest.status, func.count(SupplierProductRequest.id))
+        .where(SupplierProductRequest.supplier_id == sid)
+        .group_by(SupplierProductRequest.status)
+    )
+    buckets = {s: 0 for s in ("pending", "approved", "rejected", "withdrawn")}
+    for s, c in (await session.execute(bstmt)).all():
+        buckets[s] = c
+
+    return {
+        **snapshot,
+        "application": {
+            "id": latest_app.id, "application_code": latest_app.application_code,
+            "status": latest_app.status,
+            "submitted_at": latest_app.submitted_at.isoformat() if latest_app.submitted_at else None,
+        } if latest_app else None,
+        "warehouse_assignments": [{
+            "id": a.id, "warehouse_id": a.warehouse_id, "is_primary": a.is_primary,
+            "warehouse": {"code": w.code, "name": w.name, "city": w.city, "country": w.country},
+        } for a, w in assigns],
+        "product_buckets": buckets,
+        "audit_trail": [{
+            "id": a.id, "action": a.action, "from_status": a.from_status,
+            "to_status": a.to_status, "notes": a.notes,
+            "actor_admin_id": a.actor_admin_id,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        } for a in audits],
+    }
+
+
+@admin_router.get("/{sid}/products")
+async def admin_list_supplier_products(
+    sid: str,
+    status: Optional[str] = Query(None, description="pending|approved|rejected|withdrawn|all"),
+    category: Optional[str] = Query(None, description="category slug"),
+    subcategory: Optional[str] = Query(None, description="subcategory slug"),
+    q: Optional[str] = Query(None, description="search on name / manufacturer / EAN"),
+    limit: int = Query(200, le=500),
+    session: AsyncSession = Depends(get_session),
+    admin: AdminUser = Depends(_admin_dep()),
+):
+    """List every product request submitted by this supplier, joined with
+    the resulting master product (if approved). Supports server-side status
+    / category / subcategory / free-text filtering — used by the supplier
+    detail page's Products tab."""
+    from core.models import SupplierProductRequest, MartProduct
+    supplier = await session.get(Supplier, sid)
+    if not supplier:
+        raise HTTPException(404, "Supplier not found")
+
+    stmt = (
+        select(SupplierProductRequest, MartProduct, MartCategory)
+        .join(MartProduct,
+              MartProduct.id == SupplierProductRequest.created_master_product_id,
+              isouter=True)
+        .join(MartCategory,
+              MartCategory.id == SupplierProductRequest.proposed_category_id,
+              isouter=True)
+        .where(SupplierProductRequest.supplier_id == sid)
+        .order_by(SupplierProductRequest.created_at.desc())
+    )
+    if status and status != "all":
+        stmt = stmt.where(SupplierProductRequest.status == status)
+    if category:
+        # Match either the proposed category (pre-approval) or the mart
+        # category attached to the created master product (post-approval).
+        stmt = stmt.where(
+            (MartCategory.slug == category) | (MartProduct.category_slug == category)
+        )
+    if subcategory:
+        stmt = stmt.where(MartProduct.subcategory_slug == subcategory)
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            SupplierProductRequest.proposed_name.ilike(like)
+            | SupplierProductRequest.proposed_manufacturer.ilike(like)
+            | SupplierProductRequest.proposed_ean_upc.ilike(like)
+        )
+
+    rows = (await session.execute(stmt.limit(limit))).all()
+
+    # Bucket counts (unfiltered by status/text so tabs always show totals)
+    bstmt = (
+        select(SupplierProductRequest.status, func.count(SupplierProductRequest.id))
+        .where(SupplierProductRequest.supplier_id == sid)
+        .group_by(SupplierProductRequest.status)
+    )
+    buckets = {s: 0 for s in ("pending", "approved", "rejected", "withdrawn")}
+    for s, c in (await session.execute(bstmt)).all():
+        buckets[s] = c
+
+    items = []
+    for r, mp, cat in rows:
+        items.append({
+            "id": r.id,
+            "supplier_id": r.supplier_id,
+            "proposed_name": r.proposed_name,
+            "proposed_manufacturer": r.proposed_manufacturer,
+            "proposed_ean_upc": r.proposed_ean_upc,
+            "proposed_pack_size": r.proposed_pack_size,
+            "proposed_short_description": r.proposed_short_description,
+            "proposed_cost_price": float(r.proposed_cost_price) if r.proposed_cost_price is not None else None,
+            "proposed_currency": r.proposed_currency,
+            "proposed_moq": r.proposed_moq,
+            "proposed_lead_time_days": r.proposed_lead_time_days,
+            "image_url": r.image_url,
+            "images": [r.image_url] if r.image_url else [],
+            "notes": r.notes,
+            "status": r.status,
+            "review_notes": r.review_notes,
+            "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            # Slice 2 — dynamic attribute snapshot ({key: {v,label,type}})
+            # so the admin review drawer renders Category-specific fields.
+            "attributes": r.attributes or {},
+            "category": {
+                "id": cat.id, "name": cat.name, "slug": cat.slug,
+            } if cat else None,
+            "master_product": {
+                "id": mp.id, "name": mp.name, "sku_code": mp.sku_code,
+                "category_slug": mp.category_slug, "subcategory_slug": mp.subcategory_slug,
+                "price": float(mp.price) if mp.price is not None else None,
+                "currency": mp.currency,
+                "image": mp.image,
+                "images": mp.images if getattr(mp, "images", None) else ([mp.image] if mp.image else []),
+            } if mp else None,
+        })
+    return {
+        "supplier": {"id": supplier.id, "business_name": supplier.business_name,
+                     "code": supplier.code, "country": supplier.country,
+                     "status": supplier.status},
+        "buckets": buckets,
+        "items": items,
+    }
 
 
 # ===========================================================================

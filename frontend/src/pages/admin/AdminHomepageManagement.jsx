@@ -30,19 +30,73 @@ const F = {
   url:   (name, label, help = "") => ({ name, label, kind: "url",   help }),
   image: (name, label, help = "") => ({ name, label, kind: "image", help }),
   num:   (name, label, help = "") => ({ name, label, kind: "num",   help }),
+  bool:  (name, label, help = "") => ({ name, label, kind: "bool",  help }),
   list:  (name, label, itemFields, help = "") => ({ name, label, kind: "list", itemFields, help }),
+  // Nested object — renders sub-fields under a single labelled block.
+  group: (name, label, fields, help = "") => ({ name, label, kind: "group", fields, help }),
 };
+
+// ---------------------------------------------------------------------------
+// Field builders reused across schemas so seller-facing labels stay
+// consistent (Fixing_Prompt v12 — inline hero editor).
+// ---------------------------------------------------------------------------
+const _SLIDE_FIELDS = [
+  F.text("eyebrow", "Eyebrow", "Small tag above the headline (e.g. THE BAKĒD MARKETPLACE)"),
+  F.text("headline", "Headline"),
+  F.area("description", "Description"),
+  F.image("image", "Background image"),
+  F.text("badge", "Badge (optional, e.g. NEW, 30% off)"),
+  F.text("cta_label", "Primary CTA label"),
+  F.url("cta_link", "Primary CTA link"),
+  F.text("secondary_cta_label", "Secondary CTA label (optional)"),
+  F.url("secondary_cta_link", "Secondary CTA link (optional)"),
+];
+
+const _PROMO_FIELDS = [
+  F.bool("enabled", "Show this banner"),
+  F.image("image", "Banner image"),
+  F.text("label", "Label (small caps, e.g. NEW ARRIVALS)"),
+  F.text("heading", "Heading"),
+  F.text("description", "Description"),
+  F.text("badge", "Badge (optional)"),
+  F.text("cta_label", "CTA button label"),
+  F.url("cta_link", "CTA link"),
+];
+
+const _USP_FIELDS = [
+  F.text("icon", "Icon key (shield / truck / sparkles / tag)"),
+  F.text("title", "Title"),
+  F.text("subtitle", "Subtitle"),
+];
 
 const SECTION_SCHEMAS = {
   hero: {
     label: "Hero Banner",
-    top: [F.text("title", "Headline"), F.area("subtitle", "Sub-headline")],
-    config: [
-      F.text("cta_label", "CTA button label"),
-      F.url("cta_link", "CTA link"),
-      F.image("background_image", "Desktop background image URL"),
-      F.image("mobile_background_image", "Mobile background image URL (optional)"),
+    top: [F.text("title", "Legacy headline (used only when no slides)"),
+          F.area("subtitle", "Legacy sub-headline")],
+    // Hero uses a TABBED editor. Each tab is a slice of the config, driven
+    // by SECTION_SCHEMAS[section_type].tabs when present. Basics keeps the
+    // pre-slide legacy fields; Slides / Right Banners / USP each map to a
+    // known slice of `config` per Fixing_Prompt v11.
+    tabs: [
+      { key: "basics", label: "Basics", fields: [
+          F.image("background_image", "Fallback background image (used when no slides)"),
+          F.image("mobile_background_image", "Mobile background image (optional)"),
+          F.text("cta_label", "Legacy CTA label"),
+          F.url("cta_link", "Legacy CTA link"),
+      ]},
+      { key: "slides", label: "Slides", fields: [
+          F.list("slides", "Carousel slides (3-4 recommended)", _SLIDE_FIELDS),
+      ]},
+      { key: "right", label: "Right Banners", fields: [
+          F.group("right_top", "Right — Top banner (desktop only)", _PROMO_FIELDS),
+          F.group("right_bottom", "Right — Bottom banner (desktop only)", _PROMO_FIELDS),
+      ]},
+      { key: "usp", label: "USP Strip", fields: [
+          F.list("usp", "Feature tiles (desktop only)", _USP_FIELDS),
+      ]},
     ],
+    config: [],  // rendered via tabs above
   },
   category_grid: {
     label: "Category Grid",
@@ -78,7 +132,8 @@ const SECTION_SCHEMAS = {
     label: "Product Carousel",
     top: [F.text("title", "Title"), F.text("subtitle", "Subtitle")],
     config: [
-      F.text("filter", "Filter (bestsellers / new / category slug)"),
+      F.text("filter", "Category slug (or keyword: bestsellers / new). Blank = all"),
+      F.text("subcategory", "Subcategory slug (optional)"),
       F.num("limit", "Number of products to show"),
       F.url("link", "See-all link"),
     ],
@@ -113,6 +168,7 @@ const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";
 
 export const AdminHomepageManagement = () => {
   const [country, setCountry] = useState("CI");
+  const [module, setModule] = useState("mart");
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);   // full row being edited
@@ -121,12 +177,14 @@ export const AdminHomepageManagement = () => {
   const load = async () => {
     setBusy(true);
     try {
-      const { data } = await adminApi.get(`/admin/homepage-sections?country=${country}`);
+      const { data } = await adminApi.get(
+        `/admin/homepage-sections?country=${country}&module=${module}`,
+      );
       setItems(data.items || []);
     } catch (e) { toast.error(errMsg(e)); }
     finally { setBusy(false); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [country]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [country, module]);
 
   const toggle = async (row) => {
     try {
@@ -163,6 +221,7 @@ export const AdminHomepageManagement = () => {
         const { _creating, id, ...rest } = row;
         void _creating; void id;
         rest.country = country;
+        rest.module = module;
         rest.display_order = ((items[items.length - 1]?.display_order) || 0) + 10;
         await adminApi.post(`/admin/homepage-sections`, rest);
         toast.success("Section created");
@@ -188,6 +247,26 @@ export const AdminHomepageManagement = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <span className="inline-flex rounded-full border border-border p-1 text-xs"
+                data-testid="hp-module-toggle">
+            {[
+              { code: "mart", label: "MARTbakēd" },
+              { code: "shop", label: "SHOPbakēd" },
+            ].map((m) => (
+              <button
+                key={m.code}
+                onClick={() => setModule(m.code)}
+                data-testid={`hp-module-${m.code}`}
+                className={`px-3 py-1.5 rounded-full transition-colors ${
+                  module === m.code
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </span>
           <Globe size={14} className="text-muted-foreground" />
           <select value={country} onChange={(e) => setCountry(e.target.value)}
                   className="h-9 rounded-lg bg-secondary text-sm px-3"
@@ -279,6 +358,8 @@ export const AdminHomepageManagement = () => {
 const SectionEditor = ({ row, creating, onClose, onSave }) => {
   const [draft, setDraft] = useState(row);
   const schema = SECTION_SCHEMAS[draft.section_type] || { top: [], config: [] };
+  const tabs = schema.tabs;
+  const [activeTab, setActiveTab] = useState(tabs?.[0]?.key || "content");
 
   const set = (path, value) => setDraft((d) => {
     if (path === "section_type") return { ...d, section_type: value, config: {} };
@@ -297,6 +378,67 @@ const SectionEditor = ({ row, creating, onClose, onSave }) => {
   const rmListItem = (listName, itemIdx) => setDraft((d) => ({
     ...d, config: { ...d.config, [listName]: (d.config?.[listName] || []).filter((_, i) => i !== itemIdx) },
   }));
+  // Grouped field setter — writes to `config[groupName][subField]`.
+  const setGroupField = (groupName, subField, value) => setDraft((d) => ({
+    ...d,
+    config: { ...d.config, [groupName]: { ...(d.config?.[groupName] || {}), [subField]: value } },
+  }));
+
+  const renderFieldList = (fields) => (
+    <>
+      {fields.map((f) => {
+        if (f.kind === "list") {
+          const rows = draft.config?.[f.name] || [];
+          return (
+            <div key={f.name} className="mb-4">
+              <div className="text-xs font-semibold mb-2 flex items-center justify-between">
+                {f.label}
+                <button onClick={() => addListItem(f.name)}
+                        className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border"
+                        data-testid={`hp-editor-list-add-${f.name}`}>+ Add</button>
+              </div>
+              {rows.map((item, i) => (
+                <div key={i} className="rounded-lg border border-border p-3 mb-2 space-y-2"
+                     data-testid={`hp-editor-list-item-${f.name}-${i}`}>
+                  {f.itemFields.map((sub) => (
+                    <FieldRenderer key={sub.name} field={sub}
+                                   value={item[sub.name]}
+                                   onChange={(v) => setListItem(f.name, i, sub.name, v)} />
+                  ))}
+                  <button onClick={() => rmListItem(f.name, i)}
+                          className="text-[10px] uppercase tracking-widest text-rose-400">
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {rows.length === 0 && (
+                <p className="text-[11px] italic text-muted-foreground">None yet — click + Add.</p>
+              )}
+            </div>
+          );
+        }
+        if (f.kind === "group") {
+          const obj = draft.config?.[f.name] || {};
+          return (
+            <div key={f.name} className="mb-4 rounded-lg border border-border p-3"
+                 data-testid={`hp-editor-group-${f.name}`}>
+              <div className="text-xs font-semibold mb-2">{f.label}</div>
+              {f.fields.map((sub) => (
+                <FieldRenderer key={sub.name} field={sub}
+                               value={obj[sub.name]}
+                               onChange={(v) => setGroupField(f.name, sub.name, v)} />
+              ))}
+            </div>
+          );
+        }
+        return (
+          <FieldRenderer key={f.name} field={f}
+                         value={draft.config?.[f.name]}
+                         onChange={(v) => set(f.name, v)} />
+        );
+      })}
+    </>
+  );
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
@@ -334,45 +476,32 @@ const SectionEditor = ({ row, creating, onClose, onSave }) => {
 
           <div className="pt-3 border-t border-border">
             <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Section content</div>
-            {schema.config.length === 0
-              ? <p className="text-xs italic text-muted-foreground">No extra config for this section type.</p>
-              : schema.config.map((f) => {
-                  if (f.kind === "list") {
-                    const rows = draft.config?.[f.name] || [];
-                    return (
-                      <div key={f.name} className="mb-4">
-                        <div className="text-xs font-semibold mb-2 flex items-center justify-between">
-                          {f.label}
-                          <button onClick={() => addListItem(f.name)}
-                                  className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border"
-                                  data-testid={`hp-editor-list-add-${f.name}`}>+ Add</button>
-                        </div>
-                        {rows.map((item, i) => (
-                          <div key={i} className="rounded-lg border border-border p-3 mb-2 space-y-2"
-                               data-testid={`hp-editor-list-item-${f.name}-${i}`}>
-                            {f.itemFields.map((sub) => (
-                              <FieldRenderer key={sub.name} field={sub}
-                                             value={item[sub.name]}
-                                             onChange={(v) => setListItem(f.name, i, sub.name, v)} />
-                            ))}
-                            <button onClick={() => rmListItem(f.name, i)}
-                                    className="text-[10px] uppercase tracking-widest text-rose-400">
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                        {rows.length === 0 && (
-                          <p className="text-[11px] italic text-muted-foreground">None yet — click + Add.</p>
-                        )}
-                      </div>
-                    );
-                  }
-                  return (
-                    <FieldRenderer key={f.name} field={f}
-                                   value={draft.config?.[f.name]}
-                                   onChange={(v) => set(f.name, v)} />
-                  );
-                })}
+            {tabs ? (
+              <>
+                {/* Tab bar — only rendered for section types that define
+                    schema.tabs (Hero for now). Keeps the form compact
+                    while giving admins a focused edit surface per slice. */}
+                <div className="flex flex-wrap gap-1 mb-3 border-b border-border" role="tablist">
+                  {tabs.map((t) => (
+                    <button key={t.key}
+                            role="tab"
+                            aria-selected={activeTab === t.key}
+                            onClick={() => setActiveTab(t.key)}
+                            data-testid={`hp-editor-tab-${t.key}`}
+                            className={`px-3 py-2 text-xs font-semibold rounded-t-lg border-b-2 -mb-px transition-colors ${
+                              activeTab === t.key
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                            }`}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {renderFieldList(tabs.find((t) => t.key === activeTab)?.fields || [])}
+              </>
+            ) : schema.config.length === 0 ? (
+              <p className="text-xs italic text-muted-foreground">No extra config for this section type.</p>
+            ) : renderFieldList(schema.config)}
           </div>
 
           <label className="flex items-center gap-2 text-sm mt-4">
@@ -415,6 +544,13 @@ const FieldRenderer = ({ field, value, onChange }) => {
       ) : field.kind === "num" ? (
         <input type="number" value={v} onChange={(e) => onChange(Number(e.target.value))}
                className={inputCls} data-testid={`hp-field-${field.name}`} />
+      ) : field.kind === "bool" ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={value !== false}
+                 onChange={(e) => onChange(e.target.checked)}
+                 data-testid={`hp-field-${field.name}`} />
+          <span>{field.help || "Enabled"}</span>
+        </label>
       ) : field.kind === "image" ? (
         <ImageField name={field.name} value={v} onChange={onChange} />
       ) : (

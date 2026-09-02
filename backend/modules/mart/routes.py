@@ -129,7 +129,80 @@ async def get_product(product_id: str, session: AsyncSession = Depends(get_sessi
     else:
         d["is_stocked_locally"] = False
         d["partners_stocking"] = 0
+
+    # Fixing_Prompt v6 · Slice 3 — resolve customer-visible attributes.
+    # We look up the product's category (by slug) + optional subcategory and
+    # hydrate a `visible_attributes` array the customer PDP renders as-is.
+    # Falls back to raw `details` when the product predates the dynamic
+    # attribute engine (legacy free-form JSONB).
+    d["visible_attributes"] = await _resolve_visible_attributes(session, product)
     return d
+
+
+async def _resolve_visible_attributes(session, product) -> list[dict]:
+    """Return ordered [{key,label,type,value,options?}] for customer PDP."""
+    if not product.category_slug:
+        return []
+    from core.models import MartCategory, MartSubcategory
+    from modules.mart_attributes.resolver import resolve_attributes
+    cat = (await session.execute(
+        select(MartCategory).where(
+            MartCategory.slug == product.category_slug,
+            MartCategory.country == product.country,
+        )
+    )).scalar_one_or_none()
+    if not cat:
+        return []
+    sub_id = None
+    if product.subcategory_slug:
+        sub = (await session.execute(
+            select(MartSubcategory).where(
+                MartSubcategory.slug == product.subcategory_slug,
+                MartSubcategory.category_id == cat.id,
+            )
+        )).scalar_one_or_none()
+        sub_id = sub.id if sub else None
+    resolved = await resolve_attributes(
+        session, category_id=cat.id, subcategory_id=sub_id,
+        only_customer_visible=True,
+    )
+    details = product.details or {}
+    out = []
+    for attr in resolved:
+        raw = details.get(attr["key"])
+        if raw is None:
+            continue
+        # New Slice-2 snapshot shape → {v, label, type}. Legacy shape is a
+        # plain scalar (string, number, bool). Preserve historical label if
+        # snapshot's label exists.
+        if isinstance(raw, dict) and "v" in raw:
+            value = raw.get("v")
+            snapshot_label = raw.get("label")
+        else:
+            value = raw
+            snapshot_label = None
+        if value is None or value == "" or (isinstance(value, list) and not value):
+            continue
+        # For select / multi_select, translate value → option label.
+        display = value
+        if attr["type"] == "select":
+            match = next((o for o in attr.get("options", []) if o["value"] == value), None)
+            display = match["label"] if match else value
+        elif attr["type"] == "multi_select" and isinstance(value, list):
+            display = [
+                next((o["label"] for o in attr.get("options", []) if o["value"] == v), v)
+                for v in value
+            ]
+        elif attr["type"] == "boolean":
+            display = "Yes" if value else "No"
+        out.append({
+            "key": attr["key"],
+            "label": snapshot_label or attr["name"],
+            "type": attr["type"],
+            "unit": attr.get("unit"),
+            "value": display,
+        })
+    return out
 
 
 @router.get("/mart/offers")

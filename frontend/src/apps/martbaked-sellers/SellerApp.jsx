@@ -28,47 +28,78 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 export const sellerApi = axios.create({ baseURL: API });
 
+/* --------------------------------------------------------------------------
+ * SellerModule context — lets us reuse the same SellerApp under both
+ * /martbaked/sellers/* (MART, green) and /shopbaked/sellers/* (SHOP, amber)
+ * without duplicating the whole tree. Consumed by SellerHeader/Landing/etc.
+ * -------------------------------------------------------------------------- */
+export const SellerModuleContext = React.createContext({
+  code: "mart", label: "MARTbakēd", accent: "#77BC1F", basePath: "/martbaked/sellers",
+  tagline: "Supplier Program",
+  hero_desc: "Supply your products to MARTbakēd Dark Stores and reach customers across Côte d'Ivoire.",
+  code_prefix: "MART",
+});
+export const useSellerModule = () => React.useContext(SellerModuleContext);
+
+const SELLER_MODULE_PROFILES = {
+  mart: {
+    code: "mart", label: "MARTbakēd", accent: "#77BC1F",
+    basePath: "/martbaked/sellers", tagline: "Supplier Program",
+    hero_desc: "Supply your products to MARTbakēd Dark Stores and reach customers across Côte d'Ivoire.",
+    code_prefix: "MART",
+  },
+  shop: {
+    code: "shop", label: "SHOPbakēd", accent: "#FCC44C",
+    basePath: "/shopbaked/sellers", tagline: "Seller Program",
+    hero_desc: "List your fashion, electronics or home goods on SHOPbakēd — vetted marketplace, national reach, seller-shipped fulfilment.",
+    code_prefix: "SHOP",
+  },
+};
+
 /* -------------------------------------------------------------------------- */
 /*                                Header                                       */
 /* -------------------------------------------------------------------------- */
 
-const SellerHeader = () => (
-  <header className="pl-nav" data-scrolled={true}>
-    <div className="pl-container flex items-center justify-between" style={{ height: 72 }}>
-      <Link to="/martbaked/sellers" className="flex items-center gap-3" data-testid="seller-nav-logo">
-        <BakedLogo size="md" />
-        <span className="text-xs uppercase tracking-widest px-2 py-1 rounded-md"
-          style={{ background: "var(--pl-accent-soft)", color: "var(--pl-accent)" }}>
-          MARTbakēd · Sellers
-        </span>
-      </Link>
-      <div className="flex items-center gap-2">
-        <Link to="/martbaked/sellers/application-status" className="pl-btn pl-btn-ghost hidden sm:inline-flex" data-testid="seller-nav-status">
-          Check status
+const SellerHeader = () => {
+  const mod = useSellerModule();
+  return (
+    <header className="pl-nav" data-scrolled={true}>
+      <div className="pl-container flex items-center justify-between" style={{ height: 72 }}>
+        <Link to={mod.basePath} className="flex items-center gap-3" data-testid="seller-nav-logo">
+          <BakedLogo size="md" />
+          <span className="text-xs uppercase tracking-widest px-2 py-1 rounded-md"
+                style={{ color: mod.accent, background: `${mod.accent}20`, border: `1px solid ${mod.accent}44` }}>
+            {mod.label} · Sellers
+          </span>
         </Link>
-        <Link to="/martbaked/sellers/login" className="pl-btn pl-btn-ghost" data-testid="seller-nav-login">
-          Login
-        </Link>
-        <Link to="/martbaked/sellers/apply" className="pl-btn pl-btn-primary" data-testid="seller-nav-apply">
-          Apply as Supplier <ArrowRight size={16} />
-        </Link>
+        <div className="hidden md:flex items-center gap-3">
+          <Link to={`${mod.basePath}/login`} className="pl-btn" data-testid="seller-nav-login">
+            <LogIn size={14} /> Login
+          </Link>
+          <Link to={`${mod.basePath}/apply`} className="pl-btn pl-btn-primary" data-testid="seller-nav-apply">
+            Apply Now <ArrowRight size={14} />
+          </Link>
+        </div>
       </div>
-    </div>
-  </header>
-);
+    </header>
+  );
+};
 
-const SellerFooter = () => (
-  <footer style={{ borderTop: "1px solid var(--pl-border)", background: "var(--pl-bg)" }}>
-    <div className="pl-container py-8 flex flex-wrap items-center justify-between gap-4">
+const SellerFooter = () => {
+  const mod = useSellerModule();
+  return (
+    <footer style={{ borderTop: "1px solid var(--pl-border)", background: "var(--pl-bg)" }}>
+      <div className="pl-container py-8 flex flex-wrap items-center justify-between gap-4">
       <div className="text-xs" style={{ color: "var(--pl-fg-subtle)" }}>
-        © 2026 BAKĒD Platform · MARTbakēd Supplier Program
+        © 2026 BAKĒD Platform · {mod.label} {mod.tagline}
       </div>
       <div className="flex items-center gap-4 text-xs" style={{ color: "var(--pl-fg-subtle)" }}>
         <Link to="/Sell-on-baked">← Back to Sell-on-BAKĒD</Link>
       </div>
     </div>
   </footer>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                              Landing page                                   */
@@ -91,29 +122,33 @@ const STATUSES = [
   { code: "rejected", icon: XCircle, color: "#FF4C52", label: "Rejected", body: "Your application was not approved." },
 ];
 
-const SellerLanding = () => (
+const SellerLanding = () => {
+  const mod = useSellerModule();
+  const isShop = mod.code === "shop";
+  return (
   <>
     <section className="pl-hero">
       <div className="pl-hero-bg" aria-hidden="true" />
       <div className="pl-container relative" style={{ zIndex: 2 }}>
         <div className="grid lg:grid-cols-2 gap-16 items-center py-20">
           <div>
-            <div className="pl-eyebrow mb-6" style={{ color: "var(--pl-accent)" }}>MARTbakēd Supplier Program</div>
+            <div className="pl-eyebrow mb-6" style={{ color: mod.accent }}>{mod.label} {mod.tagline}</div>
             <h1 className="pl-display" style={{ color: "var(--pl-fg)" }}>
               Become a<br />
-              <span style={{ color: "var(--pl-accent)" }}>MARTbakēd</span> Supplier.
+              <span style={{ color: mod.accent }}>{mod.label}</span> {isShop ? "Seller." : "Supplier."}
             </h1>
             <p className="pl-body-lg mt-6 max-w-xl">
-              Supply your products to MARTbakēd Dark Stores and reach customers
-              through our quick-commerce network. From application to your first
-              purchase order — governed, transparent, and always paid on time.
+              {mod.hero_desc}
+              {isShop
+                ? " Every listing reviewed. National reach. Seller-shipped fulfilment with a customer-PIN delivery gate."
+                : " From application to your first purchase order — governed, transparent, and always paid on time."}
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
-              <Link to="/martbaked/sellers/apply" className="pl-btn pl-btn-primary" data-testid="seller-landing-apply">
-                Apply as Supplier <ArrowRight size={18} />
+              <Link to={`${mod.basePath}/apply`} className="pl-btn pl-btn-primary" data-testid="seller-landing-apply">
+                {isShop ? "Apply as Seller" : "Apply as Supplier"} <ArrowRight size={18} />
               </Link>
-              <Link to="/martbaked/sellers/login" className="pl-btn pl-btn-secondary" data-testid="seller-landing-login">
-                <LogIn size={16} /> Supplier Login
+              <Link to={`${mod.basePath}/login`} className="pl-btn pl-btn-secondary" data-testid="seller-landing-login">
+                <LogIn size={16} /> {isShop ? "Seller Login" : "Supplier Login"}
               </Link>
             </div>
           </div>
@@ -185,13 +220,14 @@ const SellerLanding = () => (
             );
           })}
         </div>
-        <Link to="/martbaked/sellers/application-status" className="pl-btn pl-btn-secondary mt-10 inline-flex" data-testid="seller-landing-check-status">
+        <Link to={`${mod.basePath}/application-status`} className="pl-btn pl-btn-secondary mt-10 inline-flex" data-testid="seller-landing-check-status">
           Check my application status
         </Link>
       </div>
     </section>
   </>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                            Application status page                          */
@@ -294,6 +330,7 @@ const SellerLogin = () => {
   const [err, setErr] = useState("");
   const [notActive, setNotActive] = useState(false);
   const navigate = useNavigate();
+  const mod = useSellerModule();
 
   const submit = async (e) => {
     e.preventDefault();
@@ -303,10 +340,14 @@ const SellerLogin = () => {
       localStorage.setItem("supplier_token", data.access_token);
       localStorage.setItem("supplier", JSON.stringify(data.supplier));
       toast.success(`Welcome back, ${data.supplier.trading_name || data.supplier.business_name}`);
-      // Redirect to portal (or ?redirect= override for deep-linking)
+      // Redirect to portal (or ?redirect= override for deep-linking).
+      // Preserve the current module: sellers who logged in via
+      // /shopbaked/sellers/login land under /shopbaked/{slug}/portal/…
       const params = new URLSearchParams(window.location.search);
       const slug = data.supplier?.seller_slug || "sellers";
-      const to = params.get("redirect") || `/martbaked/${slug}/portal/dashboard`;
+      const isShop = window.location.pathname.startsWith("/shopbaked");
+      const prefix = isShop ? "/shopbaked" : "/martbaked";
+      const to = params.get("redirect") || `${prefix}/${slug}/portal/dashboard`;
       navigate(to);
     } catch (e) {
       const d = e?.response?.data?.detail;
@@ -346,8 +387,8 @@ const SellerLogin = () => {
               <div>{err}</div>
               {notActive && (
                 <div className="flex flex-wrap gap-3 text-xs" data-testid="seller-login-not-active-actions">
-                  <Link to="/martbaked/sellers/application-status" className="underline">Check application status</Link>
-                  <Link to="/martbaked/sellers/activate" className="underline">Activate my account</Link>
+                  <Link to={`${mod.basePath}/application-status`} className="underline">Check application status</Link>
+                  <Link to={`${mod.basePath}/activate`} className="underline">Activate my account</Link>
                 </div>
               )}
             </div>
@@ -447,27 +488,37 @@ const SellerActivate = () => {
 /*                                Root component                               */
 /* -------------------------------------------------------------------------- */
 
-export const SellerApp = () => {
+export const SellerApp = ({ module = "mart" }) => {
+  const profile = SELLER_MODULE_PROFILES[module] || SELLER_MODULE_PROFILES.mart;
   useEffect(() => {
     const prev = document.title;
-    document.title = "MARTbakēd Suppliers — Grow with BAKĒD";
+    document.title = `${profile.label} ${profile.code === "shop" ? "Sellers" : "Suppliers"} — Grow with BAKĒD`;
     return () => { document.title = prev; };
-  }, []);
+  }, [profile.label, profile.code]);
+
+  // Override the partner-landing accent tokens with the module's colour so
+  // SHOPbakēd renders amber without duplicating the whole stylesheet.
+  const overrideStyle = React.useMemo(() => ({
+    "--pl-accent": profile.accent,
+    "--pl-accent-soft": `${profile.accent}22`,
+  }), [profile.accent]);
 
   return (
-    <div className="partner-landing" data-theme="dark">
-      <SellerHeader />
-      <main>
-        <Routes>
-          <Route index element={<SellerLanding />} />
-          <Route path="apply" element={<SellerApplyWizard />} />
-          <Route path="login" element={<SellerLogin />} />
-          <Route path="activate" element={<SellerActivate />} />
-          <Route path="application-status" element={<SellerApplicationStatus />} />
-        </Routes>
-      </main>
-      <SellerFooter />
-    </div>
+    <SellerModuleContext.Provider value={profile}>
+      <div className="partner-landing" data-theme="dark" style={overrideStyle} data-module={profile.code}>
+        <SellerHeader />
+        <main>
+          <Routes>
+            <Route index element={<SellerLanding />} />
+            <Route path="apply" element={<SellerApplyWizard />} />
+            <Route path="login" element={<SellerLogin />} />
+            <Route path="activate" element={<SellerActivate />} />
+            <Route path="application-status" element={<SellerApplicationStatus />} />
+          </Routes>
+        </main>
+        <SellerFooter />
+      </div>
+    </SellerModuleContext.Provider>
   );
 };
 

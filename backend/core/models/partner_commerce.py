@@ -38,6 +38,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB
 
 from core.models.base import Base, TimestampMixin, new_id
 
@@ -72,6 +73,19 @@ class PartnerProduct(Base, TimestampMixin):
     brand: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     unit: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
     image: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Fixing_Prompt v4 Phase 2 (2026-02-28) — supplier-managed gallery.
+    # Ordered list of image URLs. The first entry is treated as the primary
+    # and mirrored into `image` for legacy readers. Nullable list default =
+    # [] so pre-migration products keep working.
+    images: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    # Phase 3 (2026-02-28) — image gallery review queue.
+    # `none`     : no images or nothing pending
+    # `pending`  : supplier changed images, awaiting admin approval
+    # `approved` : admin OK'd → mirrored to MartProduct.images (if linked)
+    # `rejected` : admin declined, `images_review_note` explains why
+    images_review_status: Mapped[str] = mapped_column(String(20), nullable=False,
+                                                       default="none", server_default="none")
+    images_review_note:   Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
     category_slug: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     subcategory_slug: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

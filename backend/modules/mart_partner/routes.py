@@ -933,6 +933,10 @@ class NodeIn(BaseModel):
     code: str = Field(..., min_length=1, max_length=40)
     name: str = Field(..., min_length=1, max_length=200)
     sort_order: int = 0
+    # Fixing_Prompt (2026-02-27) — Aisle/Rack cascade tags.
+    # Ignored for Zone/Shelf/Bin. Subcategory requires category.
+    category_slug: Optional[str] = None
+    subcategory_slug: Optional[str] = None
 
 
 class NodeUpdateIn(BaseModel):
@@ -940,6 +944,8 @@ class NodeUpdateIn(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+    category_slug: Optional[str] = None
+    subcategory_slug: Optional[str] = None
 
 
 async def _assert_owns_warehouse(session: AsyncSession, partner: Partner, warehouse_id: str) -> Warehouse:
@@ -960,10 +966,78 @@ async def _assert_owns_warehouse(session: AsyncSession, partner: Partner, wareho
 
 
 def _node_dict(row, level: str) -> dict:
-    return {
+    d = {
         "id": row.id, "level": level, "code": row.code, "name": row.name,
         "sort_order": row.sort_order, "is_active": row.is_active,
     }
+    # Aisle/Rack only — expose the category cascade tags so the storage
+    # hierarchy editor and the location modal can filter correctly.
+    if level in ("aisle", "rack"):
+        d["category_slug"]    = getattr(row, "category_slug", None)
+        d["subcategory_slug"] = getattr(row, "subcategory_slug", None)
+    return d
+
+
+async def _validate_category_cascade(
+    session: AsyncSession, *,
+    country: str,
+    category_slug: Optional[str], subcategory_slug: Optional[str],
+    parent_row=None, parent_level: Optional[str] = None,
+) -> None:
+    """Enforce the Category → Subcategory → Product cascade at write time.
+
+    - Subcategory without category → 400.
+    - Category must exist in mart_categories (scoped by country — the
+      slug is unique per country, not globally).
+    - Subcategory must exist AND belong to the given category (joined
+      via MartSubcategory.category_id → MartCategory.slug because
+      MartSubcategory does not carry the slug denormalised).
+    - When creating/editing a Rack under an Aisle whose category is
+      tagged, the Rack's category must equal the Aisle's category.
+    """
+    from core.models import MartCategory, MartSubcategory
+    if subcategory_slug and not category_slug:
+        raise HTTPException(status_code=400,
+                            detail="Subcategory requires a category.")
+    cat_row = None
+    if category_slug:
+        cat_row = (await session.execute(
+            select(MartCategory).where(
+                MartCategory.slug == category_slug,
+                MartCategory.country == country,
+            )
+        )).scalar_one_or_none()
+        if cat_row is None:
+            raise HTTPException(status_code=400,
+                                detail=f"Unknown category '{category_slug}'.")
+    if subcategory_slug:
+        # Join subcategory → its parent category so we can compare the
+        # PARENT slug (MartSubcategory has category_id, not category_slug).
+        joined = (await session.execute(
+            select(MartSubcategory, MartCategory)
+            .join(MartCategory, MartSubcategory.category_id == MartCategory.id)
+            .where(
+                MartSubcategory.slug == subcategory_slug,
+                MartSubcategory.country == country,
+            )
+        )).first()
+        if joined is None:
+            raise HTTPException(status_code=400,
+                                detail=f"Unknown subcategory '{subcategory_slug}'.")
+        _sub_row, parent_cat = joined
+        if parent_cat.slug != category_slug:
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_cascade",
+                "message": f"Subcategory '{subcategory_slug}' does not belong to '{category_slug}'.",
+            })
+    # Rack under Aisle — category must match Aisle when Aisle is tagged.
+    if parent_level == "aisle" and parent_row is not None:
+        aisle_cat = getattr(parent_row, "category_slug", None)
+        if aisle_cat and category_slug and aisle_cat != category_slug:
+            raise HTTPException(status_code=400, detail={
+                "code": "invalid_cascade",
+                "message": f"Rack category '{category_slug}' must match its parent Aisle '{aisle_cat}'.",
+            })
 
 
 @partner_router.get("/warehouse/{warehouse_id}/tree")
@@ -1037,6 +1111,25 @@ async def warehouse_tree(
     for z in zone_nodes:
         z["children"] = by_zone.get(z["id"], [])
 
+    # Category Auto-Suggest (2026-02-28) — surface the category that the
+    # partner mapped to each Zone via the "Category defaults" section, so
+    # the Aisle create form can pre-fill it as a suggestion. Only assign
+    # when EXACTLY ONE default targets a given zone — otherwise we'd have
+    # to pick one arbitrarily, which is worse than showing nothing.
+    from core.models import WarehouseCategoryDefault
+    defaults = (await session.execute(
+        select(WarehouseCategoryDefault).where(
+            WarehouseCategoryDefault.warehouse_id == wh.id,
+            WarehouseCategoryDefault.zone_id.is_not(None),
+        )
+    )).scalars().all()
+    by_zone_defaults: dict[str, list[str]] = {}
+    for d in defaults:
+        by_zone_defaults.setdefault(d.zone_id, []).append(d.category_slug)
+    for z in zone_nodes:
+        cats = by_zone_defaults.get(z["id"], [])
+        z["suggested_category_slug"] = cats[0] if len(cats) == 1 else None
+
     return {
         "warehouse": _warehouse_dict(wh),
         "zones": zone_nodes,
@@ -1058,16 +1151,33 @@ async def create_node(
     Model, parent_col = LEVEL_MODEL[payload.level]
 
     # Verify parent belongs to this partner's warehouse (defense in depth).
+    parent = None
+    parent_level = None
     if payload.level == "zone":
         if payload.parent_id != warehouse_id:
             raise HTTPException(status_code=400, detail="Zone parent must be the warehouse id")
     else:
-        ParentModel = LEVEL_MODEL[{"aisle":"zone","rack":"aisle","shelf":"rack","bin":"shelf"}[payload.level]][0]
+        parent_level = {"aisle":"zone","rack":"aisle","shelf":"rack","bin":"shelf"}[payload.level]
+        ParentModel = LEVEL_MODEL[parent_level][0]
         parent = await session.get(ParentModel, payload.parent_id)
         if not parent:
             raise HTTPException(status_code=404, detail="Parent node not found")
 
-    row = Model(**{parent_col: payload.parent_id, "code": payload.code, "name": payload.name, "sort_order": payload.sort_order})
+    # Fixing_Prompt (2026-02-27): validate Aisle/Rack category cascade.
+    row_kwargs = {parent_col: payload.parent_id, "code": payload.code, "name": payload.name, "sort_order": payload.sort_order}
+    if payload.level in ("aisle", "rack"):
+        await _validate_category_cascade(
+            session,
+            country=partner.country,
+            category_slug=payload.category_slug,
+            subcategory_slug=payload.subcategory_slug,
+            parent_row=parent if parent_level == "aisle" else None,
+            parent_level=parent_level,
+        )
+        row_kwargs["category_slug"]    = payload.category_slug
+        row_kwargs["subcategory_slug"] = payload.subcategory_slug
+
+    row = Model(**row_kwargs)
     session.add(row)
     try:
         await session.commit()
@@ -1092,7 +1202,25 @@ async def update_node(
     row = await session.get(Model, node_id)
     if not row:
         raise HTTPException(status_code=404, detail="Node not found")
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    payload_data = payload.model_dump(exclude_unset=True)
+    if level in ("aisle", "rack") and ("category_slug" in payload_data or "subcategory_slug" in payload_data):
+        # Blend current + patched values, then validate.
+        new_cat = payload_data.get("category_slug",    getattr(row, "category_slug",    None))
+        new_sub = payload_data.get("subcategory_slug", getattr(row, "subcategory_slug", None))
+        parent_row = None
+        if level == "rack":
+            parent_row = await session.get(WarehouseAisle, row.aisle_id)
+        await _validate_category_cascade(
+            session,
+            country=partner.country,
+            category_slug=new_cat, subcategory_slug=new_sub,
+            parent_row=parent_row, parent_level="aisle" if level == "rack" else None,
+        )
+    if level not in ("aisle", "rack"):
+        # Strip cascade fields for levels that don't carry them.
+        payload_data.pop("category_slug", None)
+        payload_data.pop("subcategory_slug", None)
+    for k, v in payload_data.items():
         setattr(row, k, v)
     try:
         await session.commit()
@@ -1243,6 +1371,9 @@ def _partner_product_dict(row: PartnerProduct, master: Optional[MartProduct] = N
         "brand": brand,
         "unit": unit,
         "image": image,
+        "images": list(getattr(row, "images", None) or []),
+        "images_review_status": getattr(row, "images_review_status", "none"),
+        "images_review_note":   getattr(row, "images_review_note", None),
         "category_slug": cat,
         "subcategory_slug": sub,
         "sku_code": row.sku_code,
@@ -1316,6 +1447,8 @@ class ProductUpdateIn(BaseModel):
 async def list_partner_products(
     q: Optional[str] = None,
     active: Optional[bool] = None,
+    category: Optional[str] = None,
+    subcategory: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     partner: Partner = Depends(get_current_partner),
@@ -1324,6 +1457,10 @@ async def list_partner_products(
     stmt = select(PartnerProduct).where(PartnerProduct.partner_id == partner.id).order_by(PartnerProduct.created_at.desc())
     if active is not None:
         stmt = stmt.where(PartnerProduct.is_active == active)
+    if category:
+        stmt = stmt.where(PartnerProduct.category_slug == category)
+    if subcategory:
+        stmt = stmt.where(PartnerProduct.subcategory_slug == subcategory)
     rows = (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
     masters = await _load_masters(session, [r.master_product_id for r in rows if r.master_product_id])
 
@@ -1517,6 +1654,133 @@ async def delete_partner_product(
         raise HTTPException(status_code=404, detail="Product not found")
     await session.delete(row)
     await session.commit()
+
+
+# ============================================================================
+#                    Supplier Image Manager (2026-02-28)
+# ============================================================================
+# Backend for the /partner/products image gallery UI. Suppliers can upload
+# new images, reorder them, set a primary and remove obsolete ones. The
+# authoritative order is stored in PartnerProduct.images[], and index 0 is
+# mirrored into the legacy `image` column so pre-existing readers still work.
+
+from fastapi import UploadFile, File
+from core.providers import object_storage as _object_storage
+
+_MAX_IMAGE_BYTES = 6 * 1024 * 1024   # 6 MB per upload
+_ALLOWED_MIME    = {"image/jpeg", "image/png", "image/webp"}
+_MAX_IMAGES      = 8
+
+
+def _sync_primary(row: PartnerProduct) -> None:
+    """Keep `image` in sync with images[0] so legacy render paths still work."""
+    row.image = row.images[0] if row.images else None
+
+
+def _flag_pending_review(row: PartnerProduct) -> None:
+    """Phase 3 — mark this product's gallery as awaiting admin approval.
+
+    Only linked products (master_product_id set) enter the review queue;
+    unlinked customs are covered by their `approval_status` flow. If the
+    gallery becomes empty we skip pending → nothing new to review.
+    """
+    if row.master_product_id and (row.images or []):
+        row.images_review_status = "pending"
+        row.images_review_note   = None
+
+
+@partner_router.post("/products/{product_id}/images/upload",
+                     dependencies=[Depends(require_role("owner", "manager"))])
+async def upload_partner_product_image(
+    product_id: str,
+    file: UploadFile = File(...),
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerProduct, product_id)
+    if not row or row.partner_id != partner.id:
+        raise HTTPException(404, "Product not found")
+
+    if (file.content_type or "").lower() not in _ALLOWED_MIME:
+        raise HTTPException(415, {"code": "unsupported_media_type",
+            "message": f"Only {', '.join(sorted(_ALLOWED_MIME))} accepted (got {file.content_type})."})
+
+    content = await file.read()
+    if len(content) > _MAX_IMAGE_BYTES:
+        raise HTTPException(413, {"code": "file_too_large",
+            "message": f"File exceeds {_MAX_IMAGE_BYTES // (1024*1024)} MB limit."})
+
+    current = list(row.images or [])
+    if len(current) >= _MAX_IMAGES:
+        raise HTTPException(400, {"code": "too_many_images",
+            "message": f"Max {_MAX_IMAGES} images per SKU. Remove one before adding a new one."})
+
+    ext = (file.filename or "img").rsplit(".", 1)[-1].lower() or "jpg"
+    ts  = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    key = f"{_object_storage.APP_NAME}/partner/{partner.id}/product/{product_id}/{ts}.{ext}"
+    try:
+        _object_storage.put_object(key, content, file.content_type or "image/jpeg")
+    except Exception as e:
+        raise HTTPException(502, f"Upload failed: {e}")
+
+    url = f"/api/partner/uploads/{key}"
+    current.append(url)
+    row.images = current
+    _sync_primary(row)
+    _flag_pending_review(row)
+    await session.commit()
+    await session.refresh(row)
+    master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
+    return _partner_product_dict(row, master)
+
+
+class ImagesReorderIn(BaseModel):
+    """Full-list update: the payload IS the authoritative post-op order.
+    Use this to reorder, remove, or set primary in a single round trip."""
+    model_config = ConfigDict(extra="forbid")
+    image_urls: list[str] = Field(..., min_length=0, max_length=_MAX_IMAGES)
+
+
+@partner_router.patch("/products/{product_id}/images",
+                      dependencies=[Depends(require_role("owner", "manager"))])
+async def reorder_partner_product_images(
+    product_id: str,
+    payload: ImagesReorderIn,
+    partner: Partner = Depends(get_current_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(PartnerProduct, product_id)
+    if not row or row.partner_id != partner.id:
+        raise HTTPException(404, "Product not found")
+
+    # Guard: only images that were ALREADY in the gallery can be reordered
+    # or dropped. This prevents a client from injecting arbitrary URLs
+    # through this endpoint (uploads must go through /images/upload).
+    existing = set(row.images or [])
+    for u in payload.image_urls:
+        if u not in existing:
+            raise HTTPException(400, {"code": "unknown_image",
+                "message": f"Image '{u}' isn't in this product's current gallery."})
+
+    row.images = list(payload.image_urls)
+    _sync_primary(row)
+    _flag_pending_review(row)
+    await session.commit()
+    await session.refresh(row)
+    master = await session.get(MartProduct, row.master_product_id) if row.master_product_id else None
+    return _partner_product_dict(row, master)
+
+
+@partner_router.get("/uploads/{key:path}")
+async def partner_upload_serve(key: str):
+    """Proxy a previously-uploaded partner asset. Prefixed with
+    `/api/partner/uploads/` so the frontend can just <img src>."""
+    from fastapi.responses import Response
+    try:
+        content, ct = _object_storage.get_object(key)
+    except Exception:
+        raise HTTPException(404, "Upload not found")
+    return Response(content=content, media_type=ct)
 
 
 # ============================================================================
@@ -2263,4 +2527,157 @@ async def admin_reject_partner_product(
 
     await session.commit()
     return _partner_product_admin_dict(pp, partner)
+
+
+# ============================================================================
+#            Phase 3 (2026-02-28) — Supplier Image Review Queue
+# ============================================================================
+# Suppliers can upload/reorder images freely from the partner portal (Phase 2)
+# but public visibility on the customer PDP requires admin sign-off. This
+# section adds the queue + approve/reject endpoints that mirror the images to
+# the master MartProduct once approved.
+
+
+@admin_router.get("/partner-products/pending-images")
+async def admin_list_pending_image_reviews(
+    country: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    """List PartnerProduct rows whose gallery is awaiting admin sign-off."""
+    stmt = (select(PartnerProduct)
+            .where(PartnerProduct.images_review_status == "pending")
+            .order_by(PartnerProduct.updated_at.desc())
+            .limit(limit).offset(offset))
+    rows = (await session.execute(stmt)).scalars().all()
+    # Preload the master products (side-by-side compare) + partners.
+    master_ids  = [r.master_product_id for r in rows if r.master_product_id]
+    partner_ids = list({r.partner_id for r in rows})
+    masters = (await session.execute(
+        select(MartProduct).where(MartProduct.id.in_(master_ids)) if master_ids else select(MartProduct).where(sa.false())
+    )).scalars().all() if master_ids else []
+    m_by_id = {m.id: m for m in masters}
+    parts = (await session.execute(
+        select(Partner).where(Partner.id.in_(partner_ids)) if partner_ids else select(Partner).where(sa.false())
+    )).scalars().all() if partner_ids else []
+    p_by_id = {p.id: p for p in parts}
+
+    items = []
+    for r in rows:
+        m = m_by_id.get(r.master_product_id) if r.master_product_id else None
+        p = p_by_id.get(r.partner_id)
+        if country and p and p.country != country:
+            continue
+        items.append({
+            "partner_product_id": r.id,
+            "master_product_id":  r.master_product_id,
+            "partner_id":         r.partner_id,
+            "partner_name":       p.business_name if p else None,
+            "country":            p.country if p else None,
+            "name":               (m.name if m else r.name),
+            "sku_code":           r.sku_code,
+            "master_images":      list(getattr(m, "images", None) or ([m.image] if (m and m.image) else [])) if m else [],
+            "partner_images":     list(r.images or []),
+            "images_review_status": r.images_review_status,
+            "updated_at":         r.updated_at.isoformat() if r.updated_at else None,
+        })
+    return {"items": items, "total": len(items)}
+
+
+import sqlalchemy as sa  # noqa: E402 — used above
+
+
+class ImageReviewNoteIn(BaseModel):
+    note: Optional[str] = Field(None, max_length=2000)
+
+
+@admin_router.post("/partner-products/{product_id}/images/approve")
+async def admin_approve_partner_images(
+    product_id: str,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Approve a supplier's pending gallery — mirror its images onto the
+    linked MartProduct so the public PDP surfaces the new set immediately."""
+    pp = await session.get(PartnerProduct, product_id)
+    if not pp: raise HTTPException(404, "Product not found")
+    if pp.images_review_status != "pending":
+        raise HTTPException(409, {"code": "not_pending",
+            "message": f"Gallery is currently '{pp.images_review_status}'"})
+    if not pp.master_product_id:
+        raise HTTPException(400, {"code": "not_linked",
+            "message": "Product is not linked to a master — approve the product first."})
+
+    mp = await session.get(MartProduct, pp.master_product_id)
+    if not mp: raise HTTPException(400, {"code": "master_missing",
+                                          "message": "Linked master product no longer exists"})
+
+    # Copy authoritative order + primary sync.
+    new_images = list(pp.images or [])
+    mp.images = new_images
+    mp.image  = new_images[0] if new_images else mp.image
+    pp.images_review_status = "approved"
+    pp.images_review_note   = None
+    await session.commit()
+
+    partner = await session.get(Partner, pp.partner_id)
+    try:
+        from shared.notifications.routes import notify as inapp_notify
+        await inapp_notify(
+            session,
+            recipient_kind="partner_owner", recipient_id=pp.partner_id,
+            kind="partner_product_images_approved",
+            title=f"Gallery approved for '{mp.name}'",
+            body=f"{len(new_images)} image{'s' if len(new_images) != 1 else ''} now live on the customer product page.",
+            link=f"/partner-portal/{(partner.module or 'mart') if partner else 'mart'}/products",
+            entity_kind="partner_product", entity_id=pp.id,
+            actor_label=admin.email,
+        )
+    except Exception:
+        pass
+    return {"partner_product_id": pp.id, "master_product_id": mp.id,
+            "master_images": list(mp.images), "status": pp.images_review_status}
+
+
+@admin_router.post("/partner-products/{product_id}/images/reject")
+async def admin_reject_partner_images(
+    product_id: str,
+    payload: ImageReviewNoteIn,
+    admin: AdminUser = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Reject the supplier's pending gallery. The images stay on the
+    PartnerProduct (for the supplier to see + replace) but they're NOT
+    mirrored to the master, so the public PDP is unchanged."""
+    pp = await session.get(PartnerProduct, product_id)
+    if not pp: raise HTTPException(404, "Product not found")
+    if pp.images_review_status != "pending":
+        raise HTTPException(409, {"code": "not_pending",
+            "message": f"Gallery is currently '{pp.images_review_status}'"})
+    if not (payload.note and payload.note.strip()):
+        raise HTTPException(400, {"code": "note_required",
+            "message": "Provide a short reason so the supplier knows what to fix."})
+
+    pp.images_review_status = "rejected"
+    pp.images_review_note   = payload.note.strip()
+    await session.commit()
+
+    partner = await session.get(Partner, pp.partner_id)
+    try:
+        from shared.notifications.routes import notify as inapp_notify
+        await inapp_notify(
+            session,
+            recipient_kind="partner_owner", recipient_id=pp.partner_id,
+            kind="partner_product_images_rejected",
+            title=f"Gallery changes need review",
+            body=payload.note.strip(),
+            link=f"/partner-portal/{(partner.module or 'mart') if partner else 'mart'}/products",
+            entity_kind="partner_product", entity_id=pp.id,
+            actor_label=admin.email,
+        )
+    except Exception:
+        pass
+    return {"partner_product_id": pp.id, "status": pp.images_review_status,
+            "note": pp.images_review_note}
 

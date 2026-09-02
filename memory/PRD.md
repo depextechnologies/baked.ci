@@ -3,7 +3,251 @@
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 
-## Latest (2026-02-27) — SENDbakēd Driver Trip Flow + Light Mode
+## Latest (2026-02-28) — SHOPbakēd Slice 9 Checkout Engine
+- ✅ **Migration 0044**: created isolated `shop_orders` + `shop_order_items` tables (FKs into SHOP hierarchy, JSONB `snapshot` for immutable audit trail, unique `number` column `SHOP-CI-YYYY-NNNNN`, `supplier_id` on each line item for future per-supplier fulfilment split).
+- ✅ **`POST /api/shop/checkout`** — consumes the current SHOP cart, validates every variant's `stock_qty ≥ quantity` (409 `insufficient_stock` on shortfall, 409 `variant_unavailable` on inactivated variants), mints one `ShopOrder` + N `ShopOrderItem` rows, atomically deducts stock, clears the SHOP cart items (parent `carts` row survives so MART cart is untouched). Cash-on-delivery → `status=paid, payment_status=paid` for MVP; Stripe/wallet → `pending_payment/pending` (Slice 10 will complete the Stripe flow).
+- ✅ **`GET /api/shop/orders/me`** + **`GET /api/shop/orders/{id}`** — customer-scoped list + detail with 404 on cross-customer access.
+- ✅ **Frontend `/shop/checkout`**: two-column form — Delivery address + Instructions + Payment method radio; right-column Order Summary with line items + Total in amber; "Place order" CTA.
+- ✅ **Frontend `/shop/order/:orderId`**: confirmation page with success checkmark, order number, status/payment/total tri-panel, itemised list, "Continue shopping" CTA.
+- ✅ **"Go to checkout" CTA** on `/shop` home top-right so customers can reach the flow.
+- ✅ **Tests**: `test_shop_checkout_slice9.py` — 7/7 covering empty-cart 400, full flow (order+snapshot+stock deduction+cart clear), Stripe stays pending, insufficient stock 409, list+detail scoped to customer, cross-customer 404, auth guards. Full SHOP suite = 86/88 (1 skip + 1 known cross-worker flake). MART regression unaffected. Live UI verified: checkout renders total = 999 XOF, cash-on-delivery selected, all inputs mounted.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 8 E2E Tests · SHOPbakēd MVP COMPLETE
+- ✅ **API round-trip** (`test_shop_e2e_roundtrip.py`): 13-step three-actor journey — seller creates + variants → admin approves → customer OTP → PDP → add-to-cart → patch qty → checkout snapshot. Uses `request.config.cache` to thread ids between phases; one class = one xdist worker.
+- ✅ **New `POST /api/shop/cart/checkout-snapshot`** endpoint: freezes cart state (product/variant/attributes/lines/totals) into a stable payload Slice 9 can hand to Stripe or the delivery-quote engine. Empty-cart → 400 `empty_cart`.
+- ✅ **Playwright browser E2E** (`test_shop_e2e_browser.py`): real Chromium boots the `/shopbaked` storefront, asserts ≥2 CMS-driven sections render, PDP loads with variant picker + Add-to-cart button, and anonymous add-to-cart doesn't crash (401 handled gracefully).
+- ✅ **Playwright installed** in the backend test env (`pip install playwright` + `python -m playwright install chromium --with-deps`) — browser tests now first-class in the regression harness.
+- ✅ **Full SHOP suite: 82 passed / 1 skipped / 1 known cross-worker race** — 16 of those are Slice 8. Any race can be reproduced/verified by running the failing test in isolation (`-o addopts=`).
+
+### SHOPbakēd MVP is complete
+All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admin Approval → Customer Storefront → Homepage Editor → E2E Tests) are live, tested, and running in the preview env. Ready for the next phase.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 7 Homepage Editor
+- ✅ **Migration 0043 `homepage_module`**: adds `homepage_sections.module` (default "mart") + composite index `(country, module, display_order)`. Existing MART rows backfilled automatically via the server default.
+- ✅ **Public GET `/api/homepage?country=CI&module=shop`**: filters by module (defaults to `mart` for backwards compat). Response now includes the requested module for round-tripping.
+- ✅ **Admin GET `/api/admin/homepage-sections?country=CI&module=shop`**: filters by module; omit `module` to see all (grouped in ordering). Section create/patch accept `module`.
+- ✅ **Seeded SHOP homepage stack** (`modules/shop/homepage_seed.py`): 5 default rails — hero, category_grid (6 top SHOP categories), product_carousel ("Fresh drops"), promotional_banner ("Under 10 000 XOF"), brand_carousel. Idempotent on stable ids.
+- ✅ **`/shopbaked` storefront** rewritten to render admin-curated rails from `/api/homepage?country=CI&module=shop`. `SectionRenderer` dispatches on `section_type` to `HeroSection`, `CategoryGridSection`, `ProductCarouselSection`, `PromoBannerSection`, `BrandCarouselSection`. Unknown section types render nothing so admins can safely experiment.
+- ✅ **Admin UI** (`AdminHomepageManagement.jsx`): new MART / SHOP module pill toggle at top of the page filters the section table and drives what module new sections are created under. Every existing button (edit, toggle, reorder, delete) works unchanged.
+- ✅ **Tests**: `test_shop_homepage_slice7.py` — 8/8 covering default module = mart, `?module=shop` isolation, admin filter, unknown module → empty, create-appears-in-public-shop, MART isolation (SHOP row not visible on MART homepage), auth guard. Live UI smoke: 5 CMS sections rendered, hero copy + category grid + fresh drops all admin-editable.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 6 Customer Storefront
+- ✅ **Real customer home** at `/shopbaked`: gradient hero with FR/EN copy, trust-badge row, live 19-category tile grid, 12-card "Fresh drops" product grid. All routed through the existing `api` axios client (JWT-aware).
+- ✅ **Category landing** at `/shopbaked/c/:categorySlug`: subcategory pill rail with `?sub=` query param filter, responsive product grid.
+- ✅ **PDP** at `/shopbaked/p/:productId`: two-column layout with images + description + price range + variant picker. Picker auto-derives from the attribute schema — only attribute keys that differ across the product's variants render as picker rows (Colour + Storage on iPhone, Colour on t-shirts, etc.). Live variant match on selection changes price/stock/SKU.
+- ✅ **Add-to-cart wired**: `POST /api/shop/cart/items` with 401 fallback showing "Please sign in" toast; upserts quantity on repeat add; button disabled + shows "Select options"/"Out of stock" states.
+- ✅ **New backend surface**:
+  * `GET /api/shop/products/{pid}` — public PDP payload with variants + attribute schema + price range (only exposes `active` products).
+  * `GET /api/shop/cart/me` — hydrated SHOP cart with per-line totals + item_count.
+  * `POST /api/shop/cart/items` — add-or-upsert (variant, quantity).
+  * `PATCH /api/shop/cart/items/{id}` — update quantity (1-99).
+  * `DELETE /api/shop/cart/items/{id}` — remove item.
+- ✅ **New `shop_cart_items` table** (migration 0042): separate table from MART's `cart_items` (which has hard FK to `mart_products.id`), sharing the same parent `carts` row so a customer's cart can mix MART + SHOP entries. Cross-module isolation guaranteed at query time.
+- ✅ **Tests**: `test_shop_storefront.py` — 7/7 covering PDP shape, draft-product 404, cart add/upsert/patch/delete, bad-variant 404, MART cart isolation. Full SHOP suite = 59 passed / 1 skipped (foxtrot no password) across all Slices 1-6. MART regression unaffected.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 5 Admin Approval
+- ✅ **Modules tab in supplier drawer** (`/admin/modules/mart/suppliers/{id}` → "Modules"): checkbox card grid for MART (locked as always-on) + SHOP; "Save changes" pill only lights up when the selection diverges from the persisted state.
+- ✅ **`PATCH /api/admin/modules/mart/suppliers/{sid}/modules`**: whitelists allowed modules (`MART`, `SHOP`), always retains MART even if the client sends only `["SHOP"]`, dedupes + preserves order. Idempotent responses return `changed=false`. Every change writes a `supplier.modules_updated` audit row (migration 0041 extends the check constraint).
+- ✅ **SHOP product approval queue** at `/api/admin/modules/shop/product-requests`:
+  * `GET ?bucket=pending|approved|rejected|all` — with per-status bucket counters and per-product variant counts.
+  * `GET /{pid}` — full product + variants payload for the approval drawer.
+  * `POST /{pid}/approve` — flips to `active` and sets `published_at`.
+  * `POST /{pid}/reject` — flips to `rejected`.
+  * `POST /bulk-approve` and `POST /bulk-reject` — batch operations with `blocked` list reporting `not_found` / `bad_status` per id.
+- ✅ **`GET /api/admin/modules/mart/suppliers/{sid}`** now exposes `modules` on the payload so the frontend can hydrate the Modules tab without an extra call.
+- ✅ **Migration 0041 `audit_modules_action`**: extends `supplier_review_audit.ck_supplier_audit_action` to accept `supplier.modules_updated`.
+- ✅ **Tests**: `test_shop_admin_slice5.py` — 11/11 covering pending listing, approve/reject singles, bulk approve/reject with blocked reporting, cannot-re-approve, modules toggle grant/revoke/idempotent/unknown/mart-retained, supplier detail exposure, auth guards. Full SHOP suite = 53/53 pass, MART regression unaffected.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 4 Seller Portal
+- ✅ **New seller-portal route `/martbaked/:slug/portal/shop`** — module-gated (`SHOP` in `supplier.modules`), reuses the existing supplier login + portal shell. Off-boarded suppliers see a friendly "SHOP not enabled" banner rather than an error.
+- ✅ **Dynamic form auto-renders per subcategory**: category picker triggers a call to `/api/shop/categories/{cid}/attributes?subcategory_id=...`; Size/Colour/RAM/Storage/etc. render as the correct input type (`select`, `text`, `number`) with option lists, unit hints, and an "override" badge on subcategory-scoped rows.
+- ✅ **Variant editor grid**: table of SKU × price × stock × per-variant attributes; add-row footer with select-typed cells for `select` attributes. Duplicate SKU per product → 409. Any variant CRUD flips a previously `active` parent product back to `pending_review` (re-approval contract for Slice 5).
+- ✅ **New backend surface `/api/shop/portal/*`** (all `Depends(get_shop_supplier)`): `GET /catalogue`, `POST /products`, `GET /products/{id}` (with `attribute_schema`), `PATCH /products/{id}`, `POST /products/{id}/variants`, `PATCH /products/{id}/variants/{vid}`, `DELETE /products/{id}/variants/{vid}`.
+- ✅ **`supplier.modules` now exposed** on `GET /api/supplier/me` so the frontend can flip the SHOP tab on/off without an extra round-trip.
+- ✅ **Tests**: `test_shop_portal_seller.py` — 9/9 pass covering module gate, product create → pending_review, resolved-schema on GET, variant CRUD, duplicate SKU 409, wrong-subcategory 400, unknown-product 404, ownership. Combined SHOP suite = 42/42. MART regression unaffected.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 3 Dynamic Attributes
+- ✅ **Attribute engine extended for SHOP**: added `mart_attributes.module` discriminator (default "mart") + new `shop_category_attributes` assignment table with FKs to `shop_categories`/`shop_subcategories`. Attribute definitions live in one shared table; assignments are strictly per-module.
+- ✅ **6 SHOP attributes seeded**: Size, Colour, RAM, Storage, Condition, Warranty — with 52 options between them (bilingual FR/EN labels like `Neuf / New`, `Reconditionné / Refurbished`).
+- ✅ **42 subcategory-inheriting assignments** across 14 categories (Condition on all, Colour on fashion+electronics, Size on apparel/footwear, RAM/Storage/Warranty on electronics).
+- ✅ **Inheritance-override demo working**: `sneakers` overrides parent Colour → `is_required=True`; `iphone/ipad/mac` override parent Storage → `is_required=True`. Resolver correctly reports `scope=subcategory` for the winning rows and `scope=category` for the inherited ones.
+- ✅ **`GET /api/shop/categories/{id_or_slug}/attributes?subcategory_id=...`** returns the resolved list, with slug fallback for both category & subcategory.
+- ✅ **`/shopbaked` preview** now shows attribute-key chips on each category card so QA can eyeball the module→attribute mapping.
+- ✅ **Tests**: `test_shop_attributes.py` — 12/12 pass covering definitions, inheritance, subcategory-wins, slug lookup, unknown categories → 404, isolation from MART. Combined SHOP suite = 33/33. MART attribute regression 25/25 unaffected.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 2 Catalogue Seed
+- ✅ **19 top-level SHOP categories × 181 subcategories** seeded idempotently for Côte d'Ivoire, parsed from the canonical `Categories_In_French.docx` with paired clean English labels. FR is the source of truth; EN was hand-cleaned where the raw English doc had OCR/translation bleed-through. All slugs are ASCII-safe & unique per country.
+- ✅ **`/app/backend/modules/shop/catalogue_data.py`**: single canonical tree with `(slug, name_fr, name_en, [subs])` tuples in doc order. Slugs are stable; renaming a name updates FR/EN + `order` on the next boot but never mutates ids.
+- ✅ **`/app/backend/modules/shop/seed.py::seed_shop_catalogue`**: wired into `run_seed()` after MART/homepage seeds. Uses on-conflict upsert keyed on `(slug, country)` (category) and `(slug, category_id)` (subcategory). Preserves admin-edited icon/image once Slice 5 exposes them.
+- ✅ **New public endpoint `GET /api/shop/catalogue?country=CI`**: returns the full nested tree (category → subcategories) in one call — powers the seller-portal category picker (Slice 4) and customer storefront rail (Slice 6).
+- ✅ **Frontend preview**: `/shopbaked` now renders a 3-column card grid of every seeded category with FR/EN toggle. All 19 cards visible with `data-testid="shopbaked-category-{slug}"`.
+- ✅ **Tests**: `test_shop_catalogue_seed.py` — 8/8 pass (counts match, order monotonic, accented FR round-trip, Apple subcats present, idempotency, unknown country → empty). Combined SHOP suite = 21/21. MART regression (dynamic attributes + catalog editing) 13/13 unaffected.
+
+## Latest (2026-02-28) — SHOPbakēd Slice 1 Foundation
+- ✅ **Isolated SHOP catalogue tables**: migration `0039_shop_foundation` creates `shop_brands / shop_categories / shop_subcategories / shop_products / shop_variants`. `ShopProduct` carries JSONB `images`, `attributes` (parent-level) and status ∈ {draft, pending_review, active, archived, rejected}. `ShopVariant` carries per-SKU price / stock / condition / attribute overrides / images.
+- ✅ **Shared-supplier identity**: added `suppliers.modules` JSONB column (default & backfilled to `["MART"]`). Every existing supplier retains MART access; SHOP access is opt-in per supplier and gated by an array-contains predicate.
+- ✅ **Router surface** (`modules/shop/routes.py`): three routers wired in `server.py`:
+  - `/api/shop/*` — public storefront (`/health`, `/categories`, `/subcategories`, `/products`)
+  - `/api/shop/portal/*` — seller portal (`/health` stub for Slice 4)
+  - `/api/admin/modules/shop/*` — admin, `Depends(get_current_admin)` (`/health`, `/products`)
+- ✅ **Frontend shell**: `/shopbaked/*` mounted in `App.js` with `ShopbakedApp` + `ShopHome` (health card pings `/api/shop/health` and renders live table counts). Admin surface `/admin/modules/shop` already routes through the generic `ModuleWorkspace` and will be specialised in Slice 5.
+- ✅ **Tests**: `test_shop_foundation.py` — 12/12 pass covering module stubs, admin auth guard, MART isolation, and platform advertisement (`GET /api/` lists "shop"). MART regression (`dynamic_attributes` × 3 + `catalog_editing_and_bulk_delete`) → 31/31 pass.
+
+## Latest (2026-02-28) — Sell-on-BAKĒD & Mobile Nav Fixes (Fixing_Prompt v9)
+- ✅ **Sell-on-BAKĒD opportunity cards** (`apps/partner-landing/PartnerLandingApp.jsx`):
+  - Data model expanded from `href` to `cardHref` + `applyHref` + `internal`. MART: card → `/martbaked/sellers`, Apply Now → `/martbaked/sellers/apply`. EXPRESS: both → `/driver` (SPA). FOOD / SHOP / AUTO / IMMO keep the existing `mart.partner.baked.ci` externals in a new tab.
+  - `OpportunityCard` uses `useNavigate()` for internal routes; the Apply CTA calls `e.stopPropagation()` so its target wins over the parent card anchor (per docx §7 — no double-navigation, no unexpected new-tab openings).
+  - Test IDs preserved (`partner-opportunity-{code}`) + new `partner-opportunity-{code}-apply` on every Apply button for regression coverage.
+- ✅ **Mobile menu "Delivery Partner"** (`components/mobile/MobileHeader.jsx`): changed from broken `/delivery-partner` to `/driver` (the SENDbakēd onboarding entry).
+- **Live verification**: Playwright walked the flow — MART card → `/martbaked/sellers`, MART Apply → `/martbaked/sellers/apply`, EXPRESS Apply → `/driver/onboarding`. All three routing checks green.
+
+## Prior (2026-02-28) — Category Editing Fix + Bulk Delete (Fixing_Prompt v8)
+- ✅ **Bug fix — "Extra inputs are not permitted" gone**: root cause was `AdminMartCatalog.jsx` posting the whole GET response back (with `id`, `slug`, `created_at`, `deleted_at`, `version`, `module`, `created_by`, `updated_by`) to a strict `CategoryUpdate` DTO. Fix keeps the DTO strict (per docx) and instead ships a `pickEditable(obj, whitelist)` helper — only `name_en / name_fr / icon / image / order / is_active` (Category) and `name_en / name_fr / image / order` (Subcategory) reach the wire.
+- ✅ **Bulk delete shipped for Categories · Subcategories · Attributes**:
+  - Frontend adds a checkbox column with select-all header on all three tables. Selecting rows reveals a blue action bar with a "Delete Selected" button and a Clear shortcut. Confirmation dialog explicitly warns about associated subcategories / products / homepage sections / attribute assignments before firing.
+  - Backend endpoints (all Super-Admin-gated, all audited):
+    - `POST /api/admin/mart/categories/bulk-delete` — soft-deletes via `deleted_at`; refuses individual rows with subcategories or active products (per-id `blocked` list). Returns `{deleted:[], blocked:[]}` so partial batches don't fail.
+    - `POST /api/admin/mart/subcategories/bulk-delete` — hard-deletes; blocks rows with active products.
+    - `POST /api/admin/mart/attributes/bulk-delete` — soft-deactivates (is_active=false); historical snapshot values on products preserved. Idempotent second-run returns `already_inactive`.
+  - Every mutation writes to the audit trail (`mart.category.bulk_delete`, `mart.subcategory.bulk_delete`, `attribute.bulk_deactivate`).
+- **Testing**: `test_catalog_editing_and_bulk_delete.py` — 6/6 pass (editable-only PATCH ok, unknown-field 422, bulk-delete with blockers, subcategory bulk-delete, attribute bulk-deactivate idempotent). Full backend suite 74 tests all green (2 transient network flakes on retry). Live UI screenshot confirms toast "Saved" on edit + bulk bar visible on select.
+
+## Prior (2026-02-28) — Storage Migration Tool (Fixing_Prompt v7)
+- ✅ **One-click storage cutover shipped**:
+  - **CLI**: `python backend/scripts/migrate_storage.py --source emergent --dest local [--dry-run|--list]` — enumerates every object key referenced in the DB, copies from source provider to destination, idempotent (skips objects already at dest), reports full stats.
+  - **Enumeration** (`scripts/storage_migration.py::enumerate_keys`): walks 8 columns — `mart_products.image` / `.images` (JSONB) · `partner_products.images` (JSONB) · `homepage_sections.config` (recursive JSONB walk) · `driver.gov_id_front_url / gov_id_back_url / licence_front_url / selfie_url / vehicle_reg_url` · `suppliers.logo_url / cover_image_url` · `supplier_documents.storage_path` · `supplier_invoices.invoice_document_storage_path`.
+  - **Key extractor**: strips the six known serve-URL prefixes (`/api/homepage/uploads/`, `/api/partner/uploads/`, `/api/driver/uploads/`, `/api/supplier/uploads/`, `/api/admin/homepage-sections/uploads/`, `/api/supplier-invoices/uploads/`, `/uploads/`) OR accepts a raw key that has both `/` and a known media extension. Rejects `http(s)://`, `data:`, `blob:`, and plain category names — fixes the initial "Amul / Bakery" false positives.
+  - **Admin HTTP endpoints** (`shared/admin/storage_migration_routes.py`) mounted under `/api/admin/storage/`:
+    - `GET /status` — active provider + last job snapshot
+    - `POST /enumerate` — count + sample of discovered keys (200-item preview)
+    - `POST /migrate {source, dest, dry_run}` — 202 with job id; runs in FastAPI BackgroundTask
+    - `GET /migrate/{job_id}` — poll progress + final report
+  - **Idempotent + safe**: copy skips objects already at destination (`skipped_already_present` count) and cleanly reports source-missing rows. Same-source-and-destination request → 400. Unknown provider → 400. Errors captured per-key (capped at 50 in report body).
+  - **Testing**: `test_storage_migration.py` — 13/13 pass (key extraction happy + edge, idempotent copy, dry-run does not write, source-missing reporting, same-provider raises, admin endpoints). Full backend suite 73 tests total, all green.
+
+## Prior (2026-02-28) — Pluggable Storage Providers (Fixing_Prompt v7)
+- ✅ **Bug fix — Upload no longer requires EMERGENT_LLM_KEY**:
+  - Root cause: `object_storage.init()` hard-required the Emergent key + storage proxy, so every image upload (homepage category icons, banners, supplier docs, driver KYC) returned `Upload failed: EMERGENT_LLM_KEY not set`.
+  - Fix: introduced a pluggable storage abstraction in `core/providers/storage/` — `base.py` (interface), `local.py` (default), `emergent.py` (legacy adapter), `s3.py` (drop-in), `factory.py` (singleton). The legacy `object_storage.put_object` / `get_object` façade is preserved 1:1 so no callers changed.
+  - **Config**: `STORAGE_PROVIDER=local|emergent|s3` (default `local`) + `STORAGE_LOCAL_PATH` (default `/app/backend/uploads`). S3 uses the four standard `AWS_*` env vars.
+  - **Static mount**: FastAPI mounts `/uploads` at `STORAGE_LOCAL_PATH` for direct-download URLs. Content-Type is inferred from filename extension on serve.
+  - **Path traversal**: blocked in `LocalStorageProvider._absolute()` — any `..` segment or absolute prefix raises `ValueError`.
+  - **Verified end-to-end**: homepage category-icon upload via `POST /api/admin/homepage-sections/uploads` → 200 → `/api/homepage/uploads/{key}` returns the bytes with `image/png` Content-Type. All existing consumers (mart-partner images, supplier docs, driver KYC, homepage banners, invoices) inherit the fix.
+  - **Testing**: `test_storage_provider.py` — 5/5 pass (default=local, unknown provider rejected, put/get roundtrip, path-traversal blocked, homepage HTTP upload+serve). Full backend suite 60 tests total, all green.
+
+## Prior (2026-02-28) — Dynamic Category Attribute System · Slice 3 (Fixing_Prompt v6)
+- ✅ **Slice 3 shipped — Admin Approval Drawer + Customer PDP go dynamic**:
+  - **Backend** (`modules/mart/routes.py`): `GET /api/mart/products/{id}` now hydrates a new `visible_attributes: [{key, label, type, unit, value}]` array using the resolver (with `only_customer_visible=True`). Select/multi_select values are auto-translated to option labels; booleans render as `"Yes"/"No"`; sort_order is respected. Snapshot labels (from Slice 2) win over the current attribute name so historical products keep the label they were approved with.
+  - **Backend** (`shared/suppliers/routes.py`): the admin `GET /api/admin/modules/mart/suppliers/{sid}/products` response now includes each item's `attributes` snapshot, feeding the admin review drawer.
+  - **Customer PDP** (`components/mart/ProductDetails.jsx`): renders `visible_attributes` as first-class rows in the admin-configured sort order (preview line + expandable list). Any Slice-2 snapshot keys are excluded from the legacy "More info" fallback so `customer_visible=false` attributes never leak into the storefront. Legacy free-form JSONB (pre-Slice-3 products) still surfaces under "More info" untouched.
+  - **Admin Review Drawer** (`AdminSupplierDetail.jsx`): new `product-review-attributes` group renders every submitted attribute (visible OR hidden) with its snapshot label, human-friendly value (Yes/No · comma-joined arrays), grouped visually inside the drawer so Super Admin sees exactly what the supplier filled.
+  - **Testing**: `test_dynamic_attributes_slice3.py` — 6/6 pass (visibility filter, select→label translation, boolean Yes/No, multi_select → labels array, sort_order, admin drawer payload). Full backend suite 55 tests total, all green. Live end-to-end screenshot confirms visible attr appears / hidden attr absent on PDP and both appear on admin drawer.
+
+## Prior (2026-02-28) — Dynamic Category Attribute System · Slice 2 (Fixing_Prompt v6)
+- ✅ **Slice 2 shipped — Supplier form goes dynamic**:
+  - **Model**: `supplier_product_requests` now has `proposed_subcategory_id` (FK → mart_subcategories) + `attributes` JSONB snapshot column. Migration `0038_supplier_request_attributes`.
+  - **Supplier endpoints extended** (`shared/suppliers/portal_routes.py`):
+    - `POST /api/supplier/me/product-requests` accepts `proposed_subcategory_id` and `attributes: {key: value}`; server validates against resolver + validator (missing-required → 422 with per-field errors, bad type → 422, bad option value → 422). Passes → snapshotted as `{v, label, type}` per key.
+    - `PATCH /api/supplier/me/product-requests/{id}` — same validation on resubmit.
+    - New `GET /api/supplier/me/subcategories?category=<slug>` — powers subcategory picker.
+  - **Admin approval copies the snapshot** into `mart_products.details` (single-approve + bulk-approve). `subcategory_slug` also flowed through. Historical products keep their snapshot verbatim even after attribute rename / soft-delete.
+  - **Supplier form (`PortalProductRequests.jsx`)**: category → subcategory picker → dynamic "Category-specific fields" panel with typed inputs (short_text, long_text, integer, decimal, boolean, date, select, multi_select), required-* markers, unit chips, per-field error surfacing (client + server). Only `supplier_editable=true` attributes render. Values pre-fill on revise from the snapshot.
+  - **Testing**: `test_dynamic_attributes_slice2.py` — 7/7 pass (missing-required 422, invalid_type 422, bad_option 422, snapshot survives rename, approve copies into master.details, subcategory-only required override enforced, subcategories endpoint). Full backend suite still green (49 tests total).
+- 🔜 **Slice 3 (next)**: Admin approval drawer surfaces submitted attribute values grouped; Customer PDP renders customer_visible attributes automatically.
+
+## Prior (2026-02-28) — Dynamic Category Attribute System · Slice 1 (Fixing_Prompt v6)
+- ✅ **Slice 1 shipped — DB + Admin CRUD + Public Resolver**:
+  - **New models** (`core/models/mart_attributes.py`):
+    - `MartAttribute` — global definitions (immutable auto-slug `key`, soft-delete via `is_active`)
+    - `MartAttributeOption` — options for select / multi_select
+    - `MartCategoryAttribute` — (category, subcategory?, attribute) assignment with is_required / customer_visible / supplier_editable / sort_order / is_active
+    - `MartAttributeAudit` — full before/after diff log
+  - **Migration**: `0037_mart_dynamic_attributes` — 4 new tables with FKs + indexes; existing product data untouched
+  - **Types supported**: short_text · long_text · integer · decimal · select · multi_select · boolean · date (image/document deferred, handled by existing supplier upload)
+  - **Resolver** (`modules/mart_attributes/resolver.py`): subcategory row wins over parent-category row for the same attribute; drops inactive attributes/assignments; optional `customer_visible_only` filter for the customer PDP
+  - **Validator** (`modules/mart_attributes/validate.py`): type coercion + required checks + option-membership; snapshots `{v, label, type}` in `mart_products.details` so renames never orphan history
+  - **Admin endpoints** under `/api/admin/mart/`:
+    - `GET/POST/PATCH/DELETE /attributes` (soft-delete)
+    - `POST/PATCH/DELETE /attributes/{id}/options` + `/attributes/options/{id}`
+    - `GET/POST/PATCH/DELETE /categories/{id}/attributes` (assignment CRUD, idempotent upsert)
+    - Extended existing `PATCH /admin/mart/categories/{id}` to accept `is_active` toggle (soft delete via `deleted_at`)
+    - `GET /attributes/audit?entity_kind=&entity_id=` — full diff log
+  - **Public/portal endpoint**: `GET /api/mart/categories/{id}/attributes?subcategory_id=&customer_visible_only=` — returns resolved list; accepts either `id` or `slug`
+  - **Frontend**: new page `/admin/modules/mart/attributes` (`AdminMartAttributes.jsx`) with 3 tabs — **Attributes** (definitions + options editor) · **Category Assignment** (scope picker: category / subcategory, live per-row Required/Customer/Supplier/Active toggles + sort-order input) · **Audit Trail** (full diff view). Added to Module workspace sub-nav.
+  - **Testing**: `test_dynamic_attributes.py` — 12/12 pass (CRUD, immutable key, option lifecycle, category assignment + idempotent upsert, subcategory override wins, customer_visible filter, audit before/after diff, category rename + deactivate)
+- 🔜 **Slice 2 (next)**: Supplier product-request form dynamically loads resolved attributes for the chosen category/subcategory and renders typed inputs with required-field validation. Data lands under `mart_products.details` on approval.
+- 🔜 **Slice 3**: Admin approval drawer renders submitted attribute values grouped; Customer PDP renders only `customer_visible` attributes automatically.
+
+## Prior (2026-02-28) — MARTbaked Supplier-Centric Admin Workflow (Fixing_Prompt v5)
+- ✅ **Unified supplier workspace (2026-02-28)** — collapses duplicate approval queues into a single supplier-centric flow:
+  - **Nav cleanup**: `/admin/mart-partner-approvals` and `/admin/partner-image-reviews` removed from AdminLayout left nav. Both routes now Navigate-redirect (`/admin/mart-partner-approvals` → `/admin/modules/mart/approvals`, `/admin/partner-image-reviews` → `/admin/modules/mart/suppliers`). Standalone page files deleted.
+  - **New Supplier Detail workspace** at `/admin/modules/mart/suppliers/:supplierId` with Overview + Products tabs. Approved suppliers in the Applications table now show an "Open workspace" button that navigates here.
+  - **Products tab**: server-side filtering by status (All/Pending/Approved/Rejected/Withdrawn), category slug, subcategory slug, and free-text search. Bulk approve + bulk reject with a shared category-fallback and shared notes.
+  - **Product Review drawer**: shows ALL submitted images (thumbnails + main viewer), full product info, and inline approve/reject actions — replaces the standalone image-review page.
+  - **Warehouse allocation**: Overview surfaces the supplier's existing warehouse assignments (primary badge). Products inherit — no per-product allocation UI (per user choice).
+  - **New backend endpoints** (`shared/suppliers/routes.py`):
+    - `GET /api/admin/modules/mart/suppliers/{sid}` — snapshot with warehouse_assignments + product_buckets + audit_trail
+    - `GET /api/admin/modules/mart/suppliers/{sid}/products?status=&category=&subcategory=&q=&limit=` — server-side filtered
+  - **New bulk endpoints** (`shared/suppliers/portal_routes.py`):
+    - `POST /api/admin/modules/mart/suppliers/product-requests/bulk-approve` — accepts request_ids[], optional category_id fallback; returns `{approved:[…], skipped:[…]}`
+    - `POST /api/admin/modules/mart/suppliers/product-requests/bulk-reject` — accepts request_ids[], required notes
+  - **Router-ordering fix** (`server.py`): `admin_supplier_prodreq_router` now registered BEFORE `admin_supplier_router` so `/suppliers/product-requests` doesn't get swallowed by `/suppliers/{sid}`.
+  - **Homepage filtering fix** (`ConfigHomepage.jsx`): `ProductCarousel` fetches its OWN products with `?category=<cfg.filter>&subcategory=<cfg.subcategory>` via `/api/mart/products` — eliminates the previous cross-category leak where all sections shared the same 24-product preload. AdminHomepageManagement `product_carousel` editor now exposes a `subcategory` field alongside filter/limit.
+  - **Testing**: iter68 — new pytest `test_supplier_centric_workflow.py` (9/9 green: supplier detail, filters, bulk-approve, bulk-reject, skip-non-pending, zero cross-category leakage). Regression suites `test_supplier_portal_phase2b.py` + `test_supplier_warehouses.py` + `test_homepage_cms.py` all pass. Testing-agent Playwright: every review bullet ✅.
+
+## Prior (2026-02-28) — Supplier Gallery → Customer PDP Sync (Phase 3)
+- ✅ **Approval queue for supplier images (2026-02-28)** — Phase 3 of the Fixing_Prompt.docx v4 spec:
+  - **Schema**: new `images_review_status` (none|pending|approved|rejected) + `images_review_note` on `partner_products` (migration `0036_partner_images_review`). Supplier upload/reorder now auto-flips status to `pending` when the product is linked to a MartProduct.
+  - **Backend admin endpoints** (under `/admin/mart-partner/`):
+    - `GET /partner-products/pending-images` — queue with side-by-side master vs. supplier images + partner + country.
+    - `POST /partner-products/{id}/images/approve` — mirrors `partner.images → master.images` (and primary sync) so the public PDP updates instantly. Fires in-app notification to partner owner.
+    - `POST /partner-products/{id}/images/reject` — requires a note; supplier gets the message in-app.
+  - **Admin UI**: new page `/admin/partner-image-reviews` with side-by-side compare + reject-with-note modal. Sidebar link added.
+  - **Supplier UI**: Images button on ProductRow now shows a `PENDING` (amber) or `REJECTED` (red) chip so suppliers can see review state at a glance; the rejection note is shown as a tooltip.
+  - **Testing**: iter69 — 6/6 backend pytest green (`/app/backend/tests/test_partner_images_review.py`) + smoke-tested admin queue UI end-to-end.
+
+## Prior (2026-02-28) — Supplier Image Manager (Phase 2)
+- ✅ **Supplier gallery editor (2026-02-28)** — Phase 2 of the Fixing_Prompt.docx v4 spec:
+  - **Schema**: nullable JSONB `images` array on `partner_products` (migration `0035_partner_images_jsonb`). `images[0]` is mirrored into the legacy `image` column so existing readers keep working.
+  - **Backend**: `POST /partner/products/{id}/images/upload` (multipart, 6 MB cap, JPG/PNG/WebP, max 8) writes to Emergent Object Storage under `mart-partner/product/{id}/…`. `PATCH /partner/products/{id}/images` (reorder / remove / set primary — payload is the authoritative post-op list). `GET /partner/uploads/{key:path}` proxies the asset. Ownership + role guards enforced.
+  - **Frontend**: new "Images" button on each ProductRow (with badge count). `ImageManagerModal` shows a grid with ↑/↓ move · "Set primary" · trash · uploader. Refetches after every mutation.
+  - **Testing**: iter68 — 8/8 pytest green (`/app/backend/tests/test_partner_product_images.py`) + UI screenshot verified end-to-end (upload → primary badge → second upload → reorder button visible).
+
+## Prior (2026-02-28) — PDP Gallery + Zoom + Dynamic Product Details
+- ✅ **Customer PDP overhaul (2026-02-28)** — Phase 1 of the Fixing_Prompt.docx v4 spec:
+  - **Schema**: new nullable JSONB `details` column on `mart_products` (migration `0034_mart_product_details_jsonb`). Holds well-known keys (fssai, allergens, shelf_life, taste_profile, ingredients, nutrition{}, marketer, seller_fssai, return_policy, …) plus arbitrary supplier-authored key/value pairs. Backward-compatible.
+  - **New `ProductGallery`**: multi-thumb strip + desktop side-by-side zoom pane with cursor spotlight + mobile-first fullscreen lightbox with prev/next + dot indicators.
+  - **New `ProductDetails`**: dynamic expandable block that only renders non-empty fields. Well-known keys map to labels ("Allergen Information", "Country of Origin", "FSSAI License"…); nutrition sub-table renders as a two-column grid; custom supplier keys fall through into "More info". Works in light + dark.
+  - **Regression-safe**: existing `PRODUCT.detailImg` testid preserved as `sr-only` for legacy tests; products without `details` or `images[]` continue rendering with just the primary image + description.
+  - **Testing**: end-to-end verified via screenshots (desktop gallery + zoom + expanded details + mobile lightbox + light mode). No new pytest — data flow is a simple JSONB round-trip through the existing `row_to_dict` serializer.
+
+## Prior (2026-02-28) — Aisle → Rack Auto-Suggest
+- ✅ **Aisle → Rack cascade suggest (2026-02-28)** — extended the Category Auto-Suggest pattern one level deeper. When adding a Rack under a tagged Aisle, the AddChildRow now:
+  - **Pre-fills the Category** and locks it (parent Aisle is authoritative, backend rejects mismatches anyway).
+  - **Pre-fills the Subcategory** from the parent Aisle's `subcategory_slug` and renders a blue dashed `✨ Suggested sub · <slug>` hint chip — click to clear and pick a different one (e.g. Aisle=`fresh-fruits` overall but Rack=`citrus` specifically).
+  - `HierarchyNode` now propagates both `parentCategory` + `parentSubcategory` down the tree so subsequent Rack rows inherit correctly. No backend changes required.
+  - Regression: all 28/28 backend tests still green (cascade + bulk + zone-suggestion suites).
+
+## Prior (2026-02-28) — Category Auto-Suggest for New Aisles
+- ✅ **Zone → Aisle auto-suggest (2026-02-28)** — `GET /api/partner/warehouse/{wh}/tree` now enriches each Zone node with `suggested_category_slug`, derived from `WarehouseCategoryDefault` for that (warehouse, zone). Returned only when exactly one default targets the zone (ambiguity → null).
+  - **Frontend**: Zone rows in the Storage hierarchy render a dashed `default · <slug>` chip when a default exists. Clicking "+ Aisle" opens an AddChildRow with the Category dropdown **pre-filled** to the Zone default plus a dismissible `✨ Suggested · <slug>` chip so ops can accept in one click.
+  - **Testing**: iter68 — 5/5 backend pytest green (`/app/backend/tests/test_zone_category_suggestion.py`), full 28/28 green across cascade + bulk + suggestion suites, plus verified UI end-to-end with a screenshot showing chip + pre-fill.
+
+## Prior (2026-02-28) — Ops Bulk SKU → Bin Assignment
+- ✅ **Bulk Assign (2026-02-28)** — new `POST /api/partner/inventory/locations-bulk` accepts N `partner_product_ids` + one `bin_id` + `is_primary/quantity`, returns a per-product verdict (`status='ok'|'error'` with codes `not_found` / `invalid_cascade` / `conflict`). Cascade + primary-flip + ownership rules reused from the single-assign flow. Preflight SELECT replaces exception-driven conflict detection so a bad row can no longer poison the async session (avoids `MissingGreenlet` on the next request). Distinct URL path (`-bulk`, not `/bulk`) sidesteps the collision with `/locations/{partner_product_id}`.
+- ✅ **Frontend**: `ProductsPage` — multi-select checkboxes on each row + select-all header + sticky floating action bar with `Assign N to bin`. New `BulkLocationModal` reuses the tree renderer, filters by common cascade (or shows an amber "multi-category" warning + untagged-only tree when the selection spans cascades), streams per-row results back on partial failures so only successful SKUs get cleared from the selection.
+- ✅ **Testing**: iter67 — 8/8 backend pytest green (`/app/backend/tests/test_bulk_assign_location.py`) + 100% frontend Playwright green.
+
+## Prior (2026-02-27) — Darkstore Category → Subcategory → Product → Storage Cascade
+- ✅ **Darkstore storage cascade (2026-02-27)** — per `Fixing_Prompt.docx` v3:
+  - Migration `0033_warehouse_category_cascade` adds nullable `category_slug` + `subcategory_slug` columns (with indexes) to `warehouse_aisles` + `warehouse_racks`.
+  - Backend `_validate_category_cascade()` (country-scoped) enforces: (i) subcategory requires category, (ii) unknown category/subcategory rejected, (iii) subcategory must belong to category (JOIN MartSubcategory→MartCategory via `category_id`), (iv) Rack.category must equal parent Aisle.category when Aisle is tagged.
+  - `list_partner_products` now accepts `?category=` + `?subcategory=` query params.
+  - `assign_location` enforces the cascade at bin-assignment time — a Mango can't be pinned to a Dairy rack. Untagged Aisles/Racks accept any product for back-compat.
+  - **Frontend**: `ProductsPage` has cascading Category + Subcategory filters above the list. `WarehouseEditor` renders CategoryFields on every Aisle/Rack add/edit row; Rack rows inherit and lock the parent Aisle's category. `LocationModal` shows the product's cascade chips at the top and filters the warehouse tree to only matching Aisles/Racks.
+  - **Testing**: iter66 — 15/15 pytest green + 3/3 frontend UI flows green. Test suite lives at `/app/backend/tests/test_warehouse_cascade.py`.
+
+## Prior (2026-02-27) — SENDbakēd Driver Trip Flow + Light Mode
 - ✅ **Driver Trip Flow (2026-02-27)** — Uber-style trip lifecycle per `Fixing_Prompt.docx`:
   - New `DriverTripSheet.jsx` with `SlideToConfirm` for each of the 4 backend transitions (`driver_assigned→arriving→picked_up→in_transit→delivered`). Slide-to-confirm requires a real drag ≥80% — a tap deliberately bounces back.
   - `openNativeNavigation()` opens `google.navigation:` (Android) / `maps://?daddr=` (iOS) with an automatic web fallback to `https://www.google.com/maps/dir/?api=1&destination=…&travelmode=driving`.

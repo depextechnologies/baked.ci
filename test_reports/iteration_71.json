@@ -1,0 +1,34 @@
+{
+  "summary": "Iter71 — Fixing_Prompt v3 (SHOPbakēd homepage, images, branding & global-cart) FULLY VERIFIED. Backend: 10/10 new tests (test_shopbaked_fixes_iter71.py) + 3/3 iter69 regression pass. Frontend Playwright vs live preview URL: (1) GLOBAL CART BUG FIX confirmed — added SHOP (POST /shop/cart/items 201) → navigated to MART page → added MART (POST /carts/me/items 200) → /cart page shows BOTH cart-module-badge-* = ['MART','SHOP'], and after hard refresh still ['MART','SHOP']. Backend independence proven for both permutations (SHOP-first & MART-first) plus §4.3 tests 3/4/5/6 (partial-add, remove-either-side, hard-refresh). (2) SHOP HOMEPAGE §1: /shop renders 6 CMS sections in DB order — hero, category_grid, product_carousel, promotional_banner, brand_carousel, banner_trio — matching /api/homepage?country=CI&module=shop payload; shopbaked-home-empty is NOT visible when sections exist. Admin toggle is_enabled=false hides section; reorder API changes visible order (verified via backend test). (3) BANNER_TRIO §1: pre-seeded row hps_ci_shop_060_test_banner_trio renders as shopbaked-section-banner_trio-{id} with 3 tiles shopbaked-banner-tile-0/1/2. (4) IMAGE UPLOAD §2: POST /api/admin/homepage-sections/uploads returns file_url `/api/homepage/uploads/…`; GET on that URL returns the exact bytes (image/png), and the URL is patchable into hero.config.background_image + surfaced back by GET /homepage. Hero screenshot on /shop confirms uploaded/seeded background image renders (no black placeholder — see 'Fashion, tech & home' hero). (5) BRANDING §3 accent colours: /shop desktop AddressPill MapPin = rgb(252,196,76)=#FCC44C amber, cart-count badge bg = #FCC44C. Switching to / (MART) → AddressPill = rgb(119,188,31)=#77BC1F, cart badge bg = #77BC1F. ModuleTabs.useEffect syncs activeModule from URL on mount so hard-refresh on /shop paints amber immediately. (6) MART REGRESSION §7: MART homepage on / still renders full hero + Categories + banner, unchanged. (7) SHOPbakēd Slice 6-9 regression (test_mixed_cart_iter69) 3/3 still green.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_shopbaked_fixes_iter71.py",
+    "/app/backend/tests/test_mixed_cart_iter69.py",
+    "/app/test_reports/pytest/iter71_shopbaked.xml",
+    "/app/test_reports/pytest/iter71_iter69_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CartProvider.addItem now correctly calls `await load()` after POST /carts/me/items — fixes the SHOP-line wipe. clear() also went through load(). Both were the exact root-cause fixes required by Fixing_Prompt v3 §4. Verified end-to-end.",
+    "ShopHome.jsx `abs()` helper correctly prefixes REACT_APP_BACKEND_URL only for relative `/api/homepage/uploads/…` paths, leaving absolute URLs untouched — safe for both seed data and admin uploads.",
+    "TopNav.jsx + AddressPill.jsx moduleAccent = MODULES.find(activeModule).color, memoised on activeModule — flips instantly on route change because ModuleTabs syncs activeModule from useLocation() in a mount effect. No FOUC observed on hard-refresh /shop.",
+    "Homepage banner_trio renders exactly 3 tiles from config.banners[]; renderer safely returns null when banners array is empty, so unknown/empty configs never crash /shop.",
+    "Minor cosmetic: lucide-react's ShoppingCart/Sparkles SVGs inherit the `color: <accent>` from parent style prop rather than setting it on the svg element itself, so getComputedStyle(svg).color returns '' in JS. The visible pixel is correct (verified in screenshots). Not a bug — just note that any future colour-assertion tests should read the inline style on the parent button/wrapper, not on the SVG.",
+    "The `flex-shrink min-w-0` around AddressPill (TopNav.jsx L68) is only shown lg+; on mobile the pill is rendered by the mobile shell, so on 390px viewport the top-nav-delivery-address testid is intentionally absent from the sticky header — this is by design, not a regression."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_shopbaked_fixes_iter71.py (new)"
+  ],
+  "success_rate": {"backend": "100% (13/13 across new + iter69 regression)", "frontend": "100% (all Fixing_Prompt v3 P0 bullets green)"},
+  "test_credentials": "Customer OTP +2250700909099 (dev_code inline). SA depexopenai@gmail.com / baked@2026#!$@. Supplier demo-delta-supplier@test.example / Supplier1234!.",
+  "seed_data_creation": "test_shopbaked_fixes_iter71 creates temp SHOP product TEST_Iter71 iPhone + variant TEST-I71-256 (auto-approved). Temp homepage sections (banner_trio, promotional_banner ×2, hero-with-image) are created and DELETED in each test's finally block. Uploaded PNG artifacts remain in object storage but under `homepage/{admin_id}/` prefix so they don't pollute the seeded homepage.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 P0 fixes from Fixing_Prompt v3 land clean. If mobile-viewport branding parity for the mobile shell's cart icon needs to be re-verified, target the mobile bottom-nav / mobile header components (not TopNav which hides the desktop pill on <lg). Test data-testids used: shopbaked-home, shopbaked-section-{type}-{id}, shopbaked-banner-tile-{i}, cart-module-badge-{id}, top-nav-cart-count, top-nav-cart-btn, top-nav-ai-btn, top-nav-delivery-address. The pre-seeded row hps_ci_shop_060_test_banner_trio is still in the DB and visible on /shop.",
+  "rca of the issue": "Root cause of the global-cart bug was CartProvider.addItem() calling `setCart(data)` with the MART-only /carts/me/items response, replacing the merged (MART+SHOP) local state and silently dropping SHOP lines from the UI (server data was intact). Fix: `await load()` after the POST, which re-fetches BOTH /carts/me + /shop/cart/me and rebuilds the merged shape. Verified: SHOP→MART sequence retains both lines on /cart AND after hard refresh; backend independence tests confirm both endpoints stay consistent."
+}

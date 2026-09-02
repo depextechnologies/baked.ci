@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,6 +12,17 @@ import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
 import { SellerPortalApp } from "@/apps/martbaked-sellers/SellerPortalApp";
+
+/**
+ * Legacy /shopbaked/* URLs are redirected to /shop/* so the SHOP tab
+ * lives inside the customer shell with the same MART / SEND / … tab bar.
+ * Any bookmarked/deep-linked `/shopbaked/c/mode-femme` → `/shop/c/mode-femme`.
+ */
+const ShopbakedRedirect = () => {
+  const { pathname, search } = useLocation();
+  const target = pathname.replace(/^\/shopbaked/, "/shop") + search;
+  return <Navigate to={target} replace />;
+};
 
 /**
  * App.js — thin dispatcher (Phase 1a v2.0 monorepo refactor).
@@ -50,7 +61,18 @@ const App = () => (
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />
-          <Route path="/martbaked/sellers/*" element={<SellerApp />} />
+          {/* SHOP-branded portal path — same SellerPortalApp, just under
+              /shopbaked/{slug}/portal so SHOP sellers get a coherent URL
+              identity (Fixing_Prompt v13). Module-gating already lives on
+              the Supplier.modules[] array; this route just swaps the prefix. */}
+          <Route path="/shopbaked/:sellerSlug/portal/*" element={<SellerPortalApp module="shop" />} />
+          <Route path="/martbaked/sellers/*" element={<SellerApp module="mart" />} />
+          {/* SHOPbakēd sellers — reuses SellerApp with SHOP branding. Post-
+              login they land in /shopbaked/{slug}/portal (SHOP-branded URL).
+              Supplier data model is still unified across modules. */}
+          <Route path="/shopbaked/sellers/*" element={<SellerApp module="shop" />} />
+          <Route path="/shopbaked" element={<Navigate to="/shop" replace />} />
+          <Route path="/shopbaked/*" element={<ShopbakedRedirect />} />
           <Route path="/*" element={<CustomerApp />} />
         </Routes>
         <Toaster position="top-right" theme="dark" />

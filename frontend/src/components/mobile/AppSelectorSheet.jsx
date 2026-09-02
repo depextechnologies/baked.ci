@@ -11,7 +11,7 @@ import { useApp } from "../../contexts/BakedContexts";
  */
 export const AppSelectorSheet = ({ open, onClose }) => {
   const nav = useNavigate();
-  const { setActiveModule } = useApp();
+  const { setActiveModule, activeModule } = useApp();
 
   if (!open) return null;
 
@@ -45,6 +45,7 @@ export const AppSelectorSheet = ({ open, onClose }) => {
           {MODULES.map((m) => {
             const Icon = m.icon;
             const isActive = m.status === "active";
+            const isCurrent = m.code === activeModule;
             return (
               <button
                 key={m.code}
@@ -57,9 +58,10 @@ export const AppSelectorSheet = ({ open, onClose }) => {
                 }}
                 className={`relative baked-card border p-4 text-left overflow-hidden motion-normal ${isActive ? "hover:scale-[1.02]" : "opacity-50"}`}
                 style={{
-                  borderColor: isActive ? `${m.color}55` : "hsl(var(--border))",
+                  borderColor: isCurrent ? m.color : (isActive ? `${m.color}55` : "hsl(var(--border))"),
+                  borderWidth: isCurrent ? 2 : 1,
                   background: isActive
-                    ? `linear-gradient(135deg, ${m.color}22 0%, ${m.color}05 60%)`
+                    ? `linear-gradient(135deg, ${m.color}${isCurrent ? "33" : "22"} 0%, ${m.color}05 60%)`
                     : "hsl(var(--card))",
                 }}
               >
@@ -70,7 +72,14 @@ export const AppSelectorSheet = ({ open, onClose }) => {
                   {m.label}<span className="text-muted-foreground font-normal">bakēd</span>
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1.5 leading-snug">{m.tagline}</div>
-                {!isActive && (
+                {isCurrent && (
+                  <span data-testid={`m-app-selector-current-${m.code}`}
+                        className="absolute top-3 right-3 text-[9px] font-bold uppercase tracking-widest baked-chip px-2 py-0.5"
+                        style={{ backgroundColor: m.color, color: "#0a0a0a" }}>
+                    Active
+                  </span>
+                )}
+                {!isCurrent && !isActive && (
                   <span className="absolute top-3 right-3 text-[9px] uppercase tracking-widest baked-chip px-2 py-0.5 bg-secondary text-muted-foreground">Soon</span>
                 )}
               </button>

@@ -73,31 +73,62 @@ export const MobileCheckout = () => {
     }
   }, [cart, cartLoaded, customer, nav]);
 
-  const subtotal = cart.subtotal || 0;
-  const elig = checkOrderEligibility(subtotal, country);
-  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
+  const items = cart.items || [];
+  const hasShop = (cart.shop?.item_count ?? 0) > 0 || items.some((i) => i.module === "shop");
+  const hasMart = (cart.mart?.item_count ?? 0) > 0 || items.some((i) => i.module !== "shop");
+  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
+  const subtotal = martSubtotal + shopSubtotal;
+  const elig = checkOrderEligibility(martSubtotal, country);
+  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
+  const minOrderOk = hasMart ? martEligible : true;
   const pointsDiscount = preview?.points_discount || 0;
   const pointsApplied = preview?.points_applied || 0;
   const maxRedeemable = preview?.points_max_redeemable ?? (rewards?.points || 0);
-  const total = Math.max(0, elig.total - pointsDiscount);
-  const pointsEarned = preview?.points_earned_preview || Math.floor(subtotal);
+  const total = Math.max(0, (hasMart ? elig.total : 0) - pointsDiscount) + shopSubtotal;
+  const pointsEarned = preview?.points_earned_preview || Math.floor(martSubtotal);
 
   const placeOrder = async () => {
     if (!customer) { setLoginOpen(true); return; }
-    if (!address.line1) { toast.error("Enter a delivery address"); return; }
+    if (hasMart && !address.line1) { toast.error("Enter a delivery address"); return; }
     if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country?.currency, ccy)} more to reach the ${formatMoney(minOrder, country?.currency, ccy)} minimum order`); return; }
     setPlacing(true);
     try {
-      const { data } = await api.post("/orders", {
-        address,
-        delivery_slot: slot,
-        payment_method: payment,
-        instructions: address.instructions,
-        use_points: pointsApplied,
-      });
-      toast.success(`Order placed! +${data.points_earned || 0} baked Points earned`);
+      let martOrder = null;
+      if (hasMart) {
+        const { data } = await api.post("/orders", {
+          address,
+          delivery_slot: slot,
+          payment_method: payment,
+          instructions: address.instructions,
+          use_points: pointsApplied,
+        });
+        martOrder = data;
+      }
+      let shopOrder = null;
+      if (hasShop) {
+        try {
+          const { data } = await api.post("/shop/checkout", {
+            payment_method: payment === "cod" ? "cash_on_delivery" : payment,
+            delivery_address: address,
+            instructions: address.instructions,
+          });
+          shopOrder = data;
+        } catch (shopErr) {
+          const d = shopErr?.response?.data?.detail;
+          const msg = typeof d === "string" ? d : (d?.message || "SHOP order failed — items kept in cart");
+          toast.error(msg, { duration: 6000 });
+        }
+      }
+      toast.success(`Order placed!${martOrder?.points_earned ? ` +${martOrder.points_earned} baked Points earned` : ""}`);
       await clear();
-      nav(`/orders/${data.id}/confirmation`);
+      if (shopOrder?.delivery_pin_sms?.delivered) {
+        toast.success(`Delivery PIN sent to ${shopOrder.delivery_pin_sms.phone}`, { duration: 5000 });
+      } else if (shopOrder?.delivery_pin) {
+        toast("Delivery PIN is on your order page", { duration: 5000 });
+      }
+      if (martOrder) nav(`/orders/${martOrder.id}/confirmation`);
+      else if (shopOrder) nav(`/shop/order/${shopOrder.id}`);
     } catch (e) {
       const detail = e?.response?.data?.detail;
       if (detail && typeof detail === "object" && detail.code === "not_available_in_area") {

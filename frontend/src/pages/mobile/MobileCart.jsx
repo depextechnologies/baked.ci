@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp, useCart } from "../../contexts/BakedContexts";
+import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { checkOrderEligibility } from "../../lib/checkout";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
@@ -11,19 +11,38 @@ export const MobileCart = () => {
   const nav = useNavigate();
   const { country } = useApp();
   const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
+  const { customer, openLogin } = useAuth() || {};
   const [note, setNote] = useState("");
   const ccy = country?.currency_symbol || country?.currency;
 
-  const subtotal = cart.subtotal || 0;
-  const elig = checkOrderEligibility(subtotal, country);
-  const { delivery_fee: deliveryFee, total, min_order: minOrder, shortfall, eligible: minOrderOk } = elig;
-  const packingFee = 0; // Packing fee removed — was previously added off-menu and confused the min-order rule
-  const savings = cart.items?.reduce((s, i) => {
+  // Split by module: min-order + delivery fee are MART-only.
+  const items = cart.items || [];
+  const martItems = items.filter((i) => i.module !== "shop");
+  const shopItems = items.filter((i) => i.module === "shop");
+  const martSubtotal = cart.mart?.subtotal ?? martItems.reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const shopSubtotal = cart.shop?.subtotal ?? shopItems.reduce((s, i) => s + (i.line_total || 0), 0);
+  const hasMart = martItems.length > 0;
+  const hasShop = shopItems.length > 0;
+  const elig = checkOrderEligibility(martSubtotal, country);
+  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
+  const minOrderOk = hasMart ? martEligible : true;
+  const total = (hasMart ? elig.total : 0) + shopSubtotal;
+  const subtotal = martSubtotal + shopSubtotal;
+  const savings = martItems.reduce((s, i) => {
     const p = i.product || {};
     const strike = p.compare_at_price || p.original_price;
     return s + (strike && strike > p.price ? (strike - p.price) * i.quantity : 0);
   }, 0);
-  // total already computed by checkOrderEligibility above; packingFee removed from the equation.
+
+  const goCheckout = () => {
+    // Guest → open the existing sign-in modal with /checkout as the return
+    // destination. `openLogin` persists it to sessionStorage so the customer
+    // lands directly on checkout after login with the (merged) cart intact.
+    if (!customer) { openLogin?.("/checkout"); return; }
+    // Always route to the unified /checkout (MobileCheckout) — it handles
+    // MART, SHOP and mixed carts internally.
+    nav("/checkout");
+  };
 
   if (!cart.items?.length) {
     if (!cartLoaded) return <div className="p-8 text-sm text-muted-foreground">Loading cart…</div>;
@@ -61,7 +80,18 @@ export const MobileCart = () => {
       {/* Items list */}
       <div className="px-4 mt-3 space-y-3">
         {cart.items.map((i) => {
-          const p = i.product || {};
+          const isShop = i.module === "shop";
+          // SHOP items carry a slightly different shape — normalise so the row
+          // renders regardless of module.
+          const p = isShop
+            ? {
+                name: i.title || i.product?.title,
+                image: (i.images || i.product?.images || i.variant?.images || [])[0],
+                unit: i.variant?.sku || "",
+                price: i.unit_price ?? i.variant?.price ?? 0,
+                currency: i.currency || i.variant?.currency,
+              }
+            : (i.product || {});
           const strike = p.compare_at_price || p.original_price;
           const off = strike && strike > p.price ? Math.round(((strike - p.price) / strike) * 100) : 0;
           return (
@@ -71,15 +101,36 @@ export const MobileCart = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm font-semibold leading-snug line-clamp-2">{p.name}</div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        data-testid={`m-cart-badge-${i.id}`}
+                        data-cart-module-badge={i.id}
+                        className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
+                        style={{
+                          background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
+                          color: isShop ? "#F59E0B" : "#77BC1F",
+                          border: `1px solid ${isShop ? "rgba(251,191,36,.3)" : "rgba(119,188,31,.3)"}`,
+                        }}
+                      >
+                        {isShop ? "SHOP" : "MART"}
+                      </span>
+                      <div className="text-sm font-semibold leading-snug line-clamp-2">{p.name}</div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{p.unit || "1 pc"}</div>
+                    {isShop && i.variant?.attributes && Object.keys(i.variant.attributes).length > 0 && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {Object.entries(i.variant.attributes).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                      </div>
+                    )}
+                  </div>
                   <button data-testid={`m-cart-del-${i.id}`} onClick={() => removeItem(i.id)} className="w-7 h-7 rounded-full flex items-center justify-center bg-secondary/60 shrink-0 hover:bg-red-500/20 text-muted-foreground hover:text-red-500 motion-fast">
                     <Trash2 size={13} />
                   </button>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{p.unit || "1 pc"}</div>
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-bold">{formatMoney(p.price * i.quantity, p.currency, ccy)}</span>
+                    <span className="text-sm font-bold">{formatMoney((i.line_total ?? p.price * i.quantity), p.currency, ccy)}</span>
                     {strike && strike > p.price && <span className="text-[11px] text-muted-foreground line-through">{formatMoney(strike * i.quantity, p.currency, ccy)}</span>}
                     {off > 0 && <span className="text-[10px] font-bold" style={{ color: "#77BC1F" }}>{off}%</span>}
                   </div>
@@ -102,8 +153,19 @@ export const MobileCart = () => {
         <div className="baked-card bg-card border border-border p-4">
           <div className="text-sm font-bold mb-3">Order summary</div>
           <div className="space-y-2 text-xs">
+            {hasMart && (
+              <Row label={<span>MART subtotal <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)} items)</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
+            )}
+            {hasShop && (
+              <Row label={<span>SHOP subtotal <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)} items)</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
+            )}
             <Row label="Subtotal" value={formatMoney(subtotal, country?.currency, ccy)} />
-            <Row label="Delivery fee" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
+            {hasMart && (
+              <Row label="Delivery (MART)" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
+            )}
+            {hasShop && (
+              <Row label="Shipping (SHOP)" value={<span className="text-[10px] text-muted-foreground">By seller</span>} />
+            )}
             {savings > 0 && <Row label="Discount" value={<span style={{ color: "#77BC1F" }}>- {formatMoney(savings, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
@@ -138,8 +200,9 @@ export const MobileCart = () => {
             <div className="text-[10px] text-muted-foreground">Total (Incl. VAT)</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-cart-checkout" disabled={!minOrderOk} onClick={() => nav("/checkout")} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
-            <ShoppingCart size={16} className="mr-1.5" /> {minOrderOk ? "Checkout" : "Add more"}
+          <Button data-testid="m-cart-checkout" disabled={customer && !minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+            <ShoppingCart size={16} className="mr-1.5" />
+            {!customer ? "Login to Proceed" : (minOrderOk ? "Checkout" : "Add more")}
           </Button>
         </div>
       </div>
