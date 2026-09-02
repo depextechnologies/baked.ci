@@ -15,11 +15,12 @@
  *   §7  Frontend is 100% CMS-driven — no hard-coded sections. Falls back to
  *       an empty-state notice pointing the admin to the CMS.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import {
-  ArrowRight, Sparkles, ShieldCheck, Truck, Tag, ShoppingBag, Loader2,
+  ArrowRight, Sparkles, ShieldCheck, Truck, Tag, ShoppingBag, Loader2, Plus,
 } from "lucide-react";
 
 // SHOP accent tokens — keep parity with lib/modules.js `shop.color`.
@@ -428,13 +429,50 @@ const RENDERERS = {
 
 export const ProductCard = ({ product, basePath = "/shop" }) => {
   const img = abs(product.images?.[0]);
+  const price = product.min_price;
+  const compareAt = product.compare_at_price;
+  const off = compareAt && price && compareAt > price
+    ? Math.round(((compareAt - price) / compareAt) * 100) : 0;
+  const spec = React.useMemo(() => {
+    const a = product.variant_attributes || {};
+    const parts = [];
+    if (a.size)     parts.push(`Size ${a.size}`);
+    if (a.capacity) parts.push(a.capacity);
+    if (a.colour)   parts.push(a.colour);
+    if (product.variant_count > 1) parts.push(`+${product.variant_count - 1} options`);
+    return parts.join(" · ");
+  }, [product]);
+
+  const addToCart = async (e) => {
+    // MART-style + button — never navigates. Adds the cheapest variant.
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product.first_variant_id) return;
+    try {
+      const { api } = await import("@/lib/api");
+      await api.post("/shop/cart/items", { variant_id: product.first_variant_id, quantity: 1 });
+      const { toast } = await import("sonner");
+      toast.success(`${product.title} added`);
+    } catch (err) {
+      const { toast } = await import("sonner");
+      if (err?.response?.status === 401) toast.error("Please sign in to add to cart");
+      else toast.error("Add to cart failed");
+    }
+  };
+
   return (
     <Link
       to={`${basePath}/p/${product.id}`}
       data-testid={`shopbaked-product-card-${product.id}`}
-      className="group block border border-neutral-800 rounded-xl overflow-hidden bg-neutral-900/40 hover:border-amber-400/60 transition-colors"
+      className="group block border border-neutral-800 rounded-xl overflow-hidden bg-neutral-900/40 hover:border-amber-400/60 transition-colors relative"
     >
-      <div className="aspect-square bg-neutral-950 flex items-center justify-center overflow-hidden">
+      <div className="aspect-square bg-neutral-950 flex items-center justify-center overflow-hidden relative">
+        {off > 0 && (
+          <span className="absolute top-2 left-2 z-10 text-[10px] font-bold px-2 py-0.5 rounded"
+                style={{ background: "#FF4C52", color: "white" }}>
+            {off}% OFF
+          </span>
+        )}
         {img ? (
           <img src={img} alt={product.title}
                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
@@ -444,8 +482,37 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
         )}
       </div>
       <div className="p-3">
-        <div className="text-sm font-medium text-neutral-100 truncate">{product.title}</div>
-        <div className="text-[11px] text-neutral-500 mt-1">Ships from Côte d'Ivoire</div>
+        <div className="text-sm font-semibold text-neutral-100 line-clamp-2 min-h-[2.5rem]">{product.title}</div>
+        {spec && <div className="text-[11px] text-neutral-500 mt-1 truncate">{spec}</div>}
+        <div className="mt-2 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            {price != null ? (
+              <>
+                <div className="text-sm font-bold text-neutral-100">
+                  {Number(price).toLocaleString()} {product.currency || "XOF"}
+                </div>
+                {compareAt && compareAt > price && (
+                  <div className="text-[11px] text-neutral-500 line-through">
+                    {Number(compareAt).toLocaleString()} {product.currency || "XOF"}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-[11px] text-neutral-500">Ships from Côte d'Ivoire</div>
+            )}
+          </div>
+          {product.first_variant_id && (
+            <button
+              data-testid={`shopbaked-card-add-${product.id}`}
+              onClick={addToCart}
+              aria-label="Add to cart"
+              className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-black hover:scale-105 transition-transform"
+              style={{ background: SHOP_ACCENT }}
+            >
+              <Plus size={18} strokeWidth={3} />
+            </button>
+          )}
+        </div>
       </div>
     </Link>
   );

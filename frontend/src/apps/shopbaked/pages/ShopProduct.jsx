@@ -9,6 +9,7 @@
  * can add it to their cart.
  */
 import { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -117,16 +118,13 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
       </Link>
 
       <div className="grid gap-8 md:grid-cols-2">
-        {/* Left: images */}
-        <div className="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-square"
-             data-testid="shopbaked-pdp-image">
-          {(activeVariant?.images?.[0] || detail.images?.[0]) ? (
-            <img src={activeVariant?.images?.[0] || detail.images?.[0]}
-                 alt={detail.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-neutral-700 text-5xl">SHOP</div>
-          )}
-        </div>
+        {/* Left: image with hover-zoom (MART parity). Moves the transform
+            origin under the cursor so the pixel under the pointer stays
+            fixed while the image scales up. */}
+        <ProductImageZoom
+          src={activeVariant?.images?.[0] || detail.images?.[0]}
+          alt={detail.title}
+        />
 
         {/* Right: metadata + picker */}
         <div>
@@ -212,3 +210,62 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
 };
 
 export default ShopProduct;
+
+// ---------------------------------------------------------------------------
+// ProductImageZoom — MART-style hover zoom. On desktop, moving the mouse
+// over the image reveals a magnified pane anchored to the pointer. On
+// touch/mobile the extra pane is skipped (native pinch-to-zoom takes over).
+// ---------------------------------------------------------------------------
+const ProductImageZoom = ({ src, alt }) => {
+  const [hover, setHover] = useState(false);
+  const [origin, setOrigin] = useState({ x: 50, y: 50 });
+  const wrapRef = React.useRef(null);
+  const canZoom = typeof window !== "undefined"
+    && window.matchMedia && !window.matchMedia("(pointer: coarse)").matches;
+
+  const onMove = (e) => {
+    if (!canZoom || !wrapRef.current) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 100;
+    setOrigin({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+  };
+
+  if (!src) {
+    return (
+      <div className="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-square flex items-center justify-center text-neutral-700 text-5xl"
+           data-testid="shopbaked-pdp-image">
+        SHOP
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      onMouseEnter={() => canZoom && setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onMouseMove={onMove}
+      className="rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 aspect-square relative"
+      data-testid="shopbaked-pdp-image"
+      style={{ cursor: canZoom ? "zoom-in" : "default" }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        data-testid="shopbaked-pdp-image-img"
+        className="w-full h-full object-cover transition-transform duration-100 ease-out"
+        style={{
+          transform: hover ? "scale(2.2)" : "scale(1)",
+          transformOrigin: `${origin.x}% ${origin.y}%`,
+        }}
+        draggable={false}
+      />
+      {canZoom && !hover && (
+        <span className="absolute bottom-2 right-2 text-[10px] uppercase tracking-widest bg-black/60 text-neutral-200 px-2 py-1 rounded">
+          Hover to zoom
+        </span>
+      )}
+    </div>
+  );
+};

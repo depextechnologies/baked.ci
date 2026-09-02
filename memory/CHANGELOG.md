@@ -1,5 +1,16 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-01 — SHOP Card/Image/Zoom/Filters (Fixing_Prompt v10) — COMPLETE
+Four asks shipped:
+
+- **§1 MART-style product cards** (`apps/shopbaked/pages/ShopHome.jsx::ProductCard`): image | name | important spec | price (+ strike-through + % off badge) | amber `+` add-to-cart button. Add button posts `/api/shop/cart/items` for the cheapest active variant without navigating. `data-testid=shopbaked-card-add-{id}`.
+- **§2 Realistic per-theme images**: rewrote `modules/shop/demo_products_seed.py::_keyword_image` with a 40+ theme bank of direct Unsplash CDN URLs (dresses, menswear, sneakers, headphones, watches, sofas, etc.) + slug→theme lookup with fuzzy fallback. Backend enriched public products endpoint to include `min_price`, `compare_at_price`, `currency`, `first_variant_id`, `variant_attributes`, `variant_count` from cheapest active variant. Backfilled all 181 products + 362 variants.
+- **§3 PDP image zoomer** (`apps/shopbaked/pages/ShopProduct.jsx::ProductImageZoom`): MART-parity hover-zoom (2.2× scale, transform-origin follows pointer, "Hover to zoom" affordance, disabled on `pointer: coarse` touch devices which have native pinch).
+- **§4 Category filter drawer** (`apps/shopbaked/pages/ShopCategory.jsx::FilterDrawer`): right-side sheet with Max Price slider + Brand / Colour / Size facet chips (chip counts + toggle state). Trigger from new `SlidersHorizontal` icon in header; badge shows active filter count. `data-testids`: `shopbaked-category-filters`, `shopbaked-filters-drawer`, `shopbaked-filter-price`, `shopbaked-facet-{brand|colour|size}-{val}`, `shopbaked-filters-apply`, `shopbaked-filters-clear`.
+- Smoke-verified on desktop 1440: /shop/c/mode-femme renders realistic dress + fashion imagery, cards show price/spec/`+` button, filter drawer opens, PDP image zooms on hover.
+
+
+
 ## 2026-03-01 — SHOP Product Grid Responsive Columns — COMPLETE
 Per user spec (mobile: 2 / laptop: 4 / desktop: 5):
 - `ShopCategory` product grid → `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`.

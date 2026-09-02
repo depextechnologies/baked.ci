@@ -261,15 +261,37 @@ async def shop_list_products(
             return []
         q = q.where(ShopProduct.subcategory_id == sub)
     rows = (await session.execute(q)).scalars().all()
-    return [
-        {
+    if not rows:
+        return []
+    # Load the cheapest active variant per product so the customer card can
+    # show a price + one-tap add-to-cart button (MART parity).
+    from core.models import ShopVariant  # local import — avoids cycle at module load
+    variants_by_pid: dict[str, list] = {}
+    var_rows = (await session.execute(
+        select(ShopVariant)
+        .where(ShopVariant.product_id.in_([r.id for r in rows]),
+               ShopVariant.is_active.is_(True))
+        .order_by(ShopVariant.price.asc())
+    )).scalars().all()
+    for v in var_rows:
+        variants_by_pid.setdefault(v.product_id, []).append(v)
+    out = []
+    for r in rows:
+        vs = variants_by_pid.get(r.id, [])
+        cheapest = vs[0] if vs else None
+        out.append({
             "id": r.id, "title": r.title, "slug": r.slug,
             "brand_id": r.brand_id, "category_id": r.category_id,
             "subcategory_id": r.subcategory_id, "images": r.images or [],
             "status": r.status,
-        }
-        for r in rows
-    ]
+            "min_price": float(cheapest.price) if cheapest else None,
+            "compare_at_price": float(cheapest.compare_at_price) if cheapest and cheapest.compare_at_price else None,
+            "currency": cheapest.currency if cheapest else "XOF",
+            "first_variant_id": cheapest.id if cheapest else None,
+            "variant_attributes": cheapest.attributes if cheapest else {},
+            "variant_count": len(vs),
+        })
+    return out
 
 
 # ---------------------------------------------------------------------------
