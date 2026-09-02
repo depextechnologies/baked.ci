@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-02 — Guest MART Card Snapshot — COMPLETE
+Mirror of the SHOP guest-cart pattern for MART lines so the cart drawer/page can render offline.
+
+- `contexts/BakedContexts.jsx::addItem` — MART guest add now captures a full snapshot at add-time: `{id, name, unit, image, brand, price, currency, currency_symbol, was_price, compare_at_price, original_price, master_price, is_stocked_locally}`. All three callers (`components/mart/ProductCard.jsx`, `pages/ProductDetailPage.jsx`, `pages/mobile/MobileProductDetail.jsx`) already pass the full product object → zero call-site changes needed.
+- `contexts/BakedContexts.jsx::hydrateGuest` — MART branch prefers `snapshot` when present, falls back to `GET /api/mart/products/{id}` only for legacy guest entries added before this change (backward-compat, no cart is stranded after the upgrade).
+- Verified live: guest adds "Banane Cavendish", opens `/cart` — **0** `/api/mart/products/{id}` fetches during hydrate; the cart row, subtotal, delivery, min-order warning, and "Login to Proceed" CTA all render straight from localStorage.
+
+
+
+
 ## 2026-03-02 — Guest Cart + Login-at-Checkout (Fixing_Prompt guest_cart) — COMPLETE
 Full behaviour change requested via Fixing_Prompt.docx: customers must be able to shop, add to cart, view cart and mutate quantities without any login prompt. Login is deferred to the "Proceed to Checkout" step. Applies to both SHOPbakēd and MARTbakēd; MART guest cart already existed, SHOP was the gap.
 
