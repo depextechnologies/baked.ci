@@ -13,14 +13,13 @@ import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { useAuth, useCart } from "@/contexts/BakedContexts";
+import { useCart } from "@/contexts/BakedContexts";
 import { ShoppingBag, ArrowLeft } from "lucide-react";
 
 const isSelect = (a) => a.type === "select" || a.type === "multi_select";
 
 export const ShopProduct = ({ basePath = "/shop" }) => {
   const { productId } = useParams();
-  const { customer, openLogin } = useAuth() || {};
   const { addShopVariant } = useCart() || {};
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
@@ -71,30 +70,26 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
 
   const addToCart = async () => {
     if (!activeVariant) return;
-    if (!customer) {
-      // Unauthenticated → open the global sign-in dialog so we come back here
-      // and the shared cart persists via the same flow MART uses.
-      toast("Please sign in to add items to your cart");
-      openLogin?.();
-      return;
-    }
     setBusy(true);
     try {
-      // Route through the shared CartContext so the global cart badge +
-      // /cart drawer refresh immediately (was previously calling the raw
-      // /shop/cart/items endpoint which never notified the context).
-      await addShopVariant(activeVariant.id, 1);
+      // Route through the shared CartContext. For guests the context stores
+      // a snapshot in localStorage; for authed users it POSTs to the server.
+      // Login is deferred to Proceed-to-Checkout per Fixing_Prompt §3.
+      await addShopVariant(activeVariant.id, 1, {
+        product_id: detail.id,
+        title: detail.title + (activeVariant.title_suffix ? ` — ${activeVariant.title_suffix}` : ""),
+        image: (activeVariant.images && activeVariant.images[0]) || detail.images?.[0] || null,
+        price: activeVariant.price,
+        compare_at_price: activeVariant.compare_at_price,
+        currency: activeVariant.currency || "XOF",
+        variant_attributes: activeVariant.attributes || {},
+        sku: activeVariant.sku,
+      });
       toast.success(`Added ${activeVariant.sku} to your cart`);
     } catch (e) {
       const detail = e?.response?.data?.detail;
-      if (e?.response?.status === 401) {
-        toast.error("Please sign in to add items to your cart");
-        openLogin?.();
-      } else if (detail) {
-        toast.error(typeof detail === "string" ? detail : detail?.message || "Add to cart failed");
-      } else {
-        toast.error(e?.message || "Add to cart failed");
-      }
+      if (detail) toast.error(typeof detail === "string" ? detail : detail?.message || "Add to cart failed");
+      else toast.error(e?.message || "Add to cart failed");
     } finally {
       setBusy(false);
     }

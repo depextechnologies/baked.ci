@@ -11,7 +11,7 @@ import { toast } from "sonner";
 export const CartPage = () => {
   const { country } = useApp();
   const { cart, updateItem, removeItem, clear } = useCart();
-  const { customer } = useAuth();
+  const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
   const items = cart.items || [];
   const unavailable = cart.unavailable_items || [];
@@ -32,7 +32,11 @@ export const CartPage = () => {
   const subtotal = martSubtotal + shopSubtotal;
 
   const doCheckout = () => {
-    if (!customer) { toast("Please login to continue"); return; }
+    // Guests can review the cart freely — login is required only at the
+    // checkout step (Fixing_Prompt §7). `openLogin('/checkout')` stashes the
+    // return path in sessionStorage so the customer lands on /checkout with
+    // their (now merged) cart intact.
+    if (!customer) { openLogin?.("/checkout"); return; }
     if (hasUnavailable) { toast.error("Remove items marked 'Coming soon' before checking out"); return; }
     if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
     // Always route to the global /checkout — it now handles mixed and
@@ -158,8 +162,8 @@ export const CartPage = () => {
               Add <b>{formatMoney(shortfall, country.currency, country.currency_symbol)}</b> more to reach the {formatMoney(minOrder, country.currency, country.currency_symbol)} minimum.
             </div>
           )}
-          <Button data-testid={CART.checkoutBtn} disabled={!minOrderOk || hasUnavailable} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
-            Checkout
+          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
+            {customer ? "Checkout" : "Login to Proceed"}
           </Button>
         </div>
       </aside>

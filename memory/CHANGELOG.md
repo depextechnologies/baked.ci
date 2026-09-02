@@ -1,5 +1,23 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-02 — Guest Cart + Login-at-Checkout (Fixing_Prompt guest_cart) — COMPLETE
+Full behaviour change requested via Fixing_Prompt.docx: customers must be able to shop, add to cart, view cart and mutate quantities without any login prompt. Login is deferred to the "Proceed to Checkout" step. Applies to both SHOPbakēd and MARTbakēd; MART guest cart already existed, SHOP was the gap.
+
+- **`contexts/BakedContexts.jsx` — CartProvider extended**
+  * `hydrateGuest` now hydrates BOTH modules: MART entries fetch `/mart/products/{id}` (unchanged), SHOP entries render from the `snapshot` object captured at add-time (`title, image, price, compare_at_price, currency, sku, variant_attributes`) so no per-load network round-trip is required.
+  * New `mergeGuestIntoServer` — on the null→customer edge (fresh login) each guest line is replayed via `POST /api/shop/cart/items` or `POST /api/carts/me/items`. Both endpoints upsert on duplicate ⇒ natural quantity merge. Guest localStorage cleared to `{items:[]}` on success.
+  * `addShopVariant(variantId, qty, snapshot?)` — dropped the `if (!customer) throw` guard. Guest path writes `{ id:"gs_<variantId>", module:"shop", variant_id, product_id, quantity, snapshot }` to `baked_guest_cart`.
+  * `prevCustomerId` ref tracks auth transitions so the merge fires exactly once per login (never on every hot-reload or refresh).
+- **`apps/shopbaked/pages/ShopHome.jsx::ProductCard`** — `addToCart` now routes through `useCart().addShopVariant(...)` with a full product snapshot. Removed the raw `api.post("/shop/cart/items")` call and the 401 → "Please sign in to add to cart" toast.
+- **`apps/shopbaked/pages/ShopProduct.jsx`** — PDP `addToCart` now guest-friendly: no `!customer` early-return, snapshots the active variant SKU/attributes into the guest cart.
+- **`pages/CartPage.jsx`** — `doCheckout` gates guests with `openLogin("/checkout")` (never blocks). Checkout button label switches to `"Login to Proceed"` when logged out; only disabled for authed users when min-order or unavailable-items rules fail.
+- **`pages/mobile/MobileCart.jsx`** — Same gate + label swap on the sticky bottom CTA (`"Login to Proceed"` guest / `"Checkout"` authed).
+- Reused the existing `openLogin(target)` → `sessionStorage.baked_post_login` → `loginWithToken` auto-redirect plumbing for the checkout-intent state (Fixing_Prompt §12). No new auth architecture introduced.
+- Tested end-to-end via `testing_agent iter77`: all 10 acceptance tests PASS on desktop 1920 + mobile 390. Guest add, multi-add, qty stepper, refresh persistence, cancel-login, cart merge (guest+server via upsert), authed regression, and PDP add-to-cart all green.
+
+
+
+
 ## 2026-03-02 — SHOP Product Carousel: single-row horizontal scroll — COMPLETE
 - `ProductCarouselSection` (`apps/shopbaked/pages/ShopHome.jsx`) refactored from a wrapping responsive grid into a single-row horizontal scroll rail with snap points, matching the "Fresh drops" Fixing_Prompt behaviour.
 - Cards-per-viewport: mobile 2 (`basis-[46%]`), tablet 3, laptop 4, desktop ≥xl 5. All extra items remain in the same row and are revealed via swipe (touch) or hover-fade prev/next chevrons (pointer).

@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useCart } from "@/contexts/BakedContexts";
 import {
   ArrowRight, Sparkles, ShieldCheck, Truck, Tag, ShoppingBag, Loader2, Plus,
 } from "lucide-react";
@@ -620,6 +621,7 @@ const RENDERERS = {
 };
 
 export const ProductCard = ({ product, basePath = "/shop" }) => {
+  const { addShopVariant } = useCart() || {};
   const img = abs(product.images?.[0]);
   const price = product.min_price;
   const compareAt = product.compare_at_price;
@@ -637,18 +639,26 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
 
   const addToCart = async (e) => {
     // MART-style + button — never navigates. Adds the cheapest variant.
+    // Works for guests too: routed through CartContext, which persists to
+    // localStorage until the customer logs in at checkout (Fixing_Prompt §3).
     e.preventDefault();
     e.stopPropagation();
-    if (!product.first_variant_id) return;
+    if (!product.first_variant_id || !addShopVariant) return;
     try {
-      const { api } = await import("@/lib/api");
-      await api.post("/shop/cart/items", { variant_id: product.first_variant_id, quantity: 1 });
+      await addShopVariant(product.first_variant_id, 1, {
+        product_id: product.id,
+        title: product.title,
+        image: product.images?.[0] || null,
+        price: product.min_price,
+        compare_at_price: product.compare_at_price,
+        currency: product.currency || "XOF",
+        variant_attributes: product.variant_attributes || {},
+      });
       const { toast } = await import("sonner");
       toast.success(`${product.title} added`);
     } catch (err) {
       const { toast } = await import("sonner");
-      if (err?.response?.status === 401) toast.error("Please sign in to add to cart");
-      else toast.error("Add to cart failed");
+      toast.error(err?.response?.data?.detail || "Add to cart failed");
     }
   };
 

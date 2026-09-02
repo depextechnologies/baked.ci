@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp, useCart } from "../../contexts/BakedContexts";
+import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { checkOrderEligibility } from "../../lib/checkout";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
@@ -11,6 +11,7 @@ export const MobileCart = () => {
   const nav = useNavigate();
   const { country } = useApp();
   const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
+  const { customer, openLogin } = useAuth() || {};
   const [note, setNote] = useState("");
   const ccy = country?.currency_symbol || country?.currency;
 
@@ -34,6 +35,10 @@ export const MobileCart = () => {
   }, 0);
 
   const goCheckout = () => {
+    // Guest → open the existing sign-in modal with /checkout as the return
+    // destination. `openLogin` persists it to sessionStorage so the customer
+    // lands directly on checkout after login with the (merged) cart intact.
+    if (!customer) { openLogin?.("/checkout"); return; }
     // Always route to the unified /checkout (MobileCheckout) — it handles
     // MART, SHOP and mixed carts internally.
     nav("/checkout");
@@ -195,8 +200,9 @@ export const MobileCart = () => {
             <div className="text-[10px] text-muted-foreground">Total (Incl. VAT)</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-cart-checkout" disabled={!minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
-            <ShoppingCart size={16} className="mr-1.5" /> {minOrderOk ? "Checkout" : "Add more"}
+          <Button data-testid="m-cart-checkout" disabled={customer && !minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+            <ShoppingCart size={16} className="mr-1.5" />
+            {!customer ? "Login to Proceed" : (minOrderOk ? "Checkout" : "Add more")}
           </Button>
         </div>
       </div>
