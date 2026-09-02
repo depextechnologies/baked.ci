@@ -45,7 +45,11 @@ portalApi.interceptors.response.use((r) => r, (err) => {
   if (err?.response?.status === 401) {
     localStorage.removeItem("supplier_token");
     localStorage.removeItem("supplier");
-    window.location.href = "/martbaked/sellers/login?redirect=/martbaked/sellers/portal";
+    // Respect the current URL prefix — SHOP sellers shouldn't get bounced
+    // to the MART login page.
+    const isShop = window.location.pathname.startsWith("/shopbaked");
+    const base = isShop ? "/shopbaked" : "/martbaked";
+    window.location.href = `${base}/sellers/login?redirect=${base}/sellers/portal`;
   }
   return Promise.reject(err);
 });
@@ -112,7 +116,7 @@ const NAV = [
   { to: "supply-locations",  label: "Supply Locations", icon: MapPinned },
 ];
 
-const PortalShell = ({ supplier, refresh }) => {
+const PortalShell = ({ supplier, refresh, portalPrefix = "/martbaked" }) => {
   const { sellerSlug } = useParams();
   const navigate = useNavigate();
   const logout = () => {
@@ -148,7 +152,7 @@ const PortalShell = ({ supplier, refresh }) => {
           <nav className="space-y-1">
             {NAV.map((n) => (
               <NavLink key={n.label}
-                to={`/martbaked/${supplier?.seller_slug || sellerSlug || "sellers"}/portal/${n.to}`}
+                to={`${portalPrefix}/${supplier?.seller_slug || sellerSlug || "sellers"}/portal/${n.to}`}
                 data-testid={`portal-nav-${n.label.toLowerCase().replace(/\s+/g, "-")}`}
                 className={({ isActive }) => `flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-medium transition-all`}
                 style={({ isActive }) => ({
@@ -164,7 +168,7 @@ const PortalShell = ({ supplier, refresh }) => {
               style={{ color: "var(--pl-fg-muted)" }} data-testid="portal-btn-logout">
               <LogOut size={16} /> Sign out
             </button>
-            <Link to="/martbaked/sellers" className="flex items-center gap-3 px-3 h-9 rounded-lg text-xs mt-1"
+            <Link to={portalPrefix === "/shopbaked" ? "/shopbaked/sellers" : "/martbaked/sellers"} className="flex items-center gap-3 px-3 h-9 rounded-lg text-xs mt-1"
               style={{ color: "var(--pl-fg-subtle)" }}>
               <ArrowLeft size={12} /> Back to Sellers Home
             </Link>
@@ -193,7 +197,12 @@ const LoadingScreen = () => (
   </div>
 );
 
-export const SellerPortalApp = ({ legacy = false }) => {
+export const SellerPortalApp = ({ legacy = false, module = "mart" }) => {
+  // URL prefix identity — `/shopbaked/{slug}/portal/…` for SHOP, otherwise
+  // `/martbaked/{slug}/portal/…`. Only affects link generation + login
+  // redirects; the backend supplier API is unchanged.
+  const portalPrefix = module === "shop" ? "/shopbaked" : "/martbaked";
+  const loginBase = module === "shop" ? "/shopbaked/sellers/login" : "/martbaked/sellers/login";
   const { supplier, loading, error, refresh } = useSupplierAuth();
   const { sellerSlug } = useParams();
   const navigate = useNavigate();
@@ -204,24 +213,24 @@ export const SellerPortalApp = ({ legacy = false }) => {
   // at the edge without a rewrite rule, so client redirect is the safe path.
   useEffect(() => {
     if (loading || !supplier?.seller_slug) return;
-    const rest = window.location.pathname.replace(/^\/martbaked\/[^/]+\/portal\/?/, "");
+    const rest = window.location.pathname.replace(/^\/(?:mart|shop)baked\/(?:sellers\/)?[^/]*\/?portal\/?/, "");
     if (legacy) {
-      const dest = `/martbaked/${supplier.seller_slug}/portal/${rest || "dashboard"}`;
+      const dest = `${portalPrefix}/${supplier.seller_slug}/portal/${rest || "dashboard"}`;
       navigate(dest + window.location.search, { replace: true });
     } else if (sellerSlug && sellerSlug !== supplier.seller_slug) {
-      // Wrong slug in URL for this session → hard-redirect to the correct one
-      navigate(`/martbaked/${supplier.seller_slug}/portal/${rest || "dashboard"}`, { replace: true });
+      navigate(`${portalPrefix}/${supplier.seller_slug}/portal/${rest || "dashboard"}`, { replace: true });
     }
-  }, [loading, supplier, sellerSlug, legacy, navigate]);
+  }, [loading, supplier, sellerSlug, legacy, navigate, portalPrefix]);
 
   if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen />;
   const hasToken = !!localStorage.getItem("supplier_token");
-  if (!hasToken || error) return <Navigate to="/martbaked/sellers/login?redirect=/martbaked/sellers/portal" replace />;
+  if (!hasToken || error) return <Navigate to={`${loginBase}?redirect=${portalPrefix}/sellers/portal`} replace />;
   if (!supplier) return <LoadingScreen />;
 
   return (
     <Routes>
-      <Route element={<PortalShell supplier={supplier} refresh={refresh} />}>
+      <Route element={<PortalShell supplier={supplier} refresh={refresh} portalPrefix={portalPrefix} />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<PortalHome supplier={supplier} />} />
         <Route path="profile" element={<PortalProfile />} />

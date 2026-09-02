@@ -1,0 +1,36 @@
+{
+  "summary": "Frontend-only verification of the SHOP seller portal URL-identity fix (Fixing_Prompt v13). All 8 acceptance criteria PASS on preview URL https://baked-platform.preview.emergentagent.com using demo-delta-supplier@test.example / Supplier1234!. SHOP post-login now lands on /shopbaked/delta/portal/dashboard (not /martbaked/…). MART regression intact. Sidebar NavLinks and 'Back to Sellers Home' link honour the current URL prefix. 401 interceptor & wrong-slug guard preserve the /shopbaked/ prefix. Legacy /martbaked/sellers/portal/dashboard still redirects to /martbaked/delta/portal/dashboard.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verified_flows": {
+    "shop_post_login_redirect": "PASS — /shopbaked/sellers/login → /shopbaked/delta/portal/dashboard",
+    "shop_portal_shop_route": "PASS — /shopbaked/delta/portal/shop renders (no redirect to /shop or /martbaked)",
+    "shop_portal_shop_orders_route": "PASS — /shopbaked/delta/portal/shop-orders renders",
+    "mart_post_login_redirect": "PASS — /martbaked/sellers/login → /martbaked/delta/portal/dashboard",
+    "sidebar_prefix_on_shop": "PASS — all 10 portal-nav-* hrefs start with /shopbaked/delta/portal/ (dashboard, profile, catalogue, shop, shop-orders, orders, invoices, product-requests, documents, supply-locations)",
+    "sidebar_prefix_on_mart": "PASS — all 10 portal-nav-* hrefs start with /martbaked/delta/portal/",
+    "back_to_sellers_link_shop": "PASS — href=/shopbaked/sellers on SHOP portal",
+    "back_to_sellers_link_mart": "PASS — href=/martbaked/sellers on MART portal",
+    "auth_401_interceptor_shop": "PASS — invalid supplier_token on /shopbaked/delta/portal/dashboard → /shopbaked/sellers/login?redirect=/shopbaked/sellers/portal (not /martbaked)",
+    "wrong_slug_guard_shop": "PASS — /shopbaked/wrong-slug/portal/dashboard → /shopbaked/delta/portal/dashboard (prefix preserved)",
+    "wrong_slug_guard_mart": "PASS — /martbaked/wrong-slug/portal/dashboard → /martbaked/delta/portal/dashboard",
+    "legacy_mart_portal": "PASS — /martbaked/sellers/portal/dashboard → /martbaked/delta/portal/dashboard"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SellerPortalApp.jsx:225-226 has a duplicated `if (loading) return <LoadingScreen />;` line — harmless but dead code; consider removing for cleanliness.",
+    "PortalShell logout() hard-codes navigate('/martbaked/sellers') — should honour portalPrefix so SHOP users logging out from /shopbaked/… land on /shopbaked/sellers instead of MART landing. Not in the current review scope but consistent with the URL-identity theme of this fix.",
+    "SellerApp.jsx SellerLogin 'not_active' error block still hard-codes /martbaked/sellers/application-status and /martbaked/sellers/activate links even when the login was hit at /shopbaked/sellers/login — same prefix leak class, easy follow-up.",
+    "SellerActivate submit() also hard-codes navigate(`/martbaked/${slug}/portal/dashboard`) — SHOP-approved sellers activating via a /shopbaked link would still land on /martbaked. Recommend applying the same window.location.pathname.startsWith('/shopbaked') check used in SellerLogin.",
+    "NAV array in SellerPortalApp.jsx renders both 'SHOPbakēd' and 'SHOP Orders' tiles unconditionally regardless of the `module` prop — SHOP-only tiles will show up in the MART sidebar. Consider gating by module or by supplier.modules[]. Out of scope for this URL fix but visible in the screenshot."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not_tested", "frontend": "100%"},
+  "test_credentials": "demo-delta-supplier@test.example / Supplier1234! (slug=delta) — worked as documented.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "SHOP URL identity fix is fully verified. If follow-up work addresses the logout/activate/not-active-links prefix leak or SHOP-only nav gating (see critical_code_review_comments), re-run the same acceptance flow to make sure the working paths don't regress. Preview URL and credentials unchanged.",
+  "rca of the issue": "N/A — fix is working as intended. SellerPortalApp now accepts a `module` prop, derives portalPrefix accordingly, threads it to PortalShell for NavLink hrefs, and the 401 interceptor and post-login redirect both branch on window.location.pathname.startsWith('/shopbaked')."
+}

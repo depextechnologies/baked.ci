@@ -61,10 +61,15 @@ const App = () => (
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />
+          {/* SHOP-branded portal path — same SellerPortalApp, just under
+              /shopbaked/{slug}/portal so SHOP sellers get a coherent URL
+              identity (Fixing_Prompt v13). Module-gating already lives on
+              the Supplier.modules[] array; this route just swaps the prefix. */}
+          <Route path="/shopbaked/:sellerSlug/portal/*" element={<SellerPortalApp module="shop" />} />
           <Route path="/martbaked/sellers/*" element={<SellerApp module="mart" />} />
-          {/* SHOPbakēd sellers — reuses SellerApp with SHOP branding. Seller
-              portal itself (post-login) lives under /martbaked/{slug}/portal
-              since Supplier records are unified across modules. */}
+          {/* SHOPbakēd sellers — reuses SellerApp with SHOP branding. Post-
+              login they land in /shopbaked/{slug}/portal (SHOP-branded URL).
+              Supplier data model is still unified across modules. */}
           <Route path="/shopbaked/sellers/*" element={<SellerApp module="shop" />} />
           <Route path="/shopbaked" element={<Navigate to="/shop" replace />} />
           <Route path="/shopbaked/*" element={<ShopbakedRedirect />} />

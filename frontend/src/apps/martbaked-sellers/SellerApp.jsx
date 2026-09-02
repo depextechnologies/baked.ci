@@ -339,10 +339,14 @@ const SellerLogin = () => {
       localStorage.setItem("supplier_token", data.access_token);
       localStorage.setItem("supplier", JSON.stringify(data.supplier));
       toast.success(`Welcome back, ${data.supplier.trading_name || data.supplier.business_name}`);
-      // Redirect to portal (or ?redirect= override for deep-linking)
+      // Redirect to portal (or ?redirect= override for deep-linking).
+      // Preserve the current module: sellers who logged in via
+      // /shopbaked/sellers/login land under /shopbaked/{slug}/portal/…
       const params = new URLSearchParams(window.location.search);
       const slug = data.supplier?.seller_slug || "sellers";
-      const to = params.get("redirect") || `/martbaked/${slug}/portal/dashboard`;
+      const isShop = window.location.pathname.startsWith("/shopbaked");
+      const prefix = isShop ? "/shopbaked" : "/martbaked";
+      const to = params.get("redirect") || `${prefix}/${slug}/portal/dashboard`;
       navigate(to);
     } catch (e) {
       const d = e?.response?.data?.detail;
@@ -382,8 +386,8 @@ const SellerLogin = () => {
               <div>{err}</div>
               {notActive && (
                 <div className="flex flex-wrap gap-3 text-xs" data-testid="seller-login-not-active-actions">
-                  <Link to="/martbaked/sellers/application-status" className="underline">Check application status</Link>
-                  <Link to="/martbaked/sellers/activate" className="underline">Activate my account</Link>
+                  <Link to={`${mod.basePath}/application-status`} className="underline">Check application status</Link>
+                  <Link to={`${mod.basePath}/activate`} className="underline">Activate my account</Link>
                 </div>
               )}
             </div>
