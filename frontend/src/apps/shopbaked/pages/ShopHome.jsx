@@ -392,9 +392,13 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
 };
 
 // --------------------------------------------------- PRODUCT CAROUSEL ----
-// Mobile-first horizontal rail. ~2 cards visible per screen at ≤ sm, wider
-// screens fall back to a proper grid. "View all" deep-links to the section's
-// configured target (defaults to /shop/categories when none is set).
+// Single-row horizontal rail across ALL breakpoints:
+//   • Mobile      → 2 cards visible per screen (basis-[46%])
+//   • Tablet (sm) → 3 cards visible per screen
+//   • Laptop (lg) → 4 cards visible per screen
+//   • Desktop(xl) → 5 cards visible per screen
+// Users can scroll right-to-left to reveal the rest. "View all" deep-links
+// to the section's configured target (defaults to /shop/categories).
 const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" }) => {
   const limit = section.config?.limit || 12;
   const items = (products || []).slice(0, limit);
@@ -403,6 +407,15 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" 
         ? section.config.view_all_link.replace("/shopbaked", basePath)
         : section.config.view_all_link)
     : `${basePath}/categories`;
+
+  // Desktop chevron nav — scroll by ~one page (rail's clientWidth) at a time.
+  const railRef = React.useRef(null);
+  const scrollBy = (dir) => {
+    const el = railRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: "smooth" });
+  };
+
   return (
     <section className="mb-12" data-testid={testId}>
       <div className="flex items-baseline justify-between mb-4">
@@ -424,24 +437,45 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" 
           No approved SHOP products yet — check back once suppliers publish new listings.
         </div>
       ) : (
-        <>
-          {/* Mobile / small: horizontal swipe rail, 2 cards visible per screen.
-              `snap-x` keeps swipes anchored on card edges for a natural feel. */}
-          <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2 sm:hidden"
-               data-testid="shopbaked-fresh-drops-rail">
+        <div className="relative group">
+          {/* Single-row scroll rail. `basis-*` widths give:
+                mobile 2 / sm 3 / lg 4 / xl 5 cards per viewport. */}
+          <div
+            ref={railRef}
+            className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2 scroll-smooth"
+            data-testid="shopbaked-product-carousel-rail"
+          >
             {items.map((p) => (
-              <div key={p.id} className="basis-[46%] shrink-0 snap-start">
+              <div
+                key={p.id}
+                className="shrink-0 snap-start basis-[46%] sm:basis-[calc((100%-2rem)/3)] lg:basis-[calc((100%-3rem)/4)] xl:basis-[calc((100%-4rem)/5)]"
+              >
                 <ProductCard product={p} basePath={basePath} />
               </div>
             ))}
           </div>
-          {/* ≥ sm falls back to the responsive grid — 3/4/5 per row so
-              laptops see 4 cards and wide desktops 5, per Fixing_Prompt v9. */}
-          <div className="hidden sm:grid gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-               data-testid="shopbaked-fresh-drops">
-            {items.map((p) => <ProductCard key={p.id} product={p} basePath={basePath} />)}
-          </div>
-        </>
+
+          {/* Desktop-only prev/next chevrons — hidden on touch/mobile where
+              natural horizontal swipe is the primary affordance. */}
+          <button
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="Scroll left"
+            data-testid="shopbaked-carousel-prev"
+            className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-10 h-10 rounded-full items-center justify-center bg-neutral-900/90 border border-neutral-700 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
+          >
+            <ArrowRight size={16} className="rotate-180" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="Scroll right"
+            data-testid="shopbaked-carousel-next"
+            className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 w-10 h-10 rounded-full items-center justify-center bg-neutral-900/90 border border-neutral-700 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
+          >
+            <ArrowRight size={16} />
+          </button>
+        </div>
       )}
     </section>
   );

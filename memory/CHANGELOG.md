@@ -1,5 +1,15 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-02 — SHOP Product Carousel: single-row horizontal scroll — COMPLETE
+- `ProductCarouselSection` (`apps/shopbaked/pages/ShopHome.jsx`) refactored from a wrapping responsive grid into a single-row horizontal scroll rail with snap points, matching the "Fresh drops" Fixing_Prompt behaviour.
+- Cards-per-viewport: mobile 2 (`basis-[46%]`), tablet 3, laptop 4, desktop ≥xl 5. All extra items remain in the same row and are revealed via swipe (touch) or hover-fade prev/next chevrons (pointer).
+- Applies to every CMS section with `section_type: product_carousel` automatically — no admin action needed.
+- `View all` unchanged; still deep-links to `section.config.view_all_link` or `/shop/categories`.
+- data-testid renamed rail → `shopbaked-product-carousel-rail`; added `shopbaked-carousel-prev` / `shopbaked-carousel-next`. Verified live at 1920×900 and 390×800.
+
+
+
+
 ## 2026-03-02 — Driver OTP wired to Twilio SMS (was mocked) — COMPLETE
 - `POST /api/driver/auth/request-otp` now calls `core.providers.otp_provider.get_otp_provider().send_code(phone, code, locale)` — the same integration path already used by customer login (`shared/auth/routes.py`) and supplier onboarding (`shared/suppliers/routes.py`).
 - Previously the endpoint only generated the code + printed it to the backend log — no SMS was ever dispatched, which is why baked.ci `/driver/login` never received a text.

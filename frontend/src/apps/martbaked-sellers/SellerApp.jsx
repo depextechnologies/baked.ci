@@ -330,6 +330,7 @@ const SellerLogin = () => {
   const [err, setErr] = useState("");
   const [notActive, setNotActive] = useState(false);
   const navigate = useNavigate();
+  const mod = useSellerModule();
 
   const submit = async (e) => {
     e.preventDefault();
