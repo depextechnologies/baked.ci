@@ -275,12 +275,16 @@ const CategoryGrid = ({ section }) => {
         linkLabel="View all"
       />
       <div className={`grid ${colClass} gap-3 md:gap-4`}>
-        {cats.map((c) => (
+        {cats.map((c) => {
+          // QA — Fixing_Prompt "Home #3": prefer explicit `link` when the
+          // admin has set one; otherwise deep-link to the category filter.
+          const target = c.link || `/products?category=${c.slug}`;
+          return (
           <Link
-            key={c.slug}
-            to={`/products?category=${c.slug}`}
+            key={c.slug || c.name}
+            to={target}
             className="group rounded-2xl bg-card border border-border p-3 md:p-4 flex flex-col items-center gap-3 hover:border-[#77BC1F]/60 hover:-translate-y-0.5 transition-all"
-            data-testid={`hp-cat-${c.slug}`}
+            data-testid={`hp-cat-${c.slug || c.name}`}
           >
             <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-[#77BC1F]/10 overflow-hidden flex items-center justify-center relative">
               {c.image ? (
@@ -296,7 +300,8 @@ const CategoryGrid = ({ section }) => {
             </div>
             <div className="text-xs md:text-sm font-semibold text-center leading-tight">{c.name}</div>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -490,11 +495,22 @@ const ProductCarousel = ({ section, country }) => {
           <button onClick={() => scroll(1)} className="w-10 h-10 rounded-full border border-border bg-card hover:bg-muted transition flex items-center justify-center" data-testid={`hp-carousel-next-${section.id}`}>
             <ChevronRight size={18} />
           </button>
-          {cfg.link && (
-            <Link to={cfg.link} className="ml-2 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] font-semibold">
-              View all <ArrowRight size={12} />
-            </Link>
-          )}
+          {(() => {
+            // QA — Fixing_Prompt "Home #2": derive "View all" from the
+            // carousel's category filter when the admin hasn't set an
+            // explicit link. Only shows when there's a real target.
+            const explicit = cfg.link;
+            const derived = categorySlug
+              ? `/products?category=${categorySlug}${subcategorySlug ? `&subcategory=${subcategorySlug}` : ""}`
+              : null;
+            const href = explicit || derived;
+            return href && (
+              <Link to={href} data-testid={`hp-carousel-viewall-${section.id}`}
+                    className="ml-2 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] font-semibold">
+                View all <ArrowRight size={12} />
+              </Link>
+            );
+          })()}
         </div>
       </div>
       <div className="baked-container">

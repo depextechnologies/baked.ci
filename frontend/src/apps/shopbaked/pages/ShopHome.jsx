@@ -362,9 +362,15 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
            data-testid="shopbaked-category-rail">
         {enriched.map((c) => {
           const img = abs(c.image);
+          // Prefer explicit `link` when set; otherwise deep-link to the
+          // category landing via slug (QA — Fixing_Prompt "Home #3"). Admin
+          // can override for CMS tiles that don't map 1:1 to a real category
+          // (e.g., a curated promo tile).
+          const normalise = (u) => (u && u.startsWith("/shopbaked") ? u.replace("/shopbaked", basePath) : u);
+          const target = normalise(c.link) || `${basePath}/c/${c.slug}`;
           return (
-            <Link key={c.slug} to={`${basePath}/c/${c.slug}`}
-                  data-testid={`shopbaked-category-tile-${c.slug}`}
+            <Link key={c.slug || c.name} to={target}
+                  data-testid={`shopbaked-category-tile-${c.slug || c.name}`}
                   className="group border border-neutral-800 rounded-xl p-4 bg-neutral-900/40 hover:border-amber-400/60 transition-colors flex flex-col items-center gap-3">
               <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center"
                    style={{ background: img ? "transparent" : `${SHOP_ACCENT}22` }}>
@@ -403,11 +409,21 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
 const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" }) => {
   const limit = section.config?.limit || 12;
   const items = (products || []).slice(0, limit);
-  const viewAllHref = section.config?.view_all_link
-    ? (section.config.view_all_link.startsWith("/shopbaked")
-        ? section.config.view_all_link.replace("/shopbaked", basePath)
-        : section.config.view_all_link)
-    : `${basePath}/categories`;
+  // Deep-link resolution priority (QA — Fixing_Prompt "Home #2"):
+  //   1. explicit `view_all_link` (legacy)
+  //   2. explicit `link` (admin form field name)
+  //   3. derived from `filter` (category slug) → /{base}/c/{slug}?sub=…
+  //   4. fallback → /{base}/categories index
+  // Explicit URLs written for `/shopbaked/…` get normalised to the runtime
+  // `basePath` so a MART-emergent-preview link opens correctly under SHOP.
+  const explicit = section.config?.view_all_link || section.config?.link;
+  const normalise = (u) => (u && u.startsWith("/shopbaked") ? u.replace("/shopbaked", basePath) : u);
+  const catSlug = section.config?.filter;
+  const subSlug = section.config?.subcategory;
+  const derived = catSlug && catSlug !== "bestsellers" && catSlug !== "new"
+    ? `${basePath}/c/${catSlug}${subSlug ? `?sub=${subSlug}` : ""}`
+    : null;
+  const viewAllHref = normalise(explicit) || derived || `${basePath}/categories`;
 
   // Desktop chevron nav — scroll by ~one page (rail's clientWidth) at a time.
   const railRef = React.useRef(null);

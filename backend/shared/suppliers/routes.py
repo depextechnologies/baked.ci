@@ -27,12 +27,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
+from core.providers import object_storage
 from core.models import (
     AdminUser, MartCategory, OtpChallenge,
     Supplier, SupplierApplication, SupplierBankInfo,
@@ -416,18 +417,28 @@ async def apply_save_step(app_id: str, payload: StepIn, session: AsyncSession = 
         )
         for item in payload.categories:
             cat_id = item.get("category_id")
+            item_module = (item.get("module") or "mart").lower()
             if cat_id:
-                exists = await session.get(MartCategory, cat_id)
+                # QA — Fixing_Prompt "Seller Apply #7": SHOP applicants pass
+                # SHOP categoy ids which live in a different table. Resolve
+                # against the module-appropriate model.
+                if item_module == "shop":
+                    from core.models import ShopCategory
+                    exists = await session.get(ShopCategory, cat_id)
+                else:
+                    exists = await session.get(MartCategory, cat_id)
                 if not exists:
-                    raise HTTPException(400, f"Category not found: {cat_id}")
+                    raise HTTPException(400, f"Category not found: {cat_id} (module={item_module})")
                 session.add(SupplierCategoryInterest(
-                    supplier_id=supplier.id, category_id=cat_id, status="approved",
+                    supplier_id=supplier.id, category_id=cat_id,
+                    module=item_module, status="approved",
                 ))
             elif item.get("requested_name"):
                 session.add(SupplierCategoryInterest(
                     supplier_id=supplier.id,
                     requested_name=item["requested_name"],
                     reason=item.get("reason"),
+                    module=item_module,
                     status="pending",
                 ))
 
@@ -533,6 +544,85 @@ async def apply_get(app_id: str, session: AsyncSession = Depends(get_session)):
     supplier = await session.get(Supplier, app.supplier_id)
     snapshot = await _load_full_snapshot(session, supplier)
     return {"application": _application_dict(app), **snapshot}
+
+
+# ---------------------------------------------------------------------------
+# Public file upload — scoped to a draft application id (Fixing_Prompt v13
+# — Seller Apply #8). Sellers can upload IDs / registration certificates /
+# tax docs during the wizard *before* they're an authenticated supplier.
+# Only drafts (not-yet-submitted apps) can upload; submitted/approved apps
+# use the auth-gated /api/supplier/uploads instead.
+# ---------------------------------------------------------------------------
+_APPLY_UPLOAD_MAX = 8 * 1024 * 1024  # 8 MiB
+_APPLY_UPLOAD_MIME = ("image/", "application/pdf")
+
+
+@public_router.post("/apply/{app_id}/uploads")
+async def apply_upload(
+    app_id: str,
+    file: UploadFile = File(...),
+    kind: str = Form("document"),
+    session: AsyncSession = Depends(get_session),
+):
+    if kind not in ("document", "image"):
+        raise HTTPException(400, "kind must be 'document' or 'image'")
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("draft", "action_required"):
+        raise HTTPException(409, {"code": "app_frozen",
+                                  "message": "Uploads are only allowed on draft applications."})
+
+    ct = (file.content_type or "application/octet-stream").lower()
+    if not any(ct.startswith(p) for p in _APPLY_UPLOAD_MIME):
+        raise HTTPException(415, f"Unsupported content type: {ct} — use PDF or an image.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "Empty file")
+    if len(data) > _APPLY_UPLOAD_MAX:
+        raise HTTPException(413, f"Max file size is {_APPLY_UPLOAD_MAX // (1024 * 1024)} MB")
+
+    ext = "bin"
+    if file.filename and "." in file.filename:
+        ext = file.filename.rsplit(".", 1)[-1].lower()[:8]
+    path = f"{object_storage.APP_NAME}/apply/{app_id}/{kind}s/{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}.{ext}"
+    try:
+        result = object_storage.put_object(path, data, ct)
+    except Exception as exc:
+        raise HTTPException(502, {"code": "storage_upload_failed", "message": str(exc)}) from exc
+
+    return {
+        "storage_path": result["path"],
+        "file_url": f"/api/martbaked/sellers/apply/{app_id}/files/{result['path']}",
+        "size_bytes": result.get("size", len(data)),
+        "content_type": ct,
+        "original_filename": file.filename,
+    }
+
+
+@public_router.get("/apply/{app_id}/files/{path:path}")
+async def apply_file_serve(app_id: str, path: str, session: AsyncSession = Depends(get_session)):
+    """Serve an uploaded application doc.
+
+    Current scope (MVP): opaque path grants read access — retrievable by
+    anyone who has both `app_id` AND the storage path. The path embeds a
+    26-char microsecond timestamp so enumeration is not practical, but
+    forwarded URLs are effectively bearer tokens. Follow-up hardening
+    tracked in ROADMAP:
+      * short-lived signed URLs for submitted apps
+      * per-IP rate limit on the upload endpoint
+    """
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if f"/apply/{app_id}/" not in f"/{path}":
+        raise HTTPException(403, "Forbidden path")
+    try:
+        content, ct = object_storage.get_object(path)
+    except Exception:
+        raise HTTPException(404, "File not found")
+    from fastapi import Response
+    return Response(content=content, media_type=ct)
 
 
 @public_router.get("/application-status/{application_code}")

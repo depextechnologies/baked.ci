@@ -1,5 +1,44 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-03 — Testing case.xlsx QA (8 defects) — COMPLETE
+Root-cause fixes across DB → API → frontend for every defect the user filed in Testing case.xlsx.
+
+**Bug #1 — SHOP category page margin**  
+`apps/shopbaked/pages/ShopCategory.jsx` — wrapped the whole page in `mx-auto max-w-7xl px-4 sm:px-6` so it aligns with the header and rest of the storefront (was stretching edge-to-edge). Stripped duplicated `px-4` on inner rows.
+
+**Bug #2 — Home Product Carousel "View all" always went to /categories**  
+`apps/shopbaked/pages/ShopHome.jsx::ProductCarouselSection` + `pages/ConfigHomepage.jsx::ProductCarousel` — new deep-link priority chain: (1) explicit `view_all_link` / `link`, (2) auto-derived from `filter` (category slug) → `/shop/c/<slug>` (SHOP) or `/products?category=<slug>` (MART), (3) fallback `/categories`. Applies to every CMS-driven carousel automatically.
+
+**Bug #3 — Home category tile lands on all-products page**  
+Both `ShopHome.jsx::CategoryGridSection` and `ConfigHomepage.jsx::CategoryGrid` now prefer an explicit `c.link` when the admin has set one, otherwise deep-link to the slug-based category page. Explicit link normalisation (`/shopbaked` → runtime `basePath`) keeps CMS content portable.
+
+**Bug #4 — Banner Trio image upload → HTTP 413**  
+`pages/admin/AdminHomepageManagement.jsx` — added a canvas-based `compressImageIfNeeded` pass that resizes to ≤2200 px longest side and re-encodes as JPEG at progressive quality (0.85 → 0.75 → 0.65 → 0.55) until the payload is ≤900 KiB — comfortably under nginx-ingress's default 1 MiB body limit and our app-level 8 MiB cap. Skips SVG/GIF. Non-blocking toast informs the admin when an auto-optimisation kicked in.
+
+**Bug #5 — Category Grid tile edit missing link field**  
+Same file — added `F.url("link", "Target link (blank ⇒ /shop/c/{slug})")` to the `category_grid` schema; renderer respects it via the fix from Bug #3. The tile form is now full: Slug / Display name / Icon URL / Target link.
+
+**Bug #6 — Seller Apply Step 2 country picker shows CI + LR**  
+`apps/martbaked-sellers/SellerApplyWizard.jsx` — replaced `+231 (LR)` with `+91 (IN)`. Backend `core/utils/phone.py` already supported IN dial code — no backend change needed.
+
+**Bug #7 — SHOP Step 5 shows MART categories**  
+Root cause was two-fold and required a schema change:
+  1. `SellerApplyWizard.jsx::StepCategories` was hard-coded to `/mart/categories`. Now uses `useSellerModule()` and calls `/shop/catalogue` when the seller portal is SHOP, normalising the tree to a list of `{id, name}` cards.
+  2. Backend `supplier_category_interests.category_id` had a hard FK on `mart_categories` that rejected SHOP category IDs. Alembic migration `0046_sci_module` drops the FK and adds a `module` VARCHAR(8) discriminator + `ix_sci_supplier_module` index. The step-5 handler in `shared/suppliers/routes.py` now accepts `module` per item and looks up in the right table (MartCategory vs ShopCategory).
+
+**Bug #8 — Seller Apply document upload asks for a URL**  
+New public upload endpoints in `shared/suppliers/routes.py`:
+  * `POST /api/martbaked/sellers/apply/{app_id}/uploads` (multipart, kind=document|image, max 8 MiB, PDF+image only, only draft/action_required apps).
+  * `GET  /api/martbaked/sellers/apply/{app_id}/files/{path:path}` (public preview by opaque timestamped path).
+New reusable `ApplyFileUpload` component in `SellerApplyWizard.jsx` renders "Choose file" + preview link + Replace + clear. Wired into Step 8 (Documents) *and* Step 3 (Owner ID document) — both now accept real files instead of paste-a-URL.
+
+**Testing** — `testing_agent iter79`: 10/10 backend pytests + 8/8 UI bug verifications + 3/3 regression checks (MART home, SHOP admin, guest cart) all PASS.
+
+**Deferred security follow-ups** (raised by testing agent — worth tracking): (a) rate-limit the public `/apply/{id}/uploads` endpoint per-IP; (b) switch to signed URLs for submitted apps' file-serve so post-submit PII stops being retrievable from an opaque path alone.
+
+
+
+
 ## 2026-03-03 — SHOP Admin Surface Phase 2 (Catalog + Attributes + Approvals + Products) — COMPLETE
 Four SHOP-native admin pages plus the backend endpoints that back them.
 

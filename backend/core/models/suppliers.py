@@ -239,7 +239,11 @@ class SupplierCategoryInterest(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("supcat"))
     supplier_id: Mapped[str] = mapped_column(String, ForeignKey("suppliers.id", ondelete="CASCADE"), nullable=False)
-    category_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("mart_categories.id"), nullable=True)
+    # `category_id` now stores EITHER a MART (`cat_…`) or SHOP (`shpcat_…`)
+    # id — resolved at query-time using `module`. The FK on `mart_categories`
+    # was dropped in 0046_supplier_cat_interest_module for this reason.
+    category_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    module: Mapped[str] = mapped_column(String(8), nullable=False, default="mart", server_default="mart")
     requested_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="approved", server_default="approved")

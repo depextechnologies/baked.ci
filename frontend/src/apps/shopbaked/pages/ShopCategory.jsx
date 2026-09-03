@@ -120,9 +120,12 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
   const subcats = cat?.subcategories || [];
 
   return (
-    <div data-testid="shopbaked-category">
+    // Constrain content width + horizontal padding so the category landing
+    // aligns with the header / home / other storefront pages. Previously the
+    // page stretched edge-to-edge on desktop (QA — Fixing_Prompt "Home #1").
+    <div data-testid="shopbaked-category" className="mx-auto max-w-7xl px-4 sm:px-6">
       {/* Sub header row: back + category title + layout toggle */}
-      <div className="px-4 pt-1 pb-2 flex items-center gap-2">
+      <div className="pt-1 pb-2 flex items-center gap-2">
         <button data-testid="shopbaked-category-back" onClick={() => nav(`${basePath}/categories`)}
                 className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
           <ArrowLeft size={16} />
@@ -152,7 +155,7 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
       </div>
 
       {/* Search */}
-      <div className="px-4 pb-2">
+      <div className="pb-2">
         <div className="relative">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
