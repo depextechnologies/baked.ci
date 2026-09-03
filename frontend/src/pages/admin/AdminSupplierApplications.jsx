@@ -31,7 +31,7 @@ const errMsg = (e) => {
   return d?.message || e?.message || "Error";
 };
 
-export const AdminSupplierApplications = ({ embedded = false }) => {
+export const AdminSupplierApplications = ({ embedded = false, module = "mart" }) => {
   const [status, setStatus] = useState("submitted");
   const [q, setQ] = useState("");
   const [items, setItems] = useState([]);
@@ -43,18 +43,25 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
   const [notes, setNotes] = useState("");
   const nav = useNavigate();
 
+  // Module-aware labels + queue filter. Backend routes are still mounted at
+  // /admin/modules/mart/suppliers/* (unified Supplier model); the SHOP view
+  // just adds `module=SHOP` so only suppliers with SHOP in their modules[]
+  // JSONB array appear.
+  const MOD_LABEL = module === "shop" ? "SHOPbakēd" : "MARTbakēd";
+  const MOD_ACCENT = module === "shop" ? "#FCC44C" : "#77BC1F";
+
   const load = async () => {
     setBusy(true);
     try {
       const { data } = await adminApi.get(`/admin/modules/mart/suppliers/applications`, {
-        params: { status, q: q || undefined },
+        params: { status, q: q || undefined, module: module.toUpperCase() },
       });
       setItems(data.items || []);
       setBuckets(data.buckets || {});
     } catch (e) { toast.error(errMsg(e)); }
     finally { setBusy(false); }
   };
-  useEffect(() => { load(); }, [status]);
+  useEffect(() => { load(); }, [status, module]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openDetail = async (a) => {
     setActive(a); setDetail(null); setAction(null); setNotes("");
@@ -84,9 +91,9 @@ export const AdminSupplierApplications = ({ embedded = false }) => {
     <div className="space-y-5" data-testid="admin-supplier-applications">
       {!embedded && (
         <div>
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
+          <div className="text-xs uppercase tracking-widest" style={{ color: MOD_ACCENT }}>{MOD_LABEL}</div>
           <h2 className="text-xl font-bold flex items-center gap-2"><Building2 size={18} /> Supplier Applications</h2>
-          <p className="text-xs text-muted-foreground">Review, approve or request changes for MARTbakēd supplier applications. Suppliers are governed here — separate from Dark Store Partners.</p>
+          <p className="text-xs text-muted-foreground">Review, approve or request changes for {MOD_LABEL} supplier applications. Suppliers are governed here — separate from Dark Store Partners.</p>
         </div>
       )}
 

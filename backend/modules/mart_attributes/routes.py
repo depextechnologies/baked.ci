@@ -166,6 +166,7 @@ class AttributeIn(BaseModel):
     description: Optional[str] = None
     type: str
     unit: Optional[str] = Field(None, max_length=24)
+    module: str = Field("mart", pattern="^(mart|shop)$")
 
 
 class AttributePatch(BaseModel):
@@ -179,12 +180,15 @@ class AttributePatch(BaseModel):
 @admin_router.get("/attributes")
 async def admin_list_attributes(
     include_inactive: bool = Query(False),
+    module: Optional[str] = Query(None, description="Filter by module — mart or shop. Defaults to all."),
     session: AsyncSession = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
     stmt = select(MartAttribute).order_by(MartAttribute.name)
     if not include_inactive:
         stmt = stmt.where(MartAttribute.is_active == True)  # noqa: E712
+    if module:
+        stmt = stmt.where(MartAttribute.module == module.lower())
     rows = (await session.execute(stmt)).scalars().all()
 
     # Preload option counts
@@ -213,7 +217,7 @@ async def admin_create_attribute(
                                   "message": f"An attribute with key '{key}' already exists. Rename to differentiate."})
     row = MartAttribute(
         key=key, name=payload.name.strip(), description=payload.description,
-        type=payload.type, unit=payload.unit,
+        type=payload.type, unit=payload.unit, module=payload.module,
     )
     session.add(row)
     await session.flush()

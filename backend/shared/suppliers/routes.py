@@ -637,6 +637,7 @@ def _admin_dep():
 async def admin_list_applications(
     status: Optional[str] = Query(None),
     country: Optional[str] = Query(None),
+    module: Optional[str] = Query(None, description="Filter suppliers by module — MART or SHOP. Matches on Supplier.modules JSONB array."),
     q: Optional[str] = Query(None, description="Search on business_name / email / application_code"),
     session: AsyncSession = Depends(get_session),
     admin: AdminUser = Depends(_admin_dep()),
@@ -648,6 +649,10 @@ async def admin_list_applications(
         stmt = stmt.where(SupplierApplication.status == status)
     if country:
         stmt = stmt.where(Supplier.country == country.upper())
+    if module:
+        # `modules` is a JSONB array of module codes ("MART", "SHOP"…).
+        # Use the `?` containment operator for a single element.
+        stmt = stmt.where(Supplier.modules.op("?")(module.upper()))
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
@@ -657,12 +662,14 @@ async def admin_list_applications(
         )
     rows = (await session.execute(stmt)).all()
 
-    # Bucket counts (country-scoped when filter is set)
+    # Bucket counts (country/module-scoped when filter is set)
     bstmt = select(SupplierApplication.status, func.count(SupplierApplication.id)).join(
         Supplier, Supplier.id == SupplierApplication.supplier_id
     ).group_by(SupplierApplication.status)
     if country:
         bstmt = bstmt.where(Supplier.country == country.upper())
+    if module:
+        bstmt = bstmt.where(Supplier.modules.op("?")(module.upper()))
     brows = (await session.execute(bstmt)).all()
     buckets = {s: 0 for s in ("draft", "submitted", "under_review", "action_required", "approved", "rejected")}
     for s, c in brows:

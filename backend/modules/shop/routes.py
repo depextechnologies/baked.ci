@@ -333,6 +333,373 @@ async def admin_health(session: AsyncSession = Depends(get_session)):
     }
 
 
+# ---------------------------------------------------------------------------
+# SHOP Catalog Editor — Categories + Sub-categories CRUD (2026-03 Phase 2).
+# Countries are scoped per request; slugs must stay unique within a country.
+# Sub-category slugs are unique within their parent category (see DB uq_).
+# ---------------------------------------------------------------------------
+class CategoryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    slug: str = Field(..., min_length=1, max_length=120)
+    country: str = Field(..., min_length=2, max_length=2)
+    name_en: Optional[str] = Field(None, max_length=200)
+    name_fr: Optional[str] = Field(None, max_length=200)
+    icon: Optional[str] = Field(None, max_length=200)
+    image: Optional[str] = Field(None, max_length=600)
+    order: int = 0
+
+
+class CategoryPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name_en: Optional[str] = Field(None, max_length=200)
+    name_fr: Optional[str] = Field(None, max_length=200)
+    icon: Optional[str] = Field(None, max_length=200)
+    image: Optional[str] = Field(None, max_length=600)
+    order: Optional[int] = None
+
+
+class SubcategoryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    slug: str = Field(..., min_length=1, max_length=120)
+    category_id: str = Field(..., min_length=1)
+    country: str = Field(..., min_length=2, max_length=2)
+    name_en: Optional[str] = Field(None, max_length=200)
+    name_fr: Optional[str] = Field(None, max_length=200)
+    image: Optional[str] = Field(None, max_length=600)
+    order: int = 0
+
+
+class SubcategoryPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name_en: Optional[str] = Field(None, max_length=200)
+    name_fr: Optional[str] = Field(None, max_length=200)
+    image: Optional[str] = Field(None, max_length=600)
+    order: Optional[int] = None
+
+
+def _cat_dict(c: ShopCategory, sub_count: int = 0) -> dict:
+    return {
+        "id": c.id, "slug": c.slug, "country": c.country,
+        "name_en": c.name_en, "name_fr": c.name_fr,
+        "icon": c.icon, "image": c.image, "order": c.order,
+        "subcategory_count": sub_count,
+    }
+
+
+def _sub_dict(s: ShopSubcategory) -> dict:
+    return {
+        "id": s.id, "slug": s.slug, "category_id": s.category_id,
+        "country": s.country, "name_en": s.name_en, "name_fr": s.name_fr,
+        "image": s.image, "order": s.order,
+    }
+
+
+@admin_router.get("/categories")
+async def admin_list_categories(
+    country: str = Query("CI"),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (
+        await session.execute(
+            select(ShopCategory)
+            .where(ShopCategory.country == country.upper())
+            .order_by(ShopCategory.order, ShopCategory.slug)
+        )
+    ).scalars().all()
+    if not rows:
+        return {"items": []}
+    # Sub-count preload — one round-trip.
+    ids = [r.id for r in rows]
+    sc_rows = (
+        await session.execute(
+            select(ShopSubcategory.category_id, func.count(ShopSubcategory.id))
+            .where(ShopSubcategory.category_id.in_(ids))
+            .group_by(ShopSubcategory.category_id)
+        )
+    ).all()
+    counts = {cid: n for cid, n in sc_rows}
+    return {"items": [_cat_dict(r, counts.get(r.id, 0)) for r in rows]}
+
+
+@admin_router.post("/categories", status_code=201)
+async def admin_create_category(
+    payload: CategoryIn,
+    session: AsyncSession = Depends(get_session),
+):
+    country = payload.country.upper()
+    slug = payload.slug.strip().lower()
+    existing = (
+        await session.execute(
+            select(ShopCategory.id).where(
+                ShopCategory.country == country, ShopCategory.slug == slug
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, {"code": "slug_conflict",
+                                  "message": f"Category '{slug}' already exists in {country}."})
+    row = ShopCategory(
+        slug=slug, country=country,
+        name_en=payload.name_en, name_fr=payload.name_fr,
+        icon=payload.icon, image=payload.image, order=payload.order,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return _cat_dict(row)
+
+
+@admin_router.patch("/categories/{cat_id}")
+async def admin_update_category(
+    cat_id: str, payload: CategoryPatch,
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(ShopCategory, cat_id)
+    if not row:
+        raise HTTPException(404, "Category not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(row, k, v)
+    await session.commit()
+    await session.refresh(row)
+    return _cat_dict(row)
+
+
+@admin_router.delete("/categories/{cat_id}", status_code=204)
+async def admin_delete_category(
+    cat_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(ShopCategory, cat_id)
+    if not row:
+        raise HTTPException(404, "Category not found")
+    # Hard-block: refuse deletion if any product still points at this category.
+    used = (
+        await session.execute(
+            select(func.count(ShopProduct.id)).where(
+                ShopProduct.category_id == cat_id, ShopProduct.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one()
+    if used:
+        raise HTTPException(409, {"code": "category_in_use",
+                                  "message": f"{used} product(s) still reference this category."})
+    await session.delete(row)
+    await session.commit()
+
+
+@admin_router.get("/subcategories")
+async def admin_list_subcategories(
+    category_id: Optional[str] = Query(None),
+    country: str = Query("CI"),
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = (
+        select(ShopSubcategory)
+        .where(ShopSubcategory.country == country.upper())
+        .order_by(ShopSubcategory.order, ShopSubcategory.slug)
+    )
+    if category_id:
+        stmt = stmt.where(ShopSubcategory.category_id == category_id)
+    rows = (await session.execute(stmt)).scalars().all()
+    return {"items": [_sub_dict(r) for r in rows]}
+
+
+@admin_router.post("/subcategories", status_code=201)
+async def admin_create_subcategory(
+    payload: SubcategoryIn,
+    session: AsyncSession = Depends(get_session),
+):
+    parent = await session.get(ShopCategory, payload.category_id)
+    if not parent:
+        raise HTTPException(404, "Parent category not found")
+    slug = payload.slug.strip().lower()
+    existing = (
+        await session.execute(
+            select(ShopSubcategory.id).where(
+                ShopSubcategory.category_id == payload.category_id,
+                ShopSubcategory.slug == slug,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, {"code": "slug_conflict",
+                                  "message": f"Sub-category '{slug}' already exists under this category."})
+    row = ShopSubcategory(
+        slug=slug, category_id=payload.category_id,
+        country=payload.country.upper(),
+        name_en=payload.name_en, name_fr=payload.name_fr,
+        image=payload.image, order=payload.order,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return _sub_dict(row)
+
+
+@admin_router.patch("/subcategories/{sub_id}")
+async def admin_update_subcategory(
+    sub_id: str, payload: SubcategoryPatch,
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(ShopSubcategory, sub_id)
+    if not row:
+        raise HTTPException(404, "Sub-category not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(row, k, v)
+    await session.commit()
+    await session.refresh(row)
+    return _sub_dict(row)
+
+
+@admin_router.delete("/subcategories/{sub_id}", status_code=204)
+async def admin_delete_subcategory(
+    sub_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(ShopSubcategory, sub_id)
+    if not row:
+        raise HTTPException(404, "Sub-category not found")
+    used = (
+        await session.execute(
+            select(func.count(ShopProduct.id)).where(
+                ShopProduct.subcategory_id == sub_id, ShopProduct.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one()
+    if used:
+        raise HTTPException(409, {"code": "subcategory_in_use",
+                                  "message": f"{used} product(s) still reference this sub-category."})
+    await session.delete(row)
+    await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# SHOP Attribute Assignments — assign definitions (from mart_attributes with
+# module="shop") to shop_categories / shop_subcategories.
+# Backed by `shop_category_attributes` (see core/models/shop.py).
+# ---------------------------------------------------------------------------
+from core.models import ShopCategoryAttribute, MartAttribute  # noqa: E402
+
+
+class ShopAssignmentIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    attribute_id: str = Field(..., min_length=1)
+    subcategory_id: Optional[str] = None
+    is_required: bool = False
+    customer_visible: bool = True
+    supplier_editable: bool = True
+    sort_order: int = 0
+
+
+class ShopAssignmentPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    is_required: Optional[bool] = None
+    customer_visible: Optional[bool] = None
+    supplier_editable: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+def _assignment_dict(a: ShopCategoryAttribute, attr: Optional[MartAttribute] = None) -> dict:
+    return {
+        "id": a.id, "category_id": a.category_id, "subcategory_id": a.subcategory_id,
+        "attribute_id": a.attribute_id,
+        "is_required": a.is_required, "customer_visible": a.customer_visible,
+        "supplier_editable": a.supplier_editable, "sort_order": a.sort_order,
+        "attribute": None if not attr else {
+            "id": attr.id, "key": attr.key, "name": attr.name,
+            "type": attr.type, "unit": attr.unit, "module": attr.module,
+        },
+    }
+
+
+@admin_router.get("/categories/{cat_id}/attributes")
+async def admin_list_shop_assignments(
+    cat_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (
+        await session.execute(
+            select(ShopCategoryAttribute, MartAttribute)
+            .join(MartAttribute, MartAttribute.id == ShopCategoryAttribute.attribute_id)
+            .where(ShopCategoryAttribute.category_id == cat_id)
+            .order_by(ShopCategoryAttribute.sort_order, MartAttribute.name)
+        )
+    ).all()
+    return {"assignments": [_assignment_dict(a, attr) for a, attr in rows]}
+
+
+@admin_router.post("/categories/{cat_id}/attributes", status_code=201)
+async def admin_create_shop_assignment(
+    cat_id: str, payload: ShopAssignmentIn,
+    session: AsyncSession = Depends(get_session),
+):
+    cat = await session.get(ShopCategory, cat_id)
+    if not cat:
+        raise HTTPException(404, "Category not found")
+    attr = await session.get(MartAttribute, payload.attribute_id)
+    if not attr:
+        raise HTTPException(404, "Attribute not found")
+    if attr.module != "shop":
+        raise HTTPException(400, f"Attribute belongs to module '{attr.module}', not 'shop'.")
+    if payload.subcategory_id:
+        sub = await session.get(ShopSubcategory, payload.subcategory_id)
+        if not sub or sub.category_id != cat_id:
+            raise HTTPException(400, "Sub-category does not belong to this category.")
+
+    # Reject duplicate (same category+subcategory+attribute).
+    dup_stmt = select(ShopCategoryAttribute.id).where(
+        ShopCategoryAttribute.category_id == cat_id,
+        ShopCategoryAttribute.attribute_id == payload.attribute_id,
+    )
+    if payload.subcategory_id is None:
+        dup_stmt = dup_stmt.where(ShopCategoryAttribute.subcategory_id.is_(None))
+    else:
+        dup_stmt = dup_stmt.where(ShopCategoryAttribute.subcategory_id == payload.subcategory_id)
+    dup = (await session.execute(dup_stmt)).scalar_one_or_none()
+    if dup:
+        raise HTTPException(409, {"code": "assignment_exists",
+                                  "message": "Attribute already assigned to this scope."})
+
+    row = ShopCategoryAttribute(
+        category_id=cat_id, subcategory_id=payload.subcategory_id,
+        attribute_id=payload.attribute_id,
+        is_required=payload.is_required, customer_visible=payload.customer_visible,
+        supplier_editable=payload.supplier_editable, sort_order=payload.sort_order,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return _assignment_dict(row, attr)
+
+
+@admin_router.patch("/assignments/{assignment_id}")
+async def admin_update_shop_assignment(
+    assignment_id: str, payload: ShopAssignmentPatch,
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(ShopCategoryAttribute, assignment_id)
+    if not row:
+        raise HTTPException(404, "Assignment not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(row, k, v)
+    await session.commit()
+    await session.refresh(row)
+    attr = await session.get(MartAttribute, row.attribute_id)
+    return _assignment_dict(row, attr)
+
+
+@admin_router.delete("/assignments/{assignment_id}", status_code=204)
+async def admin_delete_shop_assignment(
+    assignment_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    row = await session.get(ShopCategoryAttribute, assignment_id)
+    if not row:
+        raise HTTPException(404, "Assignment not found")
+    await session.delete(row)
+    await session.commit()
+
+
 @admin_router.get("/products")
 async def admin_list_products(
     country: str = Query("CI"),

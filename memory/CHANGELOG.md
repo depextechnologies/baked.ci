@@ -1,5 +1,38 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-03 — SHOP Admin Surface Phase 2 (Catalog + Attributes + Approvals + Products) — COMPLETE
+Four SHOP-native admin pages plus the backend endpoints that back them.
+
+- **Backend `modules/shop/routes.py`** — added full CRUD:
+  * `GET/POST/PATCH/DELETE /admin/modules/shop/categories[/{id}]` — with sub-count preload and 409 guard when products still reference the row.
+  * `GET/POST/PATCH/DELETE /admin/modules/shop/subcategories[/{id}]` — parent validation, unique slug per parent.
+  * `GET/POST /admin/modules/shop/categories/{cat_id}/attributes` and `PATCH/DELETE /admin/modules/shop/assignments/{id}` — assign SHOP attribute definitions (from mart_attributes where module='shop') to shop_categories/shop_subcategories via shop_category_attributes with `is_required / customer_visible / supplier_editable / sort_order` toggles.
+- **Backend `modules/mart_attributes/routes.py`** — added optional `module` query filter to `GET /admin/mart/attributes` and `module` field to `AttributeIn` so SHOP-scoped definitions live in the same table without polluting MART's list.
+- **Frontend** — four new pages, all module-accent amber:
+  * `AdminShopCatalog.jsx` (`/admin/modules/shop/catalog`) — split-pane categories + sub-categories editor with search, image thumbnails, add/edit modal, delete-with-confirm.
+  * `AdminShopAttributes.jsx` (`/admin/modules/shop/attributes`) — left pane definitions (create/soft-delete) + right pane assignments per category/sub-cat scope with inline toggle chips.
+  * `AdminShopProductApprovals.jsx` (`/admin/modules/shop/approvals`) — 3-bucket queue with select-all + bulk approve/reject, per-product detail drawer showing images/variants/meta, notes-required rejection guard.
+  * `AdminShopProducts.jsx` (`/admin/modules/shop/products`) — read-only browser with country/status/search filters + storefront preview link.
+- **Frontend `AdminApp.jsx`** — introduced `CatalogSwitch / AttributesSwitch / ApprovalsSwitch / ProductsSwitch` wrappers that read the workspace `:code` outlet context and mount the MART or SHOP-native component. Zero route reshuffle needed.
+- **Frontend `ModuleWorkspace.jsx`** — un-gated `products / catalog / attributes / approvals` so SHOP admins now see them. `category-requests / inventory / purchase-orders / invoices / suppliers/product-requests` remain MART-only.
+- **Testing** — new pytest file `/app/backend/tests/test_shop_admin_phase2.py` (13 tests, all pass). Testing agent iteration 78: 12/12 UI end-to-end scenarios PASS, MART side untouched.
+
+
+
+
+## 2026-03-03 — SHOP Admin Surface Phase 1 — COMPLETE
+First slice of the SHOP admin console: expose the existing Suppliers governance flow inside the SHOP module workspace without duplicating any code.
+
+- **Backend** — `GET /api/admin/modules/mart/suppliers/applications` gained an optional `module` query filter that matches on `Supplier.modules ? '<MODULE>'` (JSONB single-element containment). Bucket counts also honour the filter so the SHOP queue is fully scoped. Router prefix unchanged (backwards-compatible with existing MART bookmarks/integrations).
+- **Frontend `AdminSupplierApplications.jsx`** — accepts a new `module` prop (default `"mart"`), passes `module=<MOD>.toUpperCase()` on every list query, and re-labels the header + colour token (green for MART, amber for SHOP).
+- **Frontend `AdminSuppliersShell.jsx`** — reads the module code from the workspace outlet context, propagates it down, and hides the MART-specific "Product Requests" tab under SHOP (that flow depends on the MART master-product model and needs a SHOP-native version — see Phase 2).
+- **Frontend `ModuleWorkspace.jsx`** — dropped `martOnly:true` on the `suppliers` entry so SHOP admins finally see a "Suppliers" tab in `/admin/modules/shop`. The rest of the MART-heavy entries (Catalog/Attributes/Approvals/Category Requests/Product Requests/Inventory/Purchase Orders/Invoices) remain MART-only pending Phase 2.
+- **DB touch-up** — flipped `sup_demo_delta_seed.modules` from `["MART"]` → `["MART","SHOP"]` so the SHOP admin queue has real data to demo (matches the seed intent from the handoff summary).
+- Verified live: `/admin/modules/shop/suppliers` renders "SHOPbakēd · Suppliers" with amber tint, Approved bucket shows DEMO Delta Beverages, Product Requests tab hidden. MART side untouched (`/admin/modules/mart/suppliers` still shows both tabs and only MART-tagged suppliers).
+
+
+
+
 ## 2026-03-02 — Guest MART Card Snapshot — COMPLETE
 Mirror of the SHOP guest-cart pattern for MART lines so the cart drawer/page can render offline.
 
