@@ -77,6 +77,10 @@ app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
 
 logger = logging.getLogger("baked")
 
+# Arbitrary fixed key for the pg_try_advisory_lock guarding startup seeding
+# across gunicorn workers (see _on_startup below).
+_SEED_ADVISORY_LOCK_KEY = 20260226_001
+
 api_router = APIRouter(prefix="/api")
 
 
@@ -325,10 +329,29 @@ async def _on_startup():
         raise
 
     # ---- 2) Seed: separate try/except so a schema regression can never
-    # silently hide a seed regression, and vice-versa. ----
+    # silently hide a seed regression, and vice-versa.
+    #
+    # Gunicorn runs multiple workers, and each one fires this startup hook
+    # independently. Without a guard, all N workers ran the full seed (all
+    # upserts, so it was never *wrong* — just N-times redundant work at
+    # every boot, slow enough to occasionally blow the Docker healthcheck
+    # window). A non-blocking Postgres advisory lock lets only the first
+    # worker to arrive actually seed; the rest see the lock held and skip.
     try:
         logger.info("baked.startup running seed…")
-        await run_seed()
+        async with _engine.connect() as _lock_conn:
+            _got_lock = (await _lock_conn.execute(
+                text("SELECT pg_try_advisory_lock(:key)"), {"key": _SEED_ADVISORY_LOCK_KEY}
+            )).scalar()
+            if _got_lock:
+                try:
+                    await run_seed()
+                finally:
+                    await _lock_conn.execute(
+                        text("SELECT pg_advisory_unlock(:key)"), {"key": _SEED_ADVISORY_LOCK_KEY}
+                    )
+            else:
+                logger.info("baked.startup seed skipped — another worker holds the seed lock")
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.seed_failed err=%s", e)
 
