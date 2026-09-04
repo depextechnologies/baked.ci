@@ -75,6 +75,12 @@ const errMsg = (e) => {
 
 export const SellerApplyWizard = () => {
   const [params] = useSearchParams();
+  // Module-aware — labels + back links flip when this wizard is mounted
+  // under the SHOP seller portal (Fixing_Prompt v13 QA sweep).
+  const modProfile = useSellerModule?.() || { code: "mart" };
+  const isShop = modProfile.code === "shop";
+  const MOD_LABEL = isShop ? "SHOPbakēd" : "MARTbakēd";
+  const SELLERS_HOME = isShop ? "/shopbaked/sellers" : "/martbaked/sellers";
   // Resume via ?app=<id> or start-fresh flow
   const [appId, setAppId] = useState(params.get("app") || null);
   const [current, setCurrent] = useState(1);
@@ -122,7 +128,7 @@ export const SellerApplyWizard = () => {
             <Link to={`/martbaked/sellers/application-status?code=${appCode}`} className="pl-btn pl-btn-primary" data-testid="wizard-goto-status">
               Track application <ArrowRight size={16} />
             </Link>
-            <Link to="/martbaked/sellers" className="pl-btn pl-btn-secondary" data-testid="wizard-back-home">Back to home</Link>
+            <Link to={SELLERS_HOME} className="pl-btn pl-btn-secondary" data-testid="wizard-back-home">Back to home</Link>
           </div>
         </div>
       </section>
@@ -133,7 +139,7 @@ export const SellerApplyWizard = () => {
     <section className="pl-section">
       <div className="pl-container max-w-4xl">
         <div className="mb-8">
-          <div className="pl-eyebrow mb-2">MARTbakēd supplier onboarding</div>
+          <div className="pl-eyebrow mb-2">{MOD_LABEL} supplier onboarding</div>
           <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Apply as a supplier</h1>
           {appCode && (
             <div className="mt-3 text-xs" style={{ color: "var(--pl-fg-muted)" }}>

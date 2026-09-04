@@ -34,6 +34,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.providers import object_storage
+from core.utils.rate_limit import check_rate_limit
+from core.utils.signed_url import sign_url, verify_signature
 from core.models import (
     AdminUser, MartCategory, OtpChallenge,
     Supplier, SupplierApplication, SupplierBankInfo,
@@ -105,7 +107,11 @@ def _application_dict(a: SupplierApplication) -> dict:
 
 
 async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict:
-    """Return the full supplier snapshot for review / status views."""
+    """Return the full supplier snapshot for review / status views.
+
+    Document `file_url`s are freshly HMAC-signed here (24h TTL on every
+    render) — the raw storage_path stays in the DB. Rotating
+    SIGNED_URL_SECRET therefore revokes every previously-issued URL."""
     contacts = (await session.execute(
         select(SupplierContact).where(SupplierContact.supplier_id == supplier.id)
     )).scalars().all()
@@ -121,6 +127,20 @@ async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict
     bank = (await session.execute(
         select(SupplierBankInfo).where(SupplierBankInfo.supplier_id == supplier.id)
     )).scalar_one_or_none()
+
+    # Find the active application id so we can mint URLs against it.
+    app_id = (await session.execute(
+        select(SupplierApplication.id).where(SupplierApplication.supplier_id == supplier.id)
+        .order_by(SupplierApplication.created_at.desc()).limit(1)
+    )).scalar_one_or_none()
+
+    def _doc_url(d: SupplierDocument) -> str:
+        # Prefer re-signing storage_path (canonical). Fall back to the
+        # stored URL for legacy rows that pre-dated the storage_path column.
+        if d.storage_path and app_id:
+            return _signed_apply_url(app_id, d.storage_path)
+        return d.file_url
+
     return {
         "supplier": _supplier_dict(supplier),
         "contacts": [{
@@ -132,7 +152,7 @@ async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict
         } for c in contacts],
         "documents": [{
             "id": d.id, "document_type": d.document_type, "title": d.title,
-            "file_url": d.file_url,
+            "file_url": _doc_url(d),
             "issued_on": d.issued_on.isoformat() if d.issued_on else None,
             "expires_on": d.expires_on.isoformat() if d.expires_on else None,
             "verification_status": d.verification_status,
@@ -497,9 +517,18 @@ async def apply_save_step(app_id: str, payload: StepIn, session: AsyncSession = 
                 raise HTTPException(400, f"Invalid document_type: {dtype}")
             if not d.get("file_url"):
                 raise HTTPException(400, "file_url is required for each document")
+            # Extract canonical storage_path from the URL so we can re-sign at
+            # read time (signed URLs expire in 24h). URL shape:
+            #   /api/martbaked/sellers/apply/{app_id}/files/{path}?exp=…&sig=…
+            file_url = d["file_url"]
+            storage_path = d.get("storage_path")
+            if not storage_path and f"/apply/{app.id}/files/" in file_url:
+                after = file_url.split(f"/apply/{app.id}/files/", 1)[1]
+                storage_path = after.split("?", 1)[0]
             session.add(SupplierDocument(
                 supplier_id=supplier.id, document_type=dtype,
-                title=d.get("title"), file_url=d["file_url"],
+                title=d.get("title"), file_url=file_url,
+                storage_path=storage_path,
                 issued_on=d.get("issued_on"), expires_on=d.get("expires_on"),
             ))
 
@@ -552,18 +581,40 @@ async def apply_get(app_id: str, session: AsyncSession = Depends(get_session)):
 # tax docs during the wizard *before* they're an authenticated supplier.
 # Only drafts (not-yet-submitted apps) can upload; submitted/approved apps
 # use the auth-gated /api/supplier/uploads instead.
+#
+# Hardening (2026-03 QA follow-up):
+#   * Per-IP sliding-window rate limit — 20/min · 200/hour per source IP.
+#   * Response returns a short-lived HMAC-signed serve URL. The canonical
+#     `storage_path` is stored in `supplier_documents.storage_path`; we
+#     re-mint fresh URLs at read time (see `_signed_apply_url`).
 # ---------------------------------------------------------------------------
 _APPLY_UPLOAD_MAX = 8 * 1024 * 1024  # 8 MiB
 _APPLY_UPLOAD_MIME = ("image/", "application/pdf")
+_APPLY_SERVE_TTL_S = 24 * 3600       # 24h — enough for the wizard session
+_APPLY_ADMIN_TTL_S = 15 * 60         # 15 min — admin views after submit
+
+
+def _signed_apply_url(app_id: str, storage_path: str, ttl_seconds: int = _APPLY_SERVE_TTL_S) -> str:
+    """Return the HMAC-signed URL a client should use to fetch `storage_path`
+    from the public apply-file-serve endpoint. Always call this instead of
+    building the URL manually — this is the single source of truth for the
+    URL shape."""
+    base = f"/api/martbaked/sellers/apply/{app_id}/files/{storage_path}"
+    return sign_url(base, storage_path, ttl_seconds=ttl_seconds)
 
 
 @public_router.post("/apply/{app_id}/uploads")
 async def apply_upload(
     app_id: str,
+    request: Request,
     file: UploadFile = File(...),
     kind: str = Form("document"),
     session: AsyncSession = Depends(get_session),
 ):
+    # Rate-limit per client IP first — cheapest reject path.
+    check_rate_limit(request, bucket="apply_uploads", limit=20, per_seconds=60)
+    check_rate_limit(request, bucket="apply_uploads_hourly", limit=200, per_seconds=3600)
+
     if kind not in ("document", "image"):
         raise HTTPException(400, "kind must be 'document' or 'image'")
     app = await session.get(SupplierApplication, app_id)
@@ -593,7 +644,7 @@ async def apply_upload(
 
     return {
         "storage_path": result["path"],
-        "file_url": f"/api/martbaked/sellers/apply/{app_id}/files/{result['path']}",
+        "file_url": _signed_apply_url(app_id, result["path"]),
         "size_bytes": result.get("size", len(data)),
         "content_type": ct,
         "original_filename": file.filename,
@@ -601,22 +652,28 @@ async def apply_upload(
 
 
 @public_router.get("/apply/{app_id}/files/{path:path}")
-async def apply_file_serve(app_id: str, path: str, session: AsyncSession = Depends(get_session)):
-    """Serve an uploaded application doc.
-
-    Current scope (MVP): opaque path grants read access — retrievable by
-    anyone who has both `app_id` AND the storage path. The path embeds a
-    26-char microsecond timestamp so enumeration is not practical, but
-    forwarded URLs are effectively bearer tokens. Follow-up hardening
-    tracked in ROADMAP:
-      * short-lived signed URLs for submitted apps
-      * per-IP rate limit on the upload endpoint
-    """
+async def apply_file_serve(
+    app_id: str,
+    path: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Serve an uploaded application doc — requires a valid HMAC signature
+    on the URL (`?exp=…&sig=…`). Signatures are minted per-request by
+    `_signed_apply_url` so we can revoke access globally by rotating
+    `SIGNED_URL_SECRET`."""
     app = await session.get(SupplierApplication, app_id)
     if not app:
         raise HTTPException(404, "Application not found")
     if f"/apply/{app_id}/" not in f"/{path}":
         raise HTTPException(403, "Forbidden path")
+
+    exp = request.query_params.get("exp")
+    sig = request.query_params.get("sig")
+    if not verify_signature(path, exp, sig):
+        raise HTTPException(403, {"code": "bad_signature",
+                                  "message": "Signature missing / invalid / expired."})
+
     try:
         content, ct = object_storage.get_object(path)
     except Exception:

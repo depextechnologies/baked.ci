@@ -1,5 +1,22 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-04 — Apply-uploads security hardening (rate limit + signed URLs) — COMPLETE
+Follow-up to the 2026-03-03 QA #8 fix — the public seller-apply upload endpoint is now guarded against abuse and PII leakage.
+
+- **`core/utils/rate_limit.py` (new)** — in-memory per-IP sliding-window limiter. `check_rate_limit(request, bucket, limit, per_seconds)` raises `HTTPException(429, {code: "rate_limited", retry_after_seconds})` with a `Retry-After` header. XFF-aware (left-most token wins) so the source IP survives the k8s ingress hop. Note: state is per uvicorn worker → effective per-IP ceiling ≈ `workers × limit` (documented; move to Redis for exact enforcement).
+- **`core/utils/signed_url.py` (new)** — HMAC-SHA256 signer. `sign_url(base, path, ttl_seconds=…)` returns `<base>?exp=…&sig=…`. `verify_signature(path, exp, sig)` constant-time compares. Secret resolution: `SIGNED_URL_SECRET` → `JWT_SECRET` → `SECRET_KEY` → dev fallback, so rotating the app-wide JWT secret globally revokes every previously-issued signed URL.
+- **`shared/suppliers/routes.py::apply_upload`** — now:
+  * Rate-limits at 20/min and 200/hour per IP before touching object storage (cheap reject path).
+  * Returns `{storage_path, file_url}` — `file_url` is a 24 h-signed URL. `storage_path` is the canonical key persisted to `supplier_documents.storage_path` for later re-signing.
+- **`shared/suppliers/routes.py::apply_file_serve`** — mandatory HMAC signature check on every request. Unsigned / expired / tampered URLs → 403 `bad_signature`. Ruled out the previous "opaque path is enough" behaviour so leaked links stop working after 24 h.
+- **`shared/suppliers/routes.py::apply_save_step` (step=8)** — extracts `storage_path` from the incoming signed URL (or accepts an explicit `storage_path` field) so the DB always has the canonical, re-signable key.
+- **`_load_full_snapshot`** — re-mints fresh signed URLs from `storage_path` at every read (admin queue + seller portal). Legacy rows without `storage_path` fall back to their stored `file_url` for compatibility with pre-hardening data.
+- **Wizard label parity** — `SellerApplyWizard.jsx` now reads `useSellerModule()` at the top and uses `MOD_LABEL` (`MARTbakēd` / `SHOPbakēd`) for the eyebrow, and `SELLERS_HOME` for the "Back to home" link. Fixes the stale "MARTBAKĒD SUPPLIER ONBOARDING" copy on the SHOP wizard.
+- **Regression tests** — `/app/backend/tests/test_apply_upload_hardening.py` (6 tests, all pass, stable across runs): unsigned rejected, tampered rejected, expired rejected, signed 200, rate-limit trips within a 120-request burst, and the upload response shape (`storage_path` + signed `file_url`).
+
+
+
+
 ## 2026-03-03 — Testing case.xlsx QA (8 defects) — COMPLETE
 Root-cause fixes across DB → API → frontend for every defect the user filed in Testing case.xlsx.
 
