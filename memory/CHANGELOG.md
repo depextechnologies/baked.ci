@@ -1,5 +1,20 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-04 — Playwright regression for SHOP seller Step-4 location picker — COMPLETE
+Belt-and-braces coverage for the white-on-white autocomplete + India-PIN fixes shipped earlier today.
+
+- **`backend/tests/test_shop_seller_location_picker.py` (new)** — 3 tests × 15 s total, all deterministic:
+  * `test_location_autocomplete_visible_and_pickable[desktop]` — 1440×900 viewport. Types "Greater Noida 201310", asserts dropdown `background-color === rgb(255,255,255)`, first row luminance `< 128` (dark text), positive `z-index`, click resolves the address into `[data-testid="apply-location-formatted-address"]`, and the resolved value survives a scroll-induced re-render.
+  * `test_location_autocomplete_visible_and_pickable[mobile]` — same journey at 390×844 so the responsive layout gets equal protection.
+  * `test_ci_supported_country_still_accepted` — belt-and-braces: adding IN to `SUPPORTED` did not break CI. Confirms the picker mounts, is enabled, and preserves the same white-bg invariant when a suggestion happens to render.
+- Uses the **real Google Places API** (dev key already in `frontend/.env`); the test `pytest.skip`s gracefully when Places is unreachable / rate-limited so upstream flake never turns CI red on a bug that isn't ours. The CSS + DOM assertions are the deterministic core.
+- **Wizard change enabling the test** — `SellerApplyWizard.jsx` now honours `?step=<n>` in the URL when combined with `?app=<id>`, and `refresh()` learned a `keepCurrent` flag so the initial deep-link isn't clobbered by the server's `current_step` value. Non-invasive, in-place: the wizard still resets `current` after each `save → refresh` cycle so the resume-from-draft UX is unchanged.
+
+Run: `cd /app/backend && python3 -m pytest tests/test_shop_seller_location_picker.py -q -n0` → **3 passed in ~15 s**. Ran three times in a row without flake.
+
+
+
+
 ## 2026-03-04 — Module-aware cart theming + India PIN + location dropdown — COMPLETE
 Fixing_Prompt v14 shipped end-to-end.
 

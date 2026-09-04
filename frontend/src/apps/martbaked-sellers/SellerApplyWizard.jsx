@@ -83,15 +83,25 @@ export const SellerApplyWizard = () => {
   const SELLERS_HOME = isShop ? "/shopbaked/sellers" : "/martbaked/sellers";
   // Resume via ?app=<id> or start-fresh flow
   const [appId, setAppId] = useState(params.get("app") || null);
-  const [current, setCurrent] = useState(1);
+  // ?step=<n> deep-link for regression tests + admin-assisted resume. Only
+  // honoured when `?app=<id>` is also present (safety: no bare step jump).
+  const _initialStep = (() => {
+    const raw = params.get("step");
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return params.get("app") && Number.isFinite(n) && n >= 1 && n <= 9 ? n : 1;
+  })();
+  const [current, setCurrent] = useState(_initialStep);
   const [supplier, setSupplier] = useState(null);
   const [appCode, setAppCode] = useState(null);
   const [full, setFull] = useState({ contacts: [], documents: [], supply_locations: [], categories: [], bank_info: null });
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Load existing application state (for step navigation / resume)
-  const refresh = async (id) => {
+  // Load existing application state (for step navigation / resume).
+  // `keepCurrent=true` skips overriding `current` — used on the initial
+  // mount when the URL requested a specific step (?app=&step=), so the
+  // deep-link isn't clobbered by the server's `current_step` value.
+  const refresh = async (id, { keepCurrent = false } = {}) => {
     const target = id || appId;
     if (!target) return;
     try {
@@ -105,11 +115,19 @@ export const SellerApplyWizard = () => {
         categories: data.categories || [],
         bank_info: data.bank_info,
       });
-      setCurrent(Math.min(9, data.application.current_step || 1));
+      if (!keepCurrent) {
+        setCurrent(Math.min(9, data.application.current_step || 1));
+      }
     } catch (e) { toast.error(errMsg(e)); }
   };
 
-  useEffect(() => { if (appId) refresh(appId); }, []);
+  useEffect(() => {
+    if (!appId) return;
+    // Preserve the URL-requested step on first load. Subsequent refresh()
+    // calls (post-save) reset current per the server's canonical step.
+    const requestedStep = params.get("step");
+    refresh(appId, { keepCurrent: !!requestedStep });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (submitted) {
     return (
