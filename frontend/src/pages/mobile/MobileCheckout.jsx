@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { checkOrderEligibility } from "../../lib/checkout";
+import { getCartTheme } from "../../lib/cartTheme";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, MapPin, Zap, Clock, CalendarClock, ChevronRight, Banknote, Wallet2, CreditCard, Apple, ShieldCheck, ShoppingBag, AlertCircle, Star, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ export const MobileCheckout = () => {
   const { country, activeAddress, openAddressSelector } = useApp();
   const { customer } = useAuth();
   const { cart, loaded: cartLoaded, clear } = useCart();
+  const theme = getCartTheme(cart);
   const [loginOpen, setLoginOpen] = useState(false);
   // Initialise the delivery address from the shared AddressSelector's activeAddress
   // so users don't have to retype what they already picked in the header.
@@ -308,7 +310,7 @@ export const MobileCheckout = () => {
             <div className="text-[10px] text-muted-foreground">Total Payable</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-co-pay" disabled={placing || !address.line1 || !minOrderOk} onClick={placeOrder} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+          <Button data-testid="m-co-pay" disabled={placing || !address.line1 || !minOrderOk} onClick={placeOrder} className="baked-btn h-12 px-6 font-bold disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             {placing ? "Placing…" : !minOrderOk ? "Add more" : payment === "cod" ? "Place Order" : "Pay Now"}
           </Button>
         </div>

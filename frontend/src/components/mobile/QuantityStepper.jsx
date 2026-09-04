@@ -4,7 +4,7 @@ import { Minus, Plus } from "lucide-react";
 /**
  * QuantityStepper — [-] N [+] used on cart, product detail, mobile product cards.
  */
-export const QuantityStepper = ({ value, onDecrement, onIncrement, size = "md", min = 0, testid = "qty" }) => {
+export const QuantityStepper = ({ value, onDecrement, onIncrement, size = "md", min = 0, testid = "qty", accent = "#77BC1F" }) => {
   const H = size === "sm" ? "h-8" : size === "lg" ? "h-11" : "h-9";
   const btn = `flex items-center justify-center ${H} aspect-square rounded-lg motion-fast active:scale-95`;
   return (
@@ -13,7 +13,7 @@ export const QuantityStepper = ({ value, onDecrement, onIncrement, size = "md", 
         <Minus size={size === "lg" ? 16 : 13} />
       </button>
       <div className={`min-w-[36px] text-center font-bold ${size === "lg" ? "text-base" : "text-sm"}`} data-testid={`${testid}-value`}>{value}</div>
-      <button data-testid={`${testid}-inc`} onClick={onIncrement} className={`${btn} text-black`} style={{ backgroundColor: "#77BC1F" }} aria-label="Increment">
+      <button data-testid={`${testid}-inc`} onClick={onIncrement} className={`${btn} text-black`} style={{ backgroundColor: accent }} aria-label="Increment">
         <Plus size={size === "lg" ? 16 : 13} />
       </button>
     </div>

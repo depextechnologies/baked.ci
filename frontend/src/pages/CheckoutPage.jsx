@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth, useApp, useCart } from "../contexts/BakedContexts";
 import { formatMoney, t } from "../lib/i18n";
 import { checkOrderEligibility } from "../lib/checkout";
+import { getCartTheme } from "../lib/cartTheme";
 import { Button } from "../components/ui/button";
 import { MapPin, Clock, CreditCard, Wallet, Smartphone, PlusCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -59,6 +60,9 @@ export const CheckoutPage = () => {
   const items = cart.items || [];
   const hasShop = (cart.shop?.item_count ?? 0) > 0 || items.some((i) => i.module === "shop");
   const hasMart = (cart.mart?.item_count ?? 0) > 0 || items.some((i) => i.module !== "shop");
+  // QA — Fixing_Prompt v14 §5: checkout branding follows cart composition
+  // (MART_ONLY / SHOP_ONLY / MIXED). Falls back to MART green when empty.
+  const theme = getCartTheme(cart);
   const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
   const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
   const elig = checkOrderEligibility(martSubtotal, country);
@@ -301,7 +305,7 @@ export const CheckoutPage = () => {
           <div className="h-px bg-border" />
           <div className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           {!minOrderOk && (<div data-testid="checkout-min-order-warning" className="text-[11px] p-2 rounded-lg bg-yellow-500/10 text-yellow-500">{language === "en" ? `Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum` : `Ajoutez ${formatMoney(shortfall, country.currency, country.currency_symbol)} pour atteindre le minimum de ${formatMoney(minOrder, country.currency, country.currency_symbol)}`}</div>)}
-          <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy || !minOrderOk} className="w-full h-12 baked-btn font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
+          <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy || !minOrderOk} className="w-full h-12 baked-btn font-semibold" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             {busy ? (language === "en" ? "Placing…" : "En cours…") : (language === "en" ? "Place order" : "Passer la commande")}
           </Button>
         </div>

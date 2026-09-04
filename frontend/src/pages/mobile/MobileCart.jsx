@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { checkOrderEligibility } from "../../lib/checkout";
+import { getCartTheme, lineAccent } from "../../lib/cartTheme";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCart, AlertCircle } from "lucide-react";
@@ -13,6 +14,9 @@ export const MobileCart = () => {
   const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
   const { customer, openLogin } = useAuth() || {};
   const [note, setNote] = useState("");
+  // Mobile cart follows the same three-mode branding as CartPage
+  // (Fixing_Prompt v14 §4/§7). SHOP-only basket → gold, mixed → neutral.
+  const theme = getCartTheme(cart);
   const ccy = country?.currency_symbol || country?.currency;
 
   // Split by module: min-order + delivery fee are MART-only.
@@ -134,7 +138,7 @@ export const MobileCart = () => {
                     {strike && strike > p.price && <span className="text-[11px] text-muted-foreground line-through">{formatMoney(strike * i.quantity, p.currency, ccy)}</span>}
                     {off > 0 && <span className="text-[10px] font-bold" style={{ color: "#77BC1F" }}>{off}%</span>}
                   </div>
-                  <QuantityStepper value={i.quantity} onDecrement={() => i.quantity <= 1 ? removeItem(i.id) : updateItem(i.id, i.quantity - 1)} onIncrement={() => updateItem(i.id, i.quantity + 1)} size="sm" testid={`m-cart-qty-${i.id}`} />
+                  <QuantityStepper value={i.quantity} onDecrement={() => i.quantity <= 1 ? removeItem(i.id) : updateItem(i.id, i.quantity - 1)} onIncrement={() => updateItem(i.id, i.quantity + 1)} size="sm" testid={`m-cart-qty-${i.id}`} accent={lineAccent(i)} />
                 </div>
               </div>
             </div>
@@ -200,7 +204,7 @@ export const MobileCart = () => {
             <div className="text-[10px] text-muted-foreground">Total (Incl. VAT)</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-cart-checkout" disabled={customer && !minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+          <Button data-testid="m-cart-checkout" disabled={customer && !minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             <ShoppingCart size={16} className="mr-1.5" />
             {!customer ? "Login to Proceed" : (minOrderOk ? "Checkout" : "Add more")}
           </Button>

@@ -1,5 +1,24 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-04 — Module-aware cart theming + India PIN + location dropdown — COMPLETE
+Fixing_Prompt v14 shipped end-to-end.
+
+- **`lib/cartTheme.js` (new)** — shared `detectCartMode(cart)` returns one of `MART_ONLY / SHOP_ONLY / MIXED / EMPTY`; `getCartTheme(cart)` maps to `{ accent, accent_soft, text_on, label }`. Tokens: MART green `#77BC1F`, SHOP gold `#FCC44C`, MIXED neutral `#E5E7EB`. `lineAccent(item)` returns per-item accent for badge/stepper colours regardless of the aggregate mode. Designed to scale — adding FOOD/AUTO/SEND later just adds more theme entries.
+- **`pages/CartPage.jsx` + `pages/mobile/MobileCart.jsx`** — replaced hard-coded `#77BC1F` on CTAs, empty-state buttons and quantity steppers with `theme.accent`/`lineAccent(it)`. MIXED cart shows a small "This cart has products from multiple BAKĒD modules." note next to the CTA.
+- **`components/mobile/QuantityStepper.jsx`** — accepts an `accent` prop (default MART green for existing callers). Mobile cart passes `lineAccent(item)` so each row's + button matches its module.
+- **`pages/CheckoutPage.jsx` + `pages/mobile/MobileCheckout.jsx`** — place-order CTA now module-aware; SHOP-only checkout renders in gold, MIXED in neutral, MART green stays for MART-only carts.
+- **`apps/partner-hub/WarehouseLocationPicker.jsx`** — India (`IN`) added to `SUPPORTED` list; NCR pilot centre (Noida) added to `COUNTRY_CENTER`. Places-autocomplete no longer rejects Indian addresses. Autocomplete dropdown swapped from theme-variable colours to explicit `#FFFFFF` background + `#111827` text + `zIndex 60` + `shadow-2xl`, so suggestions stay legible regardless of the parent theme context (fixes the white-on-white bug seen in the SHOP seller wizard).
+- **Backend** — `shared/addresses/routes.py::_matches_country_pincode_allowlist` already allowed Noida + Greater Noida pincodes (201301–201318); verified `GET /api/addresses/serviceability?country=IN&postal_code=201310` returns `{serviceable: true, match: "pincode_allowlist"}`. No backend change needed for India PIN.
+
+Verified visually:
+  * SHOP-only cart: entire CTA + steppers gold.
+  * MART-only cart: green (unchanged).
+  * MIXED cart: neutral CTA, per-line green/gold steppers, mixed-module note visible.
+  * India PIN 201310 serviceability returns `true` end-to-end.
+
+
+
+
 ## 2026-03-04 — Apply-uploads security hardening (rate limit + signed URLs) — COMPLETE
 Follow-up to the 2026-03-03 QA #8 fix — the public seller-apply upload endpoint is now guarded against abuse and PII leakage.
 

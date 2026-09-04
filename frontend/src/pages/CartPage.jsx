@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp, useCart, useAuth } from "../contexts/BakedContexts";
 import { formatMoney } from "../lib/i18n";
 import { checkOrderEligibility } from "../lib/checkout";
+import { getCartTheme, lineAccent, CART_MODE } from "../lib/cartTheme";
 import { CART } from "../constants/testIds";
 import { Button } from "../components/ui/button";
 import { Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
@@ -14,6 +15,10 @@ export const CartPage = () => {
   const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
   const items = cart.items || [];
+  // QA — Fixing_Prompt v14: theme adapts to cart composition
+  // (MART_ONLY / SHOP_ONLY / MIXED) so a SHOP-only basket no longer wears
+  // MART green. See lib/cartTheme.js for the token table.
+  const theme = getCartTheme(cart);
   const unavailable = cart.unavailable_items || [];
   const hasUnavailable = unavailable.length > 0;
   // Split by module: min-order + delivery fee are MART-only concerns.
@@ -52,7 +57,7 @@ export const CartPage = () => {
         </div>
         <h2 className="text-2xl font-bold">Your cart is empty</h2>
         <p className="text-sm text-muted-foreground mt-2">Browse products and add your favourites.</p>
-        <Button onClick={() => navigate("/")} className="mt-6 baked-btn h-11 px-6 font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
+        <Button onClick={() => navigate("/")} className="mt-6 baked-btn h-11 px-6 font-semibold text-black" style={{ backgroundColor: theme.accent }}>
           Start shopping
         </Button>
       </div>
@@ -118,7 +123,7 @@ export const CartPage = () => {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: "#77BC1F" }}>
+              <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: lineAccent(it) }}>
                 <button onClick={() => (it.quantity <= 1 ? removeItem(it.id) : updateItem(it.id, it.quantity - 1))} className="px-2 py-1.5 text-[#0a1200] hover:bg-black/10"><Minus size={14} /></button>
                 <span className="text-xs font-bold text-[#0a1200] min-w-[20px] text-center">{it.quantity}</span>
                 <button onClick={() => updateItem(it.id, it.quantity + 1)} className="px-2 py-1.5 text-[#0a1200] hover:bg-black/10"><Plus size={14} /></button>
@@ -162,9 +167,14 @@ export const CartPage = () => {
               Add <b>{formatMoney(shortfall, country.currency, country.currency_symbol)}</b> more to reach the {formatMoney(minOrder, country.currency, country.currency_symbol)} minimum.
             </div>
           )}
-          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
-            {customer ? "Checkout" : "Login to Proceed"}
+          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold disabled:opacity-60" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
+            {customer ? (theme.mode === "MIXED" ? "Checkout" : "Checkout") : "Login to Proceed"}
           </Button>
+          {theme.mode === "MIXED" && (
+            <div data-testid="cart-mixed-note" className="text-[10px] text-muted-foreground mt-2 text-center">
+              This cart has products from multiple BAKĒD modules.
+            </div>
+          )}
         </div>
       </aside>
     </div>
