@@ -34,8 +34,32 @@ import { AdminSupplierDetail } from "@/pages/admin/AdminSupplierDetail";
 import { AdminMartAttributes } from "@/pages/admin/AdminMartAttributes";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
+import { AdminShopCatalog } from "@/pages/admin/AdminShopCatalog";
+import { AdminShopAttributes } from "@/pages/admin/AdminShopAttributes";
+import { AdminShopProductApprovals } from "@/pages/admin/AdminShopProductApprovals";
+import { AdminShopProducts } from "@/pages/admin/AdminShopProducts";
 import { SupplierInvoicesPage as AdminSupplierInvoices } from "@/components/invoices/SupplierInvoicesPage";
 import { adminApi } from "@/contexts/AdminContext";
+import { useOutletContext } from "react-router-dom";
+
+// Module-aware switchers — the catalog/attributes/approvals/products routes
+// mount MART or SHOP-native components based on the workspace `:code` param.
+const CatalogSwitch = () => {
+  const { code } = useOutletContext() || {};
+  return code === "shop" ? <AdminShopCatalog /> : <AdminMartCatalog />;
+};
+const AttributesSwitch = () => {
+  const { code } = useOutletContext() || {};
+  return code === "shop" ? <AdminShopAttributes /> : <AdminMartAttributes />;
+};
+const ApprovalsSwitch = () => {
+  const { code } = useOutletContext() || {};
+  return code === "shop" ? <AdminShopProductApprovals /> : <AdminProductApprovals />;
+};
+const ProductsSwitch = () => {
+  const { code } = useOutletContext() || {};
+  return code === "shop" ? <AdminShopProducts /> : <ModuleProducts />;
+};
 
 export const AdminApp = () => (
   <Routes>
@@ -78,10 +102,10 @@ export const AdminApp = () => (
         <Route path="vendors" element={<ModuleVendors />} />
         <Route path="applications" element={<ModulePartnerApplications />} />
         <Route path="partners/applications" element={<ModulePartnerApplications />} />
-        <Route path="products" element={<ModuleProducts />} />
-        <Route path="catalog" element={<AdminMartCatalog />} />
-        <Route path="attributes" element={<AdminMartAttributes />} />
-        <Route path="approvals" element={<AdminProductApprovals />} />
+        <Route path="products" element={<ProductsSwitch />} />
+        <Route path="catalog" element={<CatalogSwitch />} />
+        <Route path="attributes" element={<AttributesSwitch />} />
+        <Route path="approvals" element={<ApprovalsSwitch />} />
         <Route path="category-requests" element={<AdminCategoryRequests />} />
         <Route path="suppliers" element={<AdminSuppliersShell />} />
         <Route path="suppliers/:supplierId" element={<AdminSupplierDetail />} />

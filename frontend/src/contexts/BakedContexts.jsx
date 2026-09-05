@@ -231,13 +231,17 @@ export const useApp = () => useContext(AppCtx);
 // server if authed, otherwise mutate the localStorage guest cart in place.
 //
 // Guest item shape:
-//   MART:  { id: "g_<pid>",  product_id, quantity, module: "mart" }
+//   MART:  { id: "g_<pid>",  product_id, quantity, module: "mart",
+//            snapshot: { id, name, unit, image, brand, price, currency,
+//                        currency_symbol, was_price, compare_at_price,
+//                        original_price, master_price, is_stocked_locally } }
 //   SHOP:  { id: "gs_<vid>", variant_id, product_id, quantity, module: "shop",
 //            snapshot: { title, image, price, compare_at_price, currency,
 //                        variant_attributes, sku } }
-// MART entries fetch the product on hydrate (light payload). SHOP entries
-// snapshot product/variant info at add-time so hydrate is offline-friendly —
-// the backend re-validates authoritatively at checkout (Fixing_Prompt §25).
+// Both modules snapshot product/variant info at add-time so hydrate is
+// offline-friendly. Legacy MART entries without a snapshot fall back to
+// `/mart/products/{id}` fetch. Backend re-validates authoritatively at
+// checkout (Fixing_Prompt §25).
 const GUEST_KEY = "baked_guest_cart";
 
 const readGuest = () => { try { return JSON.parse(localStorage.getItem(GUEST_KEY)) || { items: [] }; } catch { return { items: [] }; } };
@@ -275,13 +279,27 @@ export const CartProvider = ({ children }) => {
           images: s.image ? [s.image] : [], unit_price: price,
         });
       } else {
-        // Guest MART row — fetch product info from the storefront.
-        try {
-          const { data: p } = await api.get(`/mart/products/${it.product_id}`);
-          const line = (Number(p.price) || 0) * it.quantity;
+        // Guest MART row — render from the snapshot captured at add-time
+        // when present. Legacy entries (added before the snapshot was
+        // introduced) fall back to a network fetch so no cart is left
+        // stranded after the upgrade.
+        if (it.snapshot) {
+          const s = it.snapshot;
+          const price = Number(s.price) || 0;
+          const line = price * it.quantity;
           martSubtotal += line;
-          items.push({ ...it, product: p, line_total: line, module: "mart" });
-        } catch (e) { void e; }
+          items.push({
+            id: it.id, product_id: it.product_id, quantity: it.quantity,
+            module: "mart", product: s, line_total: line,
+          });
+        } else {
+          try {
+            const { data: p } = await api.get(`/mart/products/${it.product_id}`);
+            const line = (Number(p.price) || 0) * it.quantity;
+            martSubtotal += line;
+            items.push({ ...it, product: p, line_total: line, module: "mart" });
+          } catch (e) { void e; }
+        }
       }
     }
     const item_count = items.reduce((s, i) => s + i.quantity, 0);
@@ -372,10 +390,28 @@ export const CartProvider = ({ children }) => {
       await load();
       return;
     }
+    // Guest MART row — snapshot the product info at add-time so the cart
+    // page/drawer can render offline without a network round-trip per line.
+    // Server revalidates prices/availability at checkout (Fixing_Prompt §25).
+    const snapshot = {
+      id: product.id, name: product.name, unit: product.unit,
+      image: product.image, brand: product.brand,
+      price: product.price, currency: product.currency,
+      currency_symbol: product.currency_symbol,
+      was_price: product.was_price,
+      compare_at_price: product.compare_at_price,
+      original_price: product.original_price,
+      master_price: product.master_price,
+      is_stocked_locally: product.is_stocked_locally,
+    };
     const g = readGuest();
     const found = g.items.find((i) => i.product_id === product.id);
-    if (found) found.quantity = Math.min(99, found.quantity + quantity);
-    else g.items.push({ id: `g_${product.id}`, product_id: product.id, quantity, module: "mart" });
+    if (found) {
+      found.quantity = Math.min(99, found.quantity + quantity);
+      found.snapshot = { ...(found.snapshot || {}), ...snapshot };
+    } else {
+      g.items.push({ id: `g_${product.id}`, product_id: product.id, quantity, module: "mart", snapshot });
+    }
     writeGuest(g);
     await hydrateGuest();
   }, [customer, hydrateGuest, load]);

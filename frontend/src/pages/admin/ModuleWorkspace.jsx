@@ -15,12 +15,16 @@ const MODULE_NAV = [
   { seg: "", exact: true, label: "Overview", icon: LayoutDashboard },
   { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores" },
   { seg: "applications", label: "Applications", icon: ClipboardList, martOnly: true, note: "Partner applications" },
-  { seg: "products", label: "Products", icon: Package, martOnly: true, note: "Legacy read-only" },
-  { seg: "catalog", label: "Catalog", icon: Boxes, martOnly: true, note: "Categories, brands, master products" },
-  { seg: "attributes", label: "Attributes", icon: Tag, martOnly: true, note: "Dynamic category attributes" },
-  { seg: "approvals", label: "Approvals", icon: Sparkles, martOnly: true, note: "Partner product review queue" },
+  { seg: "products", label: "Products", icon: Package, note: "Read-only browse" },
+  { seg: "catalog", label: "Catalog", icon: Boxes, note: "Categories & sub-categories" },
+  { seg: "attributes", label: "Attributes", icon: Tag, note: "Dynamic category attributes" },
+  { seg: "approvals", label: "Approvals", icon: Sparkles, note: "Product review queue" },
   { seg: "category-requests", label: "Category Requests", icon: Sparkles, martOnly: true, note: "Partner-proposed categories" },
-  { seg: "suppliers", label: "Suppliers", icon: Building2, martOnly: true, note: "Supplier onboarding & governance" },
+  // Phase 1 (2026-03): un-gated for SHOP so admins can review SHOP seller
+  // applications from /admin/modules/shop/suppliers. Backend filters by
+  // Supplier.modules ? 'SHOP'. Product Requests still MART-only (SHOP uses
+  // a different catalogue model — Phase 2 will add a SHOP-native flow).
+  { seg: "suppliers", label: "Suppliers", icon: Building2, note: "Seller onboarding & governance" },
   { seg: "suppliers/product-requests", label: "Product Requests", icon: PackageIcon, martOnly: true, note: "Supplier-proposed products" },
   { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
   { seg: "purchase-orders", label: "Purchase Orders", icon: PackageIcon, martOnly: true, note: "Cross-network PO oversight" },

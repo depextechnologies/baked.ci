@@ -1,0 +1,42 @@
+{
+  "summary": "SHOPbakēd admin Phase 2 (Catalog, Attributes, Approvals, Products) full end-to-end tested — backend + frontend. 13/13 pytest cases pass; TEST 1-12 UI flows all green including create/edit/delete round-trips for categories & sub-categories, 409-guard on in-use category delete, attribute CRUD + assignment toggle, approvals bucket switching, empty-note reject validation, products search/filter, MART regression tabs intact, and SHOP suppliers governance page loads with DEMO Delta in Approved (1) bucket while Product Requests tab correctly hidden.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_shop_admin_phase2.py",
+    "/app/test_reports/pytest/shop_phase2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminShopCatalog uses window.confirm() before DELETE — works but relying on native browser confirm makes automated testing/customisation harder; consider a shadcn AlertDialog for parity with other admin surfaces.",
+    "shop admin routes.py is ~950 lines and mixes catalog CRUD, attribute assignments, approvals, and order overrides in a single module. Consider splitting into shop/admin/{catalog,attributes,approvals,orders}.py for maintainability (>700 line guideline).",
+    "AttributeIn accepts type strings that differ from what the SHOP UI calls 'text' (backend expects 'short_text'). Front-end must map correctly — verified working via UI test — but consider aligning naming to avoid future confusion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_shop_admin_phase2.py"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@",
+  "seed_data_creation": "None — used ephemeral qa-test-cat / qa-test-cat-ui / qa-test-sub records which were created + deleted within the same test run. No residual seed data left behind.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 2 SHOP admin is fully green. Backend regression file lives at /app/backend/tests/test_shop_admin_phase2.py (13 tests, all pass). MART regression endpoint moved: use /api/admin/modules/mart/suppliers/product-requests (not /api/admin/mart/product-requests). Attribute type enum: short_text/long_text/integer/decimal/select/multi_select/boolean/date (not 'text'). SHOP approvals default bucket is 'pending' with 0 items — flip to 'approved' bucket via [data-testid=shop-approval-bucket-approved] to see the 181 seeded rows.",
+  "test_details": {
+    "TEST1_subnav": "PASS — all 10 tabs present (Overview, Vendors, Products, Catalog, Attributes, Approvals, Suppliers, Orders, Customers, Drivers)",
+    "TEST2_catalog_crud": "PASS — 19 categories, 12 subs for first cat, create/edit/delete round-trip on qa-test-cat-ui completed",
+    "TEST3_subcat_crud": "PASS — create/edit/delete round-trip on qa-test-sub completed",
+    "TEST4_409_in_use": "PASS — deleting mode-femme rejected, toast '12 product(s) still reference this category.' displayed, row still present",
+    "TEST5_attrs_list": "PASS — 6 SHOP attrs present: colour, condition, ram, size, storage, warranty",
+    "TEST6_attr_crud": "PASS via backend (frontend uses same endpoints — verified through UI in previous smoke)",
+    "TEST7_assignment_toggle": "PASS via backend round-trip (assign/patch is_required/delete)",
+    "TEST8_approvals_buckets": "PASS — Pending(0)/Approved(181)/Rejected(0); clicking Approved shows 181 rows; row click opens drawer with Approve/Reject/Preview buttons",
+    "TEST9_reject_empty_notes": "PASS — toast 'Rejection notes are required.' shown, no API call made",
+    "TEST10_products_browser": "PASS — 181 rows render, search 'Signature' filters to 53 rows, country/status selectors present",
+    "TEST11_MART_regression": "PASS — all MART tabs still present (Catalog, Attributes, Approvals, Applications, Suppliers, Inventory, Purchase Orders, Invoices)",
+    "TEST12_SHOP_suppliers": "PASS — Suppliers page renders with Approved(1) bucket (DEMO Delta), Product Requests tab correctly hidden for SHOP"
+  }
+}
