@@ -1,5 +1,19 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-05 evening) — Workstream 3 Phase A · i18n Foundation
+- ✅ **react-i18next** installed (v17) + `i18next-browser-languagedetector`. Central init at `/app/frontend/src/i18n/index.js` with 5 namespaces (common/customer/admin/seller/driver) × 2 locales (fr/en). FallbackLng=`fr`. Detector order drops `navigator` → **French-first for every fresh visitor** regardless of browser locale.
+- ✅ **`LanguageSwitcher.jsx`** shared component with `compact`/`menu`/`inline` variants. Wired across all 6 shells (desktop TopNav popover kept, mobile drawer footer replaced, MobileSettings row kept, Admin sidebar footer new, Seller portal sidebar footer new, Driver Profile page new). Public seller `/apply` also has one so applicants can toggle before login.
+- ✅ **`CartPage`** pilot fully i18n'd. FR default → "Votre panier est vide" / "Découvrir les produits". Live toggle re-renders without page reload. Deep-link `?lang=en|fr` overrides.
+- ✅ **`AppProvider.setLanguage`** synchronises with `i18n.changeLanguage` in one effect so `useTranslation` hooks flip in the same tick as context state.
+- ⏳ **Phase B → I in `/app/memory/I18N_PLAN.md`**: extend to product/checkout/orders/wallet/profile/admin/seller-portal/driver, backend errors + email templates, DB bilingual product columns, admin i18n editor deferred to backlog.
+- **Test coverage**: iteration_81 confirms Phase A works end-to-end; workstreams 1/2/4 unchanged.
+
+## Latest (2026-03-05) — Workstreams 1 + 2 + 4 (SHOP QA · SEND rename · India parity) — COMPLETE
+- ✅ **WS 1** — `/shop/categories` margin fix; ProductCarouselSection filters by configured category slug; SHOP supplier apps tagged `module=SHOP` and now surface in Admin Submitted tab (`POST /apply/start` accepts optional `module`, auto-appends `SHOP` to reused drafts).
+- ✅ **WS 2** — `/express/*` → `/send/*` for every customer-facing route with soft `/express/*` redirects. Backend API prefix `/api/express/*` and DB `module=express` untouched. Nav, module tabs, mobile shell, `modules.js`, ConfigHomepage all point to `/send`.
+- ✅ **WS 4** — India (`IN`) parity: 19 SHOP categories + 181 SHOP products (₹ INR) + 100+ MART products (₹ INR) seeded. Homepage sections seeded for IN with India-specific hero copy. `ShopHome / Categories / Category` now read `useApp().country?.code`.
+- **Test coverage**: iteration_80 — 4/4 backend + 4/4 frontend passing.
+
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 

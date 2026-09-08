@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { api } from "../lib/api";
+import i18n from "../i18n";
 
 const AuthCtx = createContext(null);
 const AppCtx = createContext(null);
@@ -89,18 +90,21 @@ const DEFAULT_COUNTRY = "CI";
 // run (we only auto-detect on the very first visit).
 const HAD_SAVED_COUNTRY = !!localStorage.getItem("baked_country");
 
-// Auto-detect UI language from the browser (equivalent to Accept-Language on the client).
-// Called only on the very first visit — persisted afterwards.
+// Initial language detector. Per client brief (Workstream 3), BAKĒD is
+// French-first everywhere — we do NOT sniff navigator.language on the
+// very first visit anymore, because the platform launches in Côte d'Ivoire
+// (French-native) and English is only for the internal QA team. Users who
+// prefer English opt in via the header switcher (persists to localStorage)
+// or by appending `?lang=en` to any URL.
 const detectInitialLanguage = () => {
   const saved = localStorage.getItem("baked_language");
   if (saved === "fr" || saved === "en") return saved;
-  const candidates = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""])
-    .map((l) => (l || "").toLowerCase());
-  for (const lang of candidates) {
-    if (lang.startsWith("fr")) return "fr";
-    if (lang.startsWith("en")) return "en";
-  }
-  return "fr"; // fallback for Côte d'Ivoire launch market
+  // Query-string override honours shared deep-links like `?lang=en`.
+  try {
+    const q = new URLSearchParams(window.location.search).get("lang");
+    if (q === "fr" || q === "en") return q;
+  } catch (_) { /* SSR/no-window */ }
+  return "fr";
 };
 
 export const AppProvider = ({ children }) => {
@@ -139,7 +143,16 @@ export const AppProvider = ({ children }) => {
   }, [theme]);
 
   useEffect(() => { localStorage.setItem("baked_country", countryCode); }, [countryCode]);
-  useEffect(() => { localStorage.setItem("baked_language", language); document.documentElement.lang = language; }, [language]);
+  useEffect(() => {
+    localStorage.setItem("baked_language", language);
+    document.documentElement.lang = language;
+    // Keep the i18next runtime in sync with the AppProvider language so
+    // hooks (`useTranslation`) re-render on every toggle without needing
+    // an extra listener at every call site.
+    if (i18n?.language !== language) {
+      i18n.changeLanguage(language);
+    }
+  }, [language]);
 
   /**
    * Geolocation → country detection. Returns a Promise that resolves to

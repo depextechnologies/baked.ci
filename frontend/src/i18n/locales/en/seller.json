@@ -1,0 +1,18 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "catalog": "Catalog",
+    "applications": "Application",
+    "payouts": "Payouts",
+    "reviews": "Reviews"
+  },
+  "apply": {
+    "step_business": "Business information",
+    "step_location": "Address & coverage",
+    "step_documents": "Documents",
+    "step_review": "Review",
+    "step_status": "Status",
+    "submit_cta": "Submit application"
+  }
+}

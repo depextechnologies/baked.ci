@@ -1,0 +1,31 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "products": "Products",
+    "suppliers": "Suppliers",
+    "drivers": "Drivers",
+    "customers": "Customers",
+    "homepage": "Homepage",
+    "categories": "Categories",
+    "attributes": "Attributes",
+    "modules": "Modules",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "actions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "suspend": "Suspend",
+    "unsuspend": "Unsuspend",
+    "export": "Export",
+    "import": "Import"
+  },
+  "table": {
+    "no_results": "No results",
+    "loading": "Loading…",
+    "showing": "Showing {{from}}-{{to}} of {{total}}"
+  }
+}

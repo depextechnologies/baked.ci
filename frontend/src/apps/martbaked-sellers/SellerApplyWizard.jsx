@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { sellerApi, useSellerModule } from "./SellerApp";
 import { WarehouseLocationPicker } from "@/apps/partner-hub/WarehouseLocationPicker";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
 
 const STEPS = [
   { n: 1, label: "Phone",       icon: Phone },
@@ -156,15 +157,18 @@ export const SellerApplyWizard = () => {
   return (
     <section className="pl-section">
       <div className="pl-container max-w-4xl">
-        <div className="mb-8">
-          <div className="pl-eyebrow mb-2">{MOD_LABEL} supplier onboarding</div>
-          <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Apply as a supplier</h1>
-          {appCode && (
-            <div className="mt-3 text-xs" style={{ color: "var(--pl-fg-muted)" }}>
-              Application <span className="font-mono">{appCode}</span>
-              {supplier && <> · {supplier.business_name}</>}
-            </div>
-          )}
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <div className="pl-eyebrow mb-2">{MOD_LABEL} supplier onboarding</div>
+            <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Apply as a supplier</h1>
+            {appCode && (
+              <div className="mt-3 text-xs" style={{ color: "var(--pl-fg-muted)" }}>
+                Application <span className="font-mono">{appCode}</span>
+                {supplier && <> · {supplier.business_name}</>}
+              </div>
+            )}
+          </div>
+          <LanguageSwitcher variant="compact" />
         </div>
 
         {/* Progress rail */}

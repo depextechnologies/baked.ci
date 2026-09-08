@@ -1,5 +1,29 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-05 (evening) — QA v15 Workstream 3 Phase A · i18n Foundation — COMPLETE
+
+**User-approved plan:** `/app/memory/I18N_PLAN.md` — Phase A + language-switcher polish across all 6 shells. Vendor: Emergent LLM key / Claude for future backfill. Admin path segments stay English (labels translate). Machine translation deferred; hand-written French for top ~50 critical strings shipped.
+
+- **`i18next` + `react-i18next` + `i18next-browser-languagedetector` installed via yarn.**
+- **`/app/frontend/src/i18n/index.js` (new)** — bundles 5 namespace files per locale (`common`, `customer`, `admin`, `seller`, `driver`), fallbackLng = `fr`, `saveMissing` warns in dev. Detector order deliberately drops `navigator` so every fresh visitor lands in French regardless of browser locale — English is only reached via the header toggle (persists to localStorage) or `?lang=en` deep-link.
+- **`/app/frontend/src/i18n/LanguageSwitcher.jsx` (new)** — shared React component with three variants (`compact` two-pill, `menu` labelled row, `inline` text link). Every node carries `data-testid=lang-switcher` / `lang-switcher-fr` / `lang-switcher-en` so the testing agent can locate the toggle in any shell with a single selector.
+- **10 locale JSON files** — hand-written French for cart, checkout, product, orders, home, auth, admin nav, seller apply wizard, driver dashboard/trip; parallel English strings for the QA team.
+- **`AppProvider.setLanguage`** now calls `i18n.changeLanguage()` in the same effect that writes to `localStorage`, so `useTranslation` hooks re-render in lock-step with the context. `detectInitialLanguage` simplified to `saved → ?lang → 'fr'` (no navigator sniff) — French-first per client brief.
+- **CartPage pilot** — `pages/CartPage.jsx` migrated to `useTranslation("customer")`. Live toggle: FR shows "Votre panier est vide / Ajoutez des articles pour commencer votre commande. / Découvrir les produits"; EN shows English equivalents. Order Summary heading, subtotal, delivery fee, total, mixed-cart note, sign-in CTA all keyed.
+- **Language switcher wired across all 6 shells:**
+  1. Desktop TopNav — existing popover (kept, already syncs)
+  2. Mobile drawer footer — replaced ad-hoc FR/EN buttons with the shared `<LanguageSwitcher variant="compact" />`
+  3. `MobileSettings` row — existing "Language" nav row (kept)
+  4. Admin sidebar footer — new switcher below Sign out
+  5. Seller portal sidebar footer — new switcher below Back to Sellers Home
+  6. Driver Profile page — new "Language" row below Sign out button
+  Plus: `SellerApplyWizard` header (public seller /apply flow) gets its own switcher so applicants can toggle FR/EN before login.
+- **Testing agent iteration_81**: Cart FR/EN toggle round-trips correctly, deep-link `?lang=fr|en` overrides, no regressions to Workstreams 1/2/4 (SHOP + SEND + India parity all green). Two gap items surfaced (mobile home top-bar switcher missing, public seller /apply switcher missing) — both fixed in-session before finish. Remaining LOW items (unauth admin/driver login page switchers) parked in backlog.
+
+**What is NOT translated yet (Phase B → I in the plan):** every page other than Cart. Categories, product detail, checkout, orders, wallet, profile, admin console labels, seller portal steps beyond header, driver ride sheets — all still show hardcoded English/French mix. That work is scoped and sequenced in `/app/memory/I18N_PLAN.md`.
+
+---
+
 ## 2026-03-05 — QA v15 Workstreams 1 + 2 + 4 (SHOP QA · SEND rename · India parity) — COMPLETE
 
 **Testing case.xlsx** priority order 1 → 2 → 4 → 3. Workstream 3 (French-first i18n) is planned in `/app/memory/I18N_PLAN.md`, awaiting user approval before code changes.

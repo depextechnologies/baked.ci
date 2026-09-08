@@ -38,6 +38,7 @@ import { DriverNavMap } from "./DriverNavMap";
 import { DriverOnlineMap } from "./DriverOnlineMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import { useSendbakedDispatch } from "./useSendbakedDispatch";
 import { DriverTripSheet } from "./DriverTripSheet";
 import { useDriverTheme } from "./useDriverTheme";
@@ -1371,6 +1372,11 @@ const DriverProfilePage = () => {
         >
           <LogOut size={14} className="inline mr-2" /> Sign out
         </button>
+
+        <div className="mt-6 flex items-center justify-between rounded-2xl px-4 py-3 border border-border bg-card">
+          <span className="text-xs text-muted-foreground">Language</span>
+          <LanguageSwitcher variant="compact" />
+        </div>
       </div>
     </Phone>
   );

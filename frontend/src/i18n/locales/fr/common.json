@@ -1,0 +1,69 @@
+{
+  "brand": {
+    "name": "BAKĒD"
+  },
+  "btn": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "continue": "Continuer",
+    "back": "Retour",
+    "close": "Fermer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "search": "Rechercher",
+    "loading": "Chargement…",
+    "retry": "Réessayer",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "submit": "Envoyer",
+    "sign_in": "Se connecter",
+    "sign_out": "Se déconnecter",
+    "sign_up": "Créer un compte",
+    "learn_more": "En savoir plus"
+  },
+  "state": {
+    "loading": "Chargement…",
+    "empty": "Rien à afficher pour l'instant.",
+    "error_generic": "Une erreur s'est produite. Veuillez réessayer.",
+    "coming_soon": "Bientôt disponible"
+  },
+  "language": {
+    "label": "Langue",
+    "switch": "Changer de langue",
+    "french": "Français",
+    "english": "Anglais",
+    "current_fr": "FR",
+    "current_en": "EN"
+  },
+  "country": {
+    "label": "Pays",
+    "change": "Changer de pays"
+  },
+  "nav": {
+    "home": "Accueil",
+    "categories": "Catégories",
+    "cart": "Panier",
+    "orders": "Commandes",
+    "profile": "Profil",
+    "wallet": "Portefeuille",
+    "menu": "Menu",
+    "shop": "Boutique",
+    "mart": "Marché",
+    "send": "Envoyer",
+    "help": "Aide",
+    "contact": "Contact"
+  },
+  "currency": {
+    "XOF": "FCFA",
+    "INR": "₹",
+    "EUR": "€",
+    "USD": "$"
+  },
+  "toast": {
+    "saved": "Modifications enregistrées",
+    "deleted": "Supprimé avec succès",
+    "copied": "Copié dans le presse-papiers"
+  }
+}

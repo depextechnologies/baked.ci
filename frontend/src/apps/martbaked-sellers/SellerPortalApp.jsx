@@ -30,6 +30,7 @@ import { PortalShop } from "./portal/PortalShop";
 import { PortalShopOrders } from "./portal/PortalShopOrders";
 import { SupplierInvoicesPage } from "../../components/invoices/SupplierInvoicesPage";
 import { NotificationBell } from "../../components/notifications/NotificationBell";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -172,6 +173,9 @@ const PortalShell = ({ supplier, refresh, portalPrefix = "/martbaked" }) => {
               style={{ color: "var(--pl-fg-subtle)" }}>
               <ArrowLeft size={12} /> Back to Sellers Home
             </Link>
+            <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--pl-border)" }}>
+              <LanguageSwitcher variant="compact" />
+            </div>
           </div>
         </aside>
         {/* Content */}

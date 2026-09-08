@@ -1,0 +1,35 @@
+{
+  "summary": "Workstream 3 Phase A i18n foundation validated on the customer web shell. i18next + react-i18next infra works: French-first default renders on /cart (fresh visit screenshot shows 'Votre panier est vide' / 'Ajoutez des articles...' / 'Découvrir les produits'), EN toggle via [data-testid=top-nav-language-en] swaps strings live and persists localStorage.baked_language='en' + i18next.language='en', FR toggle round-trips it back. Deep links /cart?lang=en and /cart?lang=fr both honour the query override on a cleared context. Order summary heading swap ('Récapitulatif' ↔ 'Order summary') was NOT verifiable because the cart was empty (that block only mounts with items) — code inspection of CartPage/customer.json confirms the keys and t() calls exist. Workstream 1/2/4 smoke: /shop hero + Fresh drops render; /shop/categories renders the 19-tile grid (screenshot confirms Mode Femme, Mode Homme, ... Beauté & Bien-être); /express → /send redirect returns final URL /send. Language switcher coverage of the '6 shells' claim is INCOMPLETE: only 4 of 6 wire LanguageSwitcher — TopNav (desktop customer), AdminLayout (gated), SellerPortalApp (gated post-login), DriverApp Profile (gated post-login). Public seller /martbaked/sellers/apply, admin /admin/login, driver /driver/login have no switcher (falls back gracefully but no lang-switcher-fr/en in DOM). Mobile customer header pills at `/` and mobile-viewport nav DO NOT render any [data-testid=lang-switcher] — the requirement is unmet in code (grep shows no LanguageSwitcher import in MobileHome.jsx). Mobile settings [data-testid=m-set-language] IS wired in MobileSettings.jsx L115 but only appears after `prefs` load (i.e. authenticated + /customers/me/preferences 200) — guest users hit GuestSignInPrompt so DOM count is 0 for unauth tests.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MobileHome (customer mobile shell)", "issue": "No language pills / [data-testid=lang-switcher] rendered on mobile viewport at `/`. Phase A shell (b) requirement unmet — LanguageSwitcher not imported in pages/mobile/MobileHome.jsx.", "selector": "[data-testid=lang-switcher]", "priority": "HIGH"},
+      {"component": "Seller portal public entry /martbaked/sellers/apply", "issue": "Phase A shell (e) says switcher should render on /martbaked/sellers/apply OR /martbaked/sellers/portal. LanguageSwitcher is only wired inside SellerPortalApp (post-login gated shell), so the public /apply page has no switcher. Cannot verify without login.", "selector": "[data-testid=lang-switcher]", "priority": "MEDIUM"},
+      {"component": "AdminLayout", "issue": "LanguageSwitcher renders only inside AdminLayout sidebar (post-login). /admin/login has no switcher. Acceptable per 'falls back gracefully' clause but no lang-switcher-fr/en visible on any /admin route without auth.", "selector": "[data-testid=lang-switcher]", "priority": "LOW"},
+      {"component": "DriverApp Profile", "issue": "LanguageSwitcher lives only on the authenticated driver Profile page; /driver/login and /driver public routes render no switcher. Cannot verify without driver auth.", "selector": "[data-testid=lang-switcher]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Wire LanguageSwitcher into the customer mobile shell header (MobileHome / mobile TopNav) so [data-testid=lang-switcher] renders on `/` at mobile viewport — Phase A shell (b) is unmet.",
+    "Add LanguageSwitcher to public seller entry point /martbaked/sellers/apply (currently only exists inside authenticated SellerPortalApp) so operators without accounts can toggle FR/EN before applying.",
+    "Optional: add a light LanguageSwitcher fallback on /admin/login and /driver/login so language can be toggled before authenticating — currently gated behind post-login layouts.",
+    "MobileSettings `m-set-language` is behind `prefs` load; consider always rendering the row (using context `language`) even when prefs is null so guest/settings viewers can toggle."
+  ],
+  "critical_code_review_comments": [
+    "i18n/index.js: solid — French-first default via `fallbackLng` and detector order that drops `navigator`, static resource bundling avoids Suspense race, saveMissing warns in dev.",
+    "LanguageSwitcher.jsx: correctly exposes data-testid on every variant (lang-switcher / lang-switcher-menu / lang-switcher-inline plus lang-switcher-fr/en children) — good instrumentation.",
+    "BakedContexts.setLanguage → i18n.changeLanguage sync verified live (localStorage baked_language and i18next.language both flip in the same tick).",
+    "Only 4/6 shells listed in the brief actually wire LanguageSwitcher — mobile customer + public seller entry gap should be closed for Phase A completeness."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend only)", "frontend": "70%" },
+  "test_credentials": "Not exercised — auth-gated shells (admin/seller portal/driver profile) require login to validate their switchers; testing agent did not log in.",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Cart page i18n pilot works fully (FR default + EN toggle + deep links). Only 4 of 6 shells actually render LanguageSwitcher in the DOM; mobile home pills and public seller /apply page are missing. Admin/Seller-portal/Driver-profile switchers are behind auth — next agent with credentials should log in as depexopenai@gmail.com (superadmin magic link) and demo-delta-supplier@test.example / Supplier123! (seller) to confirm the gated switchers actually mount post-login.",
+  "rca of the issue": "Mobile home pills missing: grep of pages/mobile/MobileHome.jsx confirms no LanguageSwitcher import — feature simply not wired. Public seller /apply missing: LanguageSwitcher is imported only inside apps/martbaked-sellers/SellerPortalApp.jsx (post-login shell), not in the public application flow. Fix: import LanguageSwitcher variant='compact' into MobileHome header and into the seller /apply layout wrapper."
+}

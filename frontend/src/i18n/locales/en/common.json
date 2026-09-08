@@ -1,0 +1,69 @@
+{
+  "brand": {
+    "name": "BAKĒD"
+  },
+  "btn": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "continue": "Continue",
+    "back": "Back",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "sign_in": "Sign in",
+    "sign_out": "Sign out",
+    "sign_up": "Sign up",
+    "learn_more": "Learn more"
+  },
+  "state": {
+    "loading": "Loading…",
+    "empty": "Nothing to show yet.",
+    "error_generic": "Something went wrong. Please try again.",
+    "coming_soon": "Coming soon"
+  },
+  "language": {
+    "label": "Language",
+    "switch": "Switch language",
+    "french": "French",
+    "english": "English",
+    "current_fr": "FR",
+    "current_en": "EN"
+  },
+  "country": {
+    "label": "Country",
+    "change": "Change country"
+  },
+  "nav": {
+    "home": "Home",
+    "categories": "Categories",
+    "cart": "Cart",
+    "orders": "Orders",
+    "profile": "Profile",
+    "wallet": "Wallet",
+    "menu": "Menu",
+    "shop": "Shop",
+    "mart": "Mart",
+    "send": "Send",
+    "help": "Help",
+    "contact": "Contact"
+  },
+  "currency": {
+    "XOF": "CFA",
+    "INR": "₹",
+    "EUR": "€",
+    "USD": "$"
+  },
+  "toast": {
+    "saved": "Changes saved",
+    "deleted": "Deleted successfully",
+    "copied": "Copied to clipboard"
+  }
+}

@@ -2,6 +2,7 @@ import React from "react";
 import { Link, Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAdmin } from "../../contexts/AdminContext";
 import { BakedLogo } from "../../components/layout/BakedLogo";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import {
   LayoutDashboard, Globe, MapPin, ShieldCheck, DollarSign, Sparkles, Brain,
   ScrollText, UserCog, LogOut, ShoppingBasket, Utensils, ShoppingBag, Truck,
@@ -95,6 +96,9 @@ export const AdminLayout = () => {
                               onNavigate={(link) => nav(link)} />
           </div>
           <button data-testid="admin-logout" onClick={() => { logout(); nav("/admin/login"); }} className="text-xs mt-2 flex items-center gap-2 text-muted-foreground hover:text-foreground"><LogOut size={12} /> Sign out</button>
+          <div className="mt-3 pt-3 border-t border-border">
+            <LanguageSwitcher variant="compact" />
+          </div>
         </div>
       </aside>
       <main className="p-6 overflow-y-auto max-h-screen"><Outlet /></main>
