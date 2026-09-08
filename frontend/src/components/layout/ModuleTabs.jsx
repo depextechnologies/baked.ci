@@ -13,7 +13,7 @@ import { toast } from "sonner";
 // - Active module is derived from the current route so only one tab is ever
 //   highlighted (fixes MART leaking onto /express, etc.).
 const routeToModule = (pathname) => {
-  if (pathname.startsWith("/express")) return "express";
+  if (pathname.startsWith("/send") || pathname.startsWith("/express")) return "express";
   if (pathname.startsWith("/food")) return "food";
   if (pathname.startsWith("/shop")) return "shop";
   if (pathname.startsWith("/auto")) return "auto";

@@ -13,13 +13,13 @@ const YELLOW_TINT = "#FCC44C22";
  * "Coming soon" badge but stay visible so customers can discover the roadmap.
  */
 const SERVICES = [
-  { code: "parcel",    title: "Parcel Delivery",     subtitle: "Fast document & parcel delivery",  route: "/express/book/location", image: EXPRESS_ASSETS.parcel,  soon: false },
-  { code: "movers",    title: "Packers & Movers",    subtitle: "Full home & office relocation",     route: "/express/movers",         image: EXPRESS_ASSETS.moving,  soon: false },
-  { code: "home",      title: "Home Shifting",       subtitle: "Safe & hassle-free house moves",    route: "/express/movers?type=house",         icon: Home,      soon: false },
-  { code: "business",  title: "Business Delivery",   subtitle: "Monthly-invoice accounts (save 25%)", route: "/express/book/location",             icon: Briefcase, soon: false },
-  { code: "bulk",      title: "Bulk Delivery",       subtitle: "Multi-parcel, wholesale routes",    route: "/express/book/location",             icon: Boxes,     soon: false },
-  { code: "document",  title: "Document Delivery",   subtitle: "Contracts, passports, cheques",     route: "/express/book/location",             icon: FileText,  soon: false },
-  { code: "scheduled", title: "Scheduled Delivery",  subtitle: "Book for a later date and time",    route: "/express/book/location",             icon: Calendar,  soon: false },
+  { code: "parcel",    title: "Parcel Delivery",     subtitle: "Fast document & parcel delivery",  route: "/send/book/location", image: EXPRESS_ASSETS.parcel,  soon: false },
+  { code: "movers",    title: "Packers & Movers",    subtitle: "Full home & office relocation",     route: "/send/movers",         image: EXPRESS_ASSETS.moving,  soon: false },
+  { code: "home",      title: "Home Shifting",       subtitle: "Safe & hassle-free house moves",    route: "/send/movers?type=house",         icon: Home,      soon: false },
+  { code: "business",  title: "Business Delivery",   subtitle: "Monthly-invoice accounts (save 25%)", route: "/send/book/location",             icon: Briefcase, soon: false },
+  { code: "bulk",      title: "Bulk Delivery",       subtitle: "Multi-parcel, wholesale routes",    route: "/send/book/location",             icon: Boxes,     soon: false },
+  { code: "document",  title: "Document Delivery",   subtitle: "Contracts, passports, cheques",     route: "/send/book/location",             icon: FileText,  soon: false },
+  { code: "scheduled", title: "Scheduled Delivery",  subtitle: "Book for a later date and time",    route: "/send/book/location",             icon: Calendar,  soon: false },
   { code: "airport",   title: "Airport Delivery",    subtitle: "To & from airports",                route: null,                                    icon: Plane,     soon: true  },
 ];
 
@@ -27,7 +27,7 @@ export const ExpressServices = () => {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background pb-28">
-      <ExpressHeader title="Services" onBack={() => navigate("/express")} />
+      <ExpressHeader title="Services" onBack={() => navigate("/send")} />
 
       <div className="px-4 pt-3">
         <div className="text-xs text-white/60">All SENDbakēd logistics services in one place</div>

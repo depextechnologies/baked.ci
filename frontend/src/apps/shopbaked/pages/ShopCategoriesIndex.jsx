@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ShoppingBag, ChevronRight, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApp } from "@/contexts/BakedContexts";
 
 const SHOP_ACCENT = "#FCC44C";
 
@@ -20,16 +21,18 @@ const l = (r, locale) =>
   (locale === "fr" ? r?.name_fr : r?.name_en) || r?.name_en || r?.name_fr || r?.slug;
 
 export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
+  const { country } = useApp() || {};
+  const cc = country?.code || "CI";
   const [tree, setTree] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    api.get("/shop/catalogue?country=CI")
+    api.get(`/shop/catalogue?country=${cc}`)
       .then(({ data }) => !cancelled && setTree(data || []))
       .catch((e) => !cancelled && setError(e?.message || "Failed to load"));
     return () => { cancelled = true; };
-  }, []);
+  }, [cc]);
 
   if (error) {
     return (
@@ -47,8 +50,10 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
   }
 
   return (
-    <div className="pb-24" data-testid="shopbaked-categories-index">
-      <div className="px-4 pt-4 pb-3">
+    // QA v15 §A — constrain to max-w-7xl + horizontal padding so the
+    // category-index aligns with the header (was edge-to-edge before).
+    <div className="pb-24 mx-auto max-w-7xl px-4 sm:px-6" data-testid="shopbaked-categories-index">
+      <div className="pt-4 pb-3">
         <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: SHOP_ACCENT }}>
           SHOPbakēd
         </div>
@@ -59,12 +64,12 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
       </div>
 
       {tree.length === 0 ? (
-        <div className="mx-4 rounded-xl border border-border p-6 text-center">
+        <div className="rounded-xl border border-border p-6 text-center">
           <ShoppingBag size={22} className="mx-auto mb-2 opacity-40" />
           <p className="text-xs text-muted-foreground">No SHOP categories published yet.</p>
         </div>
       ) : (
-        <div className="px-4 grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
           {tree.map((c) => {
             const img = abs(c.image);
             return (

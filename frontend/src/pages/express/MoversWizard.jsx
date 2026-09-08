@@ -26,7 +26,7 @@ export const MoversLanding = () => {
   useEffect(() => { api.get("/express/movers/move-types").then((r) => setTypes(r.data)); }, []);
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <ExpressHeader title="PACKERS & MOVERS" onBack={() => navigate("/express")} />
+      <ExpressHeader title="PACKERS & MOVERS" onBack={() => navigate("/send")} />
       <div className="flex-1 px-4 pt-3 pb-6 space-y-4">
         {/* Hero */}
         <div className="baked-card border border-border p-4 relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(119,188,31,0.10), transparent)" }}>
@@ -48,7 +48,7 @@ export const MoversLanding = () => {
               <button
                 key={t.code}
                 data-testid={`mov-type-${t.code}`}
-                onClick={() => navigate(`/express/movers/wizard?type=${t.code}`)}
+                onClick={() => navigate(`/send/movers/wizard?type=${t.code}`)}
                 className="baked-card border border-border p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#FCC44C]"
               >
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Icon size={20} /></div>
@@ -104,7 +104,7 @@ export const MoversWizard = () => {
 
   const goto = (i) => setStep(Math.max(0, Math.min(STEPS.length - 1, i)));
   const next = () => goto(step + 1);
-  const prev = () => (step === 0 ? navigate("/express/movers") : goto(step - 1));
+  const prev = () => (step === 0 ? navigate("/send/movers") : goto(step - 1));
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -424,7 +424,7 @@ const ReviewStep = ({ draft, setDraft, resetDraft }) => {
   }, [draft, country?.code]);
 
   const submit = async () => {
-    if (!customer) { openLogin("/express/movers/wizard"); return; }
+    if (!customer) { openLogin("/send/movers/wizard"); return; }
     if (!terms) { toast.error("Please accept the terms first"); return; }
     setBusy(true);
     try {
@@ -441,7 +441,7 @@ const ReviewStep = ({ draft, setDraft, resetDraft }) => {
         labour_movers: draft.labour_movers || 2,
       });
       resetDraft();
-      navigate(`/express/booking/${data.id}?success=1`);
+      navigate(`/send/booking/${data.id}?success=1`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Booking failed");
     } finally { setBusy(false); }

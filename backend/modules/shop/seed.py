@@ -21,10 +21,11 @@ from modules.shop.catalogue_data import CATEGORIES
 
 logger = logging.getLogger("baked.shop.seed")
 
-# Countries SHOP is enabled for. We start with CI (launch market); LR / IN
-# can be appended here once product listings for them exist. Kept in one
-# place so Slice 7 (Homepage editor) can join against the same set.
-SHOP_COUNTRIES = ("CI",)
+# Countries SHOP is enabled for. Full parity across launch markets — CI is
+# the primary market and IN mirrors the same category tree for the QA /
+# development team's location-based testing (docs/prompts/India_Location.txt).
+# LR is intentionally excluded (production_visible=false in seed.py).
+SHOP_COUNTRIES = ("CI", "IN")
 
 
 async def seed_shop_catalogue(session: AsyncSession) -> dict:

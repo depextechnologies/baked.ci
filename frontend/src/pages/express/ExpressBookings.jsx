@@ -44,7 +44,7 @@ export const ExpressBookings = () => {
   if (!customer) {
     return (
       <div className="min-h-screen bg-background">
-        <ExpressHeader title="My Bookings" onBack={() => navigate("/express")} />
+        <ExpressHeader title="My Bookings" onBack={() => navigate("/send")} />
         <GuestSignInPrompt title="Sign in to see your bookings" message="Track your SENDbakēd deliveries and moves in one place." testid="exp-bookings-signin" accent={YELLOW} />
       </div>
     );
@@ -58,7 +58,7 @@ export const ExpressBookings = () => {
 
   return (
     <div className="min-h-screen bg-background pb-28">
-      <ExpressHeader title="My Bookings" onBack={() => navigate("/express")} />
+      <ExpressHeader title="My Bookings" onBack={() => navigate("/send")} />
 
       {/* Tabs */}
       <div className="px-4 pt-3 flex gap-2">
@@ -84,11 +84,11 @@ export const ExpressBookings = () => {
         {loading ? (
           <div className="text-center text-xs text-white/50 py-10">Loading…</div>
         ) : items.length === 0 ? (
-          <EmptyState tab={tab} onCta={() => navigate("/express")} />
+          <EmptyState tab={tab} onCta={() => navigate("/send")} />
         ) : (
           items.map((b) => {
             const isActiveParcel = b.booking_type === "parcel" && ["searching", "driver_assigned", "arriving", "picked_up", "in_transit"].includes(b.status);
-            const target = isActiveParcel ? `/express/booking/${b.id}/track` : `/express/booking/${b.id}`;
+            const target = isActiveParcel ? `/send/booking/${b.id}/track` : `/send/booking/${b.id}`;
             return <BookingCard key={b.id} b={b} onClick={() => navigate(target)} />;
           })
         )}

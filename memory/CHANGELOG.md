@@ -1,5 +1,38 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-05 — QA v15 Workstreams 1 + 2 + 4 (SHOP QA · SEND rename · India parity) — COMPLETE
+
+**Testing case.xlsx** priority order 1 → 2 → 4 → 3. Workstream 3 (French-first i18n) is planned in `/app/memory/I18N_PLAN.md`, awaiting user approval before code changes.
+
+### Workstream 1 — SHOP Storefront QA
+- **Item A** — `/shop/categories` uses `mx-auto max-w-7xl px-4 sm:px-6` for balanced left/right margins across breakpoints (no more edge-to-edge grid).
+- **Item B** — `ShopHome.jsx / ProductCarouselSection` now fetches its own list scoped to the section's configured `filter` (category slug) + optional `subcategory`. Blank / `bestsellers` / `new` keep the shared homepage list so older seeds still work.
+- **Item C** — `POST /martbaked/sellers/apply/start` accepts an optional `module: "shop" | "mart"`. When set to `shop`, the created supplier is tagged `modules=["SHOP"]` and shows up under `/admin/modules/shop/suppliers` Submitted tab. Existing draft applications gain `SHOP` appended (not overwritten) on re-apply. Frontend `SellerApplyWizard` sends the module flag automatically when mounted under `/shopbaked/sellers/apply`.
+
+### Workstream 2 — SEND URL rename
+- `/express/*` → `/send/*` for every customer-facing route.
+- `/express` and `/express/*` legacy paths **soft-redirect** via a new `<ExpressLegacyRedirect>` bridge that preserves query + hash + trailing segments. Bookmarks, QR codes and shared links continue to work.
+- Bottom nav, module tabs, mobile shell, `modules.js` route, express bottom nav, config homepage — all point to `/send`.
+- **Module code, database enums, backend API prefix `/api/express/*` unchanged** — internal identifiers preserved as per the "URL rename only" contract.
+- Testing agent iteration_80 verified all `/send/*` routes render, `/express/*` correctly redirects, backend API untouched.
+
+### Workstream 4 — India data parity
+- `SHOP_COUNTRIES = ("CI", "IN")` — full 19-category tree seeded for India.
+- `SHOP_HOMEPAGE_COUNTRIES = ("CI", "IN")` — 5 CMS sections seeded for IN with India-specific hero copy ("Shipped across India", "Delhi NCR same-day"). CI copy untouched.
+- `seed_shop_demo_products(session, country="IN")` — 181 IN products + 362 variants, one per subcategory, currency `INR`, prices scaled `× 0.14` from XOF and rounded so IN gets natural ₹ pricing (e.g. iPhone accessory tier ~₹500-3 500 instead of raw XOF numbers).
+- MART `_seed_products` extended: both `PRODUCTS_CI` and `EXTRA_PRODUCTS_CI` are mirrored into IN with INR pricing + "Delhi NCR 20-30 min" descriptions. `country="IN"` products now populate `/api/mart/products?country=IN`.
+- `ShopHome`, `ShopCategoriesIndex`, `ShopCategory` read `useApp().country?.code` and fire APIs with the active country instead of hard-coded `CI`. IN customers now land on `/shop` and see IN inventory + hero copy natively.
+- Verified: `curl /api/shop/products?country=IN&limit=100` → 100 items in INR; `curl /api/shop/catalogue?country=IN` → 19 categories with subcategories; `curl /api/mart/products?country=IN&limit=100` → 100 IN MART products in INR.
+
+### Workstream 3 — French-first i18n (PLANNING ONLY)
+- `/app/memory/I18N_PLAN.md` — full 9-phase implementation plan spanning customer, admin, seller, driver + backend errors/emails. Library choice: **react-i18next**. Route strategy: dual-path with French canonical. Ready for user sign-off.
+- No code touched.
+
+Test coverage: iteration_80 → 4/4 backend suites + 4/4 frontend suites pass. Zero regressions on the Playwright SHOP wizard suite from 2026-03-04.
+
+---
+
+
 ## 2026-03-04 — Playwright regression for SHOP seller Step-4 location picker — COMPLETE
 Belt-and-braces coverage for the white-on-white autocomplete + India-PIN fixes shipped earlier today.
 

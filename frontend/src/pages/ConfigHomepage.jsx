@@ -250,7 +250,7 @@ const Hero = ({ section, country }) => {
  * ============================================================================ */
 
 const MODULE_ROUTES = {
-  mart: "/", food: "/food", shop: "/shop", express: "/express", auto: "/auto", immo: "/immo",
+  mart: "/", food: "/food", shop: "/shop", express: "/send", auto: "/auto", immo: "/immo",
 };
 void MODULE_ROUTES;
 

@@ -25,13 +25,23 @@ _SHOP_HERO_BG = (
 
 def _shop_shape(country: str) -> list[dict]:
     prefix = f"hps_{country.lower()}_shop"
+    # QA v15 §4 — region-specific hero copy so IN customers don't see
+    # "Shipped across Côte d'Ivoire" and vice-versa.
+    if country == "IN":
+        subline = "Every listing reviewed. Shipped across India."
+        tech_line = "Phones, audio and accessories — Delhi NCR same-day."
+        drop_line = "Handpicked pieces from India's best sellers — restocked weekly."
+    else:
+        subline = "Every listing reviewed. Shipped across Côte d'Ivoire."
+        tech_line = "Phones, audio and accessories — same-day Abidjan express."
+        drop_line = "Handpicked pieces from CI's best sellers — restocked weekly."
     return [
         {
             "id": f"{prefix}_010_hero",
             "country": country, "module": "shop",
             "section_type": "hero",
             "title": "Fashion, tech & home — from vetted BAKĒD sellers",
-            "subtitle": "Every listing reviewed. Shipped across Côte d'Ivoire.",
+            "subtitle": subline,
             "config": {
                 # Legacy single-hero fields — kept for backward compat with
                 # earlier renderers, but the new HeroSection prefers
@@ -46,7 +56,7 @@ def _shop_shape(country: str) -> list[dict]:
                     {
                         "eyebrow": "THE BAKĒD MARKETPLACE",
                         "headline": "Fashion, tech & home — from vetted BAKĒD sellers",
-                        "description": "Every listing reviewed. Shipped across Côte d'Ivoire.",
+                        "description": subline,
                         "image": _SHOP_HERO_BG,
                         "badge": None,
                         "cta_label": "Browse categories",
@@ -57,7 +67,7 @@ def _shop_shape(country: str) -> list[dict]:
                     {
                         "eyebrow": "SEASONAL DROP",
                         "headline": "New arrivals every Friday",
-                        "description": "Handpicked pieces from CI's best sellers — restocked weekly.",
+                        "description": drop_line,
                         "image": "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=70",
                         "badge": "NEW",
                         "cta_label": "Shop the drop",
@@ -66,7 +76,7 @@ def _shop_shape(country: str) -> list[dict]:
                     {
                         "eyebrow": "TECH RESTOCK",
                         "headline": "Everyday tech · unbeatable prices",
-                        "description": "Phones, audio and accessories — same-day Abidjan express.",
+                        "description": tech_line,
                         "image": "https://images.unsplash.com/photo-1512499617640-c74ae3a79d37?w=1600&q=70",
                         "badge": "Up to 30% off",
                         "cta_label": "Shop tech",
@@ -167,7 +177,7 @@ def _shop_shape(country: str) -> list[dict]:
     ]
 
 
-SHOP_HOMEPAGE_COUNTRIES = ("CI",)
+SHOP_HOMEPAGE_COUNTRIES = ("CI", "IN")
 
 
 async def seed_shop_homepage(session: AsyncSession) -> dict[str, int]:

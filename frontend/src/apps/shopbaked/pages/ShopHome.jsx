@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import { useCart } from "@/contexts/BakedContexts";
+import { useApp, useCart } from "@/contexts/BakedContexts";
 import {
   ArrowRight, Sparkles, ShieldCheck, Truck, Tag, ShoppingBag, Loader2, Plus,
 } from "lucide-react";
@@ -38,6 +38,8 @@ const l = (r, locale) =>
   (locale === "fr" ? r?.name_fr : r?.name_en) || r?.name_en || r?.name_fr || r?.slug;
 
 export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
+  const { country } = useApp() || {};
+  const cc = country?.code || "CI";
   const [tree, setTree] = useState(null);
   const [products, setProducts] = useState(null);
   const [homepage, setHomepage] = useState(null);
@@ -46,9 +48,9 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      api.get("/shop/catalogue?country=CI"),
-      api.get("/shop/products?country=CI&limit=12"),
-      api.get("/homepage?country=CI&module=shop"),
+      api.get(`/shop/catalogue?country=${cc}`),
+      api.get(`/shop/products?country=${cc}&limit=12`),
+      api.get(`/homepage?country=${cc}&module=shop`),
     ])
       .then(([t, p, h]) => {
         if (cancelled) return;
@@ -58,7 +60,7 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
       })
       .catch((e) => !cancelled && setError(e?.message || "Failed to load"));
     return () => { cancelled = true; };
-  }, []);
+  }, [cc]);
 
   if (error) {
     return (
@@ -92,7 +94,7 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
       {homepage.map((section) => (
         <SectionRenderer key={section.id} section={section}
                          tree={tree} products={products} locale={locale}
-                         basePath={basePath} />
+                         basePath={basePath} country={cc} />
       ))}
     </div>
   );
@@ -103,12 +105,12 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
 // Unknown section_types render nothing so admins can safely experiment.
 // ==========================================================================
 
-const SectionRenderer = ({ section, tree, products, locale, basePath = "/shop" }) => {
+const SectionRenderer = ({ section, tree, products, locale, basePath = "/shop", country = "CI" }) => {
   const testId = `shopbaked-section-${section.section_type}-${section.id}`;
   const R = RENDERERS[section.section_type];
   if (!R) return null;
   return <R section={section} tree={tree} products={products} locale={locale}
-            testId={testId} basePath={basePath} />;
+            testId={testId} basePath={basePath} country={country} />;
 };
 
 // -------------------------------------------------------------- HERO ------
@@ -406,9 +408,34 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
 //   • Desktop(xl) → 5 cards visible per screen
 // Users can scroll right-to-left to reveal the rest. "View all" deep-links
 // to the section's configured target (defaults to /shop/categories).
-const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" }) => {
+//
+// QA v15 §1B — Category filtering:
+//   Each carousel section fetches its OWN product list scoped to the
+//   configured `filter` (category slug) + optional `subcategory`. Blank /
+//   `bestsellers` / `new` fall back to the shared homepage product list
+//   so older seeds keep working without extra requests.
+const ProductCarouselSection = ({ section, products, testId, basePath = "/shop", country = "CI" }) => {
   const limit = section.config?.limit || 12;
-  const items = (products || []).slice(0, limit);
+  const rawCatSlug = section.config?.filter;
+  const rawSubSlug = section.config?.subcategory;
+  const isKeyword = !rawCatSlug || rawCatSlug === "bestsellers" || rawCatSlug === "new";
+  const [scoped, setScoped] = React.useState(null);
+
+  React.useEffect(() => {
+    if (isKeyword) { setScoped(null); return; }
+    let cancelled = false;
+    const params = new URLSearchParams({
+      country, category: rawCatSlug, limit: String(limit),
+    });
+    if (rawSubSlug) params.set("subcategory", rawSubSlug);
+    api.get(`/shop/products?${params.toString()}`)
+      .then(({ data }) => !cancelled && setScoped(data || []))
+      .catch(() => !cancelled && setScoped([]));
+    return () => { cancelled = true; };
+  }, [isKeyword, rawCatSlug, rawSubSlug, limit, country]);
+
+  const source = isKeyword ? (products || []) : (scoped || []);
+  const items = source.slice(0, limit);
   // Deep-link resolution priority (QA — Fixing_Prompt "Home #2"):
   //   1. explicit `view_all_link` (legacy)
   //   2. explicit `link` (admin form field name)
@@ -418,10 +445,8 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop" 
   // `basePath` so a MART-emergent-preview link opens correctly under SHOP.
   const explicit = section.config?.view_all_link || section.config?.link;
   const normalise = (u) => (u && u.startsWith("/shopbaked") ? u.replace("/shopbaked", basePath) : u);
-  const catSlug = section.config?.filter;
-  const subSlug = section.config?.subcategory;
-  const derived = catSlug && catSlug !== "bestsellers" && catSlug !== "new"
-    ? `${basePath}/c/${catSlug}${subSlug ? `?sub=${subSlug}` : ""}`
+  const derived = !isKeyword
+    ? `${basePath}/c/${rawCatSlug}${rawSubSlug ? `?sub=${rawSubSlug}` : ""}`
     : null;
   const viewAllHref = normalise(explicit) || derived || `${basePath}/categories`;
 

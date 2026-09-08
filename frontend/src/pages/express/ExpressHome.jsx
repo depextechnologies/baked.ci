@@ -202,7 +202,7 @@ const ExpressHomeMobile = () => {
 
   const start = useCallback((code) => {
     setDraft((d) => ({ ...d, pickup: activeAddress || d.pickup, vehicle_code: code || d.vehicle_code }));
-    navigate("/express/book/location");
+    navigate("/send/book/location");
   }, [activeAddress, setDraft, navigate]);
 
   const shortcutCards = vehicles.filter((v) => ["bike", "three_wheeler", "truck"].includes(v.code));
@@ -225,7 +225,7 @@ const ExpressHomeMobile = () => {
           </button>
           <button
             data-testid="exp-home-add-stop"
-            onClick={() => navigate("/express/book/location")}
+            onClick={() => navigate("/send/book/location")}
             className="h-10 pl-3 pr-4 rounded-full flex items-center gap-1.5 text-sm font-semibold border border-border text-foreground"
           >
             <Plus size={14} color={YELLOW} /> Add Stop
@@ -237,7 +237,7 @@ const ExpressHomeMobile = () => {
       <section className="mt-5">
         <div className="px-4 flex items-center justify-between mb-3">
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Send Now</h2>
-          <Link data-testid="exp-home-see-all" to="/express/book/location" className="text-[0.75rem] font-semibold" style={{ color: YELLOW }}>See all →</Link>
+          <Link data-testid="exp-home-see-all" to="/send/book/location" className="text-[0.75rem] font-semibold" style={{ color: YELLOW }}>See all →</Link>
         </div>
         {/* 180px cards + 12px gap. On a 390px viewport 2 cards fully fit and the
             third peeks; on 412-430px (typical Android) the third card peeks ~30-40%. */}
@@ -255,14 +255,14 @@ const ExpressHomeMobile = () => {
           title="Parcel Delivery"
           subtitle="Fast document & parcel delivery"
           image={EXPRESS_ASSETS.parcel}
-          onClick={() => navigate("/express/book/location")}
+          onClick={() => navigate("/send/book/location")}
         />
         <ServiceCard
           testid="exp-home-movers"
           title="Home Shifting"
           subtitle="Professional Packers & Movers"
           image={EXPRESS_ASSETS.moving}
-          onClick={() => navigate("/express/movers")}
+          onClick={() => navigate("/send/movers")}
         />
       </section>
 
@@ -352,7 +352,7 @@ const ExpressDesktopHome = () => {
 
   const start = useCallback((code) => {
     setDraft((d) => ({ ...d, pickup: activeAddress || d.pickup, vehicle_code: code || d.vehicle_code }));
-    navigate("/express/book/location");
+    navigate("/send/book/location");
   }, [activeAddress, setDraft, navigate]);
 
   const shortcutCards = vehicles.filter((v) => ["bike", "three_wheeler", "truck"].includes(v.code));
@@ -388,14 +388,14 @@ const ExpressDesktopHome = () => {
 
           {/* Section 3 — 2 service cards side-by-side */}
           <div className="grid grid-cols-2 gap-3">
-            <DesktopServiceCard testid="exp-dt-parcel"  title="Parcel Delivery" subtitle={<>Fast document<br/>&amp; parcel delivery</>} image={EXPRESS_ASSETS.parcel} onClick={() => navigate("/express/parcel")} />
-            <DesktopServiceCard testid="exp-dt-movers"  title="Home Shifting"   subtitle={<>Professional<br/>Packers &amp; Movers</>} image={EXPRESS_ASSETS.moving} onClick={() => navigate("/express/home-shifting")} />
+            <DesktopServiceCard testid="exp-dt-parcel"  title="Parcel Delivery" subtitle={<>Fast document<br/>&amp; parcel delivery</>} image={EXPRESS_ASSETS.parcel} onClick={() => navigate("/send/parcel")} />
+            <DesktopServiceCard testid="exp-dt-movers"  title="Home Shifting"   subtitle={<>Professional<br/>Packers &amp; Movers</>} image={EXPRESS_ASSETS.moving} onClick={() => navigate("/send/home-shifting")} />
           </div>
 
           {/* Section 4 — Explore All Services */}
           <button
             data-testid="exp-dt-explore"
-            onClick={() => navigate("/express/services")}
+            onClick={() => navigate("/send/services")}
             className="exp-dt-tile rounded-2xl p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#FCC44C44] border border-border"
           >
             <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}>
@@ -413,7 +413,7 @@ const ExpressDesktopHome = () => {
           {/* Section 5 — Book Now primary CTA */}
           <button
             data-testid="exp-dt-book"
-            onClick={() => navigate("/express/book/location")}
+            onClick={() => navigate("/send/book/location")}
             className="rounded-2xl h-14 flex items-center justify-center gap-2 text-base font-bold text-black motion-fast active:scale-[0.99]"
             style={{ backgroundColor: YELLOW }}
           >

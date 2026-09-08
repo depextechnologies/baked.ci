@@ -13,7 +13,7 @@ export const MODULES = [
   { code: "food", label: "FOOD", suffix: "bakēd", tagline: "Restaurants & Food", color: "#77BC1F", icon: Utensils, status: "coming_soon", route: "/food" },
   { code: "shop", label: "SHOP", suffix: "bakēd", tagline: "Electronics & Lifestyle", color: "#FCC44C", icon: ShoppingBag, status: "active", route: "/shop" },
   // Note: internal code stays `express` to avoid schema/API churn; user-facing brand is SEND (SENDbaked).
-  { code: "express", label: "SEND", suffix: "baked", tagline: "Courier & Delivery", color: "#FCC44C", icon: Truck, status: "active", route: "/express" },
+  { code: "express", label: "SEND", suffix: "baked", tagline: "Courier & Delivery", color: "#FCC44C", icon: Truck, status: "active", route: "/send" },
   { code: "auto", label: "AUTO", suffix: "bakēd", tagline: "Vehicles & Services", color: "#FF4C52", icon: Car, status: "coming_soon", route: "/auto" },
   { code: "immo", label: "IMMO", suffix: "bakēd", tagline: "Real Estate & Property", color: "#A659FF", icon: Home, status: "coming_soon", route: "/immo" },
 ];

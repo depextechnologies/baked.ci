@@ -10,6 +10,7 @@ import React from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Search, LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApp } from "@/contexts/BakedContexts";
 import { ProductCard } from "./ShopHome";
 
 const SHOP_ACCENT = "#FCC44C";
@@ -18,6 +19,8 @@ const abs = (u) => (u && typeof u === "string" && u.startsWith("/")
   : u);
 
 export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
+  const { country } = useApp() || {};
+  const cc = country?.code || "CI";
   const { categorySlug } = useParams();
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -39,22 +42,22 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
 
   useEffect(() => {
     let cancelled = false;
-    api.get("/shop/catalogue?country=CI").then(({ data }) => {
+    api.get(`/shop/catalogue?country=${cc}`).then(({ data }) => {
       if (cancelled) return;
       setCat((data || []).find((c) => c.slug === categorySlug) || null);
     });
     return () => { cancelled = true; };
-  }, [categorySlug]);
+  }, [categorySlug, cc]);
 
   useEffect(() => {
     let cancelled = false;
-    const q = new URLSearchParams({ country: "CI", category: categorySlug, limit: "100" });
+    const q = new URLSearchParams({ country: cc, category: categorySlug, limit: "100" });
     if (activeSub && activeSub !== "all") q.set("subcategory", activeSub);
     api.get(`/shop/products?${q.toString()}`).then(({ data }) => {
       if (!cancelled) setProducts(data || []);
     });
     return () => { cancelled = true; };
-  }, [categorySlug, activeSub]);
+  }, [categorySlug, activeSub, cc]);
 
   const setSub = (slug) => {
     const p = new URLSearchParams(params);

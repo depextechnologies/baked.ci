@@ -572,8 +572,24 @@ async def seed_shop_demo_products(session: AsyncSession, country: str = "CI") ->
     Returns stats for observability. Skips subcategories that already have
     at least one demo row so the total row-count stays constant across
     reboots. Non-demo (seller-created) products are never touched.
+
+    Multi-region: each supported market has its own currency + price scale.
+    For India (IN) prices are quoted directly in INR (₹). India uses a
+    country-prefixed demo id (`shpprd_demo_in_<slug>`) so its rows never
+    collide with the Côte d'Ivoire (CI) catalogue.
     """
     stats = {"products_inserted": 0, "variants_inserted": 0, "skipped": 0}
+
+    # QA v15 §4 — currency map. Multiplier converts the CI (XOF-denominated)
+    # variant prices to the target market's currency. Values are rounded to
+    # keep tags "clean" (₹ prices don't need decimals).
+    currency_cfg = {
+        "CI": {"currency": "XOF", "mult": 1.0,   "id_prefix": "shpprd_demo"},
+        "IN": {"currency": "INR", "mult": 0.14,  "id_prefix": "shpprd_demo_in"},
+    }.get(country.upper(), {"currency": "XOF", "mult": 1.0, "id_prefix": "shpprd_demo"})
+    currency = currency_cfg["currency"]
+    mult = currency_cfg["mult"]
+    id_prefix = currency_cfg["id_prefix"]
 
     cat_rows = (
         await session.execute(select(ShopCategory).where(ShopCategory.country == country))
@@ -592,7 +608,7 @@ async def seed_shop_demo_products(session: AsyncSession, country: str = "CI") ->
         ).scalars().all()
 
         for i, sub in enumerate(subs):
-            demo_pid = f"shpprd_demo_{sub.slug}"[:64]
+            demo_pid = f"{id_prefix}_{sub.slug}"[:64]
 
             existing = await session.get(ShopProduct, demo_pid)
             if existing:
@@ -624,14 +640,16 @@ async def seed_shop_demo_products(session: AsyncSession, country: str = "CI") ->
             stats["products_inserted"] += 1
 
             for v_idx, (suffix, price, compare, stock, attrs) in enumerate(variants_blueprint):
+                scaled_price = max(1, int(round(price * mult)))
+                scaled_compare = max(1, int(round(compare * mult))) if compare else None
                 variant = ShopVariant(
-                    id=f"shpvar_demo_{sub.slug}_{v_idx}"[:64],
+                    id=f"shpvar_demo_{country.lower()}_{sub.slug}_{v_idx}"[:64],
                     product_id=demo_pid,
-                    sku=f"DEMO-{sub.slug.upper()[:12]}-{v_idx + 1}",
+                    sku=f"DEMO-{country.upper()}-{sub.slug.upper()[:10]}-{v_idx + 1}",
                     title_suffix=suffix,
-                    price=price,
-                    compare_at_price=compare,
-                    currency="XOF",
+                    price=scaled_price,
+                    compare_at_price=scaled_compare,
+                    currency=currency,
                     stock_qty=stock,
                     condition="new",
                     attributes=attrs,
@@ -644,7 +662,7 @@ async def seed_shop_demo_products(session: AsyncSession, country: str = "CI") ->
     if stats["products_inserted"] or stats["variants_inserted"]:
         await session.flush()
         logger.info(
-            "shop.demo_seed inserted products=%s variants=%s (skipped existing=%s)",
-            stats["products_inserted"], stats["variants_inserted"], stats["skipped"],
+            "shop.demo_seed country=%s inserted products=%s variants=%s (skipped existing=%s)",
+            country, stats["products_inserted"], stats["variants_inserted"], stats["skipped"],
         )
     return stats

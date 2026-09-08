@@ -32,8 +32,8 @@ export const MobileBottomNav = ({ onOpenAppSelector }) => {
   );
 
   // Per-module route table. Add new marketplaces here in one place.
-  const HOME = { mart: "/", shop: "/shop", food: "/food", express: "/express" };
-  const CATS = { mart: "/categories", shop: "/shop/categories", food: "/food", express: "/express" };
+  const HOME = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
+  const CATS = { mart: "/categories", shop: "/shop/categories", food: "/food", express: "/send" };
   const homePath = HOME[activeModule] || "/";
   const categoriesPath = CATS[activeModule] || "/categories";
 

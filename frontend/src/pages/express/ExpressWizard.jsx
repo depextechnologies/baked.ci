@@ -43,7 +43,7 @@ export const ExpressStepLocation = () => {
           <AddressField testid="exp-drop" label="Drop-off Location" address={draft.drop} onEdit={pickDrop} tone="#FCC44C" hint="Where are we delivering?" />
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/express/book/receiver")} disabled={!ok} />
+      <ExpressFooter onContinue={() => navigate("/send/book/receiver")} disabled={!ok} />
     </div>
   );
 };
@@ -111,7 +111,7 @@ export const ExpressStepReceiver = () => {
           </div>
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/express/book/vehicle")} disabled={!ok} />
+      <ExpressFooter onContinue={() => navigate("/send/book/vehicle")} disabled={!ok} />
     </div>
   );
 };
@@ -209,7 +209,7 @@ export const ExpressStepVehicle = () => {
           </div>
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/express/book/package")} disabled={!draft.vehicle_code} />
+      <ExpressFooter onContinue={() => navigate("/send/book/package")} disabled={!draft.vehicle_code} />
     </div>
   );
 };
@@ -234,7 +234,7 @@ const RouteSummary = () => {
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Drop-off</div>
           <div className="text-xs font-semibold truncate">{draft.drop?.formatted_address || "—"}</div>
         </div>
-        <button data-testid="exp-route-edit" onClick={() => navigate("/express/book/location")} className="text-[10px] font-semibold text-muted-foreground hover:text-foreground">Edit</button>
+        <button data-testid="exp-route-edit" onClick={() => navigate("/send/book/location")} className="text-[10px] font-semibold text-muted-foreground hover:text-foreground">Edit</button>
       </div>
     </div>
   );
@@ -308,7 +308,7 @@ export const ExpressStepPackage = () => {
           </Field>
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/express/book/estimate")} disabled={!p.type || !p.weight_range} />
+      <ExpressFooter onContinue={() => navigate("/send/book/estimate")} disabled={!p.type || !p.weight_range} />
     </div>
   );
 };
@@ -344,7 +344,7 @@ export const ExpressStepEstimate = () => {
   };
 
   const book = async () => {
-    if (!customer) { openLogin("/express/book/estimate"); return; }
+    if (!customer) { openLogin("/send/book/estimate"); return; }
     setBusy(true);
     try {
       const { data } = await api.post("/express/bookings/parcel", {
@@ -361,7 +361,7 @@ export const ExpressStepEstimate = () => {
         payment_method: "cod",
       });
       resetDraft();
-      navigate(`/express/booking/${data.id}?success=1`);
+      navigate(`/send/booking/${data.id}?success=1`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Booking failed");
     } finally { setBusy(false); }
@@ -373,7 +373,7 @@ export const ExpressStepEstimate = () => {
         <ExpressHeader title="Price Estimation" step={5} />
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div className="text-sm font-semibold">Booking details incomplete</div>
-          <button onClick={() => navigate("/express/book/location")} className="mt-4 baked-btn h-11 px-6 font-bold text-black" style={{ backgroundColor: "#FCC44C" }}>Restart booking</button>
+          <button onClick={() => navigate("/send/book/location")} className="mt-4 baked-btn h-11 px-6 font-bold text-black" style={{ backgroundColor: "#FCC44C" }}>Restart booking</button>
         </div>
       </div>
     );
@@ -390,7 +390,7 @@ export const ExpressStepEstimate = () => {
               <img src={vehicleImage(draft.vehicle_code)} alt={draft.vehicle_code} className="max-h-12 max-w-full w-auto object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" />
             </div>
             <div className="flex-1"><div className="text-sm font-bold capitalize">{draft.vehicle_code.replace("_", " ")}</div><div className="text-[11px] text-muted-foreground">Selected vehicle</div></div>
-            <button data-testid="exp-est-change-veh" onClick={() => navigate("/express/book/vehicle")} className="text-xs font-semibold" style={{ color: "#FCC44C" }}>Change</button>
+            <button data-testid="exp-est-change-veh" onClick={() => navigate("/send/book/vehicle")} className="text-xs font-semibold" style={{ color: "#FCC44C" }}>Change</button>
           </div>
 
           <div className="baked-card border border-border p-4">
@@ -471,7 +471,7 @@ export const ExpressBookingConfirmation = () => {
   // Auto-redirect parcel bookings to live tracking (~1.2s after success paint).
   useEffect(() => {
     if (!booking || booking.booking_type !== "parcel" || !success) return;
-    const t = setTimeout(() => navigate(`/express/booking/${booking.id}/track`, { replace: true }), 1200);
+    const t = setTimeout(() => navigate(`/send/booking/${booking.id}/track`, { replace: true }), 1200);
     return () => clearTimeout(t);
   }, [booking, success, navigate]);
 
@@ -479,7 +479,7 @@ export const ExpressBookingConfirmation = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <ExpressHeader title="Booking Confirmed" onBack={() => navigate("/express")} />
+      <ExpressHeader title="Booking Confirmed" onBack={() => navigate("/send")} />
       <div className="flex-1 px-4 py-6 space-y-4">
         {success && (
           <div className="text-center">
@@ -542,8 +542,8 @@ export const ExpressBookingConfirmation = () => {
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <button data-testid="exp-booking-track" onClick={() => navigate(`/express/booking/${booking.id}/track`)} className="baked-btn h-11 border border-border font-semibold text-sm">Track order</button>
-          <button data-testid="exp-booking-home" onClick={() => navigate("/express")} className="baked-btn h-11 font-bold text-sm text-black" style={{ backgroundColor: "#FCC44C" }}>Book another</button>
+          <button data-testid="exp-booking-track" onClick={() => navigate(`/send/booking/${booking.id}/track`)} className="baked-btn h-11 border border-border font-semibold text-sm">Track order</button>
+          <button data-testid="exp-booking-home" onClick={() => navigate("/send")} className="baked-btn h-11 font-bold text-sm text-black" style={{ backgroundColor: "#FCC44C" }}>Book another</button>
         </div>
       </div>
     </div>

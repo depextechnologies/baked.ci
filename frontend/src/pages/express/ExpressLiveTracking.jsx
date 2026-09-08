@@ -131,7 +131,7 @@ export const ExpressLiveTracking = () => {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="px-3 h-14 flex items-center gap-2">
-          <button data-testid="exp-track-back" onClick={() => navigate("/express/bookings")} aria-label="Back" className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary motion-fast active:scale-95">
+          <button data-testid="exp-track-back" onClick={() => navigate("/send/bookings")} aria-label="Back" className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary motion-fast active:scale-95">
             <ArrowLeft size={18} />
           </button>
           <div className="flex-1 text-center">
@@ -291,7 +291,7 @@ export const ExpressLiveTracking = () => {
         {delivered && (
           <button
             data-testid="exp-track-done"
-            onClick={() => navigate("/express")}
+            onClick={() => navigate("/send")}
             className="w-full rounded-2xl h-12 font-bold text-black"
             style={{ backgroundColor: YELLOW }}
           >

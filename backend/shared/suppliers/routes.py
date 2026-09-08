@@ -197,6 +197,10 @@ class ApplyStartIn(BaseModel):
     business_name: str = Field(..., min_length=2, max_length=300)
     business_type: str = Field(..., description="manufacturer|distributor|wholesaler|…")
     country: str = Field(..., min_length=2, max_length=2)
+    # QA v15 §1C — Module tag so admin's Submitted tab can surface SHOP
+    # applications alongside MART. Accepts "mart" | "shop"; falls back to
+    # "mart" for backwards compatibility with older callers.
+    module: Optional[str] = Field("mart", description="mart|shop")
 
 
 @public_router.post("/apply/start", status_code=201)
@@ -207,6 +211,10 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
     if payload.business_type not in SUPPLIER_BUSINESS_TYPES:
         raise HTTPException(400, f"business_type must be one of {SUPPLIER_BUSINESS_TYPES}")
     country = payload.country.upper()
+    module = (payload.module or "mart").lower()
+    if module not in ("mart", "shop"):
+        raise HTTPException(400, "module must be 'mart' or 'shop'")
+    module_code = module.upper()
 
     existing = (await session.execute(
         select(Supplier).where(
@@ -225,6 +233,15 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
             .order_by(SupplierApplication.created_at.desc())
         )).scalars().first()
         if app and app.status in ("draft", "action_required"):
+            # Ensure the reused draft is tagged for the current module so the
+            # SHOP admin surface can find it. Merge, don't overwrite — a
+            # supplier can span both marketplaces.
+            mods = list(existing.modules or [])
+            if module_code not in mods:
+                mods.append(module_code)
+                existing.modules = mods
+                await session.commit()
+                await session.refresh(existing)
             return {"application": _application_dict(app), "supplier": _supplier_dict(existing)}
         if app and app.status in ("submitted", "under_review"):
             raise HTTPException(409, {
@@ -239,6 +256,8 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
         business_email=payload.business_email,
         country=country,
         status="draft",
+        module=module,
+        modules=[module_code],
     )
     session.add(supplier)
     await session.flush()

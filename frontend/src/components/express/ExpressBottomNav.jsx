@@ -15,7 +15,7 @@ export const ExpressBottomNav = ({ onOpenAppSelector }) => {
   const nav = useNavigate();
   const loc = useLocation();
 
-  const isActive = (paths) => paths.some((p) => (p === "/express" ? loc.pathname === "/express" : loc.pathname.startsWith(p)));
+  const isActive = (paths) => paths.some((p) => (p === "/send" ? loc.pathname === "/send" : loc.pathname.startsWith(p)));
 
   const Item = ({ icon: Icon, label, paths, testid }) => {
     const active = isActive(paths);
@@ -49,11 +49,11 @@ export const ExpressBottomNav = ({ onOpenAppSelector }) => {
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch">
-          <Item icon={Home} label="Home" paths={["/express"]} testid="exp-bnav-home" />
-          <Item icon={ClipboardList} label="Bookings" paths={["/express/bookings"]} testid="exp-bnav-bookings" />
+          <Item icon={Home} label="Home" paths={["/send"]} testid="exp-bnav-home" />
+          <Item icon={ClipboardList} label="Bookings" paths={["/send/bookings"]} testid="exp-bnav-bookings" />
           {/* Spacer for FAB */}
           <div className="w-14 shrink-0" aria-hidden />
-          <Item icon={Briefcase} label="Services" paths={["/express/services"]} testid="exp-bnav-services" />
+          <Item icon={Briefcase} label="Services" paths={["/send/services"]} testid="exp-bnav-services" />
           <Item icon={User} label="Profile" paths={["/profile"]} testid="exp-bnav-profile" />
         </div>
       </nav>

@@ -196,7 +196,7 @@ export const SellerApplyWizard = () => {
         </div>
 
         <div className="pl-card p-8">
-          {current === 1 && <StepPhone appId={appId} setAppId={setAppId} setSupplier={setSupplier} setAppCode={setAppCode} onNext={() => { setCurrent(2); refresh(); }} supplier={supplier} />}
+          {current === 1 && <StepPhone appId={appId} setAppId={setAppId} setSupplier={setSupplier} setAppCode={setAppCode} onNext={() => { setCurrent(2); refresh(); }} supplier={supplier} isShop={isShop} />}
           {current === 2 && <StepBusiness appId={appId} supplier={supplier} onNext={() => setCurrent(3)} onPrev={() => setCurrent(1)} refresh={refresh} />}
           {current === 3 && <StepOwner appId={appId} contact={full.contacts.find((c) => c.is_primary)} onNext={() => setCurrent(4)} onPrev={() => setCurrent(2)} refresh={refresh} />}
           {current === 4 && <StepLocation appId={appId} loc={full.supply_locations.find((l) => l.is_business_location)} supplier={supplier} onNext={() => setCurrent(5)} onPrev={() => setCurrent(3)} refresh={refresh} />}
@@ -256,7 +256,7 @@ const NavRow = ({ onPrev, onNext, nextLabel = "Continue", busy, nextTestId, disa
 /*                              Step 1 — Phone                                 */
 /* -------------------------------------------------------------------------- */
 
-const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier }) => {
+const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier, isShop = false }) => {
   // Sub-phases: A) new applicant form B) OTP entry
   const [phase, setPhase] = useState(appId && supplier?.phone_verified ? "done" : (appId ? "otp" : "form"));
   const [busy, setBusy] = useState(false);
@@ -272,7 +272,10 @@ const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier 
   const startApp = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
-      const { data } = await sellerApi.post("/martbaked/sellers/apply/start", form);
+      // QA v15 §1C — Tag the application with the seller portal's module
+      // so /admin/modules/shop/suppliers surfaces SHOP applicants.
+      const payload = { ...form, module: isShop ? "shop" : "mart" };
+      const { data } = await sellerApi.post("/martbaked/sellers/apply/start", payload);
       setAppId(data.application.id);
       setAppCode(data.application.application_code);
       setSupplier(data.supplier);

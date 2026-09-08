@@ -7,7 +7,7 @@
  * only the router boundary has moved. This unblocks Phase 2 (per-partner
  * apps) without a risky mass file move.
  */
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, AppProvider, CartProvider } from "@/contexts/BakedContexts";
 import { TopNav } from "@/components/layout/TopNav";
 import { ModuleTabs } from "@/components/layout/ModuleTabs";
@@ -82,6 +82,14 @@ const FooterLandingRoutes = () =>
     <Route key={p} path={p} element={<ComingSoonLanding />} />
   ));
 
+// QA v15 §2 — legacy `/express/*` URLs continue to work by 301-redirecting
+// to `/send/*` (module rename). Prefix stays "/express" in API + DB.
+const ExpressLegacyRedirect = () => {
+  const loc = useLocation();
+  const rest = loc.pathname.replace(/^\/express/, "") || "";
+  return <Navigate to={`/send${rest}${loc.search || ""}`} replace />;
+};
+
 const DesktopCustomerShell = () => (
   <div className="App min-h-screen bg-background text-foreground">
     <TopNav />
@@ -111,20 +119,22 @@ const DesktopCustomerShell = () => (
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
       <Route path="/shop/order/:orderId" element={<ShopOrderConfirmation basePath="/shop" />} />
-      <Route path="/express" element={<ExpressHome />} />
-      <Route path="/express/book/location" element={<ExpressStepLocation />} />
-      <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
-      <Route path="/express/book/vehicle" element={<ExpressStepVehicle />} />
-      <Route path="/express/book/package" element={<ExpressStepPackage />} />
-      <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
-      <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
-      <Route path="/express/booking/:id/track" element={<ExpressLiveTracking />} />
-      <Route path="/express/bookings" element={<ExpressBookings />} />
-      <Route path="/express/services" element={<ExpressServices />} />
-      <Route path="/express/parcel" element={<ExpressStepLocation />} />
-      <Route path="/express/home-shifting" element={<MoversLanding />} />
-      <Route path="/express/movers" element={<MoversLanding />} />
-      <Route path="/express/movers/wizard" element={<MoversWizard />} />
+      <Route path="/express" element={<Navigate to="/send" replace />} />
+      <Route path="/express/*" element={<ExpressLegacyRedirect />} />
+      <Route path="/send" element={<ExpressHome />} />
+      <Route path="/send/book/location" element={<ExpressStepLocation />} />
+      <Route path="/send/book/receiver" element={<ExpressStepReceiver />} />
+      <Route path="/send/book/vehicle" element={<ExpressStepVehicle />} />
+      <Route path="/send/book/package" element={<ExpressStepPackage />} />
+      <Route path="/send/book/estimate" element={<ExpressStepEstimate />} />
+      <Route path="/send/booking/:id" element={<ExpressBookingConfirmation />} />
+      <Route path="/send/booking/:id/track" element={<ExpressLiveTracking />} />
+      <Route path="/send/bookings" element={<ExpressBookings />} />
+      <Route path="/send/services" element={<ExpressServices />} />
+      <Route path="/send/parcel" element={<ExpressStepLocation />} />
+      <Route path="/send/home-shifting" element={<MoversLanding />} />
+      <Route path="/send/movers" element={<MoversLanding />} />
+      <Route path="/send/movers/wizard" element={<MoversWizard />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -168,20 +178,22 @@ const MobileCustomerShell = () => (
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
       <Route path="/shop/order/:orderId" element={<ShopOrderConfirmation basePath="/shop" />} />
-      <Route path="/express" element={<ExpressHome />} />
-      <Route path="/express/book/location" element={<ExpressStepLocation />} />
-      <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
-      <Route path="/express/book/vehicle" element={<ExpressStepVehicle />} />
-      <Route path="/express/book/package" element={<ExpressStepPackage />} />
-      <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
-      <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
-      <Route path="/express/booking/:id/track" element={<ExpressLiveTracking />} />
-      <Route path="/express/bookings" element={<ExpressBookings />} />
-      <Route path="/express/services" element={<ExpressServices />} />
-      <Route path="/express/parcel" element={<ExpressStepLocation />} />
-      <Route path="/express/home-shifting" element={<MoversLanding />} />
-      <Route path="/express/movers" element={<MoversLanding />} />
-      <Route path="/express/movers/wizard" element={<MoversWizard />} />
+      <Route path="/express" element={<Navigate to="/send" replace />} />
+      <Route path="/express/*" element={<ExpressLegacyRedirect />} />
+      <Route path="/send" element={<ExpressHome />} />
+      <Route path="/send/book/location" element={<ExpressStepLocation />} />
+      <Route path="/send/book/receiver" element={<ExpressStepReceiver />} />
+      <Route path="/send/book/vehicle" element={<ExpressStepVehicle />} />
+      <Route path="/send/book/package" element={<ExpressStepPackage />} />
+      <Route path="/send/book/estimate" element={<ExpressStepEstimate />} />
+      <Route path="/send/booking/:id" element={<ExpressBookingConfirmation />} />
+      <Route path="/send/booking/:id/track" element={<ExpressLiveTracking />} />
+      <Route path="/send/bookings" element={<ExpressBookings />} />
+      <Route path="/send/services" element={<ExpressServices />} />
+      <Route path="/send/parcel" element={<ExpressStepLocation />} />
+      <Route path="/send/home-shifting" element={<MoversLanding />} />
+      <Route path="/send/movers" element={<MoversLanding />} />
+      <Route path="/send/movers/wizard" element={<MoversWizard />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />

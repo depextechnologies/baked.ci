@@ -24,8 +24,8 @@ export const MobileShell = ({ children }) => {
   const isCheckout = loc.pathname.startsWith("/checkout") || loc.pathname === "/shop/checkout";
   const isOrder = loc.pathname.startsWith("/orders") || loc.pathname.startsWith("/shop/order");
   const isProfile = loc.pathname.startsWith("/profile") || loc.pathname === "/wallet";
-  const isExpressWizard = loc.pathname.startsWith("/express/book/") || loc.pathname.startsWith("/express/movers/wizard") || loc.pathname.startsWith("/express/booking/");
-  const isExpress = loc.pathname === "/express" || loc.pathname.startsWith("/express/");
+  const isExpressWizard = loc.pathname.startsWith("/send/book/") || loc.pathname.startsWith("/send/movers/wizard") || loc.pathname.startsWith("/send/booking/");
+  const isExpress = loc.pathname === "/send" || loc.pathname.startsWith("/send/");
 
   const showHeader = (isHome || isCategory || isCart || isCheckout || isOrder || isProduct) && !isProfile && !isExpress;
   const showBottomNav = !isCheckout && !isExpressWizard;
