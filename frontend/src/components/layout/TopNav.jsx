@@ -8,6 +8,7 @@ import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, MapPin, Loader2, M
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/sheet";
 import { AddressPill } from "../address/AddressPill";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import { MODULES } from "../../lib/modules";
 import { toast } from "sonner";
 
@@ -184,34 +185,17 @@ export const TopNav = () => {
             </span>
           </button>
 
-          {/* Language switcher — dropdown, desktop only */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                data-testid="top-nav-language-switcher"
-                className="hidden lg:flex items-center gap-1 h-10 px-3 rounded-full border border-border text-xs font-semibold hover:bg-secondary motion-fast shrink-0"
-                aria-label="Language"
-              >
-                {language === "fr" ? "FR" : "EN"} <ChevronDown size={12} />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-40 p-1">
-              <button
-                data-testid="top-nav-language-fr"
-                onClick={() => setLanguage("fr")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "fr" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
-              >
-                FR — Français
-              </button>
-              <button
-                data-testid="top-nav-language-en"
-                onClick={() => setLanguage("en")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "en" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
-              >
-                EN — English
-              </button>
-            </PopoverContent>
-          </Popover>
+          {/* Language switcher — desktop only.
+              Uses the shared LanguageSwitcher (inline pills) instead of a
+              Popover — the Popover portal was racing with i18n's language
+              change re-render and failing to re-mount on second open.
+              Legacy `top-nav-language-switcher` testid kept as wrapper so
+              existing tests keep passing; inner pills expose
+              `lang-switcher-fr` / `lang-switcher-en`. */}
+          <div data-testid="top-nav-language-switcher"
+               className="hidden lg:inline-flex items-center shrink-0">
+            <LanguageSwitcher variant="compact" />
+          </div>
 
           {/* Theme toggle — desktop only */}
           <button

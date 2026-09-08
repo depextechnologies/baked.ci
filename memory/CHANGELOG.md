@@ -1,5 +1,41 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-06 — Workstream 3 Phase B follow-up · Visible-first migration — COMPLETE
+
+Delivered the user's called-out gaps (homepage "Shop by category" / "Delivery in", full footer, all inside pages like "Sell on Baked" / "Partnership" / careers / help / contact) plus the ComingSoonLanding placeholder used by 24 footer routes.
+
+**Files migrated:**
+- `Footer.jsx` — rewritten to consume `common:footer.*` keys. Columns Liens utiles / Opportunités / Support fully bilingual; store badges + copyright translated.
+- `ConfigHomepage.jsx` — Hero delivery panel (LIVRAISON EN, Livraison gratuite dès X, Frais de livraison, Commande minimum, Populaire près de chez vous); CategoryGrid eyebrow/title/link ("ACHETEZ PAR CATÉGORIE / Catégories / VOIR TOUT"); TrustStrip (Livraison ultra-rapide, Large gamme de produits, Meilleurs prix & offres, Retours faciles); ProductCarousel view-all link.
+- `ComingSoonLanding.jsx` — refactored to i18n. `landing.json` FR/EN covers 25 slugs (careers, help, contact, blog, news, terms, privacy, partner, invest, franchise, delivery-partner, driver-registration, merchant-registration, shop/seller, food/partner, mart/seller/partner, auto/seller/partner, immo/agent/broker/partner, baked-delivery, about, investors).
+- `PartnerLandingApp.jsx` (Sell-on-BAKĒD marketing page) — Navbar, Hero, Opportunities section, Why Partner section, Final CTA, and Footer all consume the new `partner` namespace. Card body copy for six opportunities and stats grid still English-only (backlog).
+
+**New locale namespaces:**
+- `landing` — 25 slug keys × FR/EN (footer landings + coming-soon placeholders).
+- `partner` — nav, hero, opportunities, why, final_cta, footer × FR/EN (Sell-on-BAKĒD marketing page).
+- `common.footer.*` — 20 keys covering site footer nav, sections and delivery panel labels.
+- `common.trust.*` — TrustStrip icons on customer homepage.
+
+**Fixes rolled up:**
+- `i18n/index.js` — dropped `htmlTag` from detector chain so a pre-set `<html lang="en">` no longer pins the app to English. `caches: ["localStorage"]` only (no cookie caching) so stale cookies from previous sessions can't override French-first behaviour.
+- `public/index.html` — root `<html lang="fr">`.
+- `BakedContexts.jsx` — mount-time effect forces `i18n.changeLanguage(language)` so context + i18next stay in lock-step across the initial paint.
+- `TopNav.jsx` — replaced fragile Popover-based FR/EN switcher (Radix portal was racing with i18n re-render, failing to reopen) with the shared inline `<LanguageSwitcher />`. `top-nav-language-switcher` testid preserved on wrapper for backward-compat with existing tests.
+
+**Visible outcome (screenshots captured):**
+- `/` — hero, delivery panel, category grid eyebrow/title/link, TrustStrip, and full footer all in FR.
+- `/Sell-on-baked` — nav (Solutions / Devenir partenaire / Pourquoi BAKĒD / Ressources / Support / Se connecter / Postuler), hero ("Développez votre activité avec BAKĒD.", "Rejoignez des milliers d'entreprises..."), section headers, final CTA, footer all in FR.
+- `/careers`, `/help`, `/contact`, `/blog`, `/terms`, `/privacy` — placeholder cards fully FR.
+
+**Still English (backlog, tracked in `/app/memory/I18N_PLAN.md` Phase D–I):**
+- PartnerLandingApp opportunity CARDs body copy, stats grid, testimonials, timeline (visible when scrolling below the fold on `/Sell-on-baked`).
+- Admin console labels beyond nav (Phase G).
+- Backend error messages + transactional emails (Phase D).
+- Dynamic product `name` / `description` DB columns (Phase H).
+
+---
+
+
 ## 2026-03-05 (evening) — QA v15 Workstream 3 Phase A · i18n Foundation — COMPLETE
 
 **User-approved plan:** `/app/memory/I18N_PLAN.md` — Phase A + language-switcher polish across all 6 shells. Vendor: Emergent LLM key / Claude for future backfill. Admin path segments stay English (labels translate). Machine translation deferred; hand-written French for top ~50 critical strings shipped.

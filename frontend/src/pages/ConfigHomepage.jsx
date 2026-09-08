@@ -18,6 +18,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Loader2, Smartphone, Store,
@@ -106,7 +107,9 @@ const SectionRenderer = ({ section, index, country }) => {
  * SHARED HEADER
  * ============================================================================ */
 
-const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) => (
+const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) => {
+  const { t } = useTranslation("customer");
+  return (
   <div className="baked-container flex items-end justify-between mb-5" data-testid={testid}>
     <div className="min-w-0">
       {eyebrow && (
@@ -130,11 +133,12 @@ const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) 
         to={linkTo}
         className="hidden md:inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] hover:text-[#77BC1F]/80 font-semibold whitespace-nowrap ml-4"
       >
-        {linkLabel || "View all"} <ArrowRight size={12} />
+        {linkLabel || t("home.shop_all")} <ArrowRight size={12} />
       </Link>
     )}
   </div>
-);
+  );
+};
 
 
 /* ============================================================================
@@ -142,6 +146,7 @@ const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) 
  * ============================================================================ */
 
 const Hero = ({ section, country }) => {
+  const { t } = useTranslation("common");
   const nav = useNavigate();
   const cfg = section.config || {};
   const bg = abs(cfg.background_image) ||
@@ -203,7 +208,7 @@ const Hero = ({ section, country }) => {
              style={{ background: "linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%)" }}
              data-testid="hp-hero-delivery-panel">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Delivery in</div>
+            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{t("footer.delivery_in")}</div>
             <div className="flex items-baseline gap-2 mt-1">
               <div className="text-4xl md:text-5xl font-bold tracking-tight">{etaValue}</div>
               <div className="text-base font-semibold text-muted-foreground">min</div>
@@ -211,17 +216,17 @@ const Hero = ({ section, country }) => {
                 <Bike size={26} className="text-[#77BC1F]" />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">Free delivery on orders over <span className="text-foreground font-semibold">{compactMoney(freeOver, currency)}</span></p>
+            <p className="text-xs text-muted-foreground mt-3">{t("footer.free_delivery_over", { amount: compactMoney(freeOver, currency) })}</p>
           </div>
           <div className="border-t border-border/60 pt-4 grid grid-cols-2 gap-3 text-xs">
             <div>
-              <div className="text-muted-foreground">Delivery fee</div>
+              <div className="text-muted-foreground">{t("footer.delivery_fee")}</div>
               <div className="text-sm font-bold mt-0.5">
                 {compactMoney(deliveryFee, currency)}
               </div>
             </div>
             <div>
-              <div className="text-muted-foreground">Min. order</div>
+              <div className="text-muted-foreground">{t("footer.min_order")}</div>
               <div className="text-sm font-bold mt-0.5">
                 {compactMoney(minOrder, currency)}
               </div>
@@ -231,7 +236,7 @@ const Hero = ({ section, country }) => {
             <div className="flex items-start gap-2">
               <MapPin size={14} className="mt-0.5 text-[#77BC1F] shrink-0" />
               <div className="text-xs">
-                <div className="text-muted-foreground">Popular near you</div>
+                <div className="text-muted-foreground">{t("footer.popular_near_you")}</div>
                 <div className="text-sm font-semibold mt-0.5 truncate">{country?.name || "Your city"}</div>
               </div>
             </div>
@@ -260,6 +265,7 @@ void MODULE_ROUTES;
  * ============================================================================ */
 
 const CategoryGrid = ({ section }) => {
+  const { t } = useTranslation("common");
   const cats = section.config?.categories || [];
   const cols = section.config?.columns || 6;
   const colClass = cols >= 6
@@ -268,11 +274,10 @@ const CategoryGrid = ({ section }) => {
   return (
     <div className="baked-container">
       <SectionHeader
-        eyebrow="Shop by category"
-        title={section.title || "Categories"}
+        eyebrow={t("footer.shop_by_category")}
+        title={(!section.title || section.title === "Categories") ? t("nav.categories") : section.title}
         subtitle={section.subtitle}
         linkTo="/categories"
-        linkLabel="View all"
       />
       <div className={`grid ${colClass} gap-3 md:gap-4`}>
         {cats.map((c) => {
@@ -406,6 +411,7 @@ const BannerTrio = ({ section }) => {
  * ============================================================================ */
 
 const ProductCarousel = ({ section, country }) => {
+  const { t } = useTranslation("customer");
   const cfg = section.config || {};
   const limit = Number(cfg.limit) || 12;
   const scrollRef = React.useRef(null);
@@ -507,7 +513,7 @@ const ProductCarousel = ({ section, country }) => {
             return href && (
               <Link to={href} data-testid={`hp-carousel-viewall-${section.id}`}
                     className="ml-2 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] font-semibold">
-                View all <ArrowRight size={12} />
+                {t("home.shop_all")} <ArrowRight size={12} />
               </Link>
             );
           })()}
@@ -673,33 +679,36 @@ const CtaStrip = ({ section }) => {
  * TRUST STRIP — always-on footer badges
  * ============================================================================ */
 
-const TRUST = [
-  { icon: Bike,    color: "#77BC1F", title: "Super fast delivery",  desc: "10-15 min average" },
-  { icon: Package, color: "#F97316", title: "Wide range of products", desc: "Everything you need" },
-  { icon: Tag,     color: "#06B6D4", title: "Best prices & offers",  desc: "Save more every day" },
-  { icon: RotateCcw, color: "#A855F7", title: "Easy returns", desc: "Hassle-free refunds" },
-];
-const TrustStrip = () => (
+const TrustStrip = () => {
+  const { t } = useTranslation("common");
+  const TRUST = [
+    { icon: Bike,    color: "#77BC1F", key: "fast" },
+    { icon: Package, color: "#F97316", key: "range" },
+    { icon: Tag,     color: "#06B6D4", key: "prices" },
+    { icon: RotateCcw, color: "#A855F7", key: "returns" },
+  ];
+  return (
   <div className="baked-container mt-14 md:mt-16">
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 rounded-2xl bg-card border border-border p-5 md:p-6" data-testid="hp-trust-strip">
-      {TRUST.map((t, i) => {
-        const Icon = t.icon;
+      {TRUST.map((row, i) => {
+        const Icon = row.icon;
         return (
           <div key={i} className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                 style={{ background: `${t.color}22`, color: t.color }}>
+                 style={{ background: `${row.color}22`, color: row.color }}>
               <Icon size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold leading-tight">{t.title}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{t.desc}</div>
+              <div className="text-sm font-bold leading-tight">{t(`trust.${row.key}.title`)}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{t(`trust.${row.key}.desc`)}</div>
             </div>
           </div>
         );
       })}
     </div>
   </div>
-);
+  );
+};
 
 
 // Suppress lint — used inline in Hero panel

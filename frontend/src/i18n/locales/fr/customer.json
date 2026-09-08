@@ -19,7 +19,10 @@
     "out_of_stock": "Rupture de stock",
     "sign_in_to_checkout": "Connectez-vous pour finaliser votre commande",
     "confirm_clear_title": "Vider le panier ?",
-    "confirm_clear_body": "Cette action est irréversible."
+    "confirm_clear_body": "Cette action est irréversible.",
+    "min_order_short": "Ajoutez {{amount}} pour atteindre le minimum de {{min}}.",
+    "unavailable_warning": "{{count}} article(s) indisponible(s) dans votre zone — MARTbakēd arrive bientôt dans d'autres magasins. Veuillez les retirer pour continuer.",
+    "delivery_shop_note": "Calculé par le vendeur"
   },
   "checkout": {
     "title": "Finaliser ma commande",
@@ -30,13 +33,17 @@
     "payment_cash": "Paiement à la livraison",
     "payment_wallet": "Portefeuille BAKĒD",
     "payment_card": "Carte bancaire",
-    "order_summary": "Récapitulatif",
+    "order_summary": "Récapitulatif de commande",
     "place_order": "Confirmer la commande",
     "placing_order": "Traitement en cours…",
     "select_address": "Sélectionnez une adresse",
     "add_address_cta": "Ajouter une adresse",
     "order_success_title": "Commande confirmée",
-    "order_success_body": "Merci ! Votre commande est en préparation."
+    "order_success_body": "Merci ! Votre commande est en préparation.",
+    "estimated_delivery": "Livraison estimée",
+    "items": "Articles",
+    "tip_label": "Pourboire livreur",
+    "promo_code": "Code promo"
   },
   "product": {
     "add_to_cart": "Ajouter au panier",
@@ -49,7 +56,12 @@
     "delivery_estimate": "Livraison estimée",
     "description": "Description",
     "specifications": "Caractéristiques",
-    "reviews": "Avis"
+    "reviews": "Avis",
+    "recommendations": "Recommandé pour vous",
+    "add_more": "Ajouter",
+    "sold_out": "Épuisé",
+    "similar_products": "Produits similaires",
+    "you_may_also_like": "Vous aimerez peut-être"
   },
   "orders": {
     "list_title": "Mes commandes",
@@ -64,14 +76,88 @@
     "track_order": "Suivre",
     "reorder": "Commander à nouveau",
     "view_details": "Voir les détails",
-    "placed_on": "Passée le"
+    "placed_on": "Passée le",
+    "order_number": "Commande #{{number}}",
+    "estimated_arrival": "Arrivée estimée",
+    "driver_on_the_way": "Votre livreur arrive",
+    "delivered_at": "Livrée à {{time}}",
+    "call_driver": "Appeler le livreur",
+    "chat_driver": "Discuter avec le livreur",
+    "rate_order": "Noter la commande",
+    "invoice": "Facture",
+    "cancel_order": "Annuler la commande"
   },
   "home": {
     "welcome": "Bienvenue sur BAKĒD",
     "hero_cta": "Découvrir",
     "categories_title": "Parcourir par catégorie",
     "featured_title": "Produits en vedette",
-    "shop_all": "Voir tout"
+    "shop_all": "Voir tout",
+    "trending_now": "Tendances",
+    "top_offers": "Meilleures offres",
+    "just_for_you": "Juste pour vous",
+    "search_placeholder": "Rechercher des produits, marques...",
+    "view_more": "Voir plus"
+  },
+  "category": {
+    "all": "Tout",
+    "filter": "Filtrer",
+    "sort": "Trier",
+    "sort_relevance": "Pertinence",
+    "sort_price_asc": "Prix croissant",
+    "sort_price_desc": "Prix décroissant",
+    "sort_newest": "Plus récents",
+    "results_count_one": "{{count}} résultat",
+    "results_count_other": "{{count}} résultats",
+    "no_results": "Aucun produit trouvé",
+    "clear_filters": "Effacer les filtres"
+  },
+  "wallet": {
+    "title": "Portefeuille",
+    "balance": "Solde",
+    "add_money": "Ajouter de l'argent",
+    "withdraw": "Retirer",
+    "transactions": "Transactions",
+    "no_transactions": "Aucune transaction",
+    "topup_success": "Rechargement réussi",
+    "coming_soon_title": "Bientôt disponible",
+    "coming_soon_body": "Le portefeuille BAKĒD arrive prochainement."
+  },
+  "profile": {
+    "title": "Profil",
+    "greeting": "Bonjour, {{name}}",
+    "greeting_guest": "Bienvenue",
+    "sign_in_prompt": "Connectez-vous pour accéder à votre profil",
+    "addresses": "Adresses",
+    "settings": "Paramètres",
+    "help": "Aide et support",
+    "rewards": "Récompenses",
+    "refer": "Parrainer un ami",
+    "activities": "Activité",
+    "sign_out": "Se déconnecter",
+    "edit_profile": "Modifier le profil",
+    "phone_number": "Numéro de téléphone",
+    "email": "E-mail",
+    "language": "Langue",
+    "notifications": "Notifications",
+    "privacy": "Confidentialité",
+    "delete_account": "Supprimer le compte"
+  },
+  "address": {
+    "add_title": "Ajouter une adresse",
+    "edit_title": "Modifier l'adresse",
+    "label": "Étiquette",
+    "label_home": "Domicile",
+    "label_work": "Bureau",
+    "label_other": "Autre",
+    "street": "Rue",
+    "city": "Ville",
+    "postal_code": "Code postal",
+    "country": "Pays",
+    "instructions": "Instructions supplémentaires",
+    "set_default": "Définir par défaut",
+    "empty_title": "Aucune adresse enregistrée",
+    "empty_subtitle": "Ajoutez une adresse pour vos commandes futures."
   },
   "auth": {
     "login_title": "Connexion à BAKĒD",
@@ -83,6 +169,8 @@
     "otp_sent": "Code envoyé au {{destination}}",
     "resend_otp": "Renvoyer le code",
     "continue_with_google": "Continuer avec Google",
-    "forgot_password": "Mot de passe oublié ?"
+    "forgot_password": "Mot de passe oublié ?",
+    "no_account": "Pas encore de compte ?",
+    "have_account": "Vous avez déjà un compte ?"
   }
 }

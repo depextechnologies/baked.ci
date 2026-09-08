@@ -35,6 +35,10 @@ import frSeller from "./locales/fr/seller.json";
 import enSeller from "./locales/en/seller.json";
 import frDriver from "./locales/fr/driver.json";
 import enDriver from "./locales/en/driver.json";
+import frLanding from "./locales/fr/landing.json";
+import enLanding from "./locales/en/landing.json";
+import frPartner from "./locales/fr/partner.json";
+import enPartner from "./locales/en/partner.json";
 
 export const SUPPORTED_LANGUAGES = ["fr", "en"];
 export const DEFAULT_LANGUAGE = "fr"; // French-first per client brief
@@ -46,6 +50,8 @@ const resources = {
     admin: frAdmin,
     seller: frSeller,
     driver: frDriver,
+    landing: frLanding,
+    partner: frPartner,
   },
   en: {
     common: enCommon,
@@ -53,6 +59,8 @@ const resources = {
     admin: enAdmin,
     seller: enSeller,
     driver: enDriver,
+    landing: enLanding,
+    partner: enPartner,
   },
 };
 
@@ -64,7 +72,7 @@ i18n
     fallbackLng: DEFAULT_LANGUAGE,
     supportedLngs: SUPPORTED_LANGUAGES,
     defaultNS: "common",
-    ns: ["common", "customer", "admin", "seller", "driver"],
+    ns: ["common", "customer", "admin", "seller", "driver", "landing", "partner"],
     interpolation: { escapeValue: false }, // React already sanitises
     detection: {
       // Order matters — an explicit user choice (URL param or localStorage)
@@ -72,11 +80,13 @@ i18n
       // BAKĒD stays French-first for every new visitor in every browser
       // locale (per client brief). English is only reached via the
       // in-app toggle (persists to localStorage) or the ?lang=en query.
-      order: ["querystring", "localStorage", "cookie", "htmlTag"],
+      // Also drop `cookie` from caches so a stale cross-session cookie
+      // (Playwright / preview URLs occasionally retain one) can't pin
+      // the language to English forever. localStorage alone is enough.
+      order: ["querystring", "localStorage"],
       lookupQuerystring: "lang",
       lookupLocalStorage: "baked_language",
-      lookupCookie: "baked_language",
-      caches: ["localStorage", "cookie"],
+      caches: ["localStorage"],
     },
     react: {
       // Text updates are synchronous — no Suspense boundary needed since

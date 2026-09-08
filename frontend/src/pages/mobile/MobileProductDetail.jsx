@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
@@ -19,6 +20,7 @@ const BADGES = [
 ];
 
 export const MobileProductDetail = () => {
+  const { t } = useTranslation("customer");
   const { id } = useParams();
   const nav = useNavigate();
   const { country } = useApp();
@@ -103,7 +105,7 @@ export const MobileProductDetail = () => {
       {/* Description */}
       {product.description && (
         <div className="px-4 mt-5">
-          <div className="text-sm font-semibold mb-1.5">About this product</div>
+          <div className="text-sm font-semibold mb-1.5">{t("product.description")}</div>
           <div className={`text-xs text-muted-foreground leading-relaxed ${expandDesc ? "" : "line-clamp-3"}`}>{product.description}</div>
           {product.description.length > 120 && (
             <button onClick={() => setExpandDesc((x) => !x)} className="text-xs font-semibold mt-1" style={{ color: "#77BC1F" }}>
@@ -150,7 +152,7 @@ export const MobileProductDetail = () => {
       <div className="fixed bottom-16 left-0 right-0 z-30 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-2 gap-2 p-3">
           <Button data-testid="m-pd-add" onClick={onAdd} className="baked-btn h-12 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
-            <ShoppingCart size={16} className="mr-1.5" /> Add to Cart
+            <ShoppingCart size={16} className="mr-1.5" /> {t("product.add_to_cart")}
           </Button>
           <Button data-testid="m-pd-buy" onClick={async () => { await onAdd(); nav("/checkout"); }} variant="secondary" className="baked-btn h-12 font-bold" style={{ backgroundColor: "#0a1200", color: "#77BC1F", borderColor: "#77BC1F", borderWidth: 1 }}>
             <Zap size={16} className="mr-1.5" fill="#77BC1F" /> Buy Now

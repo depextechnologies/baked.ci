@@ -114,6 +114,17 @@ export const AppProvider = ({ children }) => {
   const [modules, setModules] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem("baked_theme") || "dark");
   const [language, setLanguageState] = useState(detectInitialLanguage);
+  // Force i18next to the language AppProvider chose on the very first
+  // paint. Without this, i18next-browser-languagedetector may briefly
+  // resolve to a stale cookie / htmlTag value and lock the app into
+  // English before the [language]-effect below writes the fix back to
+  // localStorage.
+  useEffect(() => {
+    if (i18n?.language !== language) {
+      try { i18n.changeLanguage(language); } catch (_) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Active delivery address — the single source of truth across every module.
   // Persisted in localStorage for guests; hydrated from saved addresses for authed users.
   const [activeAddress, _setActiveAddress] = useState(() => {

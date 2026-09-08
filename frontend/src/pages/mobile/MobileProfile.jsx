@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth, useApp } from "../../contexts/BakedContexts";
 import { api } from "../../lib/api";
 import { Button } from "../../components/ui/button";
@@ -18,6 +19,7 @@ const Row = ({ icon: Icon, label, sub, onClick, tone = "#77BC1F", testid }) => (
 );
 
 export const MobileProfile = () => {
+  const { t } = useTranslation("customer");
   const { customer, logout, openLogin } = useAuth();
   const { country, language } = useApp();
   const nav = useNavigate();
@@ -49,9 +51,9 @@ export const MobileProfile = () => {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center px-6 text-center">
         <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><ShieldCheck size={36} /></div>
-        <div className="text-lg font-bold">Sign in to view your profile</div>
+        <div className="text-lg font-bold">{t("profile.sign_in_prompt")}</div>
         <p className="text-xs text-muted-foreground mt-1">Your BAKĒD identity works across every service.</p>
-        <Button data-testid="m-prof-login" onClick={() => openLogin("/profile")} className="baked-btn mt-6 h-11 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>Continue to sign in</Button>
+        <Button data-testid="m-prof-login" onClick={() => openLogin("/profile")} className="baked-btn mt-6 h-11 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>{t("common:btn.sign_in")}</Button>
       </div>
     );
   }
@@ -66,8 +68,8 @@ export const MobileProfile = () => {
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-prof-back" onClick={() => nav(-1)} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold">Profile</div>
-          <div className="text-[11px] text-muted-foreground">Manage your baked account</div>
+          <div className="text-base font-bold">{t("profile.title")}</div>
+          <div className="text-[11px] text-muted-foreground">{t("profile.greeting_guest")}</div>
         </div>
         <button data-testid="m-prof-settings-header" onClick={() => nav("/profile/settings")} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Settings"><Settings2 size={16} /></button>
       </div>
@@ -119,13 +121,13 @@ export const MobileProfile = () => {
       {/* Navigation list */}
       <div className="px-4 mt-4">
         <div className="baked-card bg-card border border-border overflow-hidden">
-          <Row testid="m-prof-nav-wallet" icon={Wallet2} label="Wallet" sub={`${country?.currency_symbol || country?.currency || ""} 0.00 · Coming soon`} onClick={() => nav("/wallet")} tone="#1D9BF0" />
-          <Row testid="m-prof-nav-activities" icon={ClipboardList} label="Activities" sub="Orders, deliveries, property & vehicle inquiries" onClick={() => nav("/profile/activities")} tone="#A659FF" />
-          <Row testid="m-prof-nav-addresses" icon={MapPin} label="Addresses" sub={`${stats.addresses} saved · Used across all baked services`} onClick={() => nav("/profile/addresses")} tone="#77BC1F" />
-          <Row testid="m-prof-nav-rewards" icon={Gift} label="BAKĒD Rewards" sub={`${points} points available`} onClick={() => nav("/profile/rewards")} tone="#FCC44C" />
-          <Row testid="m-prof-nav-refer" icon={Users2} label="Refer & Earn" sub="Invite friends, both earn rewards" onClick={() => nav("/profile/refer")} tone="#FF4C52" />
-          <Row testid="m-prof-nav-help" icon={LifeBuoy} label="Help & Support" sub={stats.tickets_open ? `${stats.tickets_open} open tickets` : "We're here 24/7"} onClick={() => nav("/profile/help")} tone="#1D9BF0" />
-          <Row testid="m-prof-nav-settings" icon={Settings2} label="Settings" sub="Notifications, language, region, privacy" onClick={() => nav("/profile/settings")} tone="#8b8b8b" />
+          <Row testid="m-prof-nav-wallet" icon={Wallet2} label={t("wallet.title")} sub={`${country?.currency_symbol || country?.currency || ""} 0.00 · ${t("wallet.coming_soon_title")}`} onClick={() => nav("/wallet")} tone="#1D9BF0" />
+          <Row testid="m-prof-nav-activities" icon={ClipboardList} label={t("profile.activities")} sub="Orders, deliveries, property & vehicle inquiries" onClick={() => nav("/profile/activities")} tone="#A659FF" />
+          <Row testid="m-prof-nav-addresses" icon={MapPin} label={t("profile.addresses")} sub={`${stats.addresses} saved`} onClick={() => nav("/profile/addresses")} tone="#77BC1F" />
+          <Row testid="m-prof-nav-rewards" icon={Gift} label={t("profile.rewards")} sub={`${points} points`} onClick={() => nav("/profile/rewards")} tone="#FCC44C" />
+          <Row testid="m-prof-nav-refer" icon={Users2} label={t("profile.refer")} sub="Invite friends, both earn rewards" onClick={() => nav("/profile/refer")} tone="#FF4C52" />
+          <Row testid="m-prof-nav-help" icon={LifeBuoy} label={t("profile.help")} sub={stats.tickets_open ? `${stats.tickets_open} open tickets` : "24/7"} onClick={() => nav("/profile/help")} tone="#1D9BF0" />
+          <Row testid="m-prof-nav-settings" icon={Settings2} label={t("profile.settings")} sub={`${t("profile.language")}, ${t("profile.notifications")}, ${t("profile.privacy")}`} onClick={() => nav("/profile/settings")} tone="#8b8b8b" />
         </div>
       </div>
 

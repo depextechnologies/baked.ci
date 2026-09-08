@@ -1,0 +1,31 @@
+{
+  "_default": {
+    "desc": "This page is coming soon.",
+    "back_home": "Back to BAKĒD home"
+  },
+  "shop_seller":            { "title": "SHOPbakēd Seller",  "desc": "Sell your products to buyers across Africa on SHOPbakēd." },
+  "food_partner":           { "title": "FOODbakēd Partner", "desc": "Bring your restaurant, cloud kitchen or bakery onto FOODbakēd." },
+  "mart_partner":           { "title": "MARTbakēd Partner", "desc": "Partner with MARTbakēd for grocery, retail and store enablement." },
+  "mart_seller":            { "title": "MARTbakēd Seller",  "desc": "List and sell your inventory on MARTbakēd." },
+  "auto_partner":           { "title": "AUTObakēd Partner", "desc": "Onboard your dealership or garage as an AUTObakēd partner." },
+  "auto_seller":            { "title": "AUTObakēd Seller",  "desc": "Sell your vehicle or fleet on AUTObakēd." },
+  "immo_partner":           { "title": "IMMObakēd Partner", "desc": "Real-estate partners power the IMMObakēd network." },
+  "immo_agent":             { "title": "IMMObakēd Agent",   "desc": "Join IMMObakēd as a licensed real-estate agent." },
+  "immo_broker":            { "title": "IMMObakēd Broker",  "desc": "Brokers manage listings and close deals faster on IMMObakēd." },
+  "blog":                   { "title": "Blog",              "desc": "Deep-dives, product notes, and stories from the BAKĒD team." },
+  "news":                   { "title": "News",              "desc": "Press releases and platform announcements." },
+  "careers":                { "title": "Careers",           "desc": "Build the future of African commerce with us." },
+  "help":                   { "title": "Help Center",       "desc": "Answers, guides, and support for every BAKĒD user." },
+  "contact":                { "title": "Contact us",        "desc": "We'd love to hear from you." },
+  "terms":                  { "title": "Terms of Service",  "desc": "The legal terms that govern your use of BAKĒD." },
+  "privacy":                { "title": "Privacy Policy",    "desc": "How BAKĒD collects, uses and protects your data." },
+  "investors":              { "title": "Investor Relations", "desc": "Financials, milestones and how to invest in BAKĒD." },
+  "franchise":              { "title": "Franchise Opportunities", "desc": "Bring the BAKĒD network to your city or country." },
+  "delivery-partner":       { "title": "Delivery Partner",  "desc": "Own a fleet? Become a BAKĒD delivery partner." },
+  "driver-registration":    { "title": "Driver Registration", "desc": "Earn with SENDbakēd — sign up as a driver." },
+  "merchant-registration":  { "title": "Merchant Registration", "desc": "One form to onboard your business to every BAKĒD module." },
+  "partner":                { "title": "Partner With bakēd", "desc": "A dedicated Partner Portal is on the way — for now, discover partnership opportunities on 'Sell on bakēd'." },
+  "baked-delivery":         { "title": "bakēd delivery",    "desc": "Same-day, same-city delivery powered by the BAKĒD dispatch network. Product page coming soon." },
+  "invest":                 { "title": "Invest in BAKĒD",   "desc": "Learn how to invest in BAKĒD and follow our growth story." },
+  "about":                  { "title": "About BAKĒD",       "desc": "Our mission: build Africa's most-loved commerce platform." }
+}

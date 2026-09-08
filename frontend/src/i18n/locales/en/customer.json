@@ -19,7 +19,10 @@
     "out_of_stock": "Out of stock",
     "sign_in_to_checkout": "Sign in to complete your order",
     "confirm_clear_title": "Clear cart?",
-    "confirm_clear_body": "This action cannot be undone."
+    "confirm_clear_body": "This action cannot be undone.",
+    "min_order_short": "Add {{amount}} more to reach the {{min}} minimum.",
+    "unavailable_warning": "{{count}} item(s) not available in your area yet — MARTbakēd is coming soon to more stores. Please remove them to continue.",
+    "delivery_shop_note": "Calculated by seller"
   },
   "checkout": {
     "title": "Checkout",
@@ -36,7 +39,11 @@
     "select_address": "Select an address",
     "add_address_cta": "Add address",
     "order_success_title": "Order confirmed",
-    "order_success_body": "Thanks! Your order is being prepared."
+    "order_success_body": "Thanks! Your order is being prepared.",
+    "estimated_delivery": "Estimated delivery",
+    "items": "Items",
+    "tip_label": "Driver tip",
+    "promo_code": "Promo code"
   },
   "product": {
     "add_to_cart": "Add to cart",
@@ -49,7 +56,12 @@
     "delivery_estimate": "Delivery estimate",
     "description": "Description",
     "specifications": "Specifications",
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "recommendations": "Recommended for you",
+    "add_more": "Add",
+    "sold_out": "Sold out",
+    "similar_products": "Similar products",
+    "you_may_also_like": "You may also like"
   },
   "orders": {
     "list_title": "My orders",
@@ -64,14 +76,88 @@
     "track_order": "Track",
     "reorder": "Reorder",
     "view_details": "View details",
-    "placed_on": "Placed on"
+    "placed_on": "Placed on",
+    "order_number": "Order #{{number}}",
+    "estimated_arrival": "Estimated arrival",
+    "driver_on_the_way": "Your driver is on the way",
+    "delivered_at": "Delivered at {{time}}",
+    "call_driver": "Call driver",
+    "chat_driver": "Chat with driver",
+    "rate_order": "Rate order",
+    "invoice": "Invoice",
+    "cancel_order": "Cancel order"
   },
   "home": {
     "welcome": "Welcome to BAKĒD",
     "hero_cta": "Explore",
     "categories_title": "Browse by category",
     "featured_title": "Featured products",
-    "shop_all": "View all"
+    "shop_all": "View all",
+    "trending_now": "Trending now",
+    "top_offers": "Top offers",
+    "just_for_you": "Just for you",
+    "search_placeholder": "Search for products, brands...",
+    "view_more": "View more"
+  },
+  "category": {
+    "all": "All",
+    "filter": "Filter",
+    "sort": "Sort",
+    "sort_relevance": "Relevance",
+    "sort_price_asc": "Price: low to high",
+    "sort_price_desc": "Price: high to low",
+    "sort_newest": "Newest",
+    "results_count_one": "{{count}} result",
+    "results_count_other": "{{count}} results",
+    "no_results": "No products found",
+    "clear_filters": "Clear filters"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "balance": "Balance",
+    "add_money": "Add money",
+    "withdraw": "Withdraw",
+    "transactions": "Transactions",
+    "no_transactions": "No transactions yet",
+    "topup_success": "Top-up successful",
+    "coming_soon_title": "Coming soon",
+    "coming_soon_body": "The BAKĒD Wallet is coming soon."
+  },
+  "profile": {
+    "title": "Profile",
+    "greeting": "Hi, {{name}}",
+    "greeting_guest": "Welcome",
+    "sign_in_prompt": "Sign in to access your profile",
+    "addresses": "Addresses",
+    "settings": "Settings",
+    "help": "Help & support",
+    "rewards": "Rewards",
+    "refer": "Refer a friend",
+    "activities": "Activity",
+    "sign_out": "Sign out",
+    "edit_profile": "Edit profile",
+    "phone_number": "Phone number",
+    "email": "Email",
+    "language": "Language",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "delete_account": "Delete account"
+  },
+  "address": {
+    "add_title": "Add address",
+    "edit_title": "Edit address",
+    "label": "Label",
+    "label_home": "Home",
+    "label_work": "Work",
+    "label_other": "Other",
+    "street": "Street",
+    "city": "City",
+    "postal_code": "Postal code",
+    "country": "Country",
+    "instructions": "Additional instructions",
+    "set_default": "Set as default",
+    "empty_title": "No saved addresses",
+    "empty_subtitle": "Add an address for your future orders."
   },
   "auth": {
     "login_title": "Sign in to BAKĒD",
@@ -83,6 +169,8 @@
     "otp_sent": "Code sent to {{destination}}",
     "resend_otp": "Resend code",
     "continue_with_google": "Continue with Google",
-    "forgot_password": "Forgot password?"
+    "forgot_password": "Forgot password?",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?"
   }
 }

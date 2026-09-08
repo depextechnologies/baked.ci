@@ -1,15 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { BakedLogo } from "./BakedLogo";
 
 /**
- * Site footer — 4-section structure per user spec (Issue #14 rework).
- *   Section 1 — BRAND: logo + Google Play + Apple App Store buttons
- *   Section 2 — USEFUL LINKS: About us · FAQs · Blogs/News · Career
- *   Section 3 — OPPORTUNITIES: Partner with Baked · Sell on Baked · Delivery Partner · Invest with us
- *   Section 4 — SUPPORT: Help Center · Contact Us · Terms & Conditions · Privacy Policy
- *
- * Requirement: keep all existing correct URLs / routes for these pages.
+ * Site footer — bilingual (FR default, EN toggle). Labels flow through
+ * `useTranslation("common")` → footer.* keys. Routes are unchanged.
  */
 
 const LinkList = ({ items }) => (
@@ -28,31 +24,6 @@ const LinkList = ({ items }) => (
   </ul>
 );
 
-// SECTION 2 — Useful links
-const USEFUL_LINKS = [
-  ["About us",   "/about"],
-  ["FAQs",       "/help"],
-  ["Blogs/News", "/blog"],
-  ["Career",     "/careers"],
-];
-
-// SECTION 3 — Opportunities
-const OPPORTUNITIES = [
-  ["Partner with Baked", "/partner"],
-  ["Sell on Baked",      "/Sell-on-baked"],
-  ["Delivery Partner",   "/driver"],
-  ["Invest with us",     "/invest"],
-];
-
-// SECTION 4 — Support
-const SUPPORT = [
-  ["Help Center",         "/help"],
-  ["Contact Us",          "/contact"],
-  ["Terms & Conditions",  "/terms"],
-  ["Privacy Policy",      "/privacy"],
-];
-
-// Google Play badge — official svg-ish rendering
 const GooglePlayBadge = () => (
   <a
     href="https://play.google.com/store"
@@ -75,7 +46,6 @@ const GooglePlayBadge = () => (
   </a>
 );
 
-// Apple App Store badge
 const AppStoreBadge = () => (
   <a
     href="https://www.apple.com/app-store/"
@@ -99,41 +69,54 @@ const SectionTitle = ({ children }) => (
   <div className="text-sm font-semibold mb-4">{children}</div>
 );
 
-export const Footer = () => (
-  <footer className="mt-16 border-t border-border" data-testid="site-footer">
-    <div className="baked-container py-12 grid gap-10 md:grid-cols-4">
-      {/* SECTION 1 — Brand */}
-      <div>
-        <BakedLogo size="md" />
-        <div className="mt-6 flex flex-col gap-3" data-testid="footer-store-badges">
-          <GooglePlayBadge />
-          <AppStoreBadge />
+export const Footer = () => {
+  const { t } = useTranslation("common");
+  const USEFUL_LINKS = [
+    [t("footer.about_us"),  "/about"],
+    [t("footer.faqs"),      "/help"],
+    [t("footer.blog"),      "/blog"],
+    [t("footer.career"),    "/careers"],
+  ];
+  const OPPORTUNITIES = [
+    [t("footer.partner"),          "/partner"],
+    [t("footer.sell"),             "/Sell-on-baked"],
+    [t("footer.delivery_partner"), "/driver"],
+    [t("footer.invest"),           "/invest"],
+  ];
+  const SUPPORT = [
+    [t("footer.help_center"), "/help"],
+    [t("footer.contact"),     "/contact"],
+    [t("footer.terms"),       "/terms"],
+    [t("footer.privacy"),     "/privacy"],
+  ];
+  return (
+    <footer className="mt-16 border-t border-border" data-testid="site-footer">
+      <div className="baked-container py-12 grid gap-10 md:grid-cols-4">
+        <div>
+          <BakedLogo size="md" />
+          <div className="mt-6 flex flex-col gap-3" data-testid="footer-store-badges">
+            <GooglePlayBadge />
+            <AppStoreBadge />
+          </div>
+        </div>
+        <div>
+          <SectionTitle>{t("footer.useful_links")}</SectionTitle>
+          <LinkList items={USEFUL_LINKS} />
+        </div>
+        <div>
+          <SectionTitle>{t("footer.opportunities")}</SectionTitle>
+          <LinkList items={OPPORTUNITIES} />
+        </div>
+        <div>
+          <SectionTitle>{t("footer.support")}</SectionTitle>
+          <LinkList items={SUPPORT} />
         </div>
       </div>
-
-      {/* SECTION 2 — Useful links */}
-      <div>
-        <SectionTitle>Useful links</SectionTitle>
-        <LinkList items={USEFUL_LINKS} />
+      <div className="border-t border-border/60">
+        <div className="baked-container py-4 text-[11px] text-muted-foreground text-center" data-testid="footer-copyright">
+          {t("footer.copyright", { year: new Date().getFullYear() })}
+        </div>
       </div>
-
-      {/* SECTION 3 — Opportunities */}
-      <div>
-        <SectionTitle>Opportunities</SectionTitle>
-        <LinkList items={OPPORTUNITIES} />
-      </div>
-
-      {/* SECTION 4 — Support */}
-      <div>
-        <SectionTitle>Support</SectionTitle>
-        <LinkList items={SUPPORT} />
-      </div>
-    </div>
-
-    <div className="border-t border-border/60">
-      <div className="baked-container py-4 text-[11px] text-muted-foreground text-center" data-testid="footer-copyright">
-        © {new Date().getFullYear()} BAKĒD. All rights reserved.
-      </div>
-    </div>
-  </footer>
-);
+    </footer>
+  );
+};

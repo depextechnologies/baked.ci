@@ -19,6 +19,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Sun,
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
@@ -137,6 +138,14 @@ const NAV_LINKS = [
 ];
 
 const Navbar = ({ theme, onToggleTheme }) => {
+  const { t } = useTranslation("partner");
+  const NAV_LINKS = [
+    { label: t("nav.solutions"),   href: "#opportunities" },
+    { label: t("nav.become"),      href: "#final-cta" },
+    { label: t("nav.why"),         href: "#why" },
+    { label: t("nav.resources"),   href: "#how-it-works" },
+    { label: t("nav.support"),     href: "#footer" },
+  ];
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -154,10 +163,10 @@ const Navbar = ({ theme, onToggleTheme }) => {
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
             <a
-              key={l.label}
+              key={l.href}
               href={l.href}
               className="pl-nav-link"
-              data-testid={`partner-nav-${l.label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z-]/g, "")}`}
+              data-testid={`partner-nav-${l.href.replace(/[^a-z-]/gi, "")}`}
             >
               {l.label}
             </a>
@@ -172,14 +181,14 @@ const Navbar = ({ theme, onToggleTheme }) => {
             className="pl-btn pl-btn-ghost hidden sm:inline-flex"
             data-testid="partner-nav-login"
           >
-            Login
+            {t("nav.login")}
           </Link>
           <a
             href="#final-cta"
             className="pl-btn pl-btn-primary"
             data-testid="partner-nav-apply-now"
           >
-            Apply Now <ArrowRight size={16} />
+            {t("nav.apply_now")} <ArrowRight size={16} />
           </a>
         </div>
       </div>
@@ -219,7 +228,9 @@ const Reveal = ({ children, delay = 0, as: Tag = "div", className = "", ...rest 
 /*                                    Hero                                    */
 /* -------------------------------------------------------------------------- */
 
-const HeroSection = () => (
+const HeroSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section className="pl-hero">
     <div className="pl-hero-bg" aria-hidden="true" />
     <div className="pl-container relative" style={{ zIndex: 2 }}>
@@ -227,29 +238,27 @@ const HeroSection = () => (
         <div>
           <Reveal>
             <div className="pl-eyebrow mb-6" style={{ color: "var(--pl-accent)" }}>
-              Now onboarding — Côte d&apos;Ivoire & India
+              {t("hero.eyebrow")}
             </div>
           </Reveal>
           <Reveal delay={80}>
             <h1 className="pl-display" style={{ color: "var(--pl-fg)" }}>
-              Grow Your Business<br />
-              with <span style={{ color: "var(--pl-accent)" }}>BAKĒD</span>.
+              {t("hero.headline_prefix")}<br />
+              {t("hero.headline_infix")} <span style={{ color: "var(--pl-accent)" }}>BAKĒD</span>.
             </h1>
           </Reveal>
           <Reveal delay={160}>
             <p className="pl-body-lg mt-6 max-w-xl">
-              Join thousands of businesses across Côte d&apos;Ivoire and become
-              part of Africa&apos;s next commerce revolution — one platform,
-              six businesses, unified logistics, and AI-native tools.
+              {t("hero.description")}
             </p>
           </Reveal>
           <Reveal delay={220}>
             <div className="mt-10 flex flex-wrap gap-4">
               <a href="#final-cta" className="pl-btn pl-btn-primary" data-testid="partner-hero-cta-primary">
-                Become a Partner <ArrowRight size={18} />
+                {t("hero.cta_primary")} <ArrowRight size={18} />
               </a>
               <a href="#opportunities" className="pl-btn pl-btn-secondary" data-testid="partner-hero-cta-secondary">
-                Explore Opportunities
+                {t("hero.cta_secondary")}
               </a>
             </div>
           </Reveal>
@@ -261,7 +270,8 @@ const HeroSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /** Hero illustration — BAKĒD hub with the six modules arranged around it. */
 const HeroEcosystemIllustration = () => {
@@ -488,18 +498,19 @@ const OpportunityCard = ({ opp, index }) => {
   );
 };
 
-const OpportunitiesSection = () => (
+const OpportunitiesSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="opportunities" className="pl-section">
     <div className="pl-container">
       <div className="text-center max-w-2xl mx-auto mb-16">
-        <Reveal><div className="pl-eyebrow mb-3">Opportunities</div></Reveal>
+        <Reveal><div className="pl-eyebrow mb-3">{t("opportunities.eyebrow")}</div></Reveal>
         <Reveal delay={80}>
-          <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Choose your opportunity</h2>
+          <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>{t("opportunities.title")}</h2>
         </Reveal>
         <Reveal delay={140}>
           <p className="pl-body-lg mt-4">
-            Select the business category that best fits your business. Each
-            module has its own dedicated onboarding flow tailored to it.
+            {t("opportunities.subtitle")}
           </p>
         </Reveal>
       </div>
@@ -511,7 +522,8 @@ const OpportunitiesSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                             Why Partner section                            */
@@ -526,14 +538,16 @@ const STATS = [
   { icon: LineChart, value: "360°", label: "Smart analytics",           hint: "Cohorts, funnels and revenue — one dashboard." },
 ];
 
-const StatsSection = () => (
+const StatsSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="why" className="pl-section" style={{ background: "var(--pl-bg-elevated)" }}>
     <div className="pl-container">
       <div className="text-center max-w-2xl mx-auto mb-16">
-        <Reveal><div className="pl-eyebrow mb-3">Why Partner With BAKĒD</div></Reveal>
+        <Reveal><div className="pl-eyebrow mb-3">{t("why.eyebrow")}</div></Reveal>
         <Reveal delay={80}>
           <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>
-            Built for scale.<br />Built for Africa.
+            {t("why.title_line1")}<br />{t("why.title_line2")}
           </h2>
         </Reveal>
       </div>
@@ -560,7 +574,8 @@ const StatsSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                              Growth (50/50)                                */
@@ -788,61 +803,66 @@ const TimelineSection = () => (
 /*                                 Final CTA                                  */
 /* -------------------------------------------------------------------------- */
 
-const FinalCTASection = () => (
+const FinalCTASection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="final-cta" className="pl-section" style={{ position: "relative", overflow: "hidden" }}>
     <div className="pl-hero-bg" aria-hidden="true" style={{ opacity: 0.9 }} />
     <div className="pl-container relative text-center max-w-3xl" style={{ zIndex: 2 }}>
       <Reveal>
         <h2 className="pl-display" style={{ color: "var(--pl-fg)", fontSize: "clamp(2.4rem, 5vw, 4.5rem)" }}>
-          Ready to grow<br />your business?
+          {t("final_cta.title_line1")}<br />{t("final_cta.title_line2")}
         </h2>
       </Reveal>
       <Reveal delay={120}>
         <p className="pl-body-lg mt-6 max-w-xl mx-auto">
-          Join BAKĒD today — one platform, six businesses, unlimited upside.
+          {t("final_cta.subtitle")}
         </p>
       </Reveal>
       <Reveal delay={200}>
         <div className="mt-10 flex flex-wrap gap-4 justify-center">
           <a href="#opportunities" className="pl-btn pl-btn-primary" data-testid="partner-final-cta-apply">
-            Apply Now <ArrowRight size={18} />
+            {t("nav.apply_now")} <ArrowRight size={18} />
           </a>
           <a href="mailto:partners@baked.ci" className="pl-btn pl-btn-secondary" data-testid="partner-final-cta-sales">
-            Talk to Sales
+            {t("final_cta.talk_to_sales")}
           </a>
         </div>
       </Reveal>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                   Footer                                   */
 /* -------------------------------------------------------------------------- */
 
-const PartnerFooter = () => (
+const PartnerFooter = () => {
+  const { t } = useTranslation("partner");
+  return (
   <footer id="footer" style={{ borderTop: "1px solid var(--pl-border)", background: "var(--pl-bg)" }}>
     <div className="pl-container py-16 grid gap-12 md:grid-cols-4">
       <div>
         <BakedLogo size="md" />
         <p className="pl-body mt-4 max-w-xs">
-          One platform. Six businesses. Built for Africa, ready for the world.
+          {t("footer.tagline")}
         </p>
       </div>
 
       {[
-        { title: "Partners", items: OPPORTUNITIES.map((o) => ({ label: o.label, href: o.href })) },
-        { title: "Company",  items: [
-            { label: "About BAKĒD",  href: "/" },
-            { label: "Careers",      href: "/careers" },
-            { label: "Blog",         href: "/blog" },
-            { label: "Investors",    href: "/investors" },
+        { title: t("footer.col_partners"), items: OPPORTUNITIES.map((o) => ({ label: o.label, href: o.href })) },
+        { title: t("footer.col_company"),  items: [
+            { label: t("footer.about"),     href: "/" },
+            { label: t("footer.careers"),   href: "/careers" },
+            { label: t("footer.blog"),      href: "/blog" },
+            { label: t("footer.investors"), href: "/investors" },
           ] },
-        { title: "Support",  items: [
-            { label: "Help Center",  href: "/help" },
-            { label: "Contact",      href: "/contact" },
-            { label: "Terms",        href: "/terms" },
-            { label: "Privacy",      href: "/privacy" },
+        { title: t("footer.col_support"),  items: [
+            { label: t("footer.help"),      href: "/help" },
+            { label: t("footer.contact"),   href: "/contact" },
+            { label: t("footer.terms"),     href: "/terms" },
+            { label: t("footer.privacy"),   href: "/privacy" },
           ] },
       ].map((col) => (
         <div key={col.title}>
@@ -869,14 +889,15 @@ const PartnerFooter = () => (
     <div className="pl-container pb-8 pt-6 flex flex-wrap items-center justify-between gap-4"
       style={{ borderTop: "1px solid var(--pl-border)" }}>
       <div className="text-xs" style={{ color: "var(--pl-fg-subtle)" }}>
-        © 2026 BAKĒD Platform · Built for Africa, ready for the world
+        {t("footer.copyright", { year: new Date().getFullYear() })}
       </div>
       <div className="text-xs flex items-center gap-2" style={{ color: "var(--pl-fg-subtle)" }}>
-        <Globe2 size={14} /> Côte d&apos;Ivoire · English
+        <Globe2 size={14} /> {t("footer.locale_hint")}
       </div>
     </div>
   </footer>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                Root component                              */

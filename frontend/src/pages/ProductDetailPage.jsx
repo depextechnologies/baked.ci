@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { useApp, useCart } from "../contexts/BakedContexts";
 import { PRODUCT } from "../constants/testIds";
@@ -12,6 +13,7 @@ import { ProductGallery } from "../components/mart/ProductGallery";
 import { ProductDetails } from "../components/mart/ProductDetails";
 
 export const ProductDetailPage = () => {
+  const { t } = useTranslation("customer");
   const { id } = useParams();
   const { country } = useApp();
   const { cart, addItem, updateItem, removeItem } = useCart();
@@ -69,7 +71,7 @@ export const ProductDetailPage = () => {
                 className="h-12 px-8 baked-btn font-semibold text-black"
                 style={{ backgroundColor: "#77BC1F" }}
               >
-                + Add to Cart
+                + {t("product.add_to_cart")}
               </Button>
             ) : (
               <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: "#77BC1F" }}>
@@ -96,7 +98,7 @@ export const ProductDetailPage = () => {
 
       {related.length > 0 && (
         <>
-          <h2 className="text-xl font-semibold mt-12 mb-4">You may also like</h2>
+          <h2 className="text-xl font-semibold mt-12 mb-4">{t("product.you_may_also_like")}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {related.slice(0, 6).map(r => (
               <ProductCard key={r.id} product={r} />

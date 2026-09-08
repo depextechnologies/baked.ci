@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
@@ -9,6 +10,7 @@ import { ArrowLeft, HelpCircle, CheckCircle2, ChevronRight, ShoppingBag, Truck, 
 import confetti from "../../lib/confetti";
 
 export const MobileOrderConfirmation = () => {
+  const { t } = useTranslation("customer");
   const { id } = useParams();
   const nav = useNavigate();
   const { country } = useApp();
@@ -35,7 +37,7 @@ export const MobileOrderConfirmation = () => {
       {/* Sub-header */}
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-oc-back" onClick={() => nav("/")} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0 text-base font-bold">Order Confirmation</div>
+        <div className="flex-1 min-w-0 text-base font-bold">{t("checkout.order_success_title")}</div>
         <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Support"><HelpCircle size={16} /></button>
       </div>
 
@@ -50,7 +52,7 @@ export const MobileOrderConfirmation = () => {
             <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: "#77BC1F", color: "#0a1200" }}>
               <CheckCircle2 size={32} strokeWidth={2.5} />
             </div>
-            <div className="text-2xl font-bold mt-3">Order Confirmed!</div>
+            <div className="text-2xl font-bold mt-3">{t("checkout.order_success_title")}</div>
             <div className="text-xs text-muted-foreground mt-1">Thank you for shopping with MARTbakēd.</div>
             <div className="text-[11px] font-mono mt-3 baked-chip inline-block px-3 py-1 bg-secondary">Order ID · <b>{order.number}</b></div>
           </div>
@@ -145,7 +147,7 @@ export const MobileOrderConfirmation = () => {
       {/* Sticky footer actions */}
       <div className="fixed bottom-16 left-0 right-0 z-30 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-2 gap-2 p-3">
-          <Button data-testid="m-oc-continue" onClick={() => nav("/")} variant="outline" className="baked-btn h-12 font-semibold">Continue Shopping</Button>
+          <Button data-testid="m-oc-continue" onClick={() => nav("/")} variant="outline" className="baked-btn h-12 font-semibold">{t("cart.continue_shopping")}</Button>
           <Button data-testid="m-oc-track" onClick={() => nav(`/orders/${order.id}/track`)} className="baked-btn h-12 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
             <Truck size={16} className="mr-1.5" /> Track Order
           </Button>

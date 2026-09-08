@@ -65,5 +65,36 @@
     "saved": "Modifications enregistrées",
     "deleted": "Supprimé avec succès",
     "copied": "Copié dans le presse-papiers"
+  },
+  "footer": {
+    "useful_links": "Liens utiles",
+    "opportunities": "Opportunités",
+    "support": "Support",
+    "about_us": "À propos",
+    "faqs": "FAQ",
+    "blog": "Blog / Actualités",
+    "career": "Carrières",
+    "partner": "Devenir partenaire",
+    "sell": "Vendre sur BAKĒD",
+    "delivery_partner": "Devenir livreur",
+    "invest": "Investir avec nous",
+    "help_center": "Centre d'aide",
+    "contact": "Nous contacter",
+    "terms": "Conditions générales",
+    "privacy": "Politique de confidentialité",
+    "copyright": "© {{year}} BAKĒD. Tous droits réservés.",
+    "delivery_in": "Livraison en",
+    "min_order": "Commande minimum",
+    "delivery_fee": "Frais de livraison",
+    "free_delivery_over": "Livraison gratuite dès {{amount}}",
+    "popular_near_you": "Populaire près de chez vous",
+    "shop_by_category": "Achetez par catégorie",
+    "shop_by_department": "Achetez par département"
+  },
+  "trust": {
+    "fast":    { "title": "Livraison ultra-rapide", "desc": "10-15 min en moyenne" },
+    "range":   { "title": "Large gamme de produits", "desc": "Tout ce qu'il vous faut" },
+    "prices":  { "title": "Meilleurs prix & offres", "desc": "Économisez chaque jour" },
+    "returns": { "title": "Retours faciles", "desc": "Remboursement sans souci" }
   }
 }

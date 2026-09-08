@@ -65,5 +65,36 @@
     "saved": "Changes saved",
     "deleted": "Deleted successfully",
     "copied": "Copied to clipboard"
+  },
+  "footer": {
+    "useful_links": "Useful links",
+    "opportunities": "Opportunities",
+    "support": "Support",
+    "about_us": "About us",
+    "faqs": "FAQs",
+    "blog": "Blogs / News",
+    "career": "Careers",
+    "partner": "Partner with Baked",
+    "sell": "Sell on Baked",
+    "delivery_partner": "Delivery Partner",
+    "invest": "Invest with us",
+    "help_center": "Help Center",
+    "contact": "Contact Us",
+    "terms": "Terms & Conditions",
+    "privacy": "Privacy Policy",
+    "copyright": "© {{year}} BAKĒD. All rights reserved.",
+    "delivery_in": "Delivery in",
+    "min_order": "Min. order",
+    "delivery_fee": "Delivery fee",
+    "free_delivery_over": "Free delivery on orders over {{amount}}",
+    "popular_near_you": "Popular near you",
+    "shop_by_category": "Shop by category",
+    "shop_by_department": "Shop by department"
+  },
+  "trust": {
+    "fast":    { "title": "Super fast delivery",   "desc": "10-15 min average" },
+    "range":   { "title": "Wide range of products", "desc": "Everything you need" },
+    "prices":  { "title": "Best prices & offers",   "desc": "Save more every day" },
+    "returns": { "title": "Easy returns",           "desc": "Hassle-free refunds" }
   }
 }

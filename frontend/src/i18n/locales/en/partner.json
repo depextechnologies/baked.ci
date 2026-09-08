@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "solutions": "Solutions",
+    "become": "Become a Partner",
+    "why": "Why BAKĒD",
+    "resources": "Resources",
+    "support": "Support",
+    "login": "Login",
+    "apply_now": "Apply Now"
+  },
+  "hero": {
+    "eyebrow": "Now onboarding — Côte d'Ivoire & India",
+    "headline_prefix": "Grow Your Business",
+    "headline_infix": "with",
+    "description": "Join thousands of businesses across Côte d'Ivoire and become part of Africa's next commerce revolution — one platform, six businesses, unified logistics, and AI-native tools.",
+    "cta_primary": "Become a Partner",
+    "cta_secondary": "Explore Opportunities"
+  },
+  "opportunities": {
+    "eyebrow": "Opportunities",
+    "title": "Choose your opportunity",
+    "subtitle": "Select the business category that best fits your business. Each module has its own dedicated onboarding flow tailored to it."
+  },
+  "why": {
+    "eyebrow": "Why Partner With BAKĒD",
+    "title_line1": "Built for scale.",
+    "title_line2": "Built for Africa."
+  },
+  "final_cta": {
+    "title_line1": "Ready to grow",
+    "title_line2": "your business?",
+    "subtitle": "Join BAKĒD today — one platform, six businesses, unlimited upside.",
+    "talk_to_sales": "Talk to Sales"
+  },
+  "footer": {
+    "tagline": "One platform. Six businesses. Built for Africa, ready for the world.",
+    "col_partners": "Partners",
+    "col_company": "Company",
+    "col_support": "Support",
+    "about": "About BAKĒD",
+    "careers": "Careers",
+    "blog": "Blog",
+    "investors": "Investors",
+    "help": "Help Center",
+    "contact": "Contact",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "copyright": "© {{year}} BAKĒD Platform · Built for Africa, ready for the world",
+    "locale_hint": "Côte d'Ivoire · English"
+  }
+}

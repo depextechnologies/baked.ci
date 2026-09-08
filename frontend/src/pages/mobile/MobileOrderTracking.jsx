@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
@@ -10,6 +11,7 @@ import { ArrowLeft, HelpCircle, Phone, MessageSquare, Share2, Truck, Star, MapPi
 import { toast } from "sonner";
 
 export const MobileOrderTracking = () => {
+  const { t: L } = useTranslation("customer");
   const { id } = useParams();
   const nav = useNavigate();
   const { country } = useApp();
@@ -55,7 +57,7 @@ export const MobileOrderTracking = () => {
       {/* Sub header */}
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-ot-back" onClick={() => nav(-1)} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0 text-base font-bold">Live Tracking</div>
+        <div className="flex-1 min-w-0 text-base font-bold">{L("orders.track_order")}</div>
         <button data-testid="m-ot-share" onClick={share} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Share status"><Share2 size={16} /></button>
         <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Support"><HelpCircle size={16} /></button>
       </div>

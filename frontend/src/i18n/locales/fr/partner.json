@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "solutions": "Solutions",
+    "become": "Devenir partenaire",
+    "why": "Pourquoi BAKĒD",
+    "resources": "Ressources",
+    "support": "Support",
+    "login": "Se connecter",
+    "apply_now": "Postuler"
+  },
+  "hero": {
+    "eyebrow": "Recrutement en cours — Côte d'Ivoire & Inde",
+    "headline_prefix": "Développez votre",
+    "headline_infix": "activité avec",
+    "description": "Rejoignez des milliers d'entreprises en Côte d'Ivoire et faites partie de la prochaine révolution du commerce africain — une plateforme, six activités, une logistique unifiée et des outils dopés à l'IA.",
+    "cta_primary": "Devenir partenaire",
+    "cta_secondary": "Découvrir les opportunités"
+  },
+  "opportunities": {
+    "eyebrow": "Opportunités",
+    "title": "Choisissez votre opportunité",
+    "subtitle": "Sélectionnez la catégorie d'activité qui vous correspond. Chaque module a son propre parcours d'intégration."
+  },
+  "why": {
+    "eyebrow": "Pourquoi devenir partenaire BAKĒD",
+    "title_line1": "Conçu pour grandir.",
+    "title_line2": "Conçu pour l'Afrique."
+  },
+  "final_cta": {
+    "title_line1": "Prêt à développer",
+    "title_line2": "votre activité ?",
+    "subtitle": "Rejoignez BAKĒD dès aujourd'hui — une plateforme, six activités, un potentiel illimité.",
+    "talk_to_sales": "Parler aux ventes"
+  },
+  "footer": {
+    "tagline": "Une plateforme. Six activités. Faite pour l'Afrique, prête pour le monde.",
+    "col_partners": "Partenaires",
+    "col_company": "Entreprise",
+    "col_support": "Support",
+    "about": "À propos de BAKĒD",
+    "careers": "Carrières",
+    "blog": "Blog",
+    "investors": "Investisseurs",
+    "help": "Centre d'aide",
+    "contact": "Contact",
+    "terms": "Conditions",
+    "privacy": "Confidentialité",
+    "copyright": "© {{year}} BAKĒD Platform · Fait pour l'Afrique, prêt pour le monde",
+    "locale_hint": "Côte d'Ivoire · Français"
+  }
+}

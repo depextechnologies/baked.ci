@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
@@ -33,6 +34,7 @@ const hydrateAddress = (active, country) => ({
 });
 
 export const MobileCheckout = () => {
+  const { t } = useTranslation("customer");
   const nav = useNavigate();
   const { country, activeAddress, openAddressSelector } = useApp();
   const { customer } = useAuth();
@@ -155,14 +157,14 @@ export const MobileCheckout = () => {
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-co-back" onClick={() => nav(-1)} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold">Checkout</div>
-          <div className="text-[11px] text-muted-foreground">Almost there — review and confirm.</div>
+          <div className="text-base font-bold">{t("checkout.title")}</div>
+          <div className="text-[11px] text-muted-foreground">{t("checkout.order_success_body")}</div>
         </div>
       </div>
 
       {/* Delivery address */}
       <section className="px-4 mt-2">
-        <div className="text-sm font-bold mb-2">Delivery Address</div>
+        <div className="text-sm font-bold mb-2">{t("checkout.delivery_address")}</div>
         <div className="baked-card bg-card border border-border p-4">
           <div className="flex items-start gap-2.5">
             <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><MapPin size={14} /></div>
@@ -172,7 +174,7 @@ export const MobileCheckout = () => {
                 <input data-testid="m-co-addr-city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} placeholder="City" className="baked-input bg-secondary px-3 py-2 text-xs" />
                 <input data-testid="m-co-addr-country" value={address.country} onChange={(e) => setAddress({ ...address, country: e.target.value.toUpperCase() })} placeholder="ISO" className="baked-input bg-secondary px-3 py-2 text-xs" />
               </div>
-              <textarea data-testid="m-co-addr-instructions" value={address.instructions} onChange={(e) => setAddress({ ...address, instructions: e.target.value })} rows={2} placeholder="Delivery instructions (optional)" className="mt-2 w-full baked-input bg-secondary px-3 py-2 text-xs" />
+              <textarea data-testid="m-co-addr-instructions" value={address.instructions} onChange={(e) => setAddress({ ...address, instructions: e.target.value })} rows={2} placeholder={t("checkout.instructions_placeholder")} className="mt-2 w-full baked-input bg-secondary px-3 py-2 text-xs" />
             </div>
           </div>
         </div>
@@ -199,7 +201,7 @@ export const MobileCheckout = () => {
 
       {/* Payment method */}
       <section className="px-4 mt-5">
-        <div className="text-sm font-bold mb-2">Payment Method</div>
+        <div className="text-sm font-bold mb-2">{t("checkout.payment_method")}</div>
         <div className="baked-card bg-card border border-border overflow-hidden">
           {PAYMENTS.map((p, i) => {
             const Icon = p.icon;
@@ -270,15 +272,15 @@ export const MobileCheckout = () => {
 
       {/* Order summary */}
       <section className="px-4 mt-5">
-        <div className="text-sm font-bold mb-2 flex items-center gap-1.5"><ShoppingBag size={14} /> Order summary <span className="text-xs text-muted-foreground font-normal">· {cart.item_count} items</span></div>
+        <div className="text-sm font-bold mb-2 flex items-center gap-1.5"><ShoppingBag size={14} /> {t("checkout.order_summary")} <span className="text-xs text-muted-foreground font-normal">· {t("cart.item_count", { count: cart.item_count || 0 })}</span></div>
         <div className="baked-card bg-card border border-border p-4">
           <div className="space-y-2 text-xs">
-            <Row label="Subtotal" value={formatMoney(subtotal, country?.currency, ccy)} />
-            <Row label="Delivery fee" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
+            <Row label={t("cart.subtotal")} value={formatMoney(subtotal, country?.currency, ccy)} />
+            <Row label={t("cart.delivery_fee")} value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
             {pointsDiscount > 0 && <Row label={`Points discount (${pointsApplied} pts)`} value={<span style={{ color: "#77BC1F" }}>− {formatMoney(pointsDiscount, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
-              <span>Total (Incl. VAT)</span><span data-testid="m-co-total">{formatMoney(total, country?.currency, ccy)}</span>
+              <span>{t("cart.total")}</span><span data-testid="m-co-total">{formatMoney(total, country?.currency, ccy)}</span>
             </div>
           </div>
           <button onClick={() => nav("/cart")} className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: "#77BC1F" }}>Edit cart <ChevronRight size={12} /></button>
@@ -311,7 +313,7 @@ export const MobileCheckout = () => {
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
           <Button data-testid="m-co-pay" disabled={placing || !address.line1 || !minOrderOk} onClick={placeOrder} className="baked-btn h-12 px-6 font-bold disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
-            {placing ? "Placing…" : !minOrderOk ? "Add more" : payment === "cod" ? "Place Order" : "Pay Now"}
+            {placing ? t("checkout.placing_order") : !minOrderOk ? t("cart.empty_cta") : t("checkout.place_order")}
           </Button>
         </div>
       </div>

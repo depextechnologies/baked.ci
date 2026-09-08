@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useAuth } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
@@ -13,6 +14,7 @@ const KIND_ICON = { mart: ShoppingIcon, food: Utensils, shop: ShoppingBag, expre
 const KIND_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#1D9BF0", express: "#FCC44C", auto: "#A659FF", immo: "#FF4C52" };
 
 export const MobileWallet = () => {
+  const { t } = useTranslation("customer");
   const nav = useNavigate();
   const { customer } = useAuth();
   const [w, setW] = useState(null);
@@ -31,7 +33,7 @@ export const MobileWallet = () => {
     <div className="pb-24">
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-wallet-back" onClick={() => nav("/profile")} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0"><div className="text-base font-bold">Wallet</div><div className="text-[11px] text-muted-foreground">Manage your balance & transactions</div></div>
+        <div className="flex-1 min-w-0"><div className="text-base font-bold">{t("wallet.title")}</div><div className="text-[11px] text-muted-foreground">{t("wallet.transactions")}</div></div>
         <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Wallet help"><HelpCircle size={16} /></button>
       </div>
 
@@ -84,7 +86,7 @@ export const MobileWallet = () => {
         {w.transactions.length === 0 ? (
           <div className="baked-card bg-card border border-border p-8 text-center">
             <Wallet2 size={30} className="mx-auto text-muted-foreground mb-2" />
-            <div className="text-sm font-semibold">No transactions yet</div>
+            <div className="text-sm font-semibold">{t("wallet.no_transactions")}</div>
             <div className="text-[11px] text-muted-foreground mt-1">Once you place a paid order, it will show up here for your records.</div>
           </div>
         ) : (

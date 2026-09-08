@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp } from "../../contexts/BakedContexts";
 import { formatMoney, t } from "../../lib/i18n";
@@ -7,6 +8,7 @@ import { MobileProductCard } from "../../components/mobile/MobileProductCard";
 import { ArrowRight, Zap, Package, ShieldCheck, Percent } from "lucide-react";
 
 export const MobileHome = () => {
+  const { t: T } = useTranslation("customer");
   const nav = useNavigate();
   const { country, language, uiLocale } = useApp();
   const [cats, setCats] = useState([]);
@@ -63,7 +65,7 @@ export const MobileHome = () => {
       <section className="px-4 mt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="text-base font-bold">{t(locale, "sec.top_categories")}</div>
-          <button data-testid="m-home-categories-viewall" onClick={() => nav("/categories")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#77BC1F" }}>View all <ArrowRight size={11} /></button>
+          <button data-testid="m-home-categories-viewall" onClick={() => nav("/categories")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#77BC1F" }}>{T("home.shop_all")} <ArrowRight size={11} /></button>
         </div>
         <div className="grid grid-cols-4 gap-3">
           {cats.slice(0, 8).map((c) => {
@@ -85,7 +87,7 @@ export const MobileHome = () => {
         <section className="mt-6">
           <div className="px-4 flex items-center justify-between mb-3">
             <div className="text-base font-bold flex items-center gap-1.5"><Percent size={16} style={{ color: "#77BC1F" }} /> Best offers</div>
-            <button onClick={() => nav("/products?sort=price_asc")} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>View all</button>
+            <button onClick={() => nav("/products?sort=price_asc")} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>{T("home.shop_all")}</button>
           </div>
           <div className="flex gap-3 overflow-x-auto px-4 no-scrollbar">
             {offers.slice(0, 6).map((o) => (
@@ -106,7 +108,7 @@ export const MobileHome = () => {
       <section className="px-4 mt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="text-base font-bold">{t(locale, "sec.best_deals")}</div>
-          <button data-testid="m-home-deals-viewall" onClick={() => nav("/products?sort=price_asc")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#77BC1F" }}>View all <ArrowRight size={11} /></button>
+          <button data-testid="m-home-deals-viewall" onClick={() => nav("/products?sort=price_asc")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#77BC1F" }}>{T("home.shop_all")} <ArrowRight size={11} /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {deals.slice(0, 8).map((p) => <MobileProductCard key={p.id} product={p} />)}
