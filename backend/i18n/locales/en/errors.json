@@ -1,0 +1,36 @@
+{
+  "generic": {
+    "internal": "An internal error occurred. Please try again.",
+    "bad_request": "Invalid request.",
+    "unauthorized": "You must sign in to perform this action.",
+    "forbidden": "You are not allowed to perform this action.",
+    "not_found": "Resource not found.",
+    "rate_limited": "Too many attempts. Please try again in a moment."
+  },
+  "auth": {
+    "invalid_credentials": "Incorrect credentials.",
+    "account_disabled": "This account has been disabled.",
+    "otp_invalid": "Invalid or expired verification code.",
+    "otp_max_attempts": "Too many attempts. Please request a new code.",
+    "session_expired": "Your session has expired. Please sign in again."
+  },
+  "supplier": {
+    "already_active": "A supplier with this email already exists. Please log in.",
+    "already_submitted": "Application already submitted. Use /application-status to check.",
+    "business_type_invalid": "The selected business type is not valid.",
+    "country_not_supported": "BAKĒD is not yet available in this country.",
+    "docs_missing": "Required documents are missing."
+  },
+  "order": {
+    "cart_empty": "Your cart is empty.",
+    "min_order_not_met": "Minimum order amount has not been reached.",
+    "out_of_stock": "One or more items are no longer in stock.",
+    "address_missing": "Please select a delivery address.",
+    "payment_failed": "Payment failed. Please try again or choose another method."
+  },
+  "upload": {
+    "too_large": "File is too large.",
+    "invalid_type": "File type not allowed.",
+    "signature_invalid": "Download link is invalid or expired."
+  }
+}

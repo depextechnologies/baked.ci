@@ -47,6 +47,7 @@ from core.models import (
 )
 from core.providers.otp_provider import generate_code, get_otp_provider
 from core.security import create_access_token, hash_password, verify_password
+from core.i18n import t as _t, resolve_lang
 
 
 # ---------------------------------------------------------------------------
@@ -204,16 +205,17 @@ class ApplyStartIn(BaseModel):
 
 
 @public_router.post("/apply/start", status_code=201)
-async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get_session)):
+async def apply_start(payload: ApplyStartIn, request: Request, session: AsyncSession = Depends(get_session)):
     """Create a draft supplier + application row and return the application id.
     Idempotent-ish: if a draft/action_required application already exists for
     the same email + country, reuse it so refreshes don't spawn dupes."""
+    lang = resolve_lang(request)
     if payload.business_type not in SUPPLIER_BUSINESS_TYPES:
-        raise HTTPException(400, f"business_type must be one of {SUPPLIER_BUSINESS_TYPES}")
+        raise HTTPException(400, _t("errors.supplier.business_type_invalid", lang))
     country = payload.country.upper()
     module = (payload.module or "mart").lower()
     if module not in ("mart", "shop"):
-        raise HTTPException(400, "module must be 'mart' or 'shop'")
+        raise HTTPException(400, _t("errors.generic.bad_request", lang))
     module_code = module.upper()
 
     existing = (await session.execute(
@@ -226,7 +228,7 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
         if existing.status in ("approved", "suspended"):
             raise HTTPException(409, {
                 "code": "already_active",
-                "message": "A supplier with this email already exists. Please log in.",
+                "message": _t("errors.supplier.already_active", lang),
             })
         app = (await session.execute(
             select(SupplierApplication).where(SupplierApplication.supplier_id == existing.id)
@@ -246,7 +248,7 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
         if app and app.status in ("submitted", "under_review"):
             raise HTTPException(409, {
                 "code": "already_submitted",
-                "message": "Application already submitted. Use /application-status to check.",
+                "message": _t("errors.supplier.already_submitted", lang),
                 "application_code": app.application_code,
             })
 

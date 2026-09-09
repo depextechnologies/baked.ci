@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "name": "BAKĒD",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "order_confirmed": {
+    "subject": "Commande {order_code} confirmée · BAKĒD",
+    "preheader": "Votre commande est en préparation.",
+    "greeting": "Bonjour {name},",
+    "intro": "Merci pour votre commande. Votre commande {order_code} d'un montant de {total} est confirmée et en préparation.",
+    "eta_label": "Livraison estimée",
+    "cta_track": "Suivre ma commande",
+    "footer": "Une question ? Répondez à cet e-mail ou contactez-nous sur support@baked.ci.",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "order_delivered": {
+    "subject": "Commande {order_code} livrée · BAKĒD",
+    "greeting": "Bonjour {name},",
+    "body": "Votre commande {order_code} a été livrée avec succès. Merci de votre confiance !",
+    "cta_rate": "Noter ma commande",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "magic_link": {
+    "subject": "Votre lien de connexion BAKĒD",
+    "greeting": "Bonjour,",
+    "body": "Voici votre lien de connexion sécurisé. Il expire dans {minutes} minutes.",
+    "cta": "Se connecter à BAKĒD",
+    "warning": "Si vous n'avez pas demandé ce lien, ignorez cet e-mail.",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "otp": {
+    "subject": "Code de vérification BAKĒD",
+    "greeting": "Bonjour,",
+    "body": "Votre code de vérification est : {code}. Il expire dans {minutes} minutes.",
+    "warning": "Ne partagez ce code avec personne. L'équipe BAKĒD ne vous le demandera jamais.",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "staff_invite": {
+    "subject": "Invitation à rejoindre {business_name} sur BAKĒD",
+    "greeting": "Bonjour,",
+    "body": "{inviter} vous a invité(e) à rejoindre l'équipe {business_name} en tant que {role}.",
+    "cta": "Accepter l'invitation",
+    "expires": "Ce lien expire dans {hours} heures.",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "supplier_approved": {
+    "subject": "Bienvenue sur BAKĒD 🎉 Votre candidature a été approuvée",
+    "greeting": "Bonjour {name},",
+    "body": "Bonne nouvelle ! Votre candidature en tant que fournisseur BAKĒD a été approuvée. Vous pouvez maintenant vous connecter à votre tableau de bord pour commencer à vendre.",
+    "cta": "Accéder à mon tableau de bord",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "supplier_rejected": {
+    "subject": "Mise à jour de votre candidature BAKĒD",
+    "greeting": "Bonjour {name},",
+    "body": "Merci d'avoir postulé pour rejoindre BAKĒD. Malheureusement, nous ne pouvons pas donner suite à votre candidature à ce stade. Motif : {reason}",
+    "signoff": "L'équipe BAKĒD"
+  }
+}

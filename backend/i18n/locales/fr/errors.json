@@ -1,0 +1,36 @@
+{
+  "generic": {
+    "internal": "Une erreur interne est survenue. Veuillez réessayer.",
+    "bad_request": "Requête invalide.",
+    "unauthorized": "Vous devez vous connecter pour effectuer cette action.",
+    "forbidden": "Vous n'avez pas les droits pour effectuer cette action.",
+    "not_found": "Ressource introuvable.",
+    "rate_limited": "Trop de tentatives. Veuillez réessayer dans quelques instants."
+  },
+  "auth": {
+    "invalid_credentials": "Identifiants incorrects.",
+    "account_disabled": "Ce compte a été désactivé.",
+    "otp_invalid": "Code de vérification invalide ou expiré.",
+    "otp_max_attempts": "Trop d'essais. Veuillez demander un nouveau code.",
+    "session_expired": "Votre session a expiré, veuillez vous reconnecter."
+  },
+  "supplier": {
+    "already_active": "Un fournisseur avec cet e-mail existe déjà. Veuillez vous connecter.",
+    "already_submitted": "Candidature déjà soumise. Utilisez /application-status pour vérifier.",
+    "business_type_invalid": "Le type d'activité choisi n'est pas valide.",
+    "country_not_supported": "BAKĒD n'est pas encore disponible dans ce pays.",
+    "docs_missing": "Documents obligatoires manquants."
+  },
+  "order": {
+    "cart_empty": "Votre panier est vide.",
+    "min_order_not_met": "Le montant minimum de commande n'est pas atteint.",
+    "out_of_stock": "Un ou plusieurs articles ne sont plus en stock.",
+    "address_missing": "Veuillez sélectionner une adresse de livraison.",
+    "payment_failed": "Le paiement a échoué. Veuillez réessayer ou choisir un autre mode."
+  },
+  "upload": {
+    "too_large": "Fichier trop volumineux.",
+    "invalid_type": "Type de fichier non autorisé.",
+    "signature_invalid": "Lien de téléchargement invalide ou expiré."
+  }
+}

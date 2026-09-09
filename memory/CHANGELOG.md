@@ -1,5 +1,42 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-07 — Workstream 3 Phase D · Backend Localisation — COMPLETE
+
+Server-emitted strings (errors, emails, SMS) are now bilingual, driven by the caller's UI language. End-to-end path proven: frontend axios interceptor sets `X-BAKED-Language: fr|en` → backend `resolve_lang(request)` → `t(key, lang)` → localised `HTTPException.detail`.
+
+**New backend module — `core.i18n`:**
+- Loads JSON dictionaries from `/app/backend/i18n/locales/{fr,en}/*.json` once at import (`@lru_cache`).
+- `t(key, lang, **params)` — dot-path lookup with FR → EN → key fallback + `str.format` interpolation.
+- `resolve_lang(request)` — precedence: `X-BAKED-Language` header → `?lang=` query → `Accept-Language` → French.
+
+**Locale bundles shipped:**
+- `errors.json` — 21 keys across generic / auth / supplier / order / upload (FR + EN).
+- `emails.json` — 8 templates (order_confirmed, order_delivered, magic_link, otp, staff_invite, supplier_approved, supplier_rejected, brand) with subject / preheader / greeting / intro / body / cta / warning / footer / signoff slots.
+- `sms.json` — 8 one-liners (otp, order_confirmed, order_on_the_way, order_delivered, driver_assigned, driver_reminder, password_reset, supplier_approved).
+
+**New backend helper — `core.emails.send_localised_email`:**
+- Single HTML shell (brand header + preheader + body + CTA button + signoff + footer) for every transactional email.
+- Text-part auto-derived from the same keys for accessibility / SMS-client fallback.
+- Best-effort semantics (never raises) — mirrors existing `send_email_async` contract.
+- Bonus: `render_sms(template, lang, **params)` returns the localised SMS body for direct hand-off to `SmsProvider.send()`.
+
+**Frontend wiring — `lib/api.js`:**
+- Every axios request now carries `X-BAKED-Language` derived from `localStorage.baked_language`. Toggling the FR/EN switcher immediately affects error toasts, emails and SMS on the next request — no explicit passthrough per call site.
+
+**Live-endpoint proof — `POST /martbaked/sellers/apply/start`:**
+- Migrated three raw English `HTTPException` messages to `t(…)` keys: `errors.supplier.business_type_invalid`, `errors.supplier.already_active`, `errors.supplier.already_submitted`.
+- Verified via curl: `X-BAKED-Language: fr` returns *"Le type d'activité choisi n'est pas valide."*; `X-BAKED-Language: en` returns *"The selected business type is not valid."*.
+
+**Test coverage — `backend/tests/test_i18n_backend.py`:**
+- 15 tests, all passing. Covers `t()` fallback + interpolation + missing-param resilience + EN-fallback-when-FR-missing, `resolve_lang()` header/query/Accept-Language precedence, `send_localised_email()` FR/EN dispatch + CTA rendering + language fallback.
+
+**Not migrated (deferred backlog):**
+- Order confirmation / driver assignment call sites still emit hardcoded strings — the helpers are ready; adopting them across the 40+ existing `send_email_async` sites is a follow-up sweep tracked in `/app/memory/I18N_PLAN.md` Phase D.2.
+- Backend error messages outside `apply/start` still raw English. Convert as sites are touched.
+
+---
+
+
 ## 2026-03-06 (part 2) — Partner Landing full-page French — COMPLETE
 
 Every remaining hardcoded string on `/Sell-on-baked` is now bilingual. Section-by-section:

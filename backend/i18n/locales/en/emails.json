@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "name": "BAKĒD",
+    "signoff": "The BAKĒD team"
+  },
+  "order_confirmed": {
+    "subject": "Order {order_code} confirmed · BAKĒD",
+    "preheader": "Your order is being prepared.",
+    "greeting": "Hi {name},",
+    "intro": "Thanks for your order. Order {order_code} for a total of {total} is confirmed and being prepared.",
+    "eta_label": "Estimated delivery",
+    "cta_track": "Track my order",
+    "footer": "A question? Reply to this email or reach us at support@baked.ci.",
+    "signoff": "The BAKĒD team"
+  },
+  "order_delivered": {
+    "subject": "Order {order_code} delivered · BAKĒD",
+    "greeting": "Hi {name},",
+    "body": "Your order {order_code} was delivered successfully. Thanks for shopping with us!",
+    "cta_rate": "Rate my order",
+    "signoff": "The BAKĒD team"
+  },
+  "magic_link": {
+    "subject": "Your BAKĒD sign-in link",
+    "greeting": "Hi there,",
+    "body": "Here's your secure sign-in link. It expires in {minutes} minutes.",
+    "cta": "Sign in to BAKĒD",
+    "warning": "If you didn't request this link, please ignore this email.",
+    "signoff": "The BAKĒD team"
+  },
+  "otp": {
+    "subject": "BAKĒD verification code",
+    "greeting": "Hi there,",
+    "body": "Your verification code is: {code}. It expires in {minutes} minutes.",
+    "warning": "Never share this code with anyone. BAKĒD staff will never ask you for it.",
+    "signoff": "The BAKĒD team"
+  },
+  "staff_invite": {
+    "subject": "You're invited to join {business_name} on BAKĒD",
+    "greeting": "Hi there,",
+    "body": "{inviter} has invited you to join the {business_name} team as {role}.",
+    "cta": "Accept invitation",
+    "expires": "This link expires in {hours} hours.",
+    "signoff": "The BAKĒD team"
+  },
+  "supplier_approved": {
+    "subject": "Welcome to BAKĒD 🎉 Your application has been approved",
+    "greeting": "Hi {name},",
+    "body": "Great news! Your application to become a BAKĒD supplier has been approved. You can now sign in to your dashboard and start selling.",
+    "cta": "Go to my dashboard",
+    "signoff": "The BAKĒD team"
+  },
+  "supplier_rejected": {
+    "subject": "Update on your BAKĒD application",
+    "greeting": "Hi {name},",
+    "body": "Thanks for applying to BAKĒD. Unfortunately, we're unable to move forward with your application at this time. Reason: {reason}",
+    "signoff": "The BAKĒD team"
+  }
+}
