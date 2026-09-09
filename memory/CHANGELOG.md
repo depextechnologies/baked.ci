@@ -1,5 +1,28 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-06 (part 2) — Partner Landing full-page French — COMPLETE
+
+Every remaining hardcoded string on `/Sell-on-baked` is now bilingual. Section-by-section:
+
+- **TrustBar** — six pill items (Trusted by 5k+, Secure payments, AI-powered marketing, Fast settlement, 24/7 operations, Africa-first infrastructure) → `partner.trust.*`.
+- **Opportunities cards (6)** — MART / FOOD / SHOP / SEND / AUTO / IMMO taglines, descriptions and the "Now onboarding" badge all sourced from `partner.opportunities.items.{key}` + `partner.opportunities.badge_onboarding`. Apply-CTA reused `partner.nav.apply_now`.
+- **StatsSection (Why Partner — 6 tiles)** — value / label / hint per tile: customers, ops, ai, payments, marketing, analytics. All under `partner.stats.*`.
+- **GrowthSection** — eyebrow, two-line title, body, 7 bullets, primary CTA all under `partner.growth.*` (bullet keys `b1`…`b7`).
+- **Testimonials carousel (3 partners)** — Aïcha Konan / Kouassi Traoré / Mariam Diallo quotes, roles and locations under `partner.testimonials.items.{aicha|kouassi|mariam}`.
+- **TimelineSection (5 steps)** — Submit Application → Verification → Training → Business Activation → Start Receiving Orders under `partner.timeline.steps.s1…s5` + section eyebrow + two-line title.
+- **FinalCTASection + PartnerFooter** — already migrated in previous batch, verified consistent.
+
+**Locale footprint added:** `~30 additional keys` on top of the earlier partner namespace, doubling the coverage of the marketing page. Every EN/FR pair round-trips via the shared TopNav / mobile-drawer `LanguageSwitcher`.
+
+**Screenshots captured:**
+- `Sell-on-baked` opportunities section: **OPPORTUNITÉS · Choisissez votre opportunité · Sélectionnez la catégorie…** + 6 cards fully French incl. **RECRUTEMENT OUVERT** badges and **Postuler** CTAs.
+- `Sell-on-baked` stats section: **POURQUOI DEVENIR PARTENAIRE BAKĒD · Conçu pour grandir. Conçu pour l'Afrique.** + 6 tiles (**Clients potentiels · Opérations continues · Assistant business · Paiements rapides & sécurisés · Croissance marketing · Analyses intelligentes**).
+
+**Left English (backlog):** none on `/Sell-on-baked` — the entire page is French-first now. Remaining Phase D–I items (Admin console labels, backend errors + emails, DB bilingual product columns) unchanged.
+
+---
+
+
 ## 2026-03-06 — Workstream 3 Phase B follow-up · Visible-first migration — COMPLETE
 
 Delivered the user's called-out gaps (homepage "Shop by category" / "Delivery in", full footer, all inside pages like "Sell on Baked" / "Partnership" / careers / help / contact) plus the ComingSoonLanding placeholder used by 24 footer routes.

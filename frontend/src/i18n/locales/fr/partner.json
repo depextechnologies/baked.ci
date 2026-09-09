@@ -16,15 +16,134 @@
     "cta_primary": "Devenir partenaire",
     "cta_secondary": "Découvrir les opportunités"
   },
+  "trust": {
+    "trusted":    "Plus de 5 000 entreprises nous font confiance",
+    "secure":     "Paiements sécurisés",
+    "ai":         "Marketing dopé à l'IA",
+    "settlement": "Règlements rapides",
+    "ops":        "Opérations 24/7",
+    "infra":      "Infrastructure conçue pour l'Afrique"
+  },
   "opportunities": {
     "eyebrow": "Opportunités",
     "title": "Choisissez votre opportunité",
-    "subtitle": "Sélectionnez la catégorie d'activité qui vous correspond. Chaque module a son propre parcours d'intégration."
+    "subtitle": "Sélectionnez la catégorie d'activité qui vous correspond. Chaque module a son propre parcours d'intégration.",
+    "badge_onboarding": "Recrutement ouvert",
+    "items": {
+      "mart": {
+        "tagline": "Épicerie & produits du quotidien",
+        "desc": "Référencez et vendez vos produits d'épicerie, produits frais et essentiels du quotidien à votre quartier — expédition le jour même intégrée."
+      },
+      "food": {
+        "tagline": "Restaurants & cuisines",
+        "desc": "Amenez votre restaurant, cuisine fantôme ou boulangerie en ligne avec service à table, livraison et retrait — un seul tableau de bord."
+      },
+      "shop": {
+        "tagline": "Vendeurs marketplace",
+        "desc": "Référencez votre mode, électronique et maison sur la marketplace BAKĒD. Vendeurs vérifiés, portée nationale, livraison PIN sécurisée — vous vous concentrez sur le produit, nous gérons la découverte."
+      },
+      "send": {
+        "tagline": "Réseau logistique",
+        "desc": "Déplacez colis, fret et déménagements grâce au réseau de dispatch BAKĒD. Suivi en direct et moteur de tarification intégrés."
+      },
+      "auto": {
+        "tagline": "Véhicules & concessions",
+        "desc": "Vendez des véhicules, référencez votre concession ou gérez une flotte — partenaires de financement et paperasse gérés pour vous."
+      },
+      "immo": {
+        "tagline": "Immobilier",
+        "desc": "Agents et courtiers concluent plus vite avec des annonces vérifiées, des contrats numériques et une mise en relation propulsée par l'IA."
+      }
+    }
   },
   "why": {
     "eyebrow": "Pourquoi devenir partenaire BAKĒD",
     "title_line1": "Conçu pour grandir.",
     "title_line2": "Conçu pour l'Afrique."
+  },
+  "stats": {
+    "customers": {
+      "value": "10M+",
+      "label": "Clients potentiels",
+      "hint": "Sur l'ensemble du réseau multi-pays de BAKĒD en croissance."
+    },
+    "ops": {
+      "value": "24/7",
+      "label": "Opérations continues",
+      "hint": "Les commandes ne s'arrêtent jamais — notre plateforme non plus."
+    },
+    "ai": {
+      "value": "IA",
+      "label": "Assistant business",
+      "hint": "Demandez à BAKĒD AI de rédiger vos annonces, fixer vos prix, prévoir la demande."
+    },
+    "payments": {
+      "value": "J+1",
+      "label": "Paiements rapides & sécurisés",
+      "hint": "Règlements dans votre devise locale, sans mauvaise surprise."
+    },
+    "marketing": {
+      "value": "1er",
+      "label": "Croissance marketing",
+      "hint": "Campagnes, promotions et parrainage gérés pour vous."
+    },
+    "analytics": {
+      "value": "360°",
+      "label": "Analyses intelligentes",
+      "hint": "Cohortes, tunnels et chiffre d'affaires — un seul tableau de bord."
+    }
+  },
+  "growth": {
+    "eyebrow": "Croissance",
+    "title_line1": "L'application n°1 d'Afrique",
+    "title_line2": "pour votre croissance.",
+    "body": "BAKĒD n'est pas qu'une marketplace — c'est le système d'exploitation de votre entreprise. Tout ce dont vous avez besoin pour vendre, livrer et grandir, au même endroit.",
+    "cta": "Découvrir l'avantage",
+    "bullets": {
+      "b1": "Plus de clients, partout où BAKĒD est présent",
+      "b2": "Assistant business dopé à l'IA pour annonces, prix & support",
+      "b3": "Campagnes marketing et parrainage gérés pour vous",
+      "b4": "Règlements rapides et sécurisés dans votre devise locale",
+      "b5": "Notre propre réseau logistique — zéro dépendance à un tiers",
+      "b6": "Analyses intelligentes et insights business — en temps réel",
+      "b7": "Une équipe de succès partenaire dédiée"
+    }
+  },
+  "testimonials": {
+    "eyebrow": "Témoignages",
+    "title": "Nos partenaires nous font confiance.",
+    "items": {
+      "aicha": {
+        "quote": "Depuis notre arrivée sur BAKĒD, nos commandes mensuelles ont triplé. L'assistant IA gère nos mises à jour de menu et le réseau de dispatch nous amène de nouveaux clients que nous ne pouvions pas atteindre auparavant.",
+        "name": "Aïcha Konan",
+        "role": "Propriétaire, Chez Aïcha",
+        "location": "Cocody, Abidjan · FOODbakēd"
+      },
+      "kouassi": {
+        "quote": "Nous avons migré toute notre épicerie sur MARTbakēd en deux semaines. Les règlements arrivent à l'heure, à chaque fois — et les analyses nous disent enfin quoi réapprovisionner.",
+        "name": "Kouassi Traoré",
+        "role": "Fondateur, MiniMart Marcory",
+        "location": "Marcory, Abidjan · MARTbakēd"
+      },
+      "mariam": {
+        "quote": "SENDbakēd nous a apporté la planification de tournées et le suivi en direct que nous n'aurions jamais pu construire nous-mêmes. L'utilisation de notre flotte a bondi de 40 % le premier mois.",
+        "name": "Mariam Diallo",
+        "role": "Responsable Opérations, DialloTransport",
+        "location": "Plateau, Abidjan · SENDbakēd"
+      }
+    }
+  },
+  "timeline": {
+    "eyebrow": "Comment ça marche",
+    "title_line1": "Commencez votre parcours",
+    "title_line2": "en 5 étapes simples.",
+    "steps": {
+      "s1": { "title": "Soumettre la candidature", "body": "Parlez-nous de votre entreprise et choisissez le module BAKĒD qui vous correspond." },
+      "s2": { "title": "Vérification",             "body": "Nous vérifions vos documents et informations sous 48 heures." },
+      "s3": { "title": "Formation",                "body": "Un expert succès partenaire vous guide dans votre tableau de bord et vos outils." },
+      "s4": { "title": "Activation de l'activité", "body": "Votre boutique, menu ou flotte devient visible sur tout le réseau BAKĒD." },
+      "s5": { "title": "Recevez vos premières commandes", "body": "Commandes, livraisons et règlements démarrent — avec des analyses dès le premier jour." }
+    }
   },
   "final_cta": {
     "title_line1": "Prêt à développer",

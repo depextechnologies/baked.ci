@@ -16,15 +16,134 @@
     "cta_primary": "Become a Partner",
     "cta_secondary": "Explore Opportunities"
   },
+  "trust": {
+    "trusted":    "Trusted by 5k+ businesses",
+    "secure":     "Secure payments",
+    "ai":         "AI-powered marketing",
+    "settlement": "Fast settlement",
+    "ops":        "24/7 operations",
+    "infra":      "Africa-first infrastructure"
+  },
   "opportunities": {
     "eyebrow": "Opportunities",
     "title": "Choose your opportunity",
-    "subtitle": "Select the business category that best fits your business. Each module has its own dedicated onboarding flow tailored to it."
+    "subtitle": "Select the business category that best fits your business. Each module has its own dedicated onboarding flow tailored to it.",
+    "badge_onboarding": "Now onboarding",
+    "items": {
+      "mart": {
+        "tagline": "Groceries & essentials",
+        "desc": "List and sell groceries, fresh produce and daily essentials to your neighbourhood — same-day dispatch built in."
+      },
+      "food": {
+        "tagline": "Restaurants & kitchens",
+        "desc": "Bring your restaurant, cloud kitchen or bakery online with dine-in tables, delivery and pickup — one dashboard."
+      },
+      "shop": {
+        "tagline": "Marketplace sellers",
+        "desc": "List your fashion, electronics and home goods on the BAKĒD marketplace. Vetted sellers, national reach, PIN-gated delivery — you focus on product, we handle discovery."
+      },
+      "send": {
+        "tagline": "Logistics network",
+        "desc": "Move parcels, freight and home shifts through the BAKĒD dispatch network. Live tracking and pricing engine baked in."
+      },
+      "auto": {
+        "tagline": "Vehicles & dealerships",
+        "desc": "Sell vehicles, list your dealership or manage a fleet — with financing partners and paperwork handled for you."
+      },
+      "immo": {
+        "tagline": "Real estate",
+        "desc": "Agents and brokers close deals faster with verified listings, digital contracts, and buyer matching powered by AI."
+      }
+    }
   },
   "why": {
     "eyebrow": "Why Partner With BAKĒD",
     "title_line1": "Built for scale.",
     "title_line2": "Built for Africa."
+  },
+  "stats": {
+    "customers": {
+      "value": "10M+",
+      "label": "Potential customers",
+      "hint": "Across BAKĒD's growing multi-country network."
+    },
+    "ops": {
+      "value": "24/7",
+      "label": "Business operations",
+      "hint": "Orders never stop — neither does our platform."
+    },
+    "ai": {
+      "value": "AI",
+      "label": "Business assistant",
+      "hint": "Ask BAKĒD AI to draft listings, price stock, forecast demand."
+    },
+    "payments": {
+      "value": "T+1",
+      "label": "Fast, secure payments",
+      "hint": "Settlements in your local currency, no surprises."
+    },
+    "marketing": {
+      "value": "1st",
+      "label": "Marketing growth support",
+      "hint": "Campaigns, promotions and referrals handled for you."
+    },
+    "analytics": {
+      "value": "360°",
+      "label": "Smart analytics",
+      "hint": "Cohorts, funnels and revenue — one dashboard."
+    }
+  },
+  "growth": {
+    "eyebrow": "Growth",
+    "title_line1": "#1 Africa's app",
+    "title_line2": "for your growth.",
+    "body": "BAKĒD isn't just a marketplace — it's the operating system for your business. Everything you need to sell, deliver and scale, in one place.",
+    "cta": "Discover the Advantage",
+    "bullets": {
+      "b1": "More customers, everywhere BAKĒD is live",
+      "b2": "AI-native business assistant for listings, pricing & support",
+      "b3": "Marketing campaigns and referrals run for you",
+      "b4": "Fast, secure settlements in your local currency",
+      "b5": "Own logistics network — no third-party dependency",
+      "b6": "Smart analytics and business insights — real time",
+      "b7": "Dedicated partner success team"
+    }
+  },
+  "testimonials": {
+    "eyebrow": "Testimonials",
+    "title": "Trusted by partners.",
+    "items": {
+      "aicha": {
+        "quote": "Since joining BAKĒD, our monthly orders have tripled. The AI assistant handles our menu updates and the dispatch network brings us new customers we couldn't reach before.",
+        "name": "Aïcha Konan",
+        "role": "Owner, Chez Aïcha",
+        "location": "Cocody, Abidjan · FOODbakēd"
+      },
+      "kouassi": {
+        "quote": "We migrated our whole grocery store onto MARTbakēd in two weeks. Settlement is on time, every time — and the analytics finally tell us what to restock.",
+        "name": "Kouassi Traoré",
+        "role": "Founder, MiniMart Marcory",
+        "location": "Marcory, Abidjan · MARTbakēd"
+      },
+      "mariam": {
+        "quote": "SENDbakēd gave us the routing and live tracking we would never have built ourselves. Our fleet utilisation jumped 40% in the first month.",
+        "name": "Mariam Diallo",
+        "role": "Ops Lead, DialloTransport",
+        "location": "Plateau, Abidjan · SENDbakēd"
+      }
+    }
+  },
+  "timeline": {
+    "eyebrow": "How It Works",
+    "title_line1": "Start your journey",
+    "title_line2": "in 5 simple steps.",
+    "steps": {
+      "s1": { "title": "Submit Application",    "body": "Tell us about your business and pick the BAKĒD module that fits you." },
+      "s2": { "title": "Verification",          "body": "We verify your documents and business details within 48 hours." },
+      "s3": { "title": "Training",              "body": "A partner success expert walks you through your dashboard and tools." },
+      "s4": { "title": "Business Activation",   "body": "Your store, menu or fleet goes live across the BAKĒD network." },
+      "s5": { "title": "Start Receiving Orders","body": "Orders, deliveries and settlements begin — with analytics from day one." }
+    }
   },
   "final_cta": {
     "title_line1": "Ready to grow",
