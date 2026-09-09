@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
 import { Bell, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Locate, Search, Sparkles, Sun, Moon, ShieldCheck, LayoutGrid, Briefcase } from "lucide-react";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
@@ -67,6 +68,7 @@ const UserPin = () => (
 );
 
 const GpsButton = () => {
+  const { t } = useTranslation("customer");
   const map = useMap();
   const center = () => {
     if (!map || !navigator.geolocation) return;
@@ -80,7 +82,7 @@ const GpsButton = () => {
       data-testid="exp-map-gps"
       onClick={center}
       className="absolute bottom-3 right-3 w-11 h-11 rounded-full flex items-center justify-center shadow-2xl motion-fast active:scale-95 bg-card border border-border"
-      aria-label="Center on my location"
+      aria-label={t("send.gps_aria")}
     >
       <Locate size={16} color={YELLOW} strokeWidth={2.5} />
     </button>
@@ -89,6 +91,7 @@ const GpsButton = () => {
 
 // ---------------- HEADER ----------------
 const ExpressTopBar = () => {
+  const { t } = useTranslation("customer");
   const { activeAddress, openAddressSelector, country, theme, toggleTheme } = useApp();
   const address = activeAddress?.formatted_address || COUNTRY_CENTER[country?.code || "CI"].label;
   const eta = country?.delivery_eta_min || "8 mins";
@@ -96,18 +99,12 @@ const ExpressTopBar = () => {
 
   return (
     <header className="px-4 pt-4 pb-2">
-      {/*
-        Row 1 — clean & minimal:
-          [logo]                                    [bell] [theme toggle]
-        Wallet card + module dropdown removed (Phase 1 uses COD; module
-        switching is handled by the global center FAB in the bottom nav).
-      */}
       <div className="flex items-center gap-3">
         <span data-testid="exp-top-wordmark" className="inline-flex items-center shrink-0">
           <BrandedModuleLabel code="express" label="SEND" color={YELLOW} height={28} />
         </span>
         <div className="flex-1" />
-        <button data-testid="exp-top-bell" className="relative w-10 h-10 rounded-full flex items-center justify-center motion-fast active:scale-95 border border-border bg-card" aria-label="Notifications">
+        <button data-testid="exp-top-bell" className="relative w-10 h-10 rounded-full flex items-center justify-center motion-fast active:scale-95 border border-border bg-card" aria-label={t("send.notifications_aria")}>
           <Bell size={16} className="text-foreground" />
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: YELLOW }} />
         </button>
@@ -115,21 +112,20 @@ const ExpressTopBar = () => {
           data-testid="exp-top-theme"
           onClick={toggleTheme}
           className="w-10 h-10 rounded-full flex items-center justify-center motion-fast active:scale-95 border border-border bg-card"
-          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          title={isDark ? "Light mode" : "Dark mode"}
+          aria-label={isDark ? t("send.switch_to_light") : t("send.switch_to_dark")}
+          title={isDark ? t("send.light_mode") : t("send.dark_mode")}
         >
           {isDark ? <Moon size={16} color={YELLOW} strokeWidth={2.5} /> : <Sun size={16} color={YELLOW} strokeWidth={2.5} />}
         </button>
       </div>
 
-      {/* Row 2 — address + ETA badge (no module dropdown; use bottom-nav FAB) */}
       <button data-testid="exp-top-address" onClick={openAddressSelector} className="w-full mt-3 flex items-start gap-2 text-left min-w-0">
         <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW_TINT }}>
           <MapPin size={14} color={YELLOW} />
         </div>
         <div className="min-w-0">
           <div className="text-sm font-bold text-foreground truncate flex items-center gap-1">{address}<ChevronDown size={12} className="text-muted-foreground" /></div>
-          <div className="text-[11px] text-muted-foreground">Delivering to you <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
+          <div className="text-[11px] text-muted-foreground">{t("send.delivering_to_you")} <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
         </div>
       </button>
     </header>
@@ -154,7 +150,7 @@ const MapHero = () => {
   }, []);
 
   if (!apiKey) {
-    return <div className="mx-4 h-56 rounded-3xl bg-secondary/50 flex items-center justify-center text-xs text-muted-foreground">Map unavailable — set REACT_APP_GOOGLE_MAPS_API_KEY</div>;
+    return <div className="mx-4 h-56 rounded-3xl bg-secondary/50 flex items-center justify-center text-xs text-muted-foreground">{/* legacy fallback text now provided via useTranslation in caller */}Map unavailable — set REACT_APP_GOOGLE_MAPS_API_KEY</div>;
   }
 
   return (
@@ -190,6 +186,7 @@ export const ExpressHome = () => {
 };
 
 const ExpressHomeMobile = () => {
+  const { t } = useTranslation("customer");
   const navigate = useNavigate();
   const { openAddressSelector, activeAddress, country } = useApp();
   const { setDraft } = useExpressBooking();
@@ -218,17 +215,17 @@ const ExpressHomeMobile = () => {
           <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}><Search size={14} color={YELLOW} /></div>
           <button
             data-testid="exp-home-pickup"
-            onClick={() => openAddressSelector({ title: "Pickup location", onPick: (a) => setDraft({ pickup: a }) })}
+            onClick={() => openAddressSelector({ title: t("send.pickup_title"), onPick: (a) => setDraft({ pickup: a }) })}
             className="flex-1 text-left text-sm text-foreground/90 truncate"
           >
-            {activeAddress ? activeAddress.formatted_address : "Your Pick-up Location?"}
+            {activeAddress ? activeAddress.formatted_address : t("send.pickup_placeholder")}
           </button>
           <button
             data-testid="exp-home-add-stop"
             onClick={() => navigate("/send/book/location")}
             className="h-10 pl-3 pr-4 rounded-full flex items-center gap-1.5 text-sm font-semibold border border-border text-foreground"
           >
-            <Plus size={14} color={YELLOW} /> Add Stop
+            <Plus size={14} color={YELLOW} /> {t("send.add_stop")}
           </button>
         </div>
       </section>
@@ -236,11 +233,9 @@ const ExpressHomeMobile = () => {
       {/* Send Now — image-first horizontal cards */}
       <section className="mt-5">
         <div className="px-4 flex items-center justify-between mb-3">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Send Now</h2>
-          <Link data-testid="exp-home-see-all" to="/send/book/location" className="text-[0.75rem] font-semibold" style={{ color: YELLOW }}>See all →</Link>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("send.send_now")}</h2>
+          <Link data-testid="exp-home-see-all" to="/send/book/location" className="text-[0.75rem] font-semibold" style={{ color: YELLOW }}>{t("send.see_all")}</Link>
         </div>
-        {/* 180px cards + 12px gap. On a 390px viewport 2 cards fully fit and the
-            third peeks; on 412-430px (typical Android) the third card peeks ~30-40%. */}
         <div className="flex gap-3 overflow-x-auto no-scrollbar pl-4 pr-4 pb-2 snap-x snap-mandatory" style={{ scrollPaddingLeft: 16 }}>
           {shortcutCards.map((v) => (
             <VehicleCard key={v.code} v={v} money={money} onClick={() => start(v.code)} testid={`exp-home-vehicle-${v.code}`} />
@@ -252,15 +247,15 @@ const ExpressHomeMobile = () => {
       <section className="px-4 mt-4 grid grid-cols-2 gap-3">
         <ServiceCard
           testid="exp-home-bulk"
-          title="Parcel Delivery"
-          subtitle="Fast document & parcel delivery"
+          title={t("send.parcel_title")}
+          subtitle={t("send.parcel_sub")}
           image={EXPRESS_ASSETS.parcel}
           onClick={() => navigate("/send/book/location")}
         />
         <ServiceCard
           testid="exp-home-movers"
-          title="Home Shifting"
-          subtitle="Professional Packers & Movers"
+          title={t("send.movers_title")}
+          subtitle={t("send.movers_sub")}
           image={EXPRESS_ASSETS.moving}
           onClick={() => navigate("/send/movers")}
         />
@@ -269,7 +264,7 @@ const ExpressHomeMobile = () => {
       <section className="px-4 mt-4">
         <div className="rounded-2xl p-3 flex items-center gap-3 border border-border bg-card">
           <Sparkles size={16} color={YELLOW} />
-          <div className="text-[0.75rem] font-normal text-foreground opacity-70">All deliveries are insured · verified drivers · live tracking on every order.</div>
+          <div className="text-[0.75rem] font-normal text-foreground opacity-70">{t("send.trust_banner")}</div>
         </div>
       </section>
     </div>
@@ -278,10 +273,11 @@ const ExpressHomeMobile = () => {
 
 // ---------------- VEHICLE CARD — image-first, minimal (180px wide) ----------------
 const VehicleCard = ({ v, money, onClick, testid }) => {
-  const label = v.code === "bike" ? "Bike"
-              : v.code === "three_wheeler" ? "Mini 3 Wheeler"
-              : v.code === "mini_truck" ? "Mini Truck"
-              : v.code === "truck" ? "Truck"
+  const { t } = useTranslation("customer");
+  const label = v.code === "bike" ? t("send.vehicle_bike")
+              : v.code === "three_wheeler" ? t("send.vehicle_three_wheeler")
+              : v.code === "mini_truck" ? t("send.vehicle_mini_truck")
+              : v.code === "truck" ? t("send.vehicle_truck")
               : v.name;
   return (
     <button
@@ -289,7 +285,6 @@ const VehicleCard = ({ v, money, onClick, testid }) => {
       onClick={onClick}
       className="snap-start shrink-0 min-w-[180px] max-w-[180px] rounded-2xl overflow-hidden text-left motion-fast active:scale-[0.98] flex flex-col border border-border bg-card"
     >
-      {/* Image occupies ~72% of card height (160px of 220px) — object-contain, never cropped */}
       <div className="h-40 relative flex items-center justify-center px-2 pt-2" style={{ background: `radial-gradient(circle at 50% 55%, ${YELLOW}22, transparent 65%)` }}>
         <img
           src={vehicleImage(v.code)}
@@ -300,10 +295,10 @@ const VehicleCard = ({ v, money, onClick, testid }) => {
       </div>
       <div className="px-3 pt-2 pb-3">
         <div className="flex items-center gap-1.5 text-foreground text-[0.9rem] font-semibold leading-tight">
-          <span className="truncate">Send by {label}</span>
+          <span className="truncate">{t("send.send_by", { vehicle: label })}</span>
           <ArrowRight size={13} color={YELLOW} className="shrink-0" strokeWidth={2.5} />
         </div>
-        <div className="text-[0.75rem] font-normal text-muted-foreground mt-1">From {money(v.base_price)}</div>
+        <div className="text-[0.75rem] font-normal text-muted-foreground mt-1">{t("send.from_price", { price: money(v.base_price) })}</div>
       </div>
     </button>
   );
@@ -338,6 +333,7 @@ const ServiceCard = ({ testid, title, subtitle, image, onClick }) => (
 // =====================================================================
 
 const ExpressDesktopHome = () => {
+  const { t } = useTranslation("customer");
   const navigate = useNavigate();
   const { country, activeAddress, openAddressSelector } = useApp();
   const { setDraft } = useExpressBooking();
@@ -374,7 +370,7 @@ const ExpressDesktopHome = () => {
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-bold text-foreground truncate flex items-center gap-1">{address}<ChevronDown size={12} className="text-muted-foreground" /></div>
-                <div className="text-[0.75rem] font-normal text-muted-foreground">Delivering to you <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
+                <div className="text-[0.75rem] font-normal text-muted-foreground">{t("send.delivering_to_you")} <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold ml-1" style={{ backgroundColor: YELLOW, color: "#0a0a0a" }}>{eta}</span></div>
               </div>
             </button>
           </div>
@@ -388,8 +384,8 @@ const ExpressDesktopHome = () => {
 
           {/* Section 3 — 2 service cards side-by-side */}
           <div className="grid grid-cols-2 gap-3">
-            <DesktopServiceCard testid="exp-dt-parcel"  title="Parcel Delivery" subtitle={<>Fast document<br/>&amp; parcel delivery</>} image={EXPRESS_ASSETS.parcel} onClick={() => navigate("/send/parcel")} />
-            <DesktopServiceCard testid="exp-dt-movers"  title="Home Shifting"   subtitle={<>Professional<br/>Packers &amp; Movers</>} image={EXPRESS_ASSETS.moving} onClick={() => navigate("/send/home-shifting")} />
+            <DesktopServiceCard testid="exp-dt-parcel"  title={t("send.parcel_title")} subtitle={<>{t("send.parcel_sub")}</>} image={EXPRESS_ASSETS.parcel} onClick={() => navigate("/send/parcel")} />
+            <DesktopServiceCard testid="exp-dt-movers"  title={t("send.movers_title")}   subtitle={<>{t("send.movers_sub")}</>} image={EXPRESS_ASSETS.moving} onClick={() => navigate("/send/home-shifting")} />
           </div>
 
           {/* Section 4 — Explore All Services */}
@@ -402,8 +398,8 @@ const ExpressDesktopHome = () => {
               <LayoutGrid size={18} color={YELLOW} />
             </div>
             <div className="flex-1">
-              <div className="text-[0.9rem] font-semibold leading-tight text-foreground">Explore All Services</div>
-              <div className="text-[0.75rem] font-normal text-muted-foreground mt-0.5">More delivery solutions for you</div>
+              <div className="text-[0.9rem] font-semibold leading-tight text-foreground">{t("send.explore_all")}</div>
+              <div className="text-[0.75rem] font-normal text-muted-foreground mt-0.5">{t("send.explore_all_sub")}</div>
             </div>
             <div className="w-9 h-9 rounded-full flex items-center justify-center border border-border">
               <ArrowRight size={14} color={YELLOW} strokeWidth={2.5} />
@@ -417,13 +413,12 @@ const ExpressDesktopHome = () => {
             className="rounded-2xl h-14 flex items-center justify-center gap-2 text-base font-bold text-black motion-fast active:scale-[0.99]"
             style={{ backgroundColor: YELLOW }}
           >
-            <Briefcase size={17} strokeWidth={2.5} /> BOOK NOW
+            <Briefcase size={17} strokeWidth={2.5} /> {t("send.book_now")}
           </button>
 
-          {/* Section 6 — Trust banner */}
           <div className="exp-dt-tile rounded-2xl px-3 py-2.5 flex items-center gap-2 border border-border">
             <ShieldCheck size={14} color={YELLOW} />
-            <div className="text-[0.75rem] font-normal text-muted-foreground">All deliveries are insured · Verified drivers · Live tracking on every order.</div>
+            <div className="text-[0.75rem] font-normal text-muted-foreground">{t("send.trust_banner")}</div>
           </div>
         </div>
 
@@ -437,10 +432,11 @@ const ExpressDesktopHome = () => {
 };
 
 const DesktopVehicleCard = ({ v, money, onClick, testid }) => {
-  const label = v.code === "bike" ? "Bike"
-              : v.code === "three_wheeler" ? "Mini 3 Wheeler"
-              : v.code === "mini_truck" ? "Mini Truck"
-              : v.code === "truck" ? "Truck"
+  const { t } = useTranslation("customer");
+  const label = v.code === "bike" ? t("send.vehicle_bike")
+              : v.code === "three_wheeler" ? t("send.vehicle_three_wheeler")
+              : v.code === "mini_truck" ? t("send.vehicle_mini_truck")
+              : v.code === "truck" ? t("send.vehicle_truck")
               : v.name;
   return (
     <button
@@ -453,8 +449,8 @@ const DesktopVehicleCard = ({ v, money, onClick, testid }) => {
       </div>
       <div className="px-3 pt-2 pb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[0.85rem] font-semibold text-foreground leading-tight truncate">Send by {label}</div>
-          <div className="text-[0.7rem] font-normal text-muted-foreground mt-0.5">From {money(v.base_price)}</div>
+          <div className="text-[0.85rem] font-semibold text-foreground leading-tight truncate">{t("send.send_by", { vehicle: label })}</div>
+          <div className="text-[0.7rem] font-normal text-muted-foreground mt-0.5">{t("send.from_price", { price: money(v.base_price) })}</div>
         </div>
         <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: YELLOW }}>
           <ArrowRight size={13} color="#0a0a0a" strokeWidth={2.5} />

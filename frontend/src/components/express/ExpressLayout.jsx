@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, HelpCircle } from "lucide-react";
 import { useApp } from "../../contexts/BakedContexts";
 
@@ -8,12 +9,13 @@ import { useApp } from "../../contexts/BakedContexts";
  * right-aligned "Step X of Y" or "Help" text. Used across every Express screen.
  */
 export const ExpressHeader = ({ title, step, totalSteps = 5, right, onBack }) => {
+  const { t } = useTranslation("customer");
   const navigate = useNavigate();
   const handleBack = onBack || (() => navigate(-1));
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
       <div className="px-3 h-14 flex items-center gap-2">
-        <button data-testid="exp-header-back" onClick={handleBack} aria-label="Back" className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary motion-fast active:scale-95">
+        <button data-testid="exp-header-back" onClick={handleBack} aria-label={t("btn.back", { ns: "common", defaultValue: "Back" })} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary motion-fast active:scale-95">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 text-center">
@@ -21,7 +23,7 @@ export const ExpressHeader = ({ title, step, totalSteps = 5, right, onBack }) =>
           <div className="text-sm font-bold truncate">{title}</div>
         </div>
         {step != null ? (
-          <div className="min-w-[64px] text-right text-[11px] font-semibold text-muted-foreground">Step {step} of {totalSteps}</div>
+          <div className="min-w-[64px] text-right text-[11px] font-semibold text-muted-foreground">{t("send.wizard.step_x_of_y", { current: step, total: totalSteps })}</div>
         ) : (
           <div className="min-w-[64px] text-right">{right}</div>
         )}
@@ -64,21 +66,25 @@ export const WizardProgress = ({ steps, current }) => (
 /**
  * ExpressFooter — sticky bottom bar with left brand + right Continue CTA.
  */
-export const ExpressFooter = ({ onContinue, disabled, label = "Continue", loading, testid = "exp-footer-continue" }) => (
-  <div className="sticky bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-4 py-3 flex items-center gap-3">
-    <div className="text-[10px] font-bold tracking-widest text-muted-foreground">bakēd</div>
-    <div className="flex-1" />
-    <button
-      data-testid={testid}
-      onClick={onContinue}
-      disabled={disabled || loading}
-      className="baked-btn h-11 px-6 font-bold text-black motion-fast active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{ backgroundColor: "#FCC44C" }}
-    >
-      {loading ? "…" : label}
-    </button>
-  </div>
-);
+export const ExpressFooter = ({ onContinue, disabled, label, loading, testid = "exp-footer-continue" }) => {
+  const { t } = useTranslation("customer");
+  const finalLabel = label ?? t("send.wizard.continue");
+  return (
+    <div className="sticky bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-4 py-3 flex items-center gap-3">
+      <div className="text-[10px] font-bold tracking-widest text-muted-foreground">bakēd</div>
+      <div className="flex-1" />
+      <button
+        data-testid={testid}
+        onClick={onContinue}
+        disabled={disabled || loading}
+        className="baked-btn h-11 px-6 font-bold text-black motion-fast active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ backgroundColor: "#FCC44C" }}
+      >
+        {loading ? "…" : finalLabel}
+      </button>
+    </div>
+  );
+};
 
 /**
  * Currency helper — respects XOF/LRD whole-number rendering.

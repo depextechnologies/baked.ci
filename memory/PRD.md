@@ -1,10 +1,18 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-08) — Account Screens i18n — COMPLETE
+## Latest (2026-03-09) — SEND Wizard i18n — COMPLETE
+- ✅ **~150 strings localised** across `ExpressWizard.jsx` (parcel booking funnel — 5 steps + booking confirmation), `MoversWizard.jsx` (movers booking funnel — 6 steps + landing) and shared `ExpressLayout.jsx` (header "Step X of Y" + footer "Continue" + Back aria-label). Zero remaining hardcoded English in the SEND funnel.
+- ✅ **~160 new keys** under `customer:send.wizard.*` covering both wizards' every step, header, footer, confirmation, toasts, and empty states with `{{count}}` / `{{km}}` / `{{price}}` / `{{ref}}` interpolation.
+- ✅ Date labels in `TimeSlotStep` now use `i18n.language`-aware `toLocaleDateString` (fr-FR vs en-US).
+- ✅ Global coverage: **290 → 159 hardcoded strings (−45%)**. Cumulative Phase C onwards: **445 → 159 = −64%**.
+- ✅ Live proof: `/send/movers` renders "DÉMÉNAGEURS PROFESSIONNELS / Type de déménagement", `/send/book/location` renders "Étape 1 sur 5 / Lieu de ramassage / Continuer"; EN toggle flips everything to "Step 1 of 5 / Pick-up & Drop Location / Continue".
+
+## Previous (2026-03-08) — Account Screens i18n — COMPLETE
 - ✅ **84 strings localised** across MobileWallet, MobileSettings, MobileHelpSupport, MobileRefer, MobileRewards, MobileActivities. **146 new i18n keys** under 6 new namespaces (`wallet_extra`, `settings`, `help`, `refer`, `rewards_page`, `activities`).
 - ✅ **Bonus**: `DesktopProfileShell` guest state + sidebar nav + Log-out button now localised through `t()` and `useLocalePath()`.
 - ✅ Global coverage: **374 → 290 hardcoded strings (−22%)**. Cumulative Phase C onwards: **445 → 290 = −35%**.
 - ✅ Live proof: `/portefeuille` guest view fully French — zero English leaks.
+
 
 ## Previous (2026-03-08) — Checkout String i18n — COMPLETE
 - ✅ **72 launch-blocker strings localised** across the 4 checkout files (MobileCheckout, MobileAddresses, AddressSelector, MobileOrderDelivered). Every string a customer sees at the money moment now switches FR↔EN.

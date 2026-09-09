@@ -1,5 +1,36 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-09 — SEND Wizard i18n — COMPLETE
+
+Localised the SENDbakēd booking funnel — the top offender identified in `I18N_COVERAGE_REPORT.md`:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `pages/express/ExpressWizard.jsx` | 62 | 0 | −62 |
+| `pages/express/MoversWizard.jsx` | 49 | 0 | −49 |
+| `components/express/ExpressLayout.jsx` | 3 | 0 | −3 |
+| **Total** | **114** | **0** | **−114** |
+
+Global coverage: **290 → 159 hardcoded strings (−45%)**. Cumulative Phase C onwards: **445 → 159 = −64%**.
+
+**Keys added** — ~160 new keys under `customer:send.wizard.*` (mirror in `en/` and `fr/` customer.json):
+- Step labels (10) — `step_type`, `step_location`, `step_items`, `step_quote`, `step_timeslot`, `step_review`, `step_receiver`, `step_vehicle`, `step_package`, `step_estimate`
+- Screen headers (6) — `header_movers`, `header_pickup_drop`, `header_receiver`, `header_vehicle`, `header_package`, `header_estimate`, `header_confirmed`
+- Movers flow (~50) — `pickup_drop_details`, `building_access`, `service_lift`, `stairs_only`, `floor_label`, `parking_available`, `add_items`, `items_hint`, `items_count`, `custom_item_soon`, `estimated_charges`, `transportation`, `packing`, `labour`, `floor_fees`, `stair_fees`, `toll_permits`, `insurance_transit`, `total_estimated_cost`, `labour_movers`, `trust_movers`, `select_moving_date`, `select_time_slot`, `timings_include`, `review_confirm`, `terms_agree_prefix`, `terms_link`, `booking_safe`, `book_now`, `sign_in_to_book`, `accept_terms_first`, `booking_failed` — with `{{count}}` / `{{km}}` interpolation.
+- Parcel flow (~55) — `who_delivering_to`, `receiver_name`, `phone_number`, `alt_number`, `building_apt`, `landmark`, `delivery_notes`, `delivery_preferences`, `choose_vehicle`, `prices_vary_demand`, `up_to_kg`, `eta_range`, `best_badge`, `all_deliveries_insured`, `safe_with_send`, `package_helps`, `package_type`, `package_weight`, `package_dimensions`, `additional_info`, `dim_length/width/height`, `booking_incomplete`, `restart_booking`, `selected_vehicle`, `change`, `price_breakdown`, `base_fare`, `distance`, `time`, `surcharge`, `service_fee`, `insurance`, `taxes`, `promo_line`, `estimated_total`, `insurance_included`, `goods_covered_up_to`, `have_promo`, `promo_ph`, `apply`, `final_price_note`, `payment`, `cash_on_delivery`, `pay_to_driver`, `baked_wallet`, `book_now_with_price`, `promo_applied` — with `{{price}}` / `{{code}}` interpolation.
+- Booking confirmation (~15) — `booking_successful`, `booking_ref_note`, `your_move`, `your_delivery`, `load_label`, `slot_label`, `distance_label`, `est_eta_label`, `vehicle_label`, `total_to_pay`, `cod_short`, `move_confirmed`, `move_call_note`, `searching_driver`, `tracking_opens`, `track_order`, `book_another`.
+- Shared UI (2) — `continue` (footer default), `step_x_of_y` (header counter).
+
+**Extras**:
+- `TimeSlotStep` date labels now use `i18n.language`-aware `toLocaleDateString("fr-FR" | "en-US")` so short-format dates (Lun 09 mars vs Mon 09 Mar) match the active language.
+- `MoversWizard`'s local `useSteps()` hook + `useSteps()` in `ExpressWizard` re-render the step names when the language toggles — no page reload required.
+
+**Live verified**:
+- `/send/movers` FR → "DÉMÉNAGEURS PROFESSIONNELS / Type de déménagement / Déménagement clé en main"
+- `/send/book/location` FR → "Étape 1 sur 5 / Lieu de ramassage & livraison / Ramassage & livraison / Destinataire / Véhicule / Colis / Estimation / Continuer"
+- `/send/book/location?lang=en` (localStorage) → "Step 1 of 5 / Pick-up & Drop Location / Pickup & Drop / Receiver / Vehicle / Package / Estimate / Continue"
+
+
 ## 2026-03-08 — Account Screens i18n — COMPLETE
 
 Rewired the 6 account/profile mobile screens through `useTranslation("customer")`:
