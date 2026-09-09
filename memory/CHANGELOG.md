@@ -1,5 +1,25 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-08 — Phase C+ · URL Auto-Sync (LocaleRouteSync) — COMPLETE
+
+Added `i18n/LocaleRouteSync.jsx` — a side-effect-only observer mounted inside both `DesktopCustomerShell` and `MobileCustomerShell` in `apps/customer/CustomerApp.jsx`. It watches `location.pathname` and `i18n.language`; when they disagree, it reverse-matches the current URL against `ROUTE_MAP` (both static aliases and `:param` patterns via `matchPath`) and rewrites the URL bar with `navigate(newPath, { replace: true })`.
+
+**Verified with browser automation** (7/7 scenarios):
+- Land on `/produits` in FR → stays `/produits`
+- Toggle EN → URL auto-swaps to `/products`
+- Toggle FR back → URL becomes `/produits`
+- Query strings preserved: `/produits?search=milk` → `/products?search=milk`
+- Toggle EN on `/panier` → becomes `/cart`
+- Home `/` (same path both langs) — no swap
+- Unknown routes (`/admin`, `/shop`, `/send`) — left alone (no false rewrites)
+
+**Implementation notes**:
+- Exact-string matches are tried before `:param` patterns so `/panier` never gets falsely matched by `/produits/:id`.
+- `useRef` guard prevents any infinite loop when we ourselves navigate.
+- Hash + search preserved.
+- Zero DOM output (`return null`).
+
+
 ## 2026-03-08 — Phase C · French Route Renaming — COMPLETE
 
 Localised customer-facing URLs so French users see native French paths in the URL bar. English aliases stay live so external bookmarks and share URLs keep working.

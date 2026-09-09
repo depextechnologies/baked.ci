@@ -1,6 +1,10 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-08) — Phase C · French Route Renaming — COMPLETE
+## Latest (2026-03-08) — Phase C+ · URL Auto-Sync — COMPLETE
+- ✅ `i18n/LocaleRouteSync.jsx` — mounted inside both customer shells; watches `location.pathname` + `i18n.language`, reverse-matches against `ROUTE_MAP` (both static aliases and `:param` patterns via `matchPath`), and rewrites the URL bar with `navigate(newPath, { replace: true })`. Zero-DOM observer.
+- ✅ **Live proof**: Toggling FR/EN on `/produits`, `/panier`, `/paiement`, `/commandes` etc. swaps the URL bar to `/products`, `/cart`, `/checkout`, `/orders` on the fly. Query strings + hash preserved. Unknown routes (`/admin`, `/shop`) untouched. 7/7 browser scenarios pass.
+
+## Previous (2026-03-08) — Phase C · French Route Renaming — COMPLETE
 - ✅ **Route map** (`i18n/routes.js`) — `ROUTE_MAP` + `useLocalePath()` hook: 18 route keys with FR/EN paths + param interpolation. `resolvePath()` exposed for tests / non-hook code.
 - ✅ **Customer app** now registers both FR and EN paths for every localised route in `apps/customer/CustomerApp.jsx` (Desktop + Mobile shells). `/produits`, `/panier`, `/paiement`, `/commandes`, `/portefeuille`, `/compte(/adresses|/parametres|/aide|/activites|/recompenses|/parrainage)` all resolve alongside their English aliases so external bookmarks keep working.
 - ✅ **Internal navigation** migrated to `useLocalePath()` across TopNav, MobileBottomNav, MobileShell (path detection now recognises both prefixes), MobileHome, MobileCart, MobileCheckout, MobileProductDetail, HomePage, CartPage, CheckoutPage, ProductDetailPage, ProductCard, ConfigHomepage (hero CTA + banner links + CTA-strip — with CMS→locale normaliser that preserves query strings).

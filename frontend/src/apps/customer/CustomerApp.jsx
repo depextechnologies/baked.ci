@@ -45,6 +45,7 @@ import { MobileSettings } from "@/pages/mobile/MobileSettings";
 import { MobileHelpSupport } from "@/pages/mobile/MobileHelpSupport";
 import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog";
 import { AddressSelector } from "@/components/address/AddressSelector";
+import { LocaleRouteSync } from "@/i18n/LocaleRouteSync";
 import { ExpressBookingProvider, MoversBookingProvider } from "@/contexts/ExpressContext";
 import { ExpressHome } from "@/pages/express/ExpressHome";
 import {
@@ -92,6 +93,7 @@ const ExpressLegacyRedirect = () => {
 
 const DesktopCustomerShell = () => (
   <div className="App min-h-screen bg-background text-foreground">
+    <LocaleRouteSync />
     <TopNav />
     <ModuleTabs />
     <Routes>
@@ -165,6 +167,7 @@ const DesktopCustomerShell = () => (
 
 const MobileCustomerShell = () => (
   <MobileShell>
+    <LocaleRouteSync />
     <Routes>
       <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<MobileCategoryPage />} />
