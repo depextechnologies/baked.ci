@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { APIProvider, Map, AdvancedMarker, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { X, MapPin, Navigation2, Search, Home, Building2, Warehouse, Users2, Star, ChevronRight, Clock, Sparkles, ShieldCheck, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,16 +19,19 @@ const SUGGESTED_ADDRESSES = {
 };
 
 // -------- Missing-key fallback (rendered before <APIProvider> can mount) --------
-const NoKeyBanner = ({ onClose }) => (
-  <div className="p-8 text-center" data-testid="addr-selector-nokey">
-    <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
-      <AlertTriangle size={30} />
+const NoKeyBanner = ({ onClose }) => {
+  const { t } = useTranslation("customer");
+  return (
+    <div className="p-8 text-center" data-testid="addr-selector-nokey">
+      <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
+        <AlertTriangle size={30} />
+      </div>
+      <div className="text-lg font-bold mt-4">{t("address_selector.nokey_title")}</div>
+      <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{t("address_selector.nokey_body")}</p>
+      <button onClick={onClose} className="mt-6 baked-btn h-10 px-5 bg-secondary text-sm font-semibold">{t("address_selector.close")}</button>
     </div>
-    <div className="text-lg font-bold mt-4">Address selector unavailable</div>
-    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">Google Maps isn't configured yet. Please add <code className="text-foreground">REACT_APP_GOOGLE_MAPS_API_KEY</code> to <code className="text-foreground">frontend/.env</code> and restart the app.</p>
-    <button onClick={onClose} className="mt-6 baked-btn h-10 px-5 bg-secondary text-sm font-semibold">Close</button>
-  </div>
-);
+  );
+};
 
 // -------- Predictions row --------
 const PredictionRow = ({ suggestion, onSelect, testid }) => (
@@ -66,6 +70,7 @@ const AddressRow = ({ icon: Icon, tone = "#77BC1F", label, sub, onClick, badge, 
 
 // -------- The main search + list step --------
 const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, detecting, activeCountry }) => {
+  const { t } = useTranslation("customer");
   const { customer } = useAuth();
   const places = useMapsLibrary("places");
   const [query, setQuery] = useState("");
@@ -118,7 +123,7 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search a delivery address"
+            placeholder={t("address_selector.search_placeholder")}
             className="w-full h-12 pl-10 pr-4 baked-input bg-secondary/60 border border-border text-sm"
           />
           {busy && <Loader2 size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />}
@@ -133,8 +138,8 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
             {detecting ? <Loader2 size={14} className="animate-spin" /> : <Navigation2 size={14} />}
           </div>
           <div className="flex-1 text-left">
-            <div className="text-sm font-semibold" style={{ color: "#77BC1F" }}>Detect my location</div>
-            <div className="text-[11px] text-muted-foreground">Using your device's GPS</div>
+            <div className="text-sm font-semibold" style={{ color: "#77BC1F" }}>{t("address_selector.detect")}</div>
+            <div className="text-[11px] text-muted-foreground">{t("address_selector.detect_sub")}</div>
           </div>
         </button>
       </div>
@@ -151,7 +156,7 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
           <>
             {recent.length > 0 && (
               <section className="mt-2">
-                <div className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1.5"><Clock size={11} /> Recent searches</div>
+                <div className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1.5"><Clock size={11} /> {t("address_selector.recent_searches")}</div>
                 <div className="baked-card border-y border-border bg-card">
                   {recent.slice(0, 5).map((r, i) => (
                     <AddressRow
@@ -169,7 +174,7 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
             )}
 
             <section className="mt-4">
-              <div className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Saved addresses</div>
+              <div className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">{t("address_selector.saved_addresses")}</div>
               {saved.length > 0 ? (
                 <div className="baked-card border-y border-border bg-card">
                   {saved.map((a) => (
@@ -177,7 +182,7 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
                       key={a.id}
                       icon={LABEL_ICON[a.label] || MapPin}
                       label={a.label}
-                      badge={a.is_default ? "Default" : null}
+                      badge={a.is_default ? t("address_selector.default_badge") : null}
                       sub={a.formatted_address || `${a.line1}${a.city ? ", " + a.city : ""}`}
                       onClick={() => onPickSaved(a)}
                       testid={`addr-saved-${a.id}`}
@@ -187,14 +192,14 @@ const SearchStep = ({ onPickSuggestion, onDetect, onPickSaved, onPickRecent, det
               ) : (
                 <div className="baked-card border border-border bg-card mx-4 p-5 text-center">
                   <Sparkles size={18} className="mx-auto text-muted-foreground" />
-                  <div className="text-sm font-semibold mt-2">No saved addresses yet</div>
-                  <div className="text-[11px] text-muted-foreground mt-1">Search or detect your location — one tap to save.</div>
+                  <div className="text-sm font-semibold mt-2">{t("address_selector.empty_saved_title")}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{t("address_selector.empty_saved_body")}</div>
                 </div>
               )}
             </section>
 
             <section className="mt-4 mb-6 px-4">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Suggested</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">{t("address_selector.suggested")}</div>
               <div className="flex flex-wrap gap-2">
                 {(SUGGESTED_ADDRESSES[activeCountry] || SUGGESTED_ADDRESSES.CI).map((s) => (
                   <button
@@ -237,6 +242,7 @@ const PreviewMap = ({ lat, lng }) => (
 
 // -------- Confirmation step --------
 const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
+  const { t } = useTranslation("customer");
   const { customer } = useAuth();
   const [saveOn, setSaveOn] = useState(false);
   const [label, setLabel] = useState("Home");
@@ -246,7 +252,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
 
   useEffect(() => {
     (async () => {
-      if (candidate.latitude == null || candidate.longitude == null) { setSvc({ loading: false, serviceable: false, message: "Missing coordinates" }); return; }
+      if (candidate.latitude == null || candidate.longitude == null) { setSvc({ loading: false, serviceable: false, message: t("address_selector.no_coordinates") }); return; }
       try {
         const { data } = await api.get("/addresses/serviceability", {
           params: {
@@ -258,10 +264,10 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
         });
         setSvc({ loading: false, ...data });
       } catch (e) {
-        setSvc({ loading: false, serviceable: false, message: "Unable to check delivery zone" });
+        setSvc({ loading: false, serviceable: false, message: t("address_selector.checking_error") });
       }
     })();
-  }, [candidate.latitude, candidate.longitude, candidate.country, activeCountry]);
+  }, [candidate.latitude, candidate.longitude, candidate.country, activeCountry, t]);
 
   const confirm = async () => {
     if (!svc.serviceable) return;
@@ -321,7 +327,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
 
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 pt-4">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Selected address</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("address_selector.selected_address")}</div>
           <div className="text-sm font-semibold mt-1" data-testid="addr-confirm-address">{candidate.formatted_address}</div>
           <div className="text-[11px] text-muted-foreground mt-0.5">{[candidate.city, candidate.region, candidate.country].filter(Boolean).join(" · ")}</div>
         </div>
@@ -330,7 +336,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
         <div className="px-5 mt-4">
           {svc.loading ? (
             <div className="baked-card border border-border bg-card p-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 size={12} className="animate-spin" /> Checking delivery availability…
+              <Loader2 size={12} className="animate-spin" /> {t("address_selector.checking_area")}
             </div>
           ) : svc.serviceable ? (
             <div data-testid="addr-serviceable" className="baked-card border p-3 flex items-start gap-3" style={{ borderColor: "#77BC1F44", backgroundColor: "#77BC1F0F" }}>
@@ -338,9 +344,9 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
                 <ShieldCheck size={14} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold" style={{ color: "#77BC1F" }}>We deliver here</div>
+                <div className="text-sm font-semibold" style={{ color: "#77BC1F" }}>{t("address_selector.serviceable_title")}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
-                  {svc.nearest_hub?.name} · {svc.distance_km} km away
+                  {t("address_selector.serviceable_sub", { hub: svc.nearest_hub?.name, km: svc.distance_km })}
                 </div>
               </div>
             </div>
@@ -350,7 +356,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
                 <AlertTriangle size={14} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold" style={{ color: "#FF4C52" }}>Not available yet</div>
+                <div className="text-sm font-semibold" style={{ color: "#FF4C52" }}>{t("address_selector.not_available_title")}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">{svc.message}</div>
               </div>
             </div>
@@ -362,7 +368,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
           <div className="px-5 mt-4">
             <label className="flex items-center gap-2 text-xs font-semibold">
               <input type="checkbox" data-testid="addr-save-toggle" checked={saveOn} onChange={(e) => setSaveOn(e.target.checked)} className="w-4 h-4 accent-[#77BC1F]" />
-              Save this address to my address book
+              {t("address_selector.save_to_book")}
             </label>
             {saveOn && (
               <div className="mt-3 space-y-2">
@@ -381,7 +387,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
                   data-testid="addr-instructions"
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Delivery instructions (optional) — gate code, floor, landmarks…"
+                  placeholder={t("address_selector.instructions_placeholder")}
                   className="w-full h-10 baked-input bg-secondary/60 border border-border px-3 text-xs"
                 />
               </div>
@@ -391,14 +397,14 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
       </div>
 
       <div className="border-t border-border p-4 flex gap-2 shrink-0">
-        <button data-testid="addr-change-btn" onClick={onBack} className="flex-1 h-12 baked-btn border border-border bg-secondary font-semibold text-sm motion-fast active:scale-[0.99]">Change address</button>
+        <button data-testid="addr-change-btn" onClick={onBack} className="flex-1 h-12 baked-btn border border-border bg-secondary font-semibold text-sm motion-fast active:scale-[0.99]">{t("address_selector.change_address")}</button>
         <button
           data-testid="addr-confirm-btn"
           onClick={confirm}
           disabled={!svc.serviceable || busy}
           className="flex-1 h-12 baked-btn font-bold text-sm text-black motion-fast active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#77BC1F" }}
-        >{busy ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Confirm address"}</button>
+        >{busy ? <Loader2 size={16} className="animate-spin mx-auto" /> : t("address_selector.confirm_address")}</button>
       </div>
     </div>
   );
@@ -406,6 +412,7 @@ const ConfirmStep = ({ candidate, activeCountry, onBack, onConfirm }) => {
 
 // -------- Root selector (dialog + bottom sheet) --------
 const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
+  const { t } = useTranslation("customer");
   const [step, setStep] = useState("search"); // 'search' | 'confirm'
   const [candidate, setCandidate] = useState(null);
   const [detecting, setDetecting] = useState(false);
@@ -422,9 +429,9 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
       setStep("confirm");
     } catch (e) {
       console.error(e);
-      toast.error("Couldn't load address details");
+      toast.error(t("address_selector.toast_pick_error"));
     }
-  }, [activeCountry]);
+  }, [activeCountry, t]);
 
   const onPickSaved = useCallback((addr) => {
     setCandidate({
@@ -459,8 +466,8 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
   }, [activeCountry]);
 
   const onDetect = useCallback(async () => {
-    if (!navigator.geolocation) { toast.error("Geolocation not supported by this browser"); return; }
-    if (!geo) { toast.error("Maps not ready yet — try again in a moment"); return; }
+    if (!navigator.geolocation) { toast.error(t("address_selector.toast_no_geolocation")); return; }
+    if (!geo) { toast.error(t("address_selector.toast_maps_not_ready")); return; }
     setDetecting(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -469,17 +476,17 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
           setCandidate({ ...place, country: (place.country || activeCountry).toUpperCase() });
           setStep("confirm");
         } catch (e) {
-          toast.error("Could not detect address from your location");
+          toast.error(t("address_selector.toast_reverse_error"));
         } finally { setDetecting(false); }
       },
       (err) => {
         setDetecting(false);
-        if (err.code === err.PERMISSION_DENIED) toast.error("Location permission denied");
-        else toast.error("Couldn't detect your location");
+        if (err.code === err.PERMISSION_DENIED) toast.error(t("address_selector.toast_permission_denied"));
+        else toast.error(t("address_selector.toast_detect_error"));
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
-  }, [geo, activeCountry]);
+  }, [geo, activeCountry, t]);
 
   const onConfirm = useCallback((addr) => {
     // Defensive: guarantee `line1` is populated so downstream booking payloads
@@ -494,9 +501,9 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
     } else {
       setActiveAddress(finalized);
     }
-    toast.success(onPick ? "Address selected" : "Delivery address updated");
+    toast.success(onPick ? t("address_selector.toast_selected") : t("address_selector.toast_updated"));
     onClose();
-  }, [onPick, setActiveAddress, onClose]);
+  }, [onPick, setActiveAddress, onClose, t]);
 
   return (
     <>
@@ -518,12 +525,13 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
 
 // -------- Dialog / bottom-sheet frame --------
 export const AddressSelector = () => {
+  const { t } = useTranslation("customer");
   const { addressSelectorOpen, closeAddressSelector, country, addressSelectorMode } = useApp();
   const isMobile = useIsMobile();
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
   if (!addressSelectorOpen) return null;
-  const modalTitle = addressSelectorMode?.title || "Select delivery location";
+  const modalTitle = addressSelectorMode?.title || t("address_selector.modal_title");
 
   const frame = (
     <div
@@ -541,9 +549,9 @@ export const AddressSelector = () => {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-base font-bold">{modalTitle}</div>
-          <div className="text-[11px] text-muted-foreground truncate">Serving {country?.name || "your country"} · {country?.currency_symbol || country?.currency}</div>
+          <div className="text-[11px] text-muted-foreground truncate">{t("address_selector.serving_country", { country: country?.name || t("address_selector.serving_country_fallback"), currency: country?.currency_symbol || country?.currency })}</div>
         </div>
-        <button data-testid="addr-close-btn" onClick={closeAddressSelector} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center motion-fast active:scale-95" aria-label="Close">
+        <button data-testid="addr-close-btn" onClick={closeAddressSelector} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center motion-fast active:scale-95" aria-label={t("address_selector.close")}>
           <X size={16} />
         </button>
       </div>

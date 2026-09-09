@@ -12,15 +12,6 @@ import { ArrowLeft, MapPin, Zap, Clock, CalendarClock, ChevronRight, Banknote, W
 import { toast } from "sonner";
 import { PhoneLoginDialog } from "../../components/auth/PhoneLoginDialog";
 
-const SLOTS = [
-  { code: "express",   icon: Zap,          eta: "10-15 min",  label: "Express",  sub: "Fastest option" },
-  { code: "superfast", icon: Clock,        eta: "20-30 min",  label: "Super Fast", sub: "Popular pick" },
-  { code: "standard",  icon: Clock,        eta: "30-45 min",  label: "Standard",  sub: "Save on fees" },
-  { code: "later",     icon: CalendarClock, eta: "Choose time", label: "Schedule",  sub: "Pick a slot" },
-];
-
-// Convert the shared AddressSelector's activeAddress into the shape MobileCheckout tracks
-// locally. Preserves rich Google Places fields so they land in the POST /orders payload.
 const hydrateAddress = (active, country) => ({
   line1: active?.line1 || active?.formatted_address || "",
   city: active?.city || (country?.code === "CI" ? "Abidjan" : country?.code === "LR" ? "Monrovia" : ""),
@@ -53,6 +44,14 @@ export const MobileCheckout = () => {
   const [usePoints, setUsePoints] = useState(0);
   const [preview, setPreview] = useState(null);
   const ccy = country?.currency_symbol || country?.currency;
+
+  // Localised slot metadata — built inside the component so `t()` re-runs on language change.
+  const SLOTS = [
+    { code: "express",   icon: Zap,           eta: "10-15 min",   label: t("checkout.slot_express"),   sub: t("checkout.slot_express_sub") },
+    { code: "superfast", icon: Clock,         eta: "20-30 min",   label: t("checkout.slot_superfast"), sub: t("checkout.slot_superfast_sub") },
+    { code: "standard",  icon: Clock,         eta: "30-45 min",   label: t("checkout.slot_standard"),  sub: t("checkout.slot_standard_sub") },
+    { code: "later",     icon: CalendarClock, eta: t("checkout.slot_later_eta"), label: t("checkout.slot_later"), sub: t("checkout.slot_later_sub") },
+  ];
 
   // Keep the local form in sync when the user updates their active address via the pill
   useEffect(() => {
@@ -96,8 +95,14 @@ export const MobileCheckout = () => {
 
   const placeOrder = async () => {
     if (!customer) { setLoginOpen(true); return; }
-    if (hasMart && !address.line1) { toast.error("Enter a delivery address"); return; }
-    if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country?.currency, ccy)} more to reach the ${formatMoney(minOrder, country?.currency, ccy)} minimum order`); return; }
+    if (hasMart && !address.line1) { toast.error(t("checkout.err_enter_address")); return; }
+    if (!minOrderOk) {
+      toast.error(t("checkout.min_order_add_more", {
+        shortfall: formatMoney(shortfall, country?.currency, ccy),
+        min: formatMoney(minOrder, country?.currency, ccy),
+      }));
+      return;
+    }
     setPlacing(true);
     try {
       let martOrder = null;
@@ -122,16 +127,19 @@ export const MobileCheckout = () => {
           shopOrder = data;
         } catch (shopErr) {
           const d = shopErr?.response?.data?.detail;
-          const msg = typeof d === "string" ? d : (d?.message || "SHOP order failed — items kept in cart");
+          const msg = typeof d === "string" ? d : (d?.message || t("checkout.shop_order_failed"));
           toast.error(msg, { duration: 6000 });
         }
       }
-      toast.success(`Order placed!${martOrder?.points_earned ? ` +${martOrder.points_earned} baked Points earned` : ""}`);
+      toast.success(
+        t("checkout.order_placed_toast") +
+        (martOrder?.points_earned ? t("checkout.points_earned_toast", { n: martOrder.points_earned }) : "")
+      );
       await clear();
       if (shopOrder?.delivery_pin_sms?.delivered) {
-        toast.success(`Delivery PIN sent to ${shopOrder.delivery_pin_sms.phone}`, { duration: 5000 });
+        toast.success(t("checkout.pin_sms_sent", { phone: shopOrder.delivery_pin_sms.phone }), { duration: 5000 });
       } else if (shopOrder?.delivery_pin) {
-        toast("Delivery PIN is on your order page", { duration: 5000 });
+        toast(t("checkout.pin_on_order_page"), { duration: 5000 });
       }
       if (martOrder) nav(path("orderConfirm", { id: martOrder.id }));
       else if (shopOrder) nav(`/shop/order/${shopOrder.id}`);
@@ -141,16 +149,16 @@ export const MobileCheckout = () => {
         const names = (detail.gaps || []).map(g => g.name).filter(Boolean).join(", ");
         toast.error(`${detail.message}${names ? ` (${names})` : ""}`, { duration: 6000 });
       } else {
-        toast.error(typeof detail === "string" ? detail : "Could not place order");
+        toast.error(typeof detail === "string" ? detail : t("checkout.err_place_order"));
       }
     } finally { setPlacing(false); }
   };
 
   const PAYMENTS = [
-    { code: "cod",    icon: Banknote,   label: "Cash on Delivery", sub: "Pay when your order arrives", available: true },
-    { code: "wallet", icon: Wallet2,    label: "BAKĒD Wallet", sub: "Coming soon", available: false },
-    { code: "card",   icon: CreditCard, label: "Card", sub: "Coming soon", available: false },
-    { code: "apple",  icon: Apple,      label: "Apple Pay", sub: "Coming soon", available: false },
+    { code: "cod",    icon: Banknote,   label: t("checkout.payment_cash"),   sub: t("checkout.payment_cash_sub"),   available: true },
+    { code: "wallet", icon: Wallet2,    label: t("checkout.payment_wallet"), sub: t("checkout.payment_wallet_sub"), available: false },
+    { code: "card",   icon: CreditCard, label: t("checkout.payment_card"),   sub: t("checkout.payment_card_sub"),   available: false },
+    { code: "apple",  icon: Apple,      label: t("checkout.payment_apple"),  sub: t("checkout.payment_apple_sub"),  available: false },
   ];
 
   return (
@@ -171,10 +179,10 @@ export const MobileCheckout = () => {
           <div className="flex items-start gap-2.5">
             <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><MapPin size={14} /></div>
             <div className="flex-1 min-w-0">
-              <input data-testid="m-co-addr-line1" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} placeholder="Street, building, apartment #" className="w-full bg-transparent text-sm font-medium outline-none border-b border-border pb-1.5" />
+              <input data-testid="m-co-addr-line1" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} placeholder={t("checkout.address_line_placeholder")} className="w-full bg-transparent text-sm font-medium outline-none border-b border-border pb-1.5" />
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <input data-testid="m-co-addr-city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} placeholder="City" className="baked-input bg-secondary px-3 py-2 text-xs" />
-                <input data-testid="m-co-addr-country" value={address.country} onChange={(e) => setAddress({ ...address, country: e.target.value.toUpperCase() })} placeholder="ISO" className="baked-input bg-secondary px-3 py-2 text-xs" />
+                <input data-testid="m-co-addr-city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} placeholder={t("checkout.city_placeholder")} className="baked-input bg-secondary px-3 py-2 text-xs" />
+                <input data-testid="m-co-addr-country" value={address.country} onChange={(e) => setAddress({ ...address, country: e.target.value.toUpperCase() })} placeholder={t("checkout.iso_placeholder")} className="baked-input bg-secondary px-3 py-2 text-xs" />
               </div>
               <textarea data-testid="m-co-addr-instructions" value={address.instructions} onChange={(e) => setAddress({ ...address, instructions: e.target.value })} rows={2} placeholder={t("checkout.instructions_placeholder")} className="mt-2 w-full baked-input bg-secondary px-3 py-2 text-xs" />
             </div>
@@ -184,7 +192,7 @@ export const MobileCheckout = () => {
 
       {/* Delivery slot */}
       <section className="px-4 mt-5">
-        <div className="text-sm font-bold mb-2">Delivery Slot</div>
+        <div className="text-sm font-bold mb-2">{t("checkout.delivery_slot")}</div>
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           {SLOTS.map((s) => {
             const Icon = s.icon;
@@ -198,7 +206,7 @@ export const MobileCheckout = () => {
             );
           })}
         </div>
-        <div className="text-[11px] text-muted-foreground mt-2">Your order will be delivered in <b style={{ color: "#77BC1F" }}>{SLOTS.find((s) => s.code === slot)?.eta}</b>. Fresh & fast to your doorstep.</div>
+        <div className="text-[11px] text-muted-foreground mt-2">{t("checkout.delivery_promise_before")} <b style={{ color: "#77BC1F" }}>{SLOTS.find((s) => s.code === slot)?.eta}</b>{t("checkout.delivery_promise_after")}</div>
       </section>
 
       {/* Payment method */}
@@ -233,15 +241,15 @@ export const MobileCheckout = () => {
       {/* Rewards — Redeem Points tile */}
       {rewards && rewards.points > 0 && (
         <section className="px-4 mt-5">
-          <div className="text-sm font-bold mb-2 flex items-center gap-1.5"><Star size={14} style={{ color: "#FCC44C" }} fill="#FCC44C" /> Redeem baked Points</div>
+          <div className="text-sm font-bold mb-2 flex items-center gap-1.5"><Star size={14} style={{ color: "#FCC44C" }} fill="#FCC44C" /> {t("checkout.redeem_points")}</div>
           <div className="baked-card overflow-hidden border p-4" style={{ borderColor: "#FCC44C55", background: "linear-gradient(135deg, #FCC44C14 0%, hsl(var(--card)) 65%)" }}>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Available</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("checkout.points_available")}</div>
                 <div className="text-lg font-bold" data-testid="m-co-points-available">{rewards.points} pts</div>
-                <div className="text-[10px] text-muted-foreground">Worth {formatMoney(rewards.worth, rewards.currency, rewards.currency_symbol)} at checkout</div>
+                <div className="text-[10px] text-muted-foreground">{t("checkout.points_worth", { amount: formatMoney(rewards.worth, rewards.currency, rewards.currency_symbol) })}</div>
               </div>
-              <button data-testid="m-co-points-max" onClick={() => setUsePoints(maxRedeemable)} disabled={maxRedeemable === 0} className="text-xs font-bold px-3 h-9 rounded-lg text-black disabled:opacity-40" style={{ backgroundColor: "#FCC44C" }}>Use max</button>
+              <button data-testid="m-co-points-max" onClick={() => setUsePoints(maxRedeemable)} disabled={maxRedeemable === 0} className="text-xs font-bold px-3 h-9 rounded-lg text-black disabled:opacity-40" style={{ backgroundColor: "#FCC44C" }}>{t("checkout.use_max")}</button>
             </div>
             <div className="mt-4">
               <input
@@ -253,10 +261,10 @@ export const MobileCheckout = () => {
               />
               <div className="flex items-center justify-between text-[11px] mt-1">
                 <span className="text-muted-foreground">0</span>
-                <span className="font-semibold" data-testid="m-co-points-applied">Using <b style={{ color: "#FCC44C" }}>{pointsApplied}</b> pts → <b style={{ color: "#77BC1F" }}>−{formatMoney(pointsDiscount, country?.currency, ccy)}</b></span>
+                <span className="font-semibold" data-testid="m-co-points-applied" dangerouslySetInnerHTML={{ __html: t("checkout.using_points", { applied: `<b style="color:#FCC44C">${pointsApplied}</b>`, amount: `<b style="color:#77BC1F">${formatMoney(pointsDiscount, country?.currency, ccy)}</b>` }) }} />
                 <span className="text-muted-foreground">{maxRedeemable}</span>
               </div>
-              {maxRedeemable === 0 && <div className="text-[10px] text-muted-foreground text-center mt-2">Redemption available on orders above the minimum threshold.</div>}
+              {maxRedeemable === 0 && <div className="text-[10px] text-muted-foreground text-center mt-2">{t("checkout.points_min_threshold")}</div>}
             </div>
           </div>
         </section>
@@ -267,7 +275,7 @@ export const MobileCheckout = () => {
         <section className="px-4 mt-3">
           <div className="baked-card p-3 flex items-center gap-3 border" style={{ borderColor: "#77BC1F55", background: "linear-gradient(135deg, #77BC1F14 0%, hsl(var(--card)) 65%)" }}>
             <div className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Sparkles size={16} /></div>
-            <div className="text-[12px] leading-snug"><b style={{ color: "#77BC1F" }}>+{pointsEarned} baked Points</b> will be credited when this order is confirmed.</div>
+            <div className="text-[12px] leading-snug">{t("checkout.points_earn_preview", { n: pointsEarned })}</div>
           </div>
         </section>
       )}
@@ -279,20 +287,20 @@ export const MobileCheckout = () => {
           <div className="space-y-2 text-xs">
             <Row label={t("cart.subtotal")} value={formatMoney(subtotal, country?.currency, ccy)} />
             <Row label={t("cart.delivery_fee")} value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
-            {pointsDiscount > 0 && <Row label={`Points discount (${pointsApplied} pts)`} value={<span style={{ color: "#77BC1F" }}>− {formatMoney(pointsDiscount, country?.currency, ccy)}</span>} />}
+            {pointsDiscount > 0 && <Row label={t("checkout.points_discount_label", { applied: pointsApplied })} value={<span style={{ color: "#77BC1F" }}>− {formatMoney(pointsDiscount, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
               <span>{t("cart.total")}</span><span data-testid="m-co-total">{formatMoney(total, country?.currency, ccy)}</span>
             </div>
           </div>
-          <button onClick={() => nav(path("cart"))} className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: "#77BC1F" }}>Edit cart <ChevronRight size={12} /></button>
+          <button onClick={() => nav(path("cart"))} className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: "#77BC1F" }}>{t("checkout.edit_cart")} <ChevronRight size={12} /></button>
         </div>
       </section>
 
       {/* Trust strip */}
       <div className="px-4 mt-3 flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1"><ShieldCheck size={11} /> 100% Secure</span>
-        <span className="flex items-center gap-1"><Zap size={11} /> Fast delivery</span>
+        <span className="flex items-center gap-1"><ShieldCheck size={11} /> {t("checkout.trust_secure")}</span>
+        <span className="flex items-center gap-1"><Zap size={11} /> {t("checkout.trust_fast")}</span>
       </div>
 
       {/* Min-order banner (only when below threshold) */}
@@ -300,9 +308,12 @@ export const MobileCheckout = () => {
         <div className="px-4 mt-3">
           <div data-testid="m-co-min-order-warning" className="baked-card p-3 flex items-start gap-2.5 border" style={{ backgroundColor: "#FCC44C1a", borderColor: "#FCC44C88" }}>
             <AlertCircle size={16} className="shrink-0 mt-0.5" style={{ color: "#FCC44C" }} />
-            <div className="text-[11px] leading-snug">
-              Add <b style={{ color: "#FCC44C" }}>{formatMoney(shortfall, country?.currency, ccy)}</b> more to your basket to reach the <b>{formatMoney(minOrder, country?.currency, ccy)}</b> minimum.
-            </div>
+            <div className="text-[11px] leading-snug" dangerouslySetInnerHTML={{
+              __html: t("checkout.min_order_add_more", {
+                shortfall: `<b style="color:#FCC44C">${formatMoney(shortfall, country?.currency, ccy)}</b>`,
+                min: `<b>${formatMoney(minOrder, country?.currency, ccy)}</b>`,
+              })
+            }} />
           </div>
         </div>
       )}
@@ -311,7 +322,7 @@ export const MobileCheckout = () => {
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="px-4 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-muted-foreground">Total Payable</div>
+            <div className="text-[10px] text-muted-foreground">{t("checkout.total_payable")}</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
           <Button data-testid="m-co-pay" disabled={placing || !address.line1 || !minOrderOk} onClick={placeOrder} className="baked-btn h-12 px-6 font-bold disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: theme.accent, color: theme.text_on }}>

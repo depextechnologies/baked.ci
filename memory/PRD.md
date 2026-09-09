@@ -1,6 +1,12 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-08) — Launch route audit + i18n coverage sweep — COMPLETE
+## Latest (2026-03-08) — Checkout String i18n — COMPLETE
+- ✅ **72 launch-blocker strings localised** across the 4 checkout files (MobileCheckout, MobileAddresses, AddressSelector, MobileOrderDelivered). Every string a customer sees at the money moment now switches FR↔EN.
+- ✅ **95 new i18n keys** added to `customer.json` (checkout, address, address_selector, orders namespaces) with `{{param}}` interpolation and pluralised counts.
+- ✅ Global coverage: **445 → 374 hardcoded strings (−16%)**. Remaining top offenders are all in the SENDbakēd wizard funnel (English-branded module, deferred).
+- ✅ Live smoke-tested: FR homepage, `/paiement`, `/compte/adresses` all render 100% French, zero English leaks.
+
+## Previous (2026-03-08) — Launch route audit + i18n coverage sweep — COMPLETE
 - ✅ **Legal routes added**: `/confidentialite` ⇄ `/privacy`, `/conditions` ⇄ `/terms`. Registered in both `DesktopCustomerShell` + `MobileCustomerShell`. Footer legal links now emit locale-aware paths via `useLocalePath()`. `LocaleRouteSync` verified rewriting URL bar on FR/EN toggle.
 - ✅ **Coverage sweep** (`/app/scripts/i18n_coverage_sweep.py`) — full report saved to `/app/memory/I18N_COVERAGE_REPORT.md`:
   - 58 customer-facing JSX files scanned

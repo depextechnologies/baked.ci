@@ -1,5 +1,31 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-08 — Checkout String i18n — COMPLETE
+
+Localised the 4 launch-blocker files identified in `I18N_COVERAGE_REPORT.md`:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `pages/mobile/MobileCheckout.jsx` | 13 | 0 | −13 |
+| `pages/mobile/MobileAddresses.jsx` | 23 | 0 | −23 |
+| `components/address/AddressSelector.jsx` | 22 | 0 | −22 |
+| `pages/mobile/MobileOrderDelivered.jsx` | 14 | 0 | −14 |
+| **Total** | **72** | **0** | **−72** |
+
+Global coverage: **445 → 374 hardcoded strings (−16%)**. All 4 target files removed from the top-15 offender list. Every string customers see during the money-moment now switches between FR and EN via `useTranslation("customer")`.
+
+**Keys added** (mirror in `/app/frontend/src/i18n/locales/{fr,en}/customer.json`):
+- `checkout.*` — 30 new keys (delivery slots, payment methods, points redemption, min-order banner, toast strings, order-placed flow, total payable, trust strip)
+- `address.*` — 25 new keys (form labels, placeholders, toast copy, empty state, ecosystem strip, sign-in prompt, saved-count with i18next `_one`/`_other` plurals)
+- `address_selector.*` — 25 new keys (modal title, detect button, saved/recent sections, serviceability states, confirmation flow, all toast strings)
+- `orders.*` — 15 new keys (rating card, freshness guarantee, delivery summary, order summary, sticky footer)
+
+**Live verified**:
+- `/produits`, `/`, `/panier`, `/paiement` all render in French
+- Zero English leaks on `/paiement` login prompt or `/compte/adresses` guest prompt
+- Homepage delivery panel, category strip, footer all French
+
+
 ## 2026-03-08 — Launch route audit + i18n coverage sweep — COMPLETE
 
 **Batch route migration**:
