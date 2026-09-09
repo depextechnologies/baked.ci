@@ -155,7 +155,9 @@ const DesktopCustomerShell = () => (
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/confidentialite" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/conditions" element={<TermsOfService />} />
       {FooterLandingRoutes()}
       <Route path="*" element={<HomePage />} />
     </Routes>
@@ -233,7 +235,9 @@ const MobileCustomerShell = () => (
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/confidentialite" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/conditions" element={<TermsOfService />} />
       {FooterLandingRoutes()}
       <Route path="*" element={<MobileHome />} />
     </Routes>

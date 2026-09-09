@@ -45,6 +45,8 @@ export const ROUTE_MAP = {
   profileActivities:{ fr: "/compte/activites",       en: "/profile/activities" },
   profileRewards:  { fr: "/compte/recompenses",      en: "/profile/rewards" },
   profileRefer:    { fr: "/compte/parrainage",       en: "/profile/refer" },
+  privacy:         { fr: "/confidentialite",         en: "/privacy" },
+  terms:           { fr: "/conditions",              en: "/terms" },
 };
 
 /**

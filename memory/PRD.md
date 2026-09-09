@@ -1,6 +1,16 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-08) — Phase C+ · URL Auto-Sync — COMPLETE
+## Latest (2026-03-08) — Launch route audit + i18n coverage sweep — COMPLETE
+- ✅ **Legal routes added**: `/confidentialite` ⇄ `/privacy`, `/conditions` ⇄ `/terms`. Registered in both `DesktopCustomerShell` + `MobileCustomerShell`. Footer legal links now emit locale-aware paths via `useLocalePath()`. `LocaleRouteSync` verified rewriting URL bar on FR/EN toggle.
+- ✅ **Coverage sweep** (`/app/scripts/i18n_coverage_sweep.py`) — full report saved to `/app/memory/I18N_COVERAGE_REPORT.md`:
+  - 58 customer-facing JSX files scanned
+  - **14 (24%)** wire `useTranslation()`; **128 live `t()` call sites**
+  - **445 hardcoded English strings** across 43 files
+  - Top hotspot: `SEND` module (ExpressWizard 62 + MoversWizard 49 + ExpressHome 19 = 130 strings, ~30% — English brand, deferred)
+  - **Launch-blocker residuals** (checkout journey): `MobileAddresses` (23) + `AddressSelector` (22) + `MobileCheckout` (13) + `MobileOrderDelivered` (14) = **87 strings across 4 files**
+- ✅ **Launch route matrix**: 22/22 customer storefront routes French-first + English-aliased. `/send/*` and `/shop/*` kept as English brand paths per user's Workstream 2 rename.
+
+## Previous (2026-03-08) — Phase C+ · URL Auto-Sync — COMPLETE
 - ✅ `i18n/LocaleRouteSync.jsx` — mounted inside both customer shells; watches `location.pathname` + `i18n.language`, reverse-matches against `ROUTE_MAP` (both static aliases and `:param` patterns via `matchPath`), and rewrites the URL bar with `navigate(newPath, { replace: true })`. Zero-DOM observer.
 - ✅ **Live proof**: Toggling FR/EN on `/produits`, `/panier`, `/paiement`, `/commandes` etc. swaps the URL bar to `/products`, `/cart`, `/checkout`, `/orders` on the fly. Query strings + hash preserved. Unknown routes (`/admin`, `/shop`) untouched. 7/7 browser scenarios pass.
 

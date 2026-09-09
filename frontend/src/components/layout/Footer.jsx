@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useLocalePath } from "../../i18n/routes";
 import { BakedLogo } from "./BakedLogo";
 
 /**
@@ -71,6 +72,7 @@ const SectionTitle = ({ children }) => (
 
 export const Footer = () => {
   const { t } = useTranslation("common");
+  const path = useLocalePath();
   const USEFUL_LINKS = [
     [t("footer.about_us"),  "/about"],
     [t("footer.faqs"),      "/help"],
@@ -86,8 +88,8 @@ export const Footer = () => {
   const SUPPORT = [
     [t("footer.help_center"), "/help"],
     [t("footer.contact"),     "/contact"],
-    [t("footer.terms"),       "/terms"],
-    [t("footer.privacy"),     "/privacy"],
+    [t("footer.terms"),       path("terms")],
+    [t("footer.privacy"),     path("privacy")],
   ];
   return (
     <footer className="mt-16 border-t border-border" data-testid="site-footer">

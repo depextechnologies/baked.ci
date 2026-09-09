@@ -1,5 +1,46 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-08 — Launch route audit + i18n coverage sweep — COMPLETE
+
+**Batch route migration**:
+- `/confidentialite` ⇄ `/privacy` — PrivacyPolicy route + `ROUTE_MAP.privacy` + Footer link
+- `/conditions` ⇄ `/terms` — TermsOfService route + `ROUTE_MAP.terms` + Footer link
+
+Both aliases registered in `DesktopCustomerShell` + `MobileCustomerShell`. `LocaleRouteSync` swaps them on the fly. Live verified with headless browser: `/confidentialite` → toggle EN → `/privacy`, `/terms` → toggle FR → `/conditions`, footer terms link href respects language.
+
+**Ordered launch-critical route list** (22 pairs total):
+1. `/` (same both langs)
+2. `/categories`, `/categories/:slug` (same both langs)
+3–4. `/produits` ⇄ `/products` [+/`:id`]
+5. `/panier` ⇄ `/cart`
+6. `/paiement` ⇄ `/checkout`
+7–10. `/commandes` ⇄ `/orders` [+/`:id`, `/suivi`, `/confirmation`, `/livree`]
+11. `/portefeuille` ⇄ `/wallet`
+12. `/compte` ⇄ `/profile`
+13–18. `/compte/{adresses,parametres,aide,activites,recompenses,parrainage}` ⇄ `/profile/{addresses,settings,help,activities,rewards,refer}`
+19. `/confidentialite` ⇄ `/privacy`
+20. `/conditions` ⇄ `/terms`
+
+Deferred (branded English paths, out of launch scope): `/send/*` (SENDbakēd deep booking flows), `/shop/*` (SHOPbakēd storefront).
+
+**Coverage sweep** — script at `/app/scripts/i18n_coverage_sweep.py`, full report at `/app/memory/I18N_COVERAGE_REPORT.md`.
+
+| Metric | Value |
+|---|---|
+| Files scanned | 58 |
+| Files with `useTranslation()` | 14 (24%) |
+| Live `t()` call sites | 128 |
+| **Hardcoded English strings** | **445** across 43 files |
+| Top offender | `pages/express/ExpressWizard.jsx` (62) — deferred |
+| Launch-blockers | **87 strings across 4 files** (MobileAddresses, AddressSelector, MobileCheckout, MobileOrderDelivered) |
+| Backend errors i18n | 26/26 tests green (previous iteration) |
+
+Recommended follow-up ordered by impact:
+1. Sprint 1 (pre-launch): 4 checkout files, 87 strings
+2. Sprint 2 (post-launch nice-to-have): 6 mobile profile files, ~88 strings
+3. Sprint 3 (SEND funnel + legal): 5 files, ~167 strings
+
+
 ## 2026-03-08 — Phase C+ · URL Auto-Sync (LocaleRouteSync) — COMPLETE
 
 Added `i18n/LocaleRouteSync.jsx` — a side-effect-only observer mounted inside both `DesktopCustomerShell` and `MobileCustomerShell` in `apps/customer/CustomerApp.jsx`. It watches `location.pathname` and `i18n.language`; when they disagree, it reverse-matches the current URL against `ROUTE_MAP` (both static aliases and `:param` patterns via `matchPath`) and rewrites the URL bar with `navigate(newPath, { replace: true })`.
