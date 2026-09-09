@@ -1,5 +1,44 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-07 (part 2) — Phase D roll-out · All email call sites migrated — COMPLETE
+
+Every `send_email_async` call site has been re-wired through the localised email pipeline (`core.emails.send_localised_email` + `core.i18n.t`). Emails now arrive in the recipient's language — French for CI + African cohorts, English for IN + explicit `X-BAKED-Language: en` requests.
+
+**Sites migrated (5 total):**
+
+| Site | File | Template | Language source |
+|---|---|---|---|
+| Driver password reset | `modules/driver/routes.py` | `driver_password_reset` | Driver `preferred_language` → `resolve_lang(request)` → FR |
+| MART store approval | `modules/mart_partner/routes.py` | `mart_store_approved` | Partner `preferred_language` → country default (IN → EN, else FR) |
+| MART partner staff invite | `modules/mart_partner/staff_routes.py` | `staff_invite` | Partner country default |
+| Purchase-order submitted / acknowledged / shipped | `shared/purchase_orders/notifications.py` | `po_submitted` / `po_acknowledged` / `po_shipped` | Partner country default |
+| Partner new-order alert | `modules/mart_partner/notifications.py` | *(kept as-is — pure French, in-line doc-comment points to `partner_new_order` slot in Phase D.2)* | — |
+
+**New locale keys (FR + EN):**
+- `emails.driver_password_reset` — subject / greeting / body / warning / signoff.
+- `emails.mart_store_approved` — subject / greeting / intro / `cta_dashboard` / signoff (interpolates `name`, `business_name`, `store_code`).
+- `emails.po_submitted` — subject / greeting / intro / `cta_view` / signoff (interpolates `po_code`, `line_count`).
+- `emails.po_acknowledged` — subject / greeting / body / signoff (interpolates `po_code`).
+- `emails.po_shipped` — subject / greeting / body / signoff (interpolates `po_code`, `supplier_name`, `warehouse_name`).
+
+Every new template pair was regression-checked with a live `python -c` script that renders both FR and EN with representative params and asserts they differ.
+
+**Language selection rules baked in:**
+1. Model-level `preferred_language` wins when present (driver, partner).
+2. Falls back to country default — French for CI + African markets, English for IN.
+3. Request-scoped `X-BAKED-Language` from the frontend axios interceptor overrides both for endpoints where the caller can pick (e.g. driver forgot-password from the mobile app).
+
+**Test coverage:**
+- 15/15 pytest suite still green (`tests/test_i18n_backend.py`).
+- Live-endpoint smoke: `POST /api/driver/auth/forgot-password` with FR + EN headers both return 200 with no backend errors.
+
+**Backend still emits English (backlog):**
+- `mart_partner/notifications.py` new-order alert — French-only by design (partners are CI-only today); English variant to ship once IN partner cohort lands.
+- ~30 non-email `HTTPException` sites outside `apply/start` still emit raw English `detail`. Tracked as Phase D.2 in `/app/memory/I18N_PLAN.md`.
+
+---
+
+
 ## 2026-03-07 — Workstream 3 Phase D · Backend Localisation — COMPLETE
 
 Server-emitted strings (errors, emails, SMS) are now bilingual, driven by the caller's UI language. End-to-end path proven: frontend axios interceptor sets `X-BAKED-Language: fr|en` → backend `resolve_lang(request)` → `t(key, lang)` → localised `HTTPException.detail`.

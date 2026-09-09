@@ -28,7 +28,8 @@ from typing import Literal
 from sqlalchemy import select
 
 from core.db import SessionLocal
-from core.mailer import send_email_async
+from core.mailer import send_email_async  # noqa: F401 – kept for legacy fallback
+from core.emails import send_localised_email
 from core.models import (
     Partner, PartnerStaff, PurchaseOrder, PurchaseOrderLine, Supplier, Warehouse,
 )
@@ -176,20 +177,31 @@ async def _run(kind: Kind, po_id: str) -> None:
             select(PurchaseOrderLine).where(PurchaseOrderLine.purchase_order_id == po.id)
         )).scalars().all()
 
-        # Build recipients + template
+        # Build recipients + template + i18n params.
+        # Workstream 3 Phase D — bilingual delivery via
+        # `send_localised_email`. Language: partner's country default
+        # (India → EN, everything else → FR). Legacy HTML builders kept
+        # above for backward-compat but no longer wired in.
+        po_lang = "en" if (partner.country or "").upper() == "IN" else "fr"
         recipients: list[str] = []
+        tpl: str
+        params: dict = {"po_code": po.po_code}
+        cta_label_key: str | None = None
+        cta_href: str | None = None
         if kind == "submitted":
             if supplier.business_email:
                 recipients.append(supplier.business_email)
-            subject, html, text = _submitted_email(po, partner, warehouse, len(line_count))
+            tpl = "po_submitted"
+            params["line_count"] = len(line_count)
+            cta_label_key = "cta_view"
+            cta_href = _portal_url("submitted")
         elif kind == "acknowledged":
             if partner.owner_email:
                 recipients.append(partner.owner_email)
-            subject, html, text = _acknowledged_email(po, supplier, warehouse)
+            tpl = "po_acknowledged"
         elif kind == "shipped":
             if partner.owner_email:
                 recipients.append(partner.owner_email)
-            # Also loop in the warehouse manager for this store, if any
             wh_managers = (await session.execute(
                 select(PartnerStaff).where(
                     PartnerStaff.partner_id == partner.id,
@@ -201,7 +213,8 @@ async def _run(kind: Kind, po_id: str) -> None:
             for m in wh_managers:
                 if m.email and m.email not in recipients:
                     recipients.append(m.email)
-            subject, html, text = _shipped_email(po, supplier, warehouse)
+            tpl = "po_shipped"
+            params.update({"supplier_name": supplier.business_name, "warehouse_name": warehouse.name or warehouse.code})
         else:
             logger.warning("po_notify.unknown_kind kind=%s", kind)
             return
@@ -212,7 +225,14 @@ async def _run(kind: Kind, po_id: str) -> None:
 
         for to in recipients:
             try:
-                await send_email_async(to=to, subject=subject, html_body=html, text_body=text)
+                await send_localised_email(
+                    to=to,
+                    template=tpl,
+                    lang=po_lang,
+                    params=params,
+                    cta_label_key=cta_label_key,
+                    cta_href=cta_href,
+                )
             except Exception:  # noqa: BLE001
                 logger.exception("po_notify.send_failed po=%s kind=%s to=%s", po_id, kind, to)
 

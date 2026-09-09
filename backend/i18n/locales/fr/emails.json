@@ -55,5 +55,38 @@
     "greeting": "Bonjour {name},",
     "body": "Merci d'avoir postulé pour rejoindre BAKĒD. Malheureusement, nous ne pouvons pas donner suite à votre candidature à ce stade. Motif : {reason}",
     "signoff": "L'équipe BAKĒD"
+  },
+  "driver_password_reset": {
+    "subject": "Réinitialisation du mot de passe · BAKĒD Driver",
+    "greeting": "Bonjour,",
+    "body": "Votre code de réinitialisation est : {code}. Il expire dans {minutes} minutes.",
+    "warning": "Si vous n'avez pas demandé cette réinitialisation, ignorez cet e-mail — votre mot de passe n'a pas été modifié.",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "mart_store_approved": {
+    "subject": "Votre boutique MARTbakēd est approuvée — Store ID {store_code}",
+    "greeting": "Bonjour {name},",
+    "intro": "Bonne nouvelle ! Votre boutique MARTbakēd « {business_name} » est approuvée et prête à recevoir des commandes. Votre identifiant boutique est {store_code}.",
+    "cta_dashboard": "Accéder à mon tableau de bord",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "po_submitted": {
+    "subject": "Nouveau bon de commande {po_code} · BAKĒD",
+    "greeting": "Bonjour,",
+    "intro": "Vous avez reçu un nouveau bon de commande {po_code} contenant {line_count} article(s). Merci de le prendre en charge dès que possible.",
+    "cta_view": "Voir le bon de commande",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "po_acknowledged": {
+    "subject": "Bon de commande {po_code} confirmé",
+    "greeting": "Bonjour,",
+    "body": "Le fournisseur a confirmé la prise en charge du bon de commande {po_code}. Vous serez notifié dès l'expédition.",
+    "signoff": "L'équipe BAKĒD"
+  },
+  "po_shipped": {
+    "subject": "Bon de commande {po_code} expédié",
+    "greeting": "Bonjour,",
+    "body": "Le bon de commande {po_code} vient d'être expédié depuis {supplier_name}. Réception prévue à {warehouse_name}.",
+    "signoff": "L'équipe BAKĒD"
   }
 }

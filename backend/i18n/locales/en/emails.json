@@ -55,5 +55,38 @@
     "greeting": "Hi {name},",
     "body": "Thanks for applying to BAKĒD. Unfortunately, we're unable to move forward with your application at this time. Reason: {reason}",
     "signoff": "The BAKĒD team"
+  },
+  "driver_password_reset": {
+    "subject": "Reset your BAKĒD Driver password",
+    "greeting": "Hi there,",
+    "body": "Your reset code is: {code}. It expires in {minutes} minutes.",
+    "warning": "If you didn't request this reset, please ignore this email — your password hasn't been changed.",
+    "signoff": "The BAKĒD team"
+  },
+  "mart_store_approved": {
+    "subject": "Your MARTbakēd store is approved — Store ID {store_code}",
+    "greeting": "Hi {name},",
+    "intro": "Great news! Your MARTbakēd store “{business_name}” is approved and ready to receive orders. Your store ID is {store_code}.",
+    "cta_dashboard": "Go to my dashboard",
+    "signoff": "The BAKĒD team"
+  },
+  "po_submitted": {
+    "subject": "New purchase order {po_code} · BAKĒD",
+    "greeting": "Hi there,",
+    "intro": "You have received a new purchase order {po_code} with {line_count} line item(s). Please action it as soon as possible.",
+    "cta_view": "View purchase order",
+    "signoff": "The BAKĒD team"
+  },
+  "po_acknowledged": {
+    "subject": "Purchase order {po_code} acknowledged",
+    "greeting": "Hi there,",
+    "body": "The supplier has acknowledged purchase order {po_code}. You'll be notified when it ships.",
+    "signoff": "The BAKĒD team"
+  },
+  "po_shipped": {
+    "subject": "Purchase order {po_code} shipped",
+    "greeting": "Hi there,",
+    "body": "Purchase order {po_code} has just shipped from {supplier_name}. Expected receipt at {warehouse_name}.",
+    "signoff": "The BAKĒD team"
   }
 }

@@ -26,7 +26,7 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +39,8 @@ from core.models import (
 from core.providers import object_storage
 from core.providers.otp_provider import get_otp_provider
 from core.mailer import send_email_async
+from core.emails import send_localised_email
+from core.i18n import resolve_lang
 from core.security import create_access_token, decode_token, hash_password, verify_password
 from shared.admin.routes import get_current_admin
 
@@ -365,7 +367,7 @@ class ResetPasswordIn(BaseModel):
 
 
 @router.post("/auth/forgot-password")
-async def forgot_password(payload: ForgotPasswordIn, session: AsyncSession = Depends(get_session)):
+async def forgot_password(payload: ForgotPasswordIn, request: Request, session: AsyncSession = Depends(get_session)):
     """Issue a password-reset OTP for a driver by email.
 
     To avoid exposing which emails are registered we always respond 200,
@@ -395,11 +397,16 @@ async def forgot_password(payload: ForgotPasswordIn, session: AsyncSession = Dep
         #    dev_hint so the driver isn't locked out by a stalled mailbox.
         # 2. Subject is code-free on purpose — Gmail routes emails with a
         #    6-digit number in the subject to Spam/Promotions.
-        sent = await send_email_async(
+        # Workstream 3 Phase D — bilingual delivery via `send_localised_email`.
+        # Driver preference wins over request header when present so a
+        # French-native driver keeps getting French even if they hit the
+        # endpoint from an English-language app.
+        lang = getattr(d, "preferred_language", None) or resolve_lang(request)
+        sent = await send_localised_email(
             to=email,
-            subject="Reset your BAKĒD Driver password",
-            text_body=_reset_email_text(code, OTP_TTL_MIN),
-            html_body=_reset_email_html(code, OTP_TTL_MIN),
+            template="driver_password_reset",
+            lang=lang,
+            params={"code": code, "minutes": OTP_TTL_MIN},
         )
         # 2. Dev fallback — non-prod always echoes the code so QA + local
         #    dev works even before Gmail SMTP is configured.
@@ -484,7 +491,6 @@ async def get_current_driver(
 
 # FastAPI's Depends can't inject Request without explicit annotation; use a
 # small helper that wraps it cleanly.
-from fastapi import Request
 
 async def _current_driver(request: Request, session: AsyncSession = Depends(get_session)) -> Driver:
     return await get_current_driver(request=request, session=session)

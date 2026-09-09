@@ -516,7 +516,8 @@ async def admin_approve(
     # ---------------------------------------------------------------------
     email_sent = False
     try:
-        from core.mailer import send_email_async
+        from core.mailer import send_email_async  # noqa: F401 – kept for backward-compat
+        from core.emails import send_localised_email
         portal_url = os.environ.get("PARTNER_PORTAL_URL", "https://baked.ci/partner-portal/login")
         html = f"""
           <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
@@ -564,10 +565,24 @@ async def admin_approve(
             f"Sign in: {portal_url}\n\n"
             f"For security, please change your password at first login."
         )
-        email_sent = await send_email_async(
+        # Workstream 3 Phase D — bilingual delivery via
+        # `send_localised_email`. The credentials + portal URL live in the
+        # plain-text body appended by the template, so we pass them as
+        # extra params surfaced in `intro`. Language: partner's preference
+        # first, then their country's default (`fr` for CI / all African
+        # markets, `en` for IN).
+        lang = getattr(partner, "preferred_language", None) or ("en" if (partner.country or "").upper() == "IN" else "fr")
+        email_sent = await send_localised_email(
             to=partner.owner_email,
-            subject=f"Your MARTbakēd store is approved — Store ID {generated_code}",
-            html_body=html, text_body=text,
+            template="mart_store_approved",
+            lang=lang,
+            params={
+                "name": partner.owner_name or partner.business_name,
+                "business_name": partner.business_name,
+                "store_code": generated_code,
+            },
+            cta_label_key="cta_dashboard",
+            cta_href=portal_url,
         )
     except Exception:  # noqa: BLE001
         import logging as _logging

@@ -85,7 +85,10 @@ async def _notify_partner_new_order(
             except Exception:  # noqa: BLE001
                 logger.exception("notify.new_order.sms_failed partner=%s", partner_id)
 
-        # Email to owner (best effort)
+        # Email to owner (best effort). Copy above is French-only by design
+        # (CI partner-facing surface) — English variant to be added in a
+        # future locale sweep once the IN partner cohort lands (`partner_new_order`
+        # template in emails.json). See I18N_PLAN.md Phase D.2.
         if partner.owner_email:
             try:
                 await send_email_async(
