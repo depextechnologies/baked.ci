@@ -1,5 +1,34 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-08 — Account Screens i18n — COMPLETE
+
+Rewired the 6 account/profile mobile screens through `useTranslation("customer")`:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `MobileWallet.jsx` | 15 | 0 | −15 |
+| `MobileSettings.jsx` | 17 | 0 | −17 |
+| `MobileHelpSupport.jsx` | 18 | 0 | −18 |
+| `MobileRefer.jsx` | 12 | 0 | −12 |
+| `MobileRewards.jsx` | 11 | 0 | −11 |
+| `MobileActivities.jsx` | 11 | 0 | −11 |
+| **Total** | **84** | **0** | **−84** |
+
+Global coverage: **374 → 290 hardcoded strings (−22%)**. Cumulative (Phase C onwards): **445 → 290 = −35%**.
+
+**Bonus fix** — `DesktopProfileShell.jsx`: the desktop-only guest state ("Sign in to view your profile") + sidebar nav labels + Log-out button were still hardcoded English. Now routed through `t("profile.*")` with locale-aware URLs via `useLocalePath()`.
+
+**Keys added** — 6 new namespaces to `customer.json`:
+- `wallet_extra.*` — 22 keys (hero card, action grid, auto-topup, transaction rows, ecosystem strip, trust)
+- `settings.*` — 32 keys (profile editor, notifications toggles, language/currency/region, appearance, privacy, delete flow)
+- `help.*` — 34 keys (quick actions, 8 category cards with descriptions, ticket form, 4 statuses, empty state, contact strip)
+- `refer.*` — 22 keys (hero card, code/link copy, 4 share channels, stats, 3-step how-it-works)
+- `rewards_page.*` — 15 keys (points card, conversion strip, recent list, use-your-points tiers)
+- `activities.*` — 21 keys (tabs, filters, tracking hero, empty states, coming-soon module cards)
+
+**Live proof**: `/portefeuille` guest view now renders "Connectez-vous pour accéder à votre profil / Votre identité BAKĒD fonctionne sur tous les services..." — zero English leaks.
+
+
 ## 2026-03-08 — Checkout String i18n — COMPLETE
 
 Localised the 4 launch-blocker files identified in `I18N_COVERAGE_REPORT.md`:

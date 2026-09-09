@@ -1,6 +1,12 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-08) — Checkout String i18n — COMPLETE
+## Latest (2026-03-08) — Account Screens i18n — COMPLETE
+- ✅ **84 strings localised** across MobileWallet, MobileSettings, MobileHelpSupport, MobileRefer, MobileRewards, MobileActivities. **146 new i18n keys** under 6 new namespaces (`wallet_extra`, `settings`, `help`, `refer`, `rewards_page`, `activities`).
+- ✅ **Bonus**: `DesktopProfileShell` guest state + sidebar nav + Log-out button now localised through `t()` and `useLocalePath()`.
+- ✅ Global coverage: **374 → 290 hardcoded strings (−22%)**. Cumulative Phase C onwards: **445 → 290 = −35%**.
+- ✅ Live proof: `/portefeuille` guest view fully French — zero English leaks.
+
+## Previous (2026-03-08) — Checkout String i18n — COMPLETE
 - ✅ **72 launch-blocker strings localised** across the 4 checkout files (MobileCheckout, MobileAddresses, AddressSelector, MobileOrderDelivered). Every string a customer sees at the money moment now switches FR↔EN.
 - ✅ **95 new i18n keys** added to `customer.json` (checkout, address, address_selector, orders namespaces) with `{{param}}` interpolation and pluralised counts.
 - ✅ Global coverage: **445 → 374 hardcoded strings (−16%)**. Remaining top offenders are all in the SENDbakēd wizard funnel (English-branded module, deferred).

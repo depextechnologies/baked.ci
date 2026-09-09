@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
+import { useLocalePath } from "../../i18n/routes";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, User as UserIcon, Phone, Mail, Bell, MessageCircle, Smartphone, Languages, DollarSign, Globe as GlobeIcon, Moon, Lock, Trash2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -37,11 +39,13 @@ const ToggleRow = ({ icon: Icon, label, sub, checked, onChange, testid }) => (
 );
 
 export const MobileSettings = () => {
+  const { t } = useTranslation("customer");
   const nav = useNavigate();
+  const path = useLocalePath();
   const { customer, refresh } = useAuth();
   const { country, language, setLanguage } = useApp();
   const [prefs, setPrefs] = useState(null);
-  const [editing, setEditing] = useState(null); // "profile" | "phone" | "email"
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
 
   useEffect(() => {
@@ -52,87 +56,86 @@ export const MobileSettings = () => {
   const setPref = async (k, v) => {
     const next = { ...prefs, [k]: v };
     setPrefs(next);
-    try { await api.patch("/customers/me/preferences", { [k]: v }); } catch { toast.error("Failed to save"); }
+    try { await api.patch("/customers/me/preferences", { [k]: v }); } catch { toast.error(t("settings.save_failed")); }
   };
 
   const saveProfile = async () => {
     try {
       await api.patch("/customers/me", form);
-      toast.success("Profile updated");
+      toast.success(t("settings.save_success"));
       setEditing(null);
       refresh?.();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    } catch (e) { toast.error(e?.response?.data?.detail || t("settings.save_failed")); }
   };
 
   const deleteAccount = async () => {
-    const c = window.prompt("Type DELETE to permanently remove your account:");
-    if (c !== "DELETE") return;
-    try { await api.delete("/customers/me"); toast.success("Account deleted"); nav("/"); }
-    catch { toast.error("Deletion failed"); }
+    const c = window.prompt(t("settings.delete_confirm_prompt"));
+    if (c !== t("settings.delete_confirm_word") && c !== "DELETE") return;
+    try { await api.delete("/customers/me"); toast.success(t("settings.delete_success")); nav("/"); }
+    catch { toast.error(t("settings.delete_failed")); }
   };
 
-  if (!customer) return <GuestSignInPrompt title="Sign in to access settings" message="Personalise your BAKĒD experience — language, region, notifications and more." testid="m-settings-signin" />;
+  if (!customer) return <GuestSignInPrompt title={t("settings.signin_title")} message={t("settings.signin_body")} testid="m-settings-signin" />;
 
   return (
     <div className="pb-24">
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
-        <button data-testid="m-set-back" onClick={() => nav("/profile")} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0"><div className="text-base font-bold">Settings</div><div className="text-[11px] text-muted-foreground">Manage your preferences & account</div></div>
+        <button data-testid="m-set-back" onClick={() => nav(path("profile"))} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
+        <div className="flex-1 min-w-0"><div className="text-base font-bold">{t("settings.title")}</div><div className="text-[11px] text-muted-foreground">{t("settings.subtitle")}</div></div>
       </div>
 
-      {/* Edit modal (inline card) */}
       {editing === "profile" && (
         <div className="px-4">
           <div className="baked-card bg-card border border-border p-4 space-y-3">
-            <div className="text-sm font-bold">Edit profile</div>
-            <label className="block text-xs"><span className="text-muted-foreground">Name</span>
+            <div className="text-sm font-bold">{t("settings.edit_profile")}</div>
+            <label className="block text-xs"><span className="text-muted-foreground">{t("settings.field_name")}</span>
               <input data-testid="m-set-name" defaultValue={customer.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} className="baked-input w-full bg-secondary px-3 py-2.5 mt-1" /></label>
-            <label className="block text-xs"><span className="text-muted-foreground">Email</span>
+            <label className="block text-xs"><span className="text-muted-foreground">{t("settings.field_email")}</span>
               <input data-testid="m-set-email" type="email" defaultValue={customer.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} className="baked-input w-full bg-secondary px-3 py-2.5 mt-1" /></label>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="ghost" onClick={() => { setEditing(null); setForm({}); }} className="h-11">Cancel</Button>
-              <Button data-testid="m-set-save-profile" onClick={saveProfile} className="baked-btn h-11 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>Save</Button>
+              <Button variant="ghost" onClick={() => { setEditing(null); setForm({}); }} className="h-11">{t("settings.cancel")}</Button>
+              <Button data-testid="m-set-save-profile" onClick={saveProfile} className="baked-btn h-11 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>{t("settings.save")}</Button>
             </div>
           </div>
         </div>
       )}
 
-      <Section title="Account">
-        <NavRow testid="m-set-nav-profile" icon={UserIcon} label="Edit profile" sub="Update your personal information" onClick={() => { setForm({ name: customer.name, email: customer.email }); setEditing("profile"); }} />
-        <NavRow testid="m-set-nav-phone" icon={Phone} label="Phone number" value={customer.phone || "—"} onClick={() => toast("Phone changes require re-verification via OTP (coming soon)")} />
-        <NavRow testid="m-set-nav-email" icon={Mail} label="Email address" value={customer.email || "Not set"} onClick={() => { setForm({ email: customer.email }); setEditing("profile"); }} />
+      <Section title={t("settings.section_account")}>
+        <NavRow testid="m-set-nav-profile" icon={UserIcon} label={t("settings.edit_profile")} sub={t("settings.edit_profile_sub")} onClick={() => { setForm({ name: customer.name, email: customer.email }); setEditing("profile"); }} />
+        <NavRow testid="m-set-nav-phone" icon={Phone} label={t("settings.phone_label")} value={customer.phone || "—"} onClick={() => toast(t("settings.phone_change_toast"))} />
+        <NavRow testid="m-set-nav-email" icon={Mail} label={t("settings.field_email")} value={customer.email || t("settings.field_email_not_set")} onClick={() => { setForm({ email: customer.email }); setEditing("profile"); }} />
       </Section>
 
       {prefs && (
         <>
-          <Section title="Notifications">
-            <ToggleRow testid="m-set-toggle-push" icon={Bell} label="Push notifications" sub="Receive notifications on your device" checked={!!prefs.push_notifications} onChange={(v) => setPref("push_notifications", v)} />
-            <ToggleRow testid="m-set-toggle-email" icon={MessageCircle} label="Email notifications" sub="Order updates & receipts by email" checked={!!prefs.email_notifications} onChange={(v) => setPref("email_notifications", v)} />
-            <ToggleRow testid="m-set-toggle-sms" icon={Smartphone} label="SMS notifications" sub="Delivery updates by SMS" checked={!!prefs.sms_notifications} onChange={(v) => setPref("sms_notifications", v)} />
+          <Section title={t("settings.section_notifications")}>
+            <ToggleRow testid="m-set-toggle-push" icon={Bell} label={t("settings.push_label")} sub={t("settings.push_sub")} checked={!!prefs.push_notifications} onChange={(v) => setPref("push_notifications", v)} />
+            <ToggleRow testid="m-set-toggle-email" icon={MessageCircle} label={t("settings.email_label")} sub={t("settings.email_sub")} checked={!!prefs.email_notifications} onChange={(v) => setPref("email_notifications", v)} />
+            <ToggleRow testid="m-set-toggle-sms" icon={Smartphone} label={t("settings.sms_label")} sub={t("settings.sms_sub")} checked={!!prefs.sms_notifications} onChange={(v) => setPref("sms_notifications", v)} />
           </Section>
 
-          <Section title="App preferences">
-            <NavRow testid="m-set-language" icon={Languages} label="Language" value={(prefs.language || language).toUpperCase()} onClick={() => { const next = language === "en" ? "fr" : "en"; setLanguage?.(next); setPref("language", next); }} />
-            <NavRow testid="m-set-currency" icon={DollarSign} label="Currency" value={`${country?.currency_symbol || country?.currency}`} onClick={() => toast("Currency follows your region (auto)")} />
-            <NavRow testid="m-set-region" icon={GlobeIcon} label="Region" value={country?.name || country?.code} onClick={() => toast("Change region from the country switcher in the header")} />
+          <Section title={t("settings.section_app")}>
+            <NavRow testid="m-set-language" icon={Languages} label={t("settings.language")} value={(prefs.language || language).toUpperCase()} onClick={() => { const next = language === "en" ? "fr" : "en"; setLanguage?.(next); setPref("language", next); }} />
+            <NavRow testid="m-set-currency" icon={DollarSign} label={t("settings.currency")} value={`${country?.currency_symbol || country?.currency}`} onClick={() => toast(t("settings.currency_toast"))} />
+            <NavRow testid="m-set-region" icon={GlobeIcon} label={t("settings.region")} value={country?.name || country?.code} onClick={() => toast(t("settings.region_toast"))} />
           </Section>
 
-          <Section title="Appearance">
-            <ToggleRow testid="m-set-toggle-dark" icon={Moon} label="Dark mode" sub="Use dark theme across baked" checked={!!prefs.dark_mode} onChange={(v) => {
+          <Section title={t("settings.section_appearance")}>
+            <ToggleRow testid="m-set-toggle-dark" icon={Moon} label={t("settings.dark_mode")} sub={t("settings.dark_mode_sub")} checked={!!prefs.dark_mode} onChange={(v) => {
               setPref("dark_mode", v);
               document.documentElement.classList.toggle("dark", v);
               document.documentElement.classList.toggle("light", !v);
             }} />
           </Section>
 
-          <Section title="Privacy">
-            <NavRow testid="m-set-privacy" icon={Lock} label="Data preferences" sub="Manage how we use your data" onClick={() => toast("Privacy centre coming soon")} />
-            <NavRow testid="m-set-delete" icon={Trash2} label="Delete account" sub="Permanently delete your account" onClick={deleteAccount} danger />
+          <Section title={t("settings.section_privacy")}>
+            <NavRow testid="m-set-privacy" icon={Lock} label={t("settings.data_prefs")} sub={t("settings.data_prefs_sub")} onClick={() => toast(t("settings.data_prefs_toast"))} />
+            <NavRow testid="m-set-delete" icon={Trash2} label={t("settings.delete_account")} sub={t("settings.delete_account_sub")} onClick={deleteAccount} danger />
           </Section>
         </>
       )}
 
-      <div className="text-[10px] text-muted-foreground text-center mt-6">BAKĒD Platform v1.0 · Signed in as {customer.email || customer.phone}</div>
+      <div className="text-[10px] text-muted-foreground text-center mt-6">{t("settings.footer_version", { who: customer.email || customer.phone })}</div>
     </div>
   );
 };
