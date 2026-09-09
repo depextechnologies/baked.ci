@@ -15,15 +15,19 @@ export const MobileShell = ({ children }) => {
   const [appOpen, setAppOpen] = useState(false);
   const loc = useLocation();
 
-  // Header variant per route
+  // Header variant per route — support both English + French URLs (Phase C i18n).
   const isHome = loc.pathname === "/" || loc.pathname === "/shop";
   const isCategory = loc.pathname.startsWith("/categories/") || loc.pathname === "/categories"
                      || loc.pathname === "/shop/categories" || loc.pathname.startsWith("/shop/c/");
-  const isProduct = loc.pathname.startsWith("/products") || loc.pathname.startsWith("/shop/p/");
-  const isCart = loc.pathname.startsWith("/cart");
-  const isCheckout = loc.pathname.startsWith("/checkout") || loc.pathname === "/shop/checkout";
-  const isOrder = loc.pathname.startsWith("/orders") || loc.pathname.startsWith("/shop/order");
-  const isProfile = loc.pathname.startsWith("/profile") || loc.pathname === "/wallet";
+  const isProduct = loc.pathname.startsWith("/products") || loc.pathname.startsWith("/produits")
+                    || loc.pathname.startsWith("/shop/p/");
+  const isCart = loc.pathname.startsWith("/cart") || loc.pathname.startsWith("/panier");
+  const isCheckout = loc.pathname.startsWith("/checkout") || loc.pathname.startsWith("/paiement")
+                     || loc.pathname === "/shop/checkout";
+  const isOrder = loc.pathname.startsWith("/orders") || loc.pathname.startsWith("/commandes")
+                  || loc.pathname.startsWith("/shop/order");
+  const isProfile = loc.pathname.startsWith("/profile") || loc.pathname.startsWith("/compte")
+                    || loc.pathname === "/wallet" || loc.pathname === "/portefeuille";
   const isExpressWizard = loc.pathname.startsWith("/send/book/") || loc.pathname.startsWith("/send/movers/wizard") || loc.pathname.startsWith("/send/booking/");
   const isExpress = loc.pathname === "/send" || loc.pathname.startsWith("/send/");
 

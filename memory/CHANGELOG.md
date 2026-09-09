@@ -1,5 +1,41 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-08 — Phase C · French Route Renaming — COMPLETE
+
+Localised customer-facing URLs so French users see native French paths in the URL bar. English aliases stay live so external bookmarks and share URLs keep working.
+
+**Route mapping** (`i18n/routes.js`):
+- `/products` ⇄ `/produits`
+- `/cart` ⇄ `/panier`
+- `/checkout` ⇄ `/paiement`
+- `/orders` ⇄ `/commandes`
+- `/orders/:id/track` ⇄ `/commandes/:id/suivi`
+- `/orders/:id/delivered` ⇄ `/commandes/:id/livree`
+- `/wallet` ⇄ `/portefeuille`
+- `/profile` ⇄ `/compte`
+- `/profile/addresses|settings|help|activities|rewards|refer` ⇄ `/compte/adresses|parametres|aide|activites|recompenses|parrainage`
+
+**Public API**:
+- `useLocalePath()` hook returns `path(key, params?)` bound to current i18next language.
+- `resolvePath(key, lang, params?)` for tests / non-hook code.
+
+**Files updated**:
+- `apps/customer/CustomerApp.jsx` — dual FR+EN route registration for both DesktopCustomerShell and MobileCustomerShell.
+- Navigation: `TopNav`, `MobileBottomNav`, `MobileShell` (path detection matches both prefixes).
+- Pages: `HomePage`, `MobileHome`, `CartPage`, `MobileCart`, `CheckoutPage`, `MobileCheckout`, `ProductDetailPage`, `MobileProductDetail`, `ProductCard`, `ConfigHomepage` (Hero + BannerTrio + CtaStrip).
+- `ConfigHomepage` gets a `cmsToLocale()` helper that remaps CMS-supplied URLs (`/products?category=…`) to the current language while preserving query strings and hash fragments — Super Admin can still type raw URLs.
+
+**Testing** — `test_reports/iteration_83.json` (frontend testing agent, ~92% pass on 10+ scenarios):
+- All 12 FR routes + 8 EN aliases return HTTP 200 and render their proper shells.
+- LanguageSwitcher persists `localStorage.baked_language` + syncs `<html lang>`.
+- TopNav cart button → `/panier` in FR, `/cart` in EN. Account button → `/compte` in FR, `/profile` in EN.
+- Mobile bottom-nav active-state matches both `/panier` and `/cart`.
+- MobileShell header variant detection works on FR aliases (`isCart`, `isCheckout`, `isProfile`).
+- Post-agent fix: ConfigHomepage hero CTAs + banner row + CTA strip all correctly emit FR URLs with query strings preserved.
+
+**Deferred (P2)**: Deep pages that navigate back with `nav("/profile")` etc. still work because both aliases resolve. Migrating those Back buttons to `useLocalePath` is cosmetic-only and can happen incrementally.
+
+
 ## 2026-03-08 — Phase D · Backend HTTPException i18n sweep — COMPLETE
 
 Localised the customer + supplier + driver error surfaces (~140 `raise HTTPException` sites across 11 files) so every 4xx/5xx body now renders in the caller's language.

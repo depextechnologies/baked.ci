@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
+import { useLocalePath } from "../../i18n/routes";
 import { checkOrderEligibility } from "../../lib/checkout";
 import { getCartTheme } from "../../lib/cartTheme";
 import { Button } from "../../components/ui/button";
@@ -36,6 +37,7 @@ const hydrateAddress = (active, country) => ({
 export const MobileCheckout = () => {
   const { t } = useTranslation("customer");
   const nav = useNavigate();
+  const path = useLocalePath();
   const { country, activeAddress, openAddressSelector } = useApp();
   const { customer } = useAuth();
   const { cart, loaded: cartLoaded, clear } = useCart();
@@ -72,7 +74,7 @@ export const MobileCheckout = () => {
     // Only redirect if we're truly certain the cart is empty AND auth has settled.
     // The redirect is now guarded by a brief settle window to avoid the auth→cart race.
     if (cartLoaded && customer && !cart.items?.length) {
-      const t = setTimeout(() => { if (!cart.items?.length) nav("/cart"); }, 600);
+      const t = setTimeout(() => { if (!cart.items?.length) nav(path("cart")); }, 600);
       return () => clearTimeout(t);
     }
   }, [cart, cartLoaded, customer, nav]);
@@ -131,7 +133,7 @@ export const MobileCheckout = () => {
       } else if (shopOrder?.delivery_pin) {
         toast("Delivery PIN is on your order page", { duration: 5000 });
       }
-      if (martOrder) nav(`/orders/${martOrder.id}/confirmation`);
+      if (martOrder) nav(path("orderConfirm", { id: martOrder.id }));
       else if (shopOrder) nav(`/shop/order/${shopOrder.id}`);
     } catch (e) {
       const detail = e?.response?.data?.detail;
@@ -283,7 +285,7 @@ export const MobileCheckout = () => {
               <span>{t("cart.total")}</span><span data-testid="m-co-total">{formatMoney(total, country?.currency, ccy)}</span>
             </div>
           </div>
-          <button onClick={() => nav("/cart")} className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: "#77BC1F" }}>Edit cart <ChevronRight size={12} /></button>
+          <button onClick={() => nav(path("cart"))} className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: "#77BC1F" }}>Edit cart <ChevronRight size={12} /></button>
         </div>
       </section>
 

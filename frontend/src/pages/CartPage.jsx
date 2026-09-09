@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useApp, useCart, useAuth } from "../contexts/BakedContexts";
 import { formatMoney } from "../lib/i18n";
+import { useLocalePath } from "../i18n/routes";
 import { checkOrderEligibility } from "../lib/checkout";
 import { getCartTheme, lineAccent, CART_MODE } from "../lib/cartTheme";
 import { CART } from "../constants/testIds";
@@ -16,6 +17,7 @@ export const CartPage = () => {
   const { cart, updateItem, removeItem, clear } = useCart();
   const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
+  const path = useLocalePath();
   const items = cart.items || [];
   // QA — Fixing_Prompt v14: theme adapts to cart composition
   // (MART_ONLY / SHOP_ONLY / MIXED) so a SHOP-only basket no longer wears
@@ -43,12 +45,12 @@ export const CartPage = () => {
     // checkout step (Fixing_Prompt §7). `openLogin('/checkout')` stashes the
     // return path in sessionStorage so the customer lands on /checkout with
     // their (now merged) cart intact.
-    if (!customer) { openLogin?.("/checkout"); return; }
+    if (!customer) { openLogin?.(path("checkout")); return; }
     if (hasUnavailable) { toast.error("Remove items marked 'Coming soon' before checking out"); return; }
     if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
     // Always route to the global /checkout — it now handles mixed and
     // SHOP-only carts internally (per Fixing_Prompt.docx §2).
-    navigate("/checkout");
+    navigate(path("checkout"));
   };
 
   if (items.length === 0) {

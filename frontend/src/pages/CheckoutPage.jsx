@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth, useApp, useCart } from "../contexts/BakedContexts";
 import { formatMoney, t } from "../lib/i18n";
+import { useLocalePath } from "../i18n/routes";
 import { checkOrderEligibility } from "../lib/checkout";
 import { getCartTheme } from "../lib/cartTheme";
 import { Button } from "../components/ui/button";
@@ -15,6 +16,7 @@ export const CheckoutPage = () => {
   const { country, uiLocale, language, activeAddress, openAddressSelector } = useApp();
   const { cart, reload: reloadCart } = useCart();
   const navigate = useNavigate();
+  const path = useLocalePath();
   const [loginOpen, setLoginOpen] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [slots, setSlots] = useState([]);
@@ -167,7 +169,7 @@ export const CheckoutPage = () => {
           : "Le code de livraison est sur votre page de commande",
           { duration: 5000 });
       }
-      if (martOrder) navigate(`/orders/${martOrder.id}`);
+      if (martOrder) navigate(path("order", { id: martOrder.id }));
       else if (shopOrder) navigate(`/shop/order/${shopOrder.id}`);
     } catch (e) {
       const detail = e?.response?.data?.detail;

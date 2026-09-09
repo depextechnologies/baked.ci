@@ -4,12 +4,14 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp } from "../../contexts/BakedContexts";
 import { formatMoney, t } from "../../lib/i18n";
+import { useLocalePath } from "../../i18n/routes";
 import { MobileProductCard } from "../../components/mobile/MobileProductCard";
 import { ArrowRight, Zap, Package, ShieldCheck, Percent } from "lucide-react";
 
 export const MobileHome = () => {
   const { t: T } = useTranslation("customer");
   const nav = useNavigate();
+  const path = useLocalePath();
   const { country, language, uiLocale } = useApp();
   const [cats, setCats] = useState([]);
   const [deals, setDeals] = useState([]);
@@ -37,7 +39,7 @@ export const MobileHome = () => {
     <div className="pb-4">
       {/* Hero banner — replicates the mobile hero card */}
       <section className="px-4 pt-2">
-        <button onClick={() => nav("/products")} data-testid="m-home-hero" className="relative w-full h-40 rounded-2xl overflow-hidden text-left active:scale-[0.99] motion-fast">
+        <button onClick={() => nav(path("products"))} data-testid="m-home-hero" className="relative w-full h-40 rounded-2xl overflow-hidden text-left active:scale-[0.99] motion-fast">
           <img src={banner} alt="MARTbakēd delivery" className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
           <div className="relative z-10 h-full flex flex-col justify-center p-4 max-w-[70%]">
@@ -87,7 +89,7 @@ export const MobileHome = () => {
         <section className="mt-6">
           <div className="px-4 flex items-center justify-between mb-3">
             <div className="text-base font-bold flex items-center gap-1.5"><Percent size={16} style={{ color: "#77BC1F" }} /> Best offers</div>
-            <button onClick={() => nav("/products?sort=price_asc")} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>{T("home.shop_all")}</button>
+            <button onClick={() => nav(`${path("products")}?sort=price_asc`)} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>{T("home.shop_all")}</button>
           </div>
           <div className="flex gap-3 overflow-x-auto px-4 no-scrollbar">
             {offers.slice(0, 6).map((o) => (
@@ -108,7 +110,7 @@ export const MobileHome = () => {
       <section className="px-4 mt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="text-base font-bold">{t(locale, "sec.best_deals")}</div>
-          <button data-testid="m-home-deals-viewall" onClick={() => nav("/products?sort=price_asc")} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#77BC1F" }}>{T("home.shop_all")} <ArrowRight size={11} /></button>
+          <button data-testid="m-home-deals-viewall" onClick={() => nav(`${path("products")}?sort=price_asc`)} className="text-xs font-semibold flex items-center gap-1" style={{ color: "#77BC1F" }}>{T("home.shop_all")} <ArrowRight size={11} /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {deals.slice(0, 8).map((p) => <MobileProductCard key={p.id} product={p} />)}

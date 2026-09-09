@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
+import { useLocalePath } from "../../i18n/routes";
 import { checkOrderEligibility } from "../../lib/checkout";
 import { getCartTheme, lineAccent } from "../../lib/cartTheme";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
@@ -12,6 +13,7 @@ import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCa
 export const MobileCart = () => {
   const { t } = useTranslation("customer");
   const nav = useNavigate();
+  const path = useLocalePath();
   const { country } = useApp();
   const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
   const { customer, openLogin } = useAuth() || {};
@@ -44,10 +46,10 @@ export const MobileCart = () => {
     // Guest → open the existing sign-in modal with /checkout as the return
     // destination. `openLogin` persists it to sessionStorage so the customer
     // lands directly on checkout after login with the (merged) cart intact.
-    if (!customer) { openLogin?.("/checkout"); return; }
+    if (!customer) { openLogin?.(path("checkout")); return; }
     // Always route to the unified /checkout (MobileCheckout) — it handles
     // MART, SHOP and mixed carts internally.
-    nav("/checkout");
+    nav(path("checkout"));
   };
 
   if (!cart.items?.length) {

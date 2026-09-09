@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useApp, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
+import { useLocalePath } from "../../i18n/routes";
 import { MobileProductCard } from "../../components/mobile/MobileProductCard";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
 import { Button } from "../../components/ui/button";
@@ -23,6 +24,7 @@ export const MobileProductDetail = () => {
   const { t } = useTranslation("customer");
   const { id } = useParams();
   const nav = useNavigate();
+  const path = useLocalePath();
   const { country } = useApp();
   const { cart, addItem, updateItem, removeItem } = useCart();
   const [product, setProduct] = useState(null);
@@ -154,7 +156,7 @@ export const MobileProductDetail = () => {
           <Button data-testid="m-pd-add" onClick={onAdd} className="baked-btn h-12 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
             <ShoppingCart size={16} className="mr-1.5" /> {t("product.add_to_cart")}
           </Button>
-          <Button data-testid="m-pd-buy" onClick={async () => { await onAdd(); nav("/checkout"); }} variant="secondary" className="baked-btn h-12 font-bold" style={{ backgroundColor: "#0a1200", color: "#77BC1F", borderColor: "#77BC1F", borderWidth: 1 }}>
+          <Button data-testid="m-pd-buy" onClick={async () => { await onAdd(); nav(path("checkout")); }} variant="secondary" className="baked-btn h-12 font-bold" style={{ backgroundColor: "#0a1200", color: "#77BC1F", borderColor: "#77BC1F", borderWidth: 1 }}>
             <Zap size={16} className="mr-1.5" fill="#77BC1F" /> Buy Now
           </Button>
         </div>

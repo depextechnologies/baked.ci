@@ -98,13 +98,28 @@ const DesktopCustomerShell = () => (
       <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<CategoriesIndexPage />} />
       <Route path="/categories/:slug" element={<CategoryDetailPage />} />
+      {/* Workstream 3 Phase C — French routes (primary) + English aliases (both resolve) */}
+      <Route path="/produits" element={<ProductListPage />} />
+      <Route path="/produits/:id" element={<ProductDetailPage />} />
       <Route path="/products" element={<ProductListPage />} />
       <Route path="/products/:id" element={<ProductDetailPage />} />
+      <Route path="/panier" element={<CartPage />} />
       <Route path="/cart" element={<CartPage />} />
+      <Route path="/paiement" element={<CheckoutPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/commandes" element={<OrdersListPage />} />
+      <Route path="/commandes/:id" element={<OrderDetailPage />} />
       <Route path="/orders" element={<OrdersListPage />} />
       <Route path="/orders/:id" element={<OrderDetailPage />} />
+      <Route path="/portefeuille" element={<DesktopProfileShell><MobileWallet /></DesktopProfileShell>} />
       <Route path="/wallet" element={<DesktopProfileShell><MobileWallet /></DesktopProfileShell>} />
+      <Route path="/compte" element={<DesktopProfileShell><MobileProfile /></DesktopProfileShell>} />
+      <Route path="/compte/adresses" element={<DesktopProfileShell><MobileAddresses /></DesktopProfileShell>} />
+      <Route path="/compte/parametres" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
+      <Route path="/compte/aide" element={<DesktopProfileShell><MobileHelpSupport /></DesktopProfileShell>} />
+      <Route path="/compte/activites" element={<DesktopProfileShell><MobileActivities /></DesktopProfileShell>} />
+      <Route path="/compte/recompenses" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
+      <Route path="/compte/parrainage" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/profile" element={<DesktopProfileShell><MobileProfile /></DesktopProfileShell>} />
       <Route path="/profile/addresses" element={<DesktopProfileShell><MobileAddresses /></DesktopProfileShell>} />
       <Route path="/profile/settings" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
@@ -154,16 +169,34 @@ const MobileCustomerShell = () => (
       <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<MobileCategoryPage />} />
       <Route path="/categories/:slug" element={<MobileCategoryPage />} />
+      {/* Workstream 3 Phase C — French primary routes + English aliases */}
+      <Route path="/produits" element={<MobileCategoryPage />} />
+      <Route path="/produits/:id" element={<MobileProductDetail />} />
       <Route path="/products" element={<MobileCategoryPage />} />
       <Route path="/products/:id" element={<MobileProductDetail />} />
+      <Route path="/panier" element={<MobileCart />} />
       <Route path="/cart" element={<MobileCart />} />
+      <Route path="/paiement" element={<MobileCheckout />} />
       <Route path="/checkout" element={<MobileCheckout />} />
+      <Route path="/commandes" element={<OrdersListPage />} />
+      <Route path="/commandes/:id/confirmation" element={<MobileOrderConfirmation />} />
+      <Route path="/commandes/:id/suivi" element={<MobileOrderTracking />} />
+      <Route path="/commandes/:id/livree" element={<MobileOrderDelivered />} />
+      <Route path="/commandes/:id" element={<MobileOrderTracking />} />
       <Route path="/orders" element={<OrdersListPage />} />
       <Route path="/orders/:id/confirmation" element={<MobileOrderConfirmation />} />
       <Route path="/orders/:id/track" element={<MobileOrderTracking />} />
       <Route path="/orders/:id/delivered" element={<MobileOrderDelivered />} />
       <Route path="/orders/:id" element={<MobileOrderTracking />} />
+      <Route path="/portefeuille" element={<MobileWallet />} />
       <Route path="/wallet" element={<MobileWallet />} />
+      <Route path="/compte" element={<MobileProfile />} />
+      <Route path="/compte/adresses" element={<MobileAddresses />} />
+      <Route path="/compte/parametres" element={<MobileSettings />} />
+      <Route path="/compte/aide" element={<MobileHelpSupport />} />
+      <Route path="/compte/activites" element={<MobileActivities />} />
+      <Route path="/compte/recompenses" element={<MobileRewards />} />
+      <Route path="/compte/parrainage" element={<MobileRefer />} />
       <Route path="/profile" element={<MobileProfile />} />
       <Route path="/profile/addresses" element={<MobileAddresses />} />
       <Route path="/profile/settings" element={<MobileSettings />} />

@@ -1,6 +1,13 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-08) — Phase D · Backend Error i18n Sweep — COMPLETE
+## Latest (2026-03-08) — Phase C · French Route Renaming — COMPLETE
+- ✅ **Route map** (`i18n/routes.js`) — `ROUTE_MAP` + `useLocalePath()` hook: 18 route keys with FR/EN paths + param interpolation. `resolvePath()` exposed for tests / non-hook code.
+- ✅ **Customer app** now registers both FR and EN paths for every localised route in `apps/customer/CustomerApp.jsx` (Desktop + Mobile shells). `/produits`, `/panier`, `/paiement`, `/commandes`, `/portefeuille`, `/compte(/adresses|/parametres|/aide|/activites|/recompenses|/parrainage)` all resolve alongside their English aliases so external bookmarks keep working.
+- ✅ **Internal navigation** migrated to `useLocalePath()` across TopNav, MobileBottomNav, MobileShell (path detection now recognises both prefixes), MobileHome, MobileCart, MobileCheckout, MobileProductDetail, HomePage, CartPage, CheckoutPage, ProductDetailPage, ProductCard, ConfigHomepage (hero CTA + banner links + CTA-strip — with CMS→locale normaliser that preserves query strings).
+- ✅ **Live proof**: with `localStorage.baked_language='fr'`, hero primary CTA → `/produits`, banner row hrefs → `/produits?category=…`, cta-strip → `/produits`. Toggle EN → same links become `/products?…`.
+- ✅ **Testing agent** report: `test_reports/iteration_83.json`, ~92% pass. Only bug found (ConfigHomepage hero CTA using hardcoded fallback) fixed with `cmsToLocale()`.
+
+## Previous (2026-03-08) — Phase D · Backend Error i18n Sweep — COMPLETE
 - ✅ **ASGI language middleware** in `server.py` stashes `resolve_lang(request)` into a request-scoped ContextVar (`core.i18n._current_lang`). Endpoints call `t(key, current_lang())` with **zero signature churn**.
 - ✅ **~140 `raise HTTPException` sites localised** across 11 files: `modules/mart/orders.py`, `modules/mart/routes.py`, `modules/express/routes.py`, `modules/driver/routes.py`, `modules/shop/{routes,storefront_routes,portal_routes}.py`, `shared/auth/routes.py`, `shared/customer/routes.py`, `shared/addresses/routes.py`, `shared/suppliers/portal_routes.py`.
 - ✅ **`i18n/locales/{fr,en}/errors.json`** extended with 100+ keys (grouped `generic/auth/supplier/order/customer/driver/shop/upload`), all with `{param}` interpolation.

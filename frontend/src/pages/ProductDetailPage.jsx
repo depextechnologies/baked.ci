@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { useApp, useCart } from "../contexts/BakedContexts";
 import { PRODUCT } from "../constants/testIds";
 import { formatMoney } from "../lib/i18n";
+import { useLocalePath } from "../i18n/routes";
 import { Button } from "../components/ui/button";
 import { Plus, Minus, Star, Truck, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -17,9 +18,10 @@ export const ProductDetailPage = () => {
   const { id } = useParams();
   const { country } = useApp();
   const { cart, addItem, updateItem, removeItem } = useCart();
+  const navigate = useNavigate();
+  const path = useLocalePath();
   const [p, setP] = useState(null);
   const [related, setRelated] = useState([]);
-  const navigate = useNavigate();
 
   useEffect(() => {
     api.get(`/mart/products/${id}`).then(r => setP(r.data)).catch(() => setP(null));
@@ -80,7 +82,7 @@ export const ProductDetailPage = () => {
                 <button onClick={() => updateItem(inCart.id, qty + 1)} className="px-3 py-3 text-[#0a1200] hover:bg-black/10 motion-fast"><Plus size={16} /></button>
               </div>
             )}
-            <Button variant="outline" onClick={() => navigate("/cart")} className="h-12 px-6 baked-btn border-border">View cart</Button>
+            <Button variant="outline" onClick={() => navigate(path("cart"))} className="h-12 px-6 baked-btn border-border">View cart</Button>
           </div>
 
           <div className="mt-8 grid gap-3 max-w-md">

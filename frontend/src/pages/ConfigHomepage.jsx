@@ -29,6 +29,7 @@ import { api } from "../lib/api";
 import { useApp } from "../contexts/BakedContexts";
 import { ProductCard } from "../components/mart/ProductCard";
 import { formatMoney } from "../lib/i18n";
+import { useLocalePath, ROUTE_MAP } from "../i18n/routes";
 
 // Resolve `/api/homepage/uploads/…` relative URLs against the backend origin.
 const abs = (u) => (u && u.startsWith("/") ? `${process.env.REACT_APP_BACKEND_URL}${u}` : u);
@@ -148,6 +149,7 @@ const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) 
 const Hero = ({ section, country }) => {
   const { t } = useTranslation("common");
   const nav = useNavigate();
+  const path = useLocalePath();
   const cfg = section.config || {};
   const bg = abs(cfg.background_image) ||
     "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1600&auto=format&fit=crop&q=70";
@@ -157,6 +159,26 @@ const Hero = ({ section, country }) => {
   const currency = country?.currency_symbol || country?.currency || "";
   const etaText = country?.delivery_eta_min || "10-15 min";
   const etaMatch = etaText.match(/(\d+\s*-\s*\d+|\d+)/);
+
+  /**
+   * The homepage CMS lets Super Admin type raw URLs like "/products" or
+   * "/cart" — but Phase C wants French-first URLs. If the CMS value points
+   * to a known English customer route, remap it to the FR/EN equivalent
+   * based on the current language. Absolute URLs and unknown paths are
+   * passed through untouched so the editor still keeps full control.
+   * Query strings and hash fragments are preserved.
+   */
+  const cmsToLocale = (raw, fallbackKey) => {
+    if (!raw) return path(fallbackKey);
+    // Split path from ?query#hash so /products?category=x still gets remapped.
+    const idx = raw.search(/[?#]/);
+    const pathname = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? "" : raw.slice(idx);
+    for (const [key, m] of Object.entries(ROUTE_MAP)) {
+      if (pathname === m.en || pathname === m.fr) return path(key) + tail;
+    }
+    return raw;
+  };
   const etaValue = etaMatch ? etaMatch[1].replace(/\s+/g, "") : "10-15";
 
   return (
@@ -183,7 +205,7 @@ const Hero = ({ section, country }) => {
             <div className="mt-6 flex flex-wrap gap-3">
               {cfg.cta_label && (
                 <button
-                  onClick={() => nav(cfg.cta_link || "/products")}
+                  onClick={() => nav(cmsToLocale(cfg.cta_link, "products"))}
                   className="h-12 px-6 rounded-xl text-sm font-bold bg-[#77BC1F] hover:bg-[#68a319] text-white transition-colors flex items-center gap-2"
                   data-testid="hp-hero-cta"
                 >
@@ -192,7 +214,7 @@ const Hero = ({ section, country }) => {
               )}
               {cfg.secondary_cta_label && (
                 <button
-                  onClick={() => nav(cfg.secondary_cta_link || "/products")}
+                  onClick={() => nav(cmsToLocale(cfg.secondary_cta_link, "products"))}
                   className="h-12 px-6 rounded-xl text-sm font-bold bg-white/10 hover:bg-white/20 backdrop-blur border border-white/25 text-white flex items-center gap-2"
                   data-testid="hp-hero-cta-secondary"
                 >
@@ -363,6 +385,17 @@ const PromoBanner = ({ section }) => {
 
 const BannerTrio = ({ section }) => {
   const banners = section.config?.banners || [];
+  const path = useLocalePath();
+  const cmsToLocale = (raw, key) => {
+    if (!raw) return path(key);
+    const idx = raw.search(/[?#]/);
+    const pathname = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? "" : raw.slice(idx);
+    for (const [k, m] of Object.entries(ROUTE_MAP)) {
+      if (pathname === m.en || pathname === m.fr) return path(k) + tail;
+    }
+    return raw;
+  };
   return (
     <div className="baked-container">
       {(section.title || section.subtitle) && (
@@ -376,7 +409,7 @@ const BannerTrio = ({ section }) => {
         {banners.map((b, i) => (
           <Link
             key={i}
-            to={b.link || "/products"}
+            to={cmsToLocale(b.link, "products")}
             className="group relative rounded-2xl overflow-hidden flex items-end p-5 hover:-translate-y-0.5 transition-transform shrink-0"
             style={{
               width: 320,
@@ -651,6 +684,17 @@ const AppPromotion = ({ section }) => {
 
 const CtaStrip = ({ section }) => {
   const cfg = section.config || {};
+  const path = useLocalePath();
+  const cmsToLocale = (raw, key) => {
+    if (!raw) return path(key);
+    const idx = raw.search(/[?#]/);
+    const pathname = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? "" : raw.slice(idx);
+    for (const [k, m] of Object.entries(ROUTE_MAP)) {
+      if (pathname === m.en || pathname === m.fr) return path(k) + tail;
+    }
+    return raw;
+  };
   return (
     <div className="baked-container">
       <div className="relative overflow-hidden rounded-3xl p-8 md:p-14 text-center"
@@ -661,7 +705,7 @@ const CtaStrip = ({ section }) => {
           {section.subtitle && <p className="text-sm md:text-base mt-2 opacity-90 max-w-2xl mx-auto">{section.subtitle}</p>}
           {cfg.cta_label && (
             <Link
-              to={cfg.cta_link || "/products"}
+              to={cmsToLocale(cfg.cta_link, "products")}
               className="mt-6 inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-black text-white text-sm font-bold hover:bg-black/85 transition"
               data-testid="hp-cta-strip-link"
             >

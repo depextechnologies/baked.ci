@@ -3,12 +3,14 @@ import { PRODUCT } from "../../constants/testIds";
 import { useCart } from "../../contexts/BakedContexts";
 import { useNavigate } from "react-router-dom";
 import { formatMoney } from "../../lib/i18n";
+import { useLocalePath } from "../../i18n/routes";
 import { Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 
 export const ProductCard = ({ product }) => {
   const { cart, addItem, updateItem, removeItem } = useCart();
   const navigate = useNavigate();
+  const path = useLocalePath();
   const inCart = cart.items?.find((i) => i.product_id === product.id);
   const qty = inCart?.quantity || 0;
   const moduleGreen = "#77BC1F";
@@ -29,7 +31,7 @@ export const ProductCard = ({ product }) => {
   return (
     <div
       data-testid={PRODUCT.card(product.id)}
-      onClick={() => navigate(`/products/${product.id}`)}
+      onClick={() => navigate(path("productDetail", { id: product.id }))}
       className="baked-card bg-card border border-border overflow-hidden group cursor-pointer motion-normal hover:border-[#77BC1F]/50 hover:shadow-[0_0_0_1px_#77BC1F22] flex flex-col"
     >
       {/* Global product image container — fixed 1:1 aspect for every product regardless of source dimensions.

@@ -1,0 +1,28 @@
+{
+  "summary": "Workstream 3 Phase C — French route localization on customer storefront tested end-to-end (frontend only). All FR routes and EN aliases resolve, language switcher persists in localStorage.baked_language, and click navigation from TopNav/PDP/Bottom-nav uses the correct localized URLs based on current i18n language. One localization miss identified on ConfigHomepage hero CTAs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ConfigHomepage.jsx (home hero primary/secondary CTA)", "issue": "hp-hero-cta and hp-hero-cta-secondary use nav(cfg.cta_link || '/products') — hardcoded English fallback. When language=FR, clicking the hero primary CTA lands on /products instead of /produits. The page still renders (alias works), but the URL should localise per Phase C requirement. Fix: import useLocalePath and default to nav(cfg.cta_link || path('products')); also consider translating cfg.cta_link if it comes from CMS as /products.", "selector": "[data-testid=hp-hero-cta]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix ConfigHomepage.jsx hero CTA to use useLocalePath() so /products fallback becomes /produits when i18n.language=='fr'. Same for cta_link/secondary_cta_link when the CMS value is /products or /cart."
+  ],
+  "critical_code_review_comments": [
+    "ConfigHomepage.jsx has hardcoded English routes as fallbacks; not consistent with rest of the app which uses useLocalePath everywhere else.",
+    "TopNav account button (top-nav-account) can only be tested authenticated; unauthenticated users see auth-open-login-btn. Both call path('profile') for redirect — code is correct.",
+    "i18n.index.js: localStorage key is 'baked_language' (not 'baked_i18n_lang' as agent-to-agent note claimed) — persistence works and htmlLang stays in sync."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "~92%"},
+  "test_credentials": "Not required — auth-gated tests (cart-checkout-btn navigation, /commandes) were verified by inspecting rendered login prompts and by static code review of navigate(path('checkout')) usage.",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Verified: (1) All 12 FR routes + 8 EN aliases return HTTP 200 and render proper shells (nav+footer or profile shell). (2) LanguageSwitcher persists to localStorage.baked_language and syncs document.documentElement.lang. (3) TopNav cart button navigates to /panier when FR and /cart when EN. (4) TopNav account button code path uses path('profile') → /compte in FR, /profile in EN (verified via code; UI requires auth). (5) Product card click on /produits routes to /produits/:id in FR (href pattern verified). (6) Desktop PDP 'Voir le panier' → /panier. (7) Mobile PDP m-pd-buy → /paiement in FR (verified live click). (8) Mobile bottom-nav m-bnav-cart is active on /panier and m-bnav-profile on /compte (opacity-60 class dropped correctly). (9) MobileShell shows 'DELIVER TO' header on /panier and /paiement in FR (isCart/isCheckout detection works with FR aliases). (10) No pageerrors on FR routes; 401 responses come from unauthenticated /profile & /cart API calls (expected). ONE BUG: ConfigHomepage.jsx hero primary/secondary CTA hardcodes '/products' fallback instead of using useLocalePath.",
+  "rca of the issue": "ConfigHomepage.jsx lines 186 & 195: `nav(cfg.cta_link || '/products')` bypasses useLocalePath. Since the storefront home route '/' now renders ConfigHomepage (not HomePage), this became the visible hero on both desktop & mobile. All the other pages (HomePage, MobileHome, TopNav, CartPage, MobileCart, MobileProductDetail, ProductCard, ProductDetailPage) were correctly migrated to useLocalePath. Repro: set localStorage.baked_language='fr', load /, click the primary hero CTA — URL becomes /products, expected /produits."
+}
