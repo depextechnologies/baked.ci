@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -35,6 +36,24 @@ logger = logging.getLogger("baked.i18n")
 
 SUPPORTED_LANGUAGES = ("fr", "en")
 DEFAULT_LANGUAGE = "fr"   # French-first per client brief (mirrors frontend)
+
+# Per-request language stash, populated by `LanguageMiddleware` in server.py.
+# Any code path (route handler, background task called sync from a route) can
+# call `current_lang()` to get the caller's language without threading `request`
+# through every function signature.
+_current_lang: ContextVar[str] = ContextVar("baked_current_lang", default=DEFAULT_LANGUAGE)
+
+
+def set_current_lang(lang: str) -> None:
+    _current_lang.set(lang if lang in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE)
+
+
+def current_lang() -> str:
+    """Return the language for the in-flight request. Falls back to French."""
+    try:
+        return _current_lang.get()
+    except LookupError:
+        return DEFAULT_LANGUAGE
 
 _LOCALES_DIR = Path(__file__).resolve().parent.parent / "i18n" / "locales"
 

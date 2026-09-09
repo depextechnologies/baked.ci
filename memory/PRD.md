@@ -1,5 +1,13 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-08) — Phase D · Backend Error i18n Sweep — COMPLETE
+- ✅ **ASGI language middleware** in `server.py` stashes `resolve_lang(request)` into a request-scoped ContextVar (`core.i18n._current_lang`). Endpoints call `t(key, current_lang())` with **zero signature churn**.
+- ✅ **~140 `raise HTTPException` sites localised** across 11 files: `modules/mart/orders.py`, `modules/mart/routes.py`, `modules/express/routes.py`, `modules/driver/routes.py`, `modules/shop/{routes,storefront_routes,portal_routes}.py`, `shared/auth/routes.py`, `shared/customer/routes.py`, `shared/addresses/routes.py`, `shared/suppliers/portal_routes.py`.
+- ✅ **`i18n/locales/{fr,en}/errors.json`** extended with 100+ keys (grouped `generic/auth/supplier/order/customer/driver/shop/upload`), all with `{param}` interpolation.
+- ✅ **Tests**: `test_i18n_errors_e2e.py` (11/11) + `test_i18n_backend.py` (15/15) — **26/26 green**. Covers header precedence, structured `{code, message}` translation, ContextVar isolation across sequential requests.
+- ✅ **Live proof**: `curl GET /api/mart/products/xx  X-BAKED-Language: fr` → `"Produit introuvable."`, `en` → `"Product not found."`
+- 🔜 **Deferred (P2)**: `shared/admin/*`, `modules/mart_partner/*`, `shared/purchase_orders/*` admin surfaces (French-only for launch team).
+
 ## Latest (2026-03-05 evening) — Workstream 3 Phase A · i18n Foundation
 - ✅ **react-i18next** installed (v17) + `i18next-browser-languagedetector`. Central init at `/app/frontend/src/i18n/index.js` with 5 namespaces (common/customer/admin/seller/driver) × 2 locales (fr/en). FallbackLng=`fr`. Detector order drops `navigator` → **French-first for every fresh visitor** regardless of browser locale.
 - ✅ **`LanguageSwitcher.jsx`** shared component with `compact`/`menu`/`inline` variants. Wired across all 6 shells (desktop TopNav popover kept, mobile drawer footer replaced, MobileSettings row kept, Admin sidebar footer new, Seller portal sidebar footer new, Driver Profile page new). Public seller `/apply` also has one so applicants can toggle before login.

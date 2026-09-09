@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 from core.models import Cart, CartItem, Customer, MartCategory, MartOffer, MartProduct, MartStore, MartSubcategory
 from core.serializers import row_to_dict
 from core.events import event_bus, Events
@@ -116,7 +117,7 @@ async def list_products(
 async def get_product(product_id: str, session: AsyncSession = Depends(get_session)):
     product = await session.get(MartProduct, product_id)
     if not product or product.deleted_at is not None:
-        raise HTTPException(404, "Product not found")
+        raise HTTPException(404, _t("errors.order.product_not_found", current_lang()))
     d = row_to_dict(product)
     from modules.mart_partner.allocation import effective_partner_price
     prices = await effective_partner_price(session, [product.id], country=product.country, module=product.module)
@@ -328,7 +329,7 @@ async def add_cart_item(
 ):
     product = await session.get(MartProduct, payload.product_id)
     if not product:
-        raise HTTPException(404, "Product not found")
+        raise HTTPException(404, _t("errors.order.product_not_found", current_lang()))
     cart = await _cart_for(session, customer.id)
     stmt = pg_insert(CartItem).values(
         cart_id=cart.id, product_id=payload.product_id, quantity=payload.quantity, module=payload.module
@@ -353,7 +354,7 @@ async def update_cart_item(
     cart = await _cart_for(session, customer.id)
     item = await session.get(CartItem, item_id)
     if not item or item.cart_id != cart.id:
-        raise HTTPException(404, "Item not found")
+        raise HTTPException(404, _t("errors.order.item_not_found", current_lang()))
     item.quantity = payload.quantity
     await session.commit()
     return await _hydrate_cart(session, cart)

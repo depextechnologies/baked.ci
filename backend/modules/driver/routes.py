@@ -40,7 +40,7 @@ from core.providers import object_storage
 from core.providers.otp_provider import get_otp_provider
 from core.mailer import send_email_async
 from core.emails import send_localised_email
-from core.i18n import resolve_lang
+from core.i18n import resolve_lang, t as _t, current_lang
 from core.security import create_access_token, decode_token, hash_password, verify_password
 from shared.admin.routes import get_current_admin
 
@@ -161,19 +161,19 @@ async def verify_otp(payload: VerifyOtpIn, session: AsyncSession = Depends(get_s
         .order_by(DriverOtp.created_at.desc())
     )).scalars().first()
     if not row or row.expires_at < now:
-        raise HTTPException(400, {"code": "otp_expired", "message": "Code expired — request a new one."})
+        raise HTTPException(400, {"code": "otp_expired", "message": _t("errors.auth.otp_expired", current_lang())})
     if row.attempts >= OTP_MAX_TRIES:
-        raise HTTPException(429, {"code": "too_many_attempts", "message": "Too many attempts. Request a new code."})
+        raise HTTPException(429, {"code": "too_many_attempts", "message": _t("errors.driver.too_many_attempts", current_lang())})
     if row.code != payload.code:
         row.attempts += 1
         await session.commit()
-        raise HTTPException(400, {"code": "otp_invalid", "message": "Incorrect code. Try again."})
+        raise HTTPException(400, {"code": "otp_invalid", "message": _t("errors.auth.otp_incorrect", current_lang())})
     row.consumed_at = now
     d = (await session.execute(
         select(Driver).where(Driver.phone_e164 == payload.phone_e164)
     )).scalar_one_or_none()
     if not d:
-        raise HTTPException(404, "Driver record not found — start over.")
+        raise HTTPException(404, _t("errors.auth.driver_not_found", current_lang()))
     await session.commit()
     tok = create_access_token(d.id, role=DRIVER_JWT_ROLE, extra={"module": "driver"})
     return {
@@ -222,7 +222,7 @@ async def email_register(payload: EmailRegisterIn, session: AsyncSession = Depen
         select(Driver).where(func.lower(Driver.email) == email)
     )).scalar_one_or_none()
     if existing:
-        raise HTTPException(409, {"code": "email_taken", "message": "This email already has a driver account. Please sign in."})
+        raise HTTPException(409, {"code": "email_taken", "message": _t("errors.auth.email_taken", current_lang())})
     d = Driver(
         email=email,
         password_hash=hash_password(payload.password),
@@ -242,7 +242,7 @@ async def email_login(payload: EmailLoginIn, session: AsyncSession = Depends(get
         select(Driver).where(func.lower(Driver.email) == email)
     )).scalar_one_or_none()
     if not d or not d.password_hash or not verify_password(payload.password, d.password_hash):
-        raise HTTPException(401, {"code": "invalid_credentials", "message": "Invalid email or password."})
+        raise HTTPException(401, {"code": "invalid_credentials", "message": _t("errors.auth.invalid_email_password", current_lang())})
     return _login_response(d)
 
 
@@ -264,7 +264,7 @@ async def google_verify(payload: GoogleVerifyIn, session: AsyncSession = Depends
     driver JWT so the client lands inside `/driver/*`.
     """
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(400, {"code": "google_not_configured", "message": "Google Sign-In is not configured on this server."})
+        raise HTTPException(400, {"code": "google_not_configured", "message": _t("errors.auth.google_not_configured", current_lang())})
 
     async with httpx.AsyncClient(timeout=10) as http:
         r = await http.post(GOOGLE_TOKEN_URL, data={
@@ -275,19 +275,19 @@ async def google_verify(payload: GoogleVerifyIn, session: AsyncSession = Depends
             "grant_type": "authorization_code",
         })
     if r.status_code != 200:
-        raise HTTPException(401, f"Google token exchange failed: {r.text}")
+        raise HTTPException(401, _t("errors.auth.google_exchange_failed", current_lang(), detail=r.text))
     id_token_str = r.json().get("id_token")
     if not id_token_str:
-        raise HTTPException(401, "No id_token returned by Google")
+        raise HTTPException(401, _t("errors.auth.google_no_id_token", current_lang()))
     try:
         info = google_id_token.verify_oauth2_token(id_token_str, google_requests.Request(), GOOGLE_CLIENT_ID)
     except ValueError as exc:
-        raise HTTPException(401, f"Invalid Google credential: {exc}") from exc
+        raise HTTPException(401, _t("errors.auth.google_invalid_credential", current_lang(), detail=str(exc))) from exc
 
     sub = info.get("sub")
     email = (info.get("email") or "").lower()
     if not sub or not email or not info.get("email_verified"):
-        raise HTTPException(401, "Google account email is not verified")
+        raise HTTPException(401, _t("errors.auth.google_email_unverified", current_lang()))
 
     d = (await session.execute(
         select(Driver).where(Driver.google_sub == sub)
@@ -441,13 +441,13 @@ async def reset_password(payload: ResetPasswordIn, session: AsyncSession = Depen
         .order_by(DriverOtp.created_at.desc())
     )).scalars().first()
     if not row or row.expires_at < now:
-        raise HTTPException(400, {"code": "otp_expired", "message": "Code expired — request a new one."})
+        raise HTTPException(400, {"code": "otp_expired", "message": _t("errors.auth.otp_expired", current_lang())})
     if row.attempts >= OTP_MAX_TRIES:
-        raise HTTPException(429, {"code": "too_many_attempts", "message": "Too many attempts. Request a new code."})
+        raise HTTPException(429, {"code": "too_many_attempts", "message": _t("errors.driver.too_many_attempts", current_lang())})
     if row.code != payload.code:
         row.attempts += 1
         await session.commit()
-        raise HTTPException(400, {"code": "otp_invalid", "message": "Incorrect code. Try again."})
+        raise HTTPException(400, {"code": "otp_invalid", "message": _t("errors.auth.otp_incorrect", current_lang())})
 
     d = (await session.execute(
         select(Driver).where(func.lower(Driver.email) == email)
@@ -455,7 +455,7 @@ async def reset_password(payload: ResetPasswordIn, session: AsyncSession = Depen
     if not d:
         # Shouldn't happen — forgot-password only creates an OTP when the
         # driver exists — but guard defensively.
-        raise HTTPException(404, {"code": "driver_not_found", "message": "Driver record not found."})
+        raise HTTPException(404, {"code": "driver_not_found", "message": _t("errors.driver.driver_not_found", current_lang())})
 
     d.password_hash = hash_password(payload.new_password)
     row.consumed_at = now
@@ -473,19 +473,19 @@ async def get_current_driver(
 ) -> Driver:
     from fastapi import Request
     if request is None:                                    # FastAPI injects the Request via Depends chain
-        raise HTTPException(500, "internal: missing request")
+        raise HTTPException(500, _t("errors.generic.missing_request", current_lang()))
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
-        raise HTTPException(401, "Missing bearer token")
+        raise HTTPException(401, _t("errors.generic.missing_bearer", current_lang()))
     try:
         payload = decode_token(auth.split(" ", 1)[1])
     except Exception:
-        raise HTTPException(401, "Invalid token")
+        raise HTTPException(401, _t("errors.generic.invalid_token", current_lang()))
     if payload.get("role") != DRIVER_JWT_ROLE:
-        raise HTTPException(403, "Driver auth required")
+        raise HTTPException(403, _t("errors.auth.driver_auth_required", current_lang()))
     d = await session.get(Driver, payload.get("sub"))
     if not d:
-        raise HTTPException(404, "Driver not found")
+        raise HTTPException(404, _t("errors.driver.driver_not_found_generic", current_lang()))
     return d
 
 
@@ -537,21 +537,21 @@ async def patch_kyc(
 ):
     step = payload.step
     if step not in KYC_FIELD_WHITELIST:
-        raise HTTPException(400, f"Unknown KYC step '{step}'")
+        raise HTTPException(400, _t("errors.driver.unknown_kyc_step", current_lang(), step=step))
     if driver.status not in ("onboarding", "rejected"):
         raise HTTPException(409, {"code": "kyc_locked",
-                                  "message": f"KYC can't be edited while status is '{driver.status}'"})
+                                  "message": _t("errors.driver.kyc_locked", current_lang())})
 
     allowed = KYC_FIELD_WHITELIST[step]
     for k, v in payload.data.items():
         if k not in allowed:
-            raise HTTPException(400, f"Field '{k}' cannot be set at step '{step}'")
+            raise HTTPException(400, _t("errors.driver.field_not_at_step", current_lang(), field=k, step=step))
         # Simple type coercions
         if k == "licence_expiry" and v:
             try: v = date.fromisoformat(v)
-            except Exception: raise HTTPException(400, "licence_expiry must be ISO date YYYY-MM-DD")
+            except Exception: raise HTTPException(400, _t("errors.driver.licence_expiry_iso", current_lang()))
         if k == "vehicle_type" and v and v not in VEHICLE_TYPES:
-            raise HTTPException(400, f"vehicle_type must be one of {VEHICLE_TYPES}")
+            raise HTTPException(400, _t("errors.driver.vehicle_type_invalid", current_lang(), allowed=", ".join(VEHICLE_TYPES)))
         setattr(driver, k, v)
 
     # Advance the wizard pointer if the client just completed a step.
@@ -579,16 +579,16 @@ async def driver_upload(
     session: AsyncSession = Depends(get_session),
 ):
     if kind not in {"gov_id_front", "gov_id_back", "licence_front", "selfie", "vehicle_reg"}:
-        raise HTTPException(400, f"Unknown upload kind '{kind}'")
+        raise HTTPException(400, _t("errors.driver.unknown_upload_kind", current_lang(), kind=kind))
     content = await file.read()
     if len(content) > 8 * 1024 * 1024:
-        raise HTTPException(413, "File too large (8 MB max)")
+        raise HTTPException(413, _t("errors.driver.file_too_large_8mb", current_lang()))
     ext = (file.filename or "bin").rsplit(".", 1)[-1].lower()
     key = f"{object_storage.APP_NAME}/driver/{driver.id}/{kind}/{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}.{ext}"
     try:
         object_storage.put_object(key, content, file.content_type or "application/octet-stream")
     except Exception as e:
-        raise HTTPException(502, f"Upload failed: {e}")
+        raise HTTPException(502, _t("errors.driver.upload_failed", current_lang(), detail=str(e)))
     url = f"/api/driver/uploads/{key}"
     # persist the URL onto the right column for convenience
     col = {"gov_id_front": "gov_id_front_url", "gov_id_back": "gov_id_back_url",
@@ -607,7 +607,7 @@ async def driver_upload_serve(key: str):
     try:
         content, ct = object_storage.get_object(key)
     except Exception:
-        raise HTTPException(404, "Upload not found")
+        raise HTTPException(404, _t("errors.driver.upload_not_found", current_lang()))
     return Response(content=content, media_type=ct)
 
 
@@ -621,11 +621,11 @@ async def submit_for_review(
     session: AsyncSession = Depends(get_session),
 ):
     if driver.status not in ("onboarding", "rejected"):
-        raise HTTPException(409, f"Already submitted (status={driver.status})")
+        raise HTTPException(409, _t("errors.driver.already_submitted_status", current_lang(), status=driver.status))
     missing = _missing_kyc(driver)
     if missing:
         raise HTTPException(409, {"code": "kyc_incomplete", "missing": missing,
-                                  "message": "Complete every KYC step before submitting."})
+                                  "message": _t("errors.driver.kyc_incomplete", current_lang())})
     driver.status = "pending_review"
     driver.kyc_step = "submitted"
     driver.submitted_at = datetime.now(timezone.utc)
@@ -672,7 +672,7 @@ async def set_online(
 ):
     if payload.is_online and driver.status != "approved":
         raise HTTPException(403, {"code": "not_approved",
-                                  "message": "You can go online once your account is approved."})
+                                  "message": _t("errors.driver.not_approved", current_lang())})
     driver.is_online = payload.is_online
     driver.last_seen_at = datetime.now(timezone.utc)
     if payload.lat is not None: driver.current_lat = payload.lat
@@ -737,7 +737,7 @@ async def push_location(
     client shouldn't push a fix it didn't successfully acquire.
     """
     if payload.lat == 0 and payload.lng == 0:
-        raise HTTPException(400, {"code": "invalid_location", "message": "Refusing (0,0) fix."})
+        raise HTTPException(400, {"code": "invalid_location", "message": _t("errors.driver.invalid_location", current_lang())})
     from modules.driver.dispatch_bridge import push_location as bridge_push
     await bridge_push(session, driver, lat=payload.lat, lng=payload.lng)
     await session.commit()
@@ -814,12 +814,12 @@ async def accept_offer(
         select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
     )).scalar_one_or_none()
     if md is None:
-        raise HTTPException(400, {"code": "not_dispatchable", "message": "Go online first."})
+        raise HTTPException(400, {"code": "not_dispatchable", "message": _t("errors.driver.not_dispatchable_online", current_lang())})
 
     ok, reason = await accept_offer_atomic(session, booking_id, md.id)
     if not ok:
         await session.commit()
-        raise HTTPException(409, {"code": reason, "message": f"Cannot accept: {reason}."})
+        raise HTTPException(409, {"code": reason, "message": _t("errors.driver.cannot_accept", current_lang(), reason=reason)})
     await session.commit()
 
     # Broadcast the assignment on the customer's existing express WS
@@ -848,10 +848,10 @@ async def decline_offer_route(
         select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
     )).scalar_one_or_none()
     if md is None:
-        raise HTTPException(400, {"code": "not_dispatchable", "message": "Not in dispatch pool."})
+        raise HTTPException(400, {"code": "not_dispatchable", "message": _t("errors.driver.not_dispatchable_pool", current_lang())})
     booking = await session.get(ExpressBooking, booking_id)
     if booking is None or booking.offered_to_driver_id != md.id:
-        raise HTTPException(404, {"code": "no_offer", "message": "No matching offer."})
+        raise HTTPException(404, {"code": "no_offer", "message": _t("errors.driver.no_offer", current_lang())})
     await decline_offer(session, booking, md.id)
     await session.commit()
     return {"ok": True}
@@ -999,9 +999,9 @@ async def admin_approve(
     session: AsyncSession = Depends(get_session),
 ):
     d = await session.get(Driver, driver_id)
-    if not d: raise HTTPException(404, "Driver not found")
+    if not d: raise HTTPException(404, _t("errors.driver.driver_not_found_generic", current_lang()))
     if d.status not in ("pending_review", "rejected", "suspended"):
-        raise HTTPException(409, f"Cannot approve from status='{d.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_approve_from_status", current_lang(), status=d.status))
     d.status = "approved"
     d.approved_at = datetime.now(timezone.utc)
     d.reviewer_notes = payload.notes
@@ -1016,9 +1016,9 @@ async def admin_reject(
     session: AsyncSession = Depends(get_session),
 ):
     d = await session.get(Driver, driver_id)
-    if not d: raise HTTPException(404, "Driver not found")
+    if not d: raise HTTPException(404, _t("errors.driver.driver_not_found_generic", current_lang()))
     if d.status not in ("pending_review", "approved"):
-        raise HTTPException(409, f"Cannot reject from status='{d.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_reject_from_status", current_lang(), status=d.status))
     d.status = "rejected"
     d.reviewer_notes = payload.notes
     await session.commit()
@@ -1084,7 +1084,7 @@ def _require_job(session, driver: Driver, job_id: str) -> DriverJob:
 async def _load_job(session: AsyncSession, driver: Driver, job_id: str) -> DriverJob:
     j = await session.get(DriverJob, job_id)
     if not j or j.driver_id != driver.id:
-        raise HTTPException(404, "Job not found")
+        raise HTTPException(404, _t("errors.driver.job_not_found", current_lang()))
     return j
 
 
@@ -1101,10 +1101,10 @@ async def accept_job(job_id: str,
                      session: AsyncSession = Depends(get_session)):
     j = await _load_job(session, driver, job_id)
     if j.status != "offered":
-        raise HTTPException(409, f"Cannot accept a job in status '{j.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_accept_job_status", current_lang(), status=j.status))
     if j.expires_at and j.expires_at < datetime.now(timezone.utc):
         j.status = "expired"; await session.commit()
-        raise HTTPException(409, {"code": "expired", "message": "This request has expired."})
+        raise HTTPException(409, {"code": "expired", "message": _t("errors.driver.job_expired", current_lang())})
     _txn_stamp(j, "accepted", "accepted_at")
     await session.commit(); return _job_dict(j)
 
@@ -1120,7 +1120,7 @@ async def decline_job(job_id: str, payload: DeclineIn,
                       session: AsyncSession = Depends(get_session)):
     j = await _load_job(session, driver, job_id)
     if j.status != "offered":
-        raise HTTPException(409, f"Cannot decline a job in status '{j.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_decline_job_status", current_lang(), status=j.status))
     _txn_stamp(j, "declined")
     j.cancellation_reason = payload.reason
     await session.commit(); return _job_dict(j)
@@ -1132,7 +1132,7 @@ async def arrive_pickup(job_id: str,
                         session: AsyncSession = Depends(get_session)):
     j = await _load_job(session, driver, job_id)
     if j.status != "accepted":
-        raise HTTPException(409, f"Cannot arrive-pickup from status '{j.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_arrive_pickup", current_lang(), status=j.status))
     _txn_stamp(j, "arriving_pickup")
     await session.commit(); return _job_dict(j)
 
@@ -1148,9 +1148,9 @@ async def verify_pickup(job_id: str, payload: VerifyOtpJobIn,
                         session: AsyncSession = Depends(get_session)):
     j = await _load_job(session, driver, job_id)
     if j.status not in ("accepted", "arriving_pickup"):
-        raise HTTPException(409, f"Cannot verify pickup from status '{j.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_verify_pickup", current_lang(), status=j.status))
     if payload.code.strip() != j.pickup_otp:
-        raise HTTPException(400, {"code": "otp_invalid", "message": "Pickup OTP is incorrect."})
+        raise HTTPException(400, {"code": "otp_invalid", "message": _t("errors.driver.pickup_otp_incorrect", current_lang())})
     _txn_stamp(j, "picked_up", "picked_up_at")
     await session.commit(); return _job_dict(j)
 
@@ -1161,7 +1161,7 @@ async def arrive_dropoff(job_id: str,
                          session: AsyncSession = Depends(get_session)):
     j = await _load_job(session, driver, job_id)
     if j.status != "picked_up":
-        raise HTTPException(409, f"Cannot arrive-dropoff from status '{j.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_arrive_dropoff", current_lang(), status=j.status))
     _txn_stamp(j, "arriving_dropoff")
     await session.commit(); return _job_dict(j)
 
@@ -1172,9 +1172,9 @@ async def verify_delivery(job_id: str, payload: VerifyOtpJobIn,
                           session: AsyncSession = Depends(get_session)):
     j = await _load_job(session, driver, job_id)
     if j.status not in ("picked_up", "arriving_dropoff"):
-        raise HTTPException(409, f"Cannot verify delivery from status '{j.status}'")
+        raise HTTPException(409, _t("errors.driver.cannot_verify_delivery", current_lang(), status=j.status))
     if payload.code.strip() != j.delivery_otp:
-        raise HTTPException(400, {"code": "otp_invalid", "message": "Delivery OTP is incorrect."})
+        raise HTTPException(400, {"code": "otp_invalid", "message": _t("errors.driver.delivery_otp_incorrect", current_lang())})
     _txn_stamp(j, "delivered", "delivered_at")
     # Credit the wallet ledger. Unique (job_id, kind) index guarantees we
     # never double-credit if the client retries verify-delivery.
@@ -1221,7 +1221,7 @@ async def admin_dispatch_demo_job(driver_id: str,
     if the driver already has an in-flight job we return that one instead of
     stacking offers."""
     d = await session.get(Driver, driver_id)
-    if not d: raise HTTPException(404, "Driver not found")
+    if not d: raise HTTPException(404, _t("errors.driver.driver_not_found_generic", current_lang()))
     existing = (await session.execute(
         select(DriverJob).where(
             DriverJob.driver_id == d.id,
@@ -1331,7 +1331,7 @@ async def request_withdrawal(payload: WithdrawIn,
                              session: AsyncSession = Depends(get_session)):
     if not driver.bank_account_number:
         raise HTTPException(409, {"code": "bank_missing",
-                                  "message": "Add your bank details before requesting a payout."})
+                                  "message": _t("errors.driver.bank_missing", current_lang())})
     # Reuse the summary logic so validation is authoritative.
     summary = await driver_earnings(driver=driver, session=session)
     currency = summary["currency"]
@@ -1339,13 +1339,13 @@ async def request_withdrawal(payload: WithdrawIn,
 
     if summary["pending_withdrawal"]:
         raise HTTPException(409, {"code": "withdrawal_pending",
-                                  "message": "You already have a pending payout — wait for it to clear."})
+                                  "message": _t("errors.driver.withdrawal_pending", current_lang())})
     if payload.amount < minimum:
         raise HTTPException(400, {"code": "below_minimum",
-                                  "message": f"Minimum payout is {minimum:.0f} {currency}."})
+                                  "message": _t("errors.driver.below_minimum", current_lang())})
     if payload.amount > summary["available_balance"]:
         raise HTTPException(400, {"code": "insufficient_balance",
-                                  "message": "Requested amount exceeds available balance."})
+                                  "message": _t("errors.driver.insufficient_balance", current_lang())})
     w = DriverWithdrawal(
         driver_id=driver.id, amount=round(payload.amount, 2), currency=currency,
         status="pending",
@@ -1433,7 +1433,7 @@ class MarkFailedIn(BaseModel):
 
 async def _load_withdrawal(session: AsyncSession, wid: str) -> DriverWithdrawal:
     w = await session.get(DriverWithdrawal, wid)
-    if not w: raise HTTPException(404, "Withdrawal not found")
+    if not w: raise HTTPException(404, _t("errors.driver.withdrawal_not_found", current_lang()))
     return w
 
 
@@ -1445,7 +1445,7 @@ async def admin_mark_paid(
 ):
     w = await _load_withdrawal(session, withdrawal_id)
     if w.status != "pending":
-        raise HTTPException(409, f"Cannot mark {w.status} withdrawal as paid")
+        raise HTTPException(409, _t("errors.driver.cannot_mark_paid", current_lang(), status=w.status))
     w.status = "paid"
     w.processed_at = datetime.now(timezone.utc)
     w.failure_note = None
@@ -1463,7 +1463,7 @@ async def admin_mark_failed(
 ):
     w = await _load_withdrawal(session, withdrawal_id)
     if w.status != "pending":
-        raise HTTPException(409, f"Cannot mark {w.status} withdrawal as failed")
+        raise HTTPException(409, _t("errors.driver.cannot_mark_failed", current_lang(), status=w.status))
     w.status = "failed"
     w.processed_at = datetime.now(timezone.utc)
     w.failure_note = (payload.note or "").strip() or None
@@ -1521,15 +1521,15 @@ def _resolve_preset(sender: str, payload: ChatSendIn) -> tuple[Optional[str], st
     if payload.preset_key:
         if payload.preset_key not in presets:
             raise HTTPException(400, {"code": "unknown_preset",
-                                      "message": f"Unknown preset '{payload.preset_key}'."})
+                                      "message": _t("errors.driver.unknown_preset", current_lang())})
         return payload.preset_key, presets[payload.preset_key]
     text = (payload.text or "").strip()
     if not text:
         raise HTTPException(400, {"code": "empty_message",
-                                  "message": "Provide a preset_key or non-empty text."})
+                                  "message": _t("errors.driver.empty_message", current_lang())})
     if len(text) > 500:
         raise HTTPException(400, {"code": "message_too_long",
-                                  "message": "Messages must be 500 characters or less."})
+                                  "message": _t("errors.driver.message_too_long", current_lang())})
     return None, text
 
 
@@ -1575,7 +1575,7 @@ async def driver_send_message(
     j = await _load_job(session, driver, job_id)
     if j.status not in CHAT_OPEN_STATUSES:
         raise HTTPException(409, {"code": "chat_closed",
-                                  "message": f"Chat is closed for '{j.status}' jobs."})
+                                  "message": _t("errors.driver.chat_closed", current_lang())})
     preset_key, text = _resolve_preset("driver", payload)
     m = DriverJobMessage(job_id=j.id, sender="driver", preset_key=preset_key, text=text)
     session.add(m)
@@ -1590,10 +1590,10 @@ track_router = APIRouter(prefix="/send/track", tags=["send-track"])
 
 async def _load_by_share(session: AsyncSession, job_id: str, token: str) -> DriverJob:
     if not token:
-        raise HTTPException(401, "Tracking token required")
+        raise HTTPException(401, _t("errors.driver.tracking_token_required", current_lang()))
     j = await session.get(DriverJob, job_id)
     if not j or not j.share_token or j.share_token != token:
-        raise HTTPException(404, "Job not found")
+        raise HTTPException(404, _t("errors.driver.job_not_found", current_lang()))
     return j
 
 
@@ -1655,7 +1655,7 @@ async def track_send_message(
     j = await _load_by_share(session, job_id, t)
     if j.status not in CHAT_OPEN_STATUSES:
         raise HTTPException(409, {"code": "chat_closed",
-                                  "message": f"Chat is closed for '{j.status}' jobs."})
+                                  "message": _t("errors.driver.chat_closed", current_lang())})
     preset_key, text = _resolve_preset("customer", payload)
     m = DriverJobMessage(job_id=j.id, sender="customer", preset_key=preset_key, text=text)
     session.add(m)

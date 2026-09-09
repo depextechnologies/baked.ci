@@ -23,6 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
+from core.i18n import t as _t, current_lang
 from core.models import (
     ShopBrand, ShopCategory, ShopOrder, ShopProduct, ShopSubcategory, ShopVariant, Supplier,
 )
@@ -189,7 +190,7 @@ async def shop_resolved_attributes(
             )
         ).scalar_one_or_none()
     if not cat:
-        raise HTTPException(404, "SHOP category not found")
+        raise HTTPException(404, _t("errors.shop.category_not_found", current_lang()))
 
     sid = subcategory_id
     if sid:
@@ -437,7 +438,7 @@ async def admin_create_category(
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(409, {"code": "slug_conflict",
-                                  "message": f"Category '{slug}' already exists in {country}."})
+                                  "message": _t("errors.shop.slug_conflict", current_lang())})
     row = ShopCategory(
         slug=slug, country=country,
         name_en=payload.name_en, name_fr=payload.name_fr,
@@ -456,7 +457,7 @@ async def admin_update_category(
 ):
     row = await session.get(ShopCategory, cat_id)
     if not row:
-        raise HTTPException(404, "Category not found")
+        raise HTTPException(404, _t("errors.shop.category_not_found", current_lang()))
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(row, k, v)
     await session.commit()
@@ -471,7 +472,7 @@ async def admin_delete_category(
 ):
     row = await session.get(ShopCategory, cat_id)
     if not row:
-        raise HTTPException(404, "Category not found")
+        raise HTTPException(404, _t("errors.shop.category_not_found", current_lang()))
     # Hard-block: refuse deletion if any product still points at this category.
     used = (
         await session.execute(
@@ -482,7 +483,7 @@ async def admin_delete_category(
     ).scalar_one()
     if used:
         raise HTTPException(409, {"code": "category_in_use",
-                                  "message": f"{used} product(s) still reference this category."})
+                                  "message": _t("errors.shop.category_in_use", current_lang())})
     await session.delete(row)
     await session.commit()
 
@@ -511,7 +512,7 @@ async def admin_create_subcategory(
 ):
     parent = await session.get(ShopCategory, payload.category_id)
     if not parent:
-        raise HTTPException(404, "Parent category not found")
+        raise HTTPException(404, _t("errors.shop.parent_category_not_found", current_lang()))
     slug = payload.slug.strip().lower()
     existing = (
         await session.execute(
@@ -523,7 +524,7 @@ async def admin_create_subcategory(
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(409, {"code": "slug_conflict",
-                                  "message": f"Sub-category '{slug}' already exists under this category."})
+                                  "message": _t("errors.shop.slug_conflict", current_lang())})
     row = ShopSubcategory(
         slug=slug, category_id=payload.category_id,
         country=payload.country.upper(),
@@ -543,7 +544,7 @@ async def admin_update_subcategory(
 ):
     row = await session.get(ShopSubcategory, sub_id)
     if not row:
-        raise HTTPException(404, "Sub-category not found")
+        raise HTTPException(404, _t("errors.shop.subcategory_not_found", current_lang()))
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(row, k, v)
     await session.commit()
@@ -558,7 +559,7 @@ async def admin_delete_subcategory(
 ):
     row = await session.get(ShopSubcategory, sub_id)
     if not row:
-        raise HTTPException(404, "Sub-category not found")
+        raise HTTPException(404, _t("errors.shop.subcategory_not_found", current_lang()))
     used = (
         await session.execute(
             select(func.count(ShopProduct.id)).where(
@@ -568,7 +569,7 @@ async def admin_delete_subcategory(
     ).scalar_one()
     if used:
         raise HTTPException(409, {"code": "subcategory_in_use",
-                                  "message": f"{used} product(s) still reference this sub-category."})
+                                  "message": _t("errors.shop.subcategory_in_use", current_lang())})
     await session.delete(row)
     await session.commit()
 
@@ -635,16 +636,16 @@ async def admin_create_shop_assignment(
 ):
     cat = await session.get(ShopCategory, cat_id)
     if not cat:
-        raise HTTPException(404, "Category not found")
+        raise HTTPException(404, _t("errors.shop.category_not_found", current_lang()))
     attr = await session.get(MartAttribute, payload.attribute_id)
     if not attr:
-        raise HTTPException(404, "Attribute not found")
+        raise HTTPException(404, _t("errors.shop.attribute_not_found", current_lang()))
     if attr.module != "shop":
-        raise HTTPException(400, f"Attribute belongs to module '{attr.module}', not 'shop'.")
+        raise HTTPException(400, _t("errors.shop.attribute_wrong_module", current_lang(), module=attr.module))
     if payload.subcategory_id:
         sub = await session.get(ShopSubcategory, payload.subcategory_id)
         if not sub or sub.category_id != cat_id:
-            raise HTTPException(400, "Sub-category does not belong to this category.")
+            raise HTTPException(400, _t("errors.shop.sub_not_in_category", current_lang()))
 
     # Reject duplicate (same category+subcategory+attribute).
     dup_stmt = select(ShopCategoryAttribute.id).where(
@@ -658,7 +659,7 @@ async def admin_create_shop_assignment(
     dup = (await session.execute(dup_stmt)).scalar_one_or_none()
     if dup:
         raise HTTPException(409, {"code": "assignment_exists",
-                                  "message": "Attribute already assigned to this scope."})
+                                  "message": _t("errors.shop.assignment_exists", current_lang())})
 
     row = ShopCategoryAttribute(
         category_id=cat_id, subcategory_id=payload.subcategory_id,
@@ -679,7 +680,7 @@ async def admin_update_shop_assignment(
 ):
     row = await session.get(ShopCategoryAttribute, assignment_id)
     if not row:
-        raise HTTPException(404, "Assignment not found")
+        raise HTTPException(404, _t("errors.shop.assignment_not_found", current_lang()))
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(row, k, v)
     await session.commit()
@@ -695,7 +696,7 @@ async def admin_delete_shop_assignment(
 ):
     row = await session.get(ShopCategoryAttribute, assignment_id)
     if not row:
-        raise HTTPException(404, "Assignment not found")
+        raise HTTPException(404, _t("errors.shop.assignment_not_found", current_lang()))
     await session.delete(row)
     await session.commit()
 
@@ -817,7 +818,7 @@ async def admin_list_product_requests(
 async def _load_product_for_review(session: AsyncSession, pid: str) -> ShopProduct:
     p = await session.get(ShopProduct, pid)
     if not p or p.deleted_at is not None:
-        raise HTTPException(404, "SHOP product not found")
+        raise HTTPException(404, _t("errors.shop.product_not_found", current_lang()))
     return p
 
 
@@ -855,7 +856,7 @@ async def admin_approve_product(
 ):
     p = await _load_product_for_review(session, pid)
     if p.status not in ("pending_review", "rejected"):
-        raise HTTPException(400, f"Cannot approve product in status={p.status}")
+        raise HTTPException(400, _t("errors.shop.cannot_approve_status", current_lang(), status=p.status))
     p.status = "active"
     if p.published_at is None:
         p.published_at = datetime.now(timezone.utc)
@@ -871,7 +872,7 @@ async def admin_reject_product(
 ):
     p = await _load_product_for_review(session, pid)
     if p.status not in ("pending_review", "active"):
-        raise HTTPException(400, f"Cannot reject product in status={p.status}")
+        raise HTTPException(400, _t("errors.shop.cannot_reject_status", current_lang(), status=p.status))
     p.status = "rejected"
     await session.commit()
     return {"id": p.id, "status": p.status}
@@ -936,7 +937,7 @@ async def admin_override_shop_order_status(
 ):
     o = await session.get(ShopOrder, order_id)
     if not o:
-        raise HTTPException(404, "Order not found")
+        raise HTTPException(404, _t("errors.shop.order_not_found", current_lang()))
     o.status = payload.status
     if payload.status == "delivered" and o.delivered_at is None:
         o.delivered_at = datetime.now(timezone.utc)

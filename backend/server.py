@@ -221,6 +221,41 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from asyncpg.exceptions import PostgresConnectionError  # type: ignore
 from sqlalchemy.exc import OperationalError, DBAPIError, InterfaceError
+from core.i18n import resolve_lang, set_current_lang
+
+
+class _BakedLanguageMiddleware:
+    """Pure ASGI middleware that stashes the caller's language in a ContextVar
+    for the entire request context. Using `BaseHTTPMiddleware` here would put
+    the endpoint on a separate task whose context copy doesn't see our `.set()`
+    call, so we intercept at the raw ASGI layer instead."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            try:
+                # Build a lightweight request stand-in for resolve_lang.
+                headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+                qs = scope.get("query_string", b"").decode("latin-1")
+                qp = {}
+                for pair in qs.split("&") if qs else []:
+                    if "=" in pair:
+                        k, v = pair.split("=", 1)
+                        qp[k] = v
+
+                class _R:
+                    def __init__(self, h, q):
+                        self.headers = h
+                        self.query_params = q
+                set_current_lang(resolve_lang(_R(headers, qp)))
+            except Exception:  # noqa: BLE001 — never fail a request because of i18n
+                pass
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_BakedLanguageMiddleware)
 
 
 @app.middleware("http")

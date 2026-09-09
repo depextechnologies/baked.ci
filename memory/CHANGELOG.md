@@ -1,5 +1,42 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-08 — Phase D · Backend HTTPException i18n sweep — COMPLETE
+
+Localised the customer + supplier + driver error surfaces (~140 `raise HTTPException` sites across 11 files) so every 4xx/5xx body now renders in the caller's language.
+
+**Middleware**: added ASGI-level `_BakedLanguageMiddleware` in `server.py` that stashes `resolve_lang(request)` into a request-scoped ContextVar (`core.i18n._current_lang`). Endpoint code now calls `t(key, current_lang(), **params)` with **zero** signature churn — no need to inject `Request` into every handler. `BaseHTTPMiddleware` was intentionally avoided (it spawns the endpoint on a fresh task whose context copy doesn't see mid-request `.set()` calls).
+
+**Files fully swept:**
+- `modules/mart/orders.py` — cart empty, address missing, allocation failure, min-order, out-of-stock, order not-found, cancel-status, payment intent
+- `modules/mart/routes.py` — product not found, item not found
+- `modules/express/routes.py` — booking not-found, cancel gate, driver-status transition + auth
+- `modules/driver/routes.py` — all OTP flows, KYC step gate, upload validation, submit, online gate, geo push, offer accept/decline, job lifecycle (accept/decline/arrive/verify pickup+delivery), earnings/withdrawal gates, in-ride chat, tracking token, admin approve/reject
+- `modules/shop/routes.py` + `storefront_routes.py` + `portal_routes.py` — category/subcategory/product/variant/order + assignment CRUD, checkout empty/insufficient-stock, seller order lifecycle (invalid_transition, pin_locked, wrong_pin), shop_not_enabled
+- `shared/auth/routes.py` — OTP challenge invalid/expired/incorrect, Google config/exchange/id_token/credential/email verification
+- `shared/customer/routes.py` — address not-found, ticket category/not-found
+- `shared/addresses/routes.py` — recent-search delete
+- `shared/suppliers/portal_routes.py` — bearer/token/role/supplier gates, document CRUD, supply-location, catalogue upsert, product-request submit/resubmit, uploads (kind/size/mime/storage), file-proxy auth, admin approve/reject
+
+**Locale dictionaries** (`i18n/locales/{fr,en}/errors.json`) — extended with 100+ new keys grouped under `generic / auth / supplier / order / customer / driver / shop / upload`. All keys ship with FR + EN and support `{param}` interpolation.
+
+**Tests** — new `tests/test_i18n_errors_e2e.py` (11/11 green) covering:
+- Middleware picks up `X-BAKED-Language`, `?lang=`, `Accept-Language` (FR default).
+- Header precedence (`X-BAKED-Language` beats `?lang` beats `Accept-Language`).
+- Structured `{code, message}` errors keep `code` untouched while `message` gets translated.
+- Sequential requests in the same event loop don't bleed language across (ContextVar isolation verified).
+
+Combined with existing `test_i18n_backend.py` (15/15), **26/26 i18n tests pass**.
+
+**Live curl proof** (external preview URL):
+```
+GET /api/mart/products/nope-xyz  X-BAKED-Language: fr → "Produit introuvable."
+GET /api/mart/products/nope-xyz  X-BAKED-Language: en → "Product not found."
+GET /api/shop/products/nope-xyz  X-BAKED-Language: fr → "Produit SHOP introuvable."
+```
+
+**Known deferred (P2)**: `shared/admin/*` (super-admin dashboards — French-only for the launch team, low visibility), `modules/mart_partner/*`, `shared/purchase_orders/*`. Also 1 pass-through in `modules/mart/orders.py:437` that forwards the payment provider's own error message verbatim.
+
+
 ## 2026-03-07 (part 2) — Phase D roll-out · All email call sites migrated — COMPLETE
 
 Every `send_email_async` call site has been re-wired through the localised email pipeline (`core.emails.send_localised_email` + `core.i18n.t`). Emails now arrive in the recipient's language — French for CI + African cohorts, English for IN + explicit `X-BAKED-Language: en` requests.

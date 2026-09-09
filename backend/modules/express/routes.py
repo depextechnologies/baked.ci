@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import SessionLocal, get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 from core.models import (
     Customer,
     ExpressBooking,
@@ -462,7 +463,7 @@ async def get_booking(
 ):
     booking = await session.get(ExpressBooking, booking_id)
     if not booking or booking.customer_id != customer.id:
-        raise HTTPException(404, "Booking not found")
+        raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
     return await booking_to_dict(session, booking)
 
 
@@ -478,7 +479,7 @@ async def cancel_booking(
         or booking.customer_id != customer.id
         or booking.status not in ("searching", "driver_assigned", "confirmed")
     ):
-        raise HTTPException(400, "Cannot cancel this booking")
+        raise HTTPException(400, _t("errors.order.cannot_cancel_booking", current_lang()))
     return await transition_status(session, booking_id, "cancelled", label="Cancelled by customer")
 
 
@@ -537,7 +538,7 @@ async def driver_advance_status(
 
     booking = await session.get(ExpressBooking, booking_id)
     if not booking:
-        raise HTTPException(404, "Booking not found")
+        raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
 
     # Auth: caller must be the driver assigned to this booking. Accepts the
     # SENDbakēd driver JWT (role='driver') and matches via ModuleDriver.
@@ -554,20 +555,21 @@ async def driver_advance_status(
                 )).scalar_one_or_none()
                 if md is None or booking.driver_id != md.id:
                     raise HTTPException(403, {"code": "not_your_booking",
-                                              "message": "You are not the driver for this booking."})
+                                              "message": _t("errors.auth.not_your_booking", current_lang())})
             else:
-                raise HTTPException(401, "Driver JWT required")
+                raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
         except HTTPException:
             raise
         except Exception:
-            raise HTTPException(401, "Invalid driver credentials")
+            raise HTTPException(401, _t("errors.auth.invalid_driver_creds", current_lang()))
     else:
-        raise HTTPException(401, "Driver JWT required")
+        raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
 
     curr = booking.status
     allowed = ALLOWED_TRANSITIONS.get(curr, set())
     if payload.status not in allowed:
-        raise HTTPException(400, f"Cannot transition {curr!r} → {payload.status!r}")
+        raise HTTPException(400, _t("errors.order.cannot_transition", current_lang(),
+                                    current=curr, target=payload.status))
     driver_loc = None
     if payload.lat is not None and payload.lng is not None:
         driver_loc = {"lat": payload.lat, "lng": payload.lng}
