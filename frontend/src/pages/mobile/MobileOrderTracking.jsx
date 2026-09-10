@@ -10,6 +10,15 @@ import { Button } from "../../components/ui/button";
 import { ArrowLeft, HelpCircle, Phone, MessageSquare, Share2, Truck, Star, MapPin, ShoppingBag, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
+const STAGE_KEY = {
+  placed: "stage_placed",
+  preparing: "stage_preparing",
+  picked_up: "stage_picked_up",
+  on_the_way: "stage_on_the_way",
+  delivered: "stage_delivered",
+  cancelled: "stage_cancelled",
+};
+
 export const MobileOrderTracking = () => {
   const { t: L } = useTranslation("customer");
   const { id } = useParams();
@@ -37,18 +46,18 @@ export const MobileOrderTracking = () => {
     // eslint-disable-next-line
   }, [id]);
 
-  if (!t) return <div className="p-8 text-sm text-muted-foreground">Loading tracking…</div>;
+  if (!t) return <div className="p-8 text-sm text-muted-foreground">{L("orders.tracking.loading")}</div>;
 
   const order = t.order;
   const etaMin = t.eta_seconds != null ? Math.max(0, Math.round(t.eta_seconds / 60)) : null;
-  const stageLabel = ({ placed: "Order placed", preparing: "Preparing your order", picked_up: "Picked up from store", on_the_way: "On the way", delivered: "Delivered!" })[t.stage] || t.stage;
+  const stageLabel = STAGE_KEY[t.stage] ? L(`orders.tracking.${STAGE_KEY[t.stage]}`) : t.stage;
 
   const share = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: "MARTbakēd delivery", text: `Track my order ${order.number}`, url: window.location.href }); } catch { /* ignore */ }
+      try { await navigator.share({ title: L("orders.tracking.share_title"), text: L("orders.tracking.share_text", { number: order.number }), url: window.location.href }); } catch { /* ignore */ }
     } else {
       navigator.clipboard?.writeText(window.location.href);
-      toast.success("Link copied to clipboard");
+      toast.success(L("orders.tracking.link_copied"));
     }
   };
 
@@ -57,9 +66,9 @@ export const MobileOrderTracking = () => {
       {/* Sub header */}
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-ot-back" onClick={() => nav(-1)} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0 text-base font-bold">{L("orders.track_order")}</div>
-        <button data-testid="m-ot-share" onClick={share} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Share status"><Share2 size={16} /></button>
-        <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Support"><HelpCircle size={16} /></button>
+        <div className="flex-1 min-w-0 text-base font-bold">{L("orders.tracking.title")}</div>
+        <button data-testid="m-ot-share" onClick={share} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label={L("orders.tracking.share_status_aria")}><Share2 size={16} /></button>
+        <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label={L("orders.support_aria")}><HelpCircle size={16} /></button>
       </div>
 
       {/* Status hero */}
@@ -68,11 +77,11 @@ export const MobileOrderTracking = () => {
           borderColor: "#77BC1F55",
           background: "linear-gradient(135deg, #77BC1F22 0%, hsl(var(--card)) 60%)",
         }}>
-          <div className="text-[10px] uppercase tracking-widest" style={{ color: "#77BC1F" }}>Status</div>
+          <div className="text-[10px] uppercase tracking-widest" style={{ color: "#77BC1F" }}>{L("orders.tracking.status_label")}</div>
           <div className="text-xl font-bold mt-0.5">{stageLabel}</div>
           <div className="text-xs text-muted-foreground mt-1">
-            {etaMin != null ? <>Arriving in <b style={{ color: "#77BC1F" }}>{etaMin} min</b></> : "Delivered"}
-            {" · "}Order <span className="font-mono">{order.number}</span>
+            {etaMin != null ? <>{L("orders.tracking.arriving_in")} <b style={{ color: "#77BC1F" }}>{L("orders.tracking.minutes_short", { n: etaMin })}</b></> : L("orders.tracking.delivered_short")}
+            {" · "}{L("orders.tracking.order_prefix")} <span className="font-mono">{order.number}</span>
           </div>
         </div>
       </div>
@@ -88,7 +97,7 @@ export const MobileOrderTracking = () => {
           <div className="baked-card bg-card border border-border p-4 flex items-center gap-3">
             <img src={t.driver.photo} alt={t.driver.name} className="w-14 h-14 rounded-full object-cover border-2" style={{ borderColor: "#77BC1F" }} />
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Your delivery partner</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{L("orders.tracking.your_delivery_partner")}</div>
               <div className="flex items-center gap-1.5">
                 <span className="text-sm font-bold truncate">{t.driver.name}</span>
                 <span className="baked-chip px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
@@ -97,15 +106,15 @@ export const MobileOrderTracking = () => {
               </div>
               <div className="text-[10px] text-muted-foreground">{t.driver.vehicle} · <span className="font-mono">{t.driver.vehicle_reg}</span></div>
             </div>
-            <a href={`tel:${t.driver.phone}`} data-testid="m-ot-call" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }} aria-label="Call driver"><Phone size={16} /></a>
-            <button data-testid="m-ot-chat" className="w-10 h-10 rounded-full flex items-center justify-center bg-secondary" aria-label="Chat driver"><MessageSquare size={16} /></button>
+            <a href={`tel:${t.driver.phone}`} data-testid="m-ot-call" className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }} aria-label={L("orders.tracking.call_driver_aria")}><Phone size={16} /></a>
+            <button data-testid="m-ot-chat" className="w-10 h-10 rounded-full flex items-center justify-center bg-secondary" aria-label={L("orders.tracking.chat_driver_aria")}><MessageSquare size={16} /></button>
           </div>
         </div>
       )}
 
       {/* Timeline */}
       <section className="px-4 mt-5">
-        <div className="text-sm font-bold mb-3">Order progress</div>
+        <div className="text-sm font-bold mb-3">{L("orders.tracking.order_progress")}</div>
         <div className="baked-card bg-card border border-border p-4">
           <OrderTimeline timeline={t.timeline} stage={t.stage} />
         </div>
@@ -114,21 +123,21 @@ export const MobileOrderTracking = () => {
       {/* Delivery + summary */}
       <section className="px-4 mt-5">
         <div className="baked-card bg-card border border-border divide-y divide-border">
-          <Detail icon={MapPin} label="Delivering to" value={`${order.address?.line1 || ""} · ${order.address?.city || ""}`} />
-          <Detail icon={ShoppingBag} label={`${order.items?.length || 0} items`} value={formatMoney(order.total, order.currency, ccy)} onClick={() => nav(`/orders/${order.id}`)} />
+          <Detail icon={MapPin} label={L("orders.tracking.delivering_to")} value={`${order.address?.line1 || ""} · ${order.address?.city || ""}`} />
+          <Detail icon={ShoppingBag} label={L("orders.tracking.items_count", { count: order.items?.length || 0 })} value={formatMoney(order.total, order.currency, ccy)} onClick={() => nav(`/orders/${order.id}`)} />
         </div>
       </section>
 
       <div className="px-4 mt-4 text-[11px] text-muted-foreground text-center">
-        Need help? <span style={{ color: "#77BC1F" }} className="font-semibold">Contact support</span>
+        {L("orders.tracking.need_help")} <span style={{ color: "#77BC1F" }} className="font-semibold">{L("orders.tracking.contact_support")}</span>
       </div>
 
       {/* Sticky footer */}
       <div className="fixed bottom-16 left-0 right-0 z-30 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-2 gap-2 p-3">
-          <Button data-testid="m-ot-orders" onClick={() => nav("/orders")} variant="outline" className="baked-btn h-12 font-semibold">All orders</Button>
+          <Button data-testid="m-ot-orders" onClick={() => nav("/orders")} variant="outline" className="baked-btn h-12 font-semibold">{L("orders.tracking.all_orders")}</Button>
           <Button data-testid="m-ot-shop" onClick={() => nav("/")} className="baked-btn h-12 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
-            <Truck size={16} className="mr-1.5" /> Continue shopping
+            <Truck size={16} className="mr-1.5" /> {L("orders.tracking.continue_shopping")}
           </Button>
         </div>
       </div>

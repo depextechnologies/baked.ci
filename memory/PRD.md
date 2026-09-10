@@ -1,6 +1,13 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-09) — SEND Wizard i18n — COMPLETE
+## Latest (2026-03-09) — Order Tracking i18n — COMPLETE
+- ✅ **18 strings localised** across `MobileOrderTracking.jsx` (11), `ExpressLiveTracking.jsx` (7) and `components/mobile/OrderTimeline.jsx` (stage code → localised label). Every hero, ETA line, stepper label, timeline label, driver card and CTA now switches FR↔EN.
+- ✅ **~60 new keys** under `customer:orders.tracking.*` (MART live-tracking) and `customer:orders.live.*` (SEND WebSocket tracking) with `{{n}}` / `{{count}}` / `{{number}}` interpolation.
+- ✅ `OrderTimeline` component now reads the timeline `code` (from the backend payload) and maps to `orders.tracking.timeline_*` keys — the backend keeps sending stable English codes; the frontend picks the locale-correct label so no backend change was required.
+- ✅ Global coverage: **159 → 141 hardcoded strings (−11%)**. Cumulative Phase C onwards: **445 → 141 = −68%**.
+- ✅ Live proof: `/send/booking/xxx/track` renders "Chargement du suivi en direct…" (FR) and swaps to "Loading live tracking…" on the EN toggle.
+
+## Previous (2026-03-09) — SEND Wizard i18n — COMPLETE
 - ✅ **~150 strings localised** across `ExpressWizard.jsx` (parcel booking funnel — 5 steps + booking confirmation), `MoversWizard.jsx` (movers booking funnel — 6 steps + landing) and shared `ExpressLayout.jsx` (header "Step X of Y" + footer "Continue" + Back aria-label). Zero remaining hardcoded English in the SEND funnel.
 - ✅ **~160 new keys** under `customer:send.wizard.*` covering both wizards' every step, header, footer, confirmation, toasts, and empty states with `{{count}}` / `{{km}}` / `{{price}}` / `{{ref}}` interpolation.
 - ✅ Date labels in `TimeSlotStep` now use `i18n.language`-aware `toLocaleDateString` (fr-FR vs en-US).

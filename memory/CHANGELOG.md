@@ -1,5 +1,28 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-09 — Order Tracking i18n — COMPLETE
+
+Localised the delivery-tracking surfaces so customers see their live updates in their language:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `pages/mobile/MobileOrderTracking.jsx` | 11 | 0 | −11 |
+| `pages/express/ExpressLiveTracking.jsx` | 7 | 0 | −7 |
+| `components/mobile/OrderTimeline.jsx` | (in progress + pending) | 0 | −2 (via code→key mapping) |
+
+Global coverage: **159 → 141 hardcoded strings (−11%)**. Cumulative Phase C onwards: **445 → 141 = −68%**.
+
+**Keys added** — ~60 new keys under `customer:orders.tracking.*` + `customer:orders.live.*`:
+- `tracking.*` (MART polling tracker) — `title`, `status_label`, `arriving_in`, `minutes_short`, `delivered_short`, `order_prefix`, `share_status_aria`, `share_title` / `share_text` (with `{{number}}`), `link_copied`, `your_delivery_partner`, `call_driver_aria`, `chat_driver_aria`, `order_progress`, `in_progress`, `pending`, `delivering_to`, `items_count` (with `{{count}}`), `need_help`, `contact_support`, `all_orders`, `continue_shopping`, `loading`, + 6 stage keys (`stage_placed/preparing/picked_up/on_the_way/delivered/cancelled`) + 5 timeline label keys (`timeline_placed/preparing/picked_up/on_the_way/delivered`).
+- `live.*` (SEND WebSocket tracker) — `back_aria`, `live_badge`, `offline_badge`, `tracking_title`, `live_sub`, `loading`, `map_unavailable`, 6 stage keys (`stage_searching/driver_assigned/arriving/picked_up/in_transit/delivered`), `awaiting_driver`, `delivery_completed`, `eta_minutes` (with `{{n}}`), `locking_in_driver`, `finding_nearest`, `see_details_on_accept`, `pickup`, `dropoff`, `distance`, `trip_est`, `vehicle`, `total`, `cod_short`, `book_another`.
+
+**Backend contract preserved**: the `/api/orders/{id}/tracking` endpoint continues to send timeline items with an English `label` and a stable `code`. `OrderTimeline` now reads `code` and maps to `orders.tracking.timeline_*` keys client-side — zero backend change, historical orders keep rendering, and admins can add new stages by extending the map without touching the API.
+
+**Live verified**:
+- `/send/booking/xxx/track` FR → "Chargement du suivi en direct…"
+- Toggling EN swaps to "Loading live tracking…"
+
+
 ## 2026-03-09 — SEND Wizard i18n — COMPLETE
 
 Localised the SENDbakēd booking funnel — the top offender identified in `I18N_COVERAGE_REPORT.md`:
