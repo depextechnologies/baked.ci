@@ -1,6 +1,20 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-10) — SHOP Admin Approval Bilingual View — COMPLETE
+## Latest (2026-03-10) — Global Inter Typography Migration — COMPLETE
+- ✅ **Previous font**: Poppins (imported in `src/index.css` line 1, applied via `body {}` + `.baked-logo-text`). Partner-landing/hub CSS shipped their own Inter fallback stacks (three sources of truth).
+- ✅ **Single source of truth**: `src/index.css` now exposes `--font-family-sans: "Inter", "SF Pro Display", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;` on `:root`. `html`, `body`, form controls and `.baked-logo-text` all use `var(--font-family-sans)`.
+- ✅ **Google font**: `@import` in `index.css` now loads Inter weights 400/500/600/700/800 with `display=swap` (was Poppins 300/400/500/600/700/800). One controlled load; no duplicates.
+- ✅ **Tailwind theme**: `tailwind.config.js` extends `fontFamily.sans` and `fontFamily.inter` to `[var(--font-family-sans)]` so every `font-sans` utility inherits the platform font.
+- ✅ **Form controls**: added a global `input, textarea, select, button, optgroup, option { font-family: inherit; }` rule so typed text also renders in Inter across every browser (browsers otherwise fall back to system UI fonts).
+- ✅ **Legacy declarations removed**:
+  - `partner-landing.css` `font-family: "Inter", -apple-system, ...` → `font-family: var(--font-family-sans);`
+  - `partner-hub.css` same
+  - `SendTrackApp.jsx`, `DriverApp.jsx` (3 inline `fontFamily: "Inter, system-ui, ..."`) → `fontFamily: "var(--font-family-sans)"`
+- ✅ **Email templates**: prepended `'Inter'` (with Arial fallback for email clients that block web fonts) in `core/emails.py`, `shared/purchase_orders/notifications.py`, `mart_partner/notifications.py`, `mart_partner/routes.py`, `driver/routes.py`. Generated-code and temp-password rows keep their intentional `ui-monospace` stack.
+- ✅ **Visual QA** (computed `font-family` on rendered elements): `/` (customer home) → Inter · `/shop` → Inter · `/driver` → Inter · `/admin/login` → Inter. 0 Poppins leaks detected across a 200-element sample.
+- ✅ **Branding preserved**: MART green, SHOP amber/gold, AUTO red, IMMO purple, SEND yellow all intact — the migration touched typography tokens only, never colour or module accent variables.
+
+## Previous (2026-03-10) — SHOP Admin Approval Bilingual View — COMPLETE
 - ✅ **Admin API** (`GET /api/admin/modules/shop/product-requests` + `.../product-requests/{id}`) now returns `title_fr` + `description_fr` on every row via the updated `_admin_product_dict`.
 - ✅ **Admin list** (`AdminShopProductApprovals.jsx`) shows the FR title first when present, with a compact `EN · …` sub-line so admins can spot copy mismatches at a glance. Products missing a French title get a red `FR MISSING` badge next to the product id.
 - ✅ **Approval drawer** exposes side-by-side `TITRE · FR` / `TITLE · EN` and `DESCRIPTION · FR` / `DESCRIPTION · EN` panels + a top-of-drawer warning "⚠ French title missing — customer will see the English fallback" when `title_fr` is empty. Every panel has a `data-testid` for QA.

@@ -520,7 +520,7 @@ async def admin_approve(
         from core.emails import send_localised_email
         portal_url = os.environ.get("PARTNER_PORTAL_URL", "https://baked.ci/partner-portal/login")
         html = f"""
-          <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+          <div style="font-family:'Inter',system-ui,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
             <h2 style="margin:0 0 12px">Welcome to MARTbakēd, {partner.business_name}!</h2>
             <p style="margin:0 0 16px;color:#333">
               Your partner application has been <b>approved</b>. Your dark store is now

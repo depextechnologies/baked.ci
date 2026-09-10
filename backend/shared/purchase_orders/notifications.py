@@ -59,7 +59,7 @@ def _fmt_currency(v: float, currency: str) -> str:
 # ---------------------------------------------------------------------------
 
 _BRAND_CSS = (
-    "font-family:system-ui,-apple-system,'Segoe UI',sans-serif;"
+    "font-family:'Inter',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;"
     "max-width:560px;margin:0 auto;padding:24px;color:#111;background:#fff"
 )
 _CTA_CSS = (

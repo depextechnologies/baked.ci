@@ -214,7 +214,7 @@ export const SendTrackApp = () => {
 
 const Shell = ({ children }) => (
   <div className="min-h-screen w-full flex justify-center bg-black text-white"
-       style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+       style={{ fontFamily: "var(--font-family-sans)" }}>
     <div className="w-full max-w-[440px] min-h-screen bg-black relative overflow-x-hidden">
       {children}
     </div>

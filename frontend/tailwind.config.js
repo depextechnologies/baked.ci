@@ -7,6 +7,13 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Route Tailwind's `font-sans` (the default) + explicit `font-inter`
+        // to the single global CSS var so utilities inherit the platform
+        // typography rather than the built-in system stack.
+        sans: ["var(--font-family-sans)"],
+        inter: ["var(--font-family-sans)"],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

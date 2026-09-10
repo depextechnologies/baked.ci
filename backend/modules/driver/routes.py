@@ -331,7 +331,7 @@ def _reset_email_html(code: str, ttl_min: int) -> str:
     return f"""\
 <!doctype html>
 <html><head><meta charset="utf-8"><title>BAKĒD reset code</title></head>
-<body style="margin:0;background:#0b0b0b;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f5f5f5">
+<body style="margin:0;background:#0b0b0b;font-family:'Inter',-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#f5f5f5">
   <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
     <div style="font-size:12px;letter-spacing:.3em;color:#FF8A1E;font-weight:600">SENDBAKĒD · DRIVER</div>
     <h1 style="font-size:28px;font-weight:800;margin:12px 0 6px">Reset your password</h1>

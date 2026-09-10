@@ -1,5 +1,35 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-10 — Global Inter Typography Migration — COMPLETE
+
+**Previous typography**: Poppins imported in `src/index.css` line 1 and applied to `body`. Partner-landing + partner-hub each shipped their own Inter fallback stack. Driver + SendTrack had 3 inline `fontFamily: "Inter, system-ui, sans-serif"` overrides. Three sources of truth, one legacy default.
+
+**New typography**: Inter as the single global font, driven by one CSS variable exposed on `:root`.
+
+**Files touched (10 total)**
+- `src/index.css` — Google Font `@import` swapped from Poppins → Inter (weights 400/500/600/700/800). Added `:root { --font-family-sans: "Inter", "SF Pro Display", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }`. `body`, `html`, `.baked-logo-text` now use `var(--font-family-sans)`. New global `input, textarea, select, button, optgroup, option { font-family: inherit; }` rule so typed text follows Inter.
+- `tailwind.config.js` — `theme.extend.fontFamily = { sans: ["var(--font-family-sans)"], inter: ["var(--font-family-sans)"] }` so `font-sans` / `font-inter` utilities inherit the global stack.
+- `apps/partner-landing/partner-landing.css` — inlined Inter stack replaced with `var(--font-family-sans)`.
+- `apps/partner-hub/partner-hub.css` — same.
+- `apps/send-track/SendTrackApp.jsx`, `apps/driver/DriverApp.jsx` — 3 inline `fontFamily: "Inter, system-ui, sans-serif"` swapped to `"var(--font-family-sans)"`.
+- Email templates now prepend `'Inter'` with `Arial` fallback: `core/emails.py`, `shared/purchase_orders/notifications.py`, `modules/mart_partner/notifications.py`, `modules/mart_partner/routes.py`, `modules/driver/routes.py`. Generated-code + temp-password rows keep their intentional `ui-monospace` stack.
+
+**Legacy declarations audited & removed**
+- `Poppins` → 0 references remain (grepped across `frontend/src`, `backend`, `public/`)
+- Google Fonts `@import` → single source (`Inter` only)
+- Inline `fontFamily` in JSX → 3 files, all point to the CSS var now
+
+**Visual regression check** (computed `font-family` on rendered elements via Playwright)
+- `/` (customer home) → `Inter, "SF Pro Display", …` ✅
+- `/shop` (SHOP home) → same ✅
+- `/driver` (driver portal) → same ✅
+- `/admin/login` (super admin) → same ✅
+- 200-element sample scan: **0 Poppins leaks** ✅
+- French characters (é, à, ê, œ) render correctly on `/` (FR default) ✅
+
+**Branding preserved** — the migration touched typography tokens only; MART green, SHOP amber, AUTO red, IMMO purple, SEND yellow untouched.
+
+
 ## 2026-03-10 — SHOP Admin Approval Bilingual View — COMPLETE
 
 Admin reviewers can now catch broken French copy **before** a product goes live.

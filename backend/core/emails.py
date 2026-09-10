@@ -37,7 +37,7 @@ def _button(label: str, href: str, color: str = "#77BC1F") -> str:
 def _render_shell(*, title: str, preheader: str, body_html: str, signoff: str) -> str:
     """One HTML template used for every transactional email."""
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{title}</title></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
   <div style="display:none;font-size:1px;color:#f4f4f4;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">{preheader}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr><td align="center" style="padding:32px 12px;">

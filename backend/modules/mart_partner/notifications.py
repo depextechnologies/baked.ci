@@ -56,7 +56,7 @@ async def _notify_partner_new_order(
         )
         subject = f"Nouvelle commande #{order.number} — {po.item_count} article(s)"
         html = f"""
-          <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
+          <div style="font-family:'Inter',system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
             <h2 style="margin:0 0 8px">Nouvelle commande reçue</h2>
             <p style="margin:0 0 16px;color:#555">
               Vous avez reçu une nouvelle commande sur <strong>{partner.business_name}</strong>.

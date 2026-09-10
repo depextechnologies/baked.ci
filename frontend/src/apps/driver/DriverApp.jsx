@@ -102,7 +102,7 @@ const Phone = ({ children }) => (
   // Mobile-first phone frame — everything under /driver renders in this shell.
   // Uses semantic tokens so the shell automatically flips between the
   // pure-black dark theme and a clean white light theme via useDriverTheme.
-  <div className="min-h-screen w-full flex justify-center bg-background text-foreground" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+  <div className="min-h-screen w-full flex justify-center bg-background text-foreground" style={{ fontFamily: "var(--font-family-sans)" }}>
     <div className="w-full max-w-[440px] min-h-screen bg-background relative overflow-x-hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
       {children}
     </div>
@@ -323,7 +323,7 @@ const LoginPage = () => {
   return (
     <div
       className="min-h-screen w-full flex justify-center bg-black text-white relative overflow-hidden"
-      style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+      style={{ fontFamily: "var(--font-family-sans)" }}
     >
       <div className="w-full max-w-[440px] min-h-screen relative flex flex-col" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
         {/* ---- Backdrop art (biker illustration) — right-aligned on wider phones */}
