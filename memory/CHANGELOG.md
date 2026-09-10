@@ -1,5 +1,23 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-10 — SHOP Admin Approval Bilingual View — COMPLETE
+
+Admin reviewers can now catch broken French copy **before** a product goes live.
+
+**Backend**
+- `modules/shop/routes.py` — `_admin_product_dict` now returns `title_fr` + `description_fr` (used by both `GET /product-requests` list and `GET /product-requests/{id}` detail endpoints).
+- Verified via curl: `GET /api/admin/modules/shop/product-requests?country=CI&bucket=pending` returns each row with `title_fr` and `description_fr`.
+
+**Frontend** — `pages/admin/AdminShopProductApprovals.jsx`
+- **List row**: prefers French title with an EN sub-line when both are set (`{p.title_fr || p.title}` + `EN · {p.title}`). Products lacking a French title render a red `FR MISSING` badge next to the product id (data-testid `shop-approval-missing-fr-{id}`).
+- **Drawer header**: title bar now shows the French title first with a fallback to English, plus a top-of-drawer warning ("⚠ French title missing — customer will see the English fallback") when `title_fr` is empty (`data-testid="shop-approval-drawer-fr-missing"`).
+- **Drawer body**: new bilingual panels — `TITRE · FR` next to `TITLE · EN`, and `DESCRIPTION · FR` next to `DESCRIPTION · EN`, both with `MISSING` chips + italicised placeholder text ("Non fourni — retombe sur l'anglais") when the FR value is empty. Every panel has a `data-testid` (`shop-approval-title-fr`, `shop-approval-title-en`, `shop-approval-description-fr`, `shop-approval-description-en`, `shop-approval-titles-panel`, `shop-approval-descriptions-panel`).
+
+**Verified end-to-end** with two forced pending products (one bilingual, one FR-null):
+- List: bilingual row shows "Premium Accessoires de mode femme / EN · Premium Women's Fashion Accessories"; missing-FR row shows "Everyday Women's Streetwear / FR MISSING badge".
+- Drawer for the bilingual product: shows both TITRE · FR and TITLE · EN side by side, plus both descriptions side by side.
+
+
 ## 2026-03-10 — SHOP Product Bilingual Columns — COMPLETE
 
 **Schema**:

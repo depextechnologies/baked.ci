@@ -744,11 +744,11 @@ class BulkIdsIn(BaseModel):
 
 def _admin_product_dict(p: ShopProduct, variant_count: int = 0) -> dict:
     return {
-        "id": p.id, "title": p.title, "country": p.country,
+        "id": p.id, "title": p.title, "title_fr": p.title_fr, "country": p.country,
         "supplier_id": p.supplier_id, "category_id": p.category_id,
         "subcategory_id": p.subcategory_id, "status": p.status,
         "images": p.images or [], "attributes": p.attributes or {},
-        "description": p.description,
+        "description": p.description, "description_fr": p.description_fr,
         "variant_count": variant_count,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "published_at": p.published_at.isoformat() if p.published_at else None,

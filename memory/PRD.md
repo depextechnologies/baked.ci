@@ -1,6 +1,12 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-10) — SHOP Product Bilingual Columns — COMPLETE
+## Latest (2026-03-10) — SHOP Admin Approval Bilingual View — COMPLETE
+- ✅ **Admin API** (`GET /api/admin/modules/shop/product-requests` + `.../product-requests/{id}`) now returns `title_fr` + `description_fr` on every row via the updated `_admin_product_dict`.
+- ✅ **Admin list** (`AdminShopProductApprovals.jsx`) shows the FR title first when present, with a compact `EN · …` sub-line so admins can spot copy mismatches at a glance. Products missing a French title get a red `FR MISSING` badge next to the product id.
+- ✅ **Approval drawer** exposes side-by-side `TITRE · FR` / `TITLE · EN` and `DESCRIPTION · FR` / `DESCRIPTION · EN` panels + a top-of-drawer warning "⚠ French title missing — customer will see the English fallback" when `title_fr` is empty. Every panel has a `data-testid` for QA.
+- ✅ Live verified with two forced pending products — one bilingual (Premium Accessoires de mode femme / Premium Women's Fashion Accessories) rendered both panels; the other (Everyday Women's Streetwear with FR nulled) rendered the red MISSING badge in the list.
+
+## Previous (2026-03-10) — SHOP Product Bilingual Columns — COMPLETE
 - ✅ **Schema migration `0047_shop_bilingual_product`**: added `title_fr` and `description_fr` columns on `shop_products` (both nullable — English stays canonical, French is an optional per-SKU override).
 - ✅ **Backend contract** now round-trips both fields through: seller-portal create (`POST /api/shop/portal/products`), seller-portal patch (`PATCH …`), seller-portal get, storefront PDP (`GET /api/shop/products/{id}`), storefront list (`GET /api/shop/products`), cart hydrate (`GET /api/shop/cart/me`).
 - ✅ **Seller portal UI** (`PortalShop.jsx`) exposes side-by-side "Title (English)" + "Titre (Français)" and "Description (English)" + "Description (Français)" fields; left-hand product list shows the French title if present with an "FR + EN" badge.
