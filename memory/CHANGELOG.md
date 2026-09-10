@@ -1,5 +1,35 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-10 — SHOPbakēd Full French Localisation — COMPLETE
+
+Root-cause audit: SHOP frontend was **never** wired to i18next — components used hardcoded English + raw CMS values. CMS seed and product/attribute seeds were English-only. This slice fixes the root cause across all three layers.
+
+**Frontend files rewired to `useTranslation` + bilingual CMS picker:**
+- `apps/shopbaked/pages/ShopHome.jsx` (hero, USP, category grid, carousels, promo banners, brand rail, CTA strip, ProductCard) — 45+ strings
+- `apps/shopbaked/pages/ShopCategoriesIndex.jsx` — 8 strings
+- `apps/shopbaked/pages/ShopCategory.jsx` (search, filters, empty state, fresh-drops strip) — 15 strings
+- `apps/shopbaked/pages/ShopProduct.jsx` (stock, SKU, condition, colour swatches, CTA states) — 13 strings
+- `apps/shopbaked/pages/ShopCheckout.jsx` + order confirmation + PIN card — 24 strings
+- `components/address/AddressPill.jsx` (top-nav "CHOOSE DELIVERY / Set address") — 4 strings
+- `apps/shopbaked/ShopbakedApp.jsx` — wired FR/EN toggle to global i18n
+
+**CMS layer**: `modules/shop/homepage_seed.py` now injects `_fr` siblings on every hero slide, right-column promo, USP tile, category grid tile, product carousel, promotional banner and brand carousel. 40+ new bilingual JSON keys. Existing SHOP rows deleted & re-seeded (10 rows across CI + IN).
+
+**Product layer**: `modules/shop/demo_products_seed.py`
+- `_title_for` picks French labels (`Signature / Essentiel / Weekend / Premium`) for CI markets and uses `sub.name_fr` for the noun.
+- New `_description_for` returns French demo description for CI.
+- 362 demo products across CI + IN nuked & re-seeded with French titles/descriptions.
+
+**Attribute layer**: `customer:shop.attr_name.*` (Size → Taille, Colour → Couleur, Storage → Stockage, Condition → État, Warranty → Garantie) and `customer:shop.colour_label.*` (black → noir, silver → argent, oak → chêne, space-grey → gris sidéral, etc.) map the English DB keys/values to French on the fly — no schema migration.
+
+**Verified end-to-end** on the live preview (screenshots kept for record):
+- `/shop` FR — zero English leaks ✅
+- `/shop/categories` FR — "Toutes les catégories / X sous-cat." ✅
+- `/shop/c/mode-femme` FR — French product titles + "Taille S · noir · +1 options" ✅
+- `/shop/p/shpprd_demo_accessoires-mode-femme` FR — "COULEUR / TAILLE / Choisir les options / EN STOCK / État: neuf" ✅
+- EN toggle in header instantly restores English across all pages ✅
+
+
 ## 2026-03-09 — Order Tracking i18n — COMPLETE
 
 Localised the delivery-tracking surfaces so customers see their live updates in their language:

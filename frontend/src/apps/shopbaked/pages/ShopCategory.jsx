@@ -8,17 +8,21 @@
 import { useEffect, useMemo, useState } from "react";
 import React from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Search, LayoutGrid, LayoutList, SlidersHorizontal, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApp } from "@/contexts/BakedContexts";
 import { ProductCard } from "./ShopHome";
+import { pickCatalogueName } from "../lib/i18nCms";
 
 const SHOP_ACCENT = "#FCC44C";
 const abs = (u) => (u && typeof u === "string" && u.startsWith("/")
   ? `${process.env.REACT_APP_BACKEND_URL}${u}`
   : u);
 
-export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
+export const ShopCategory = ({ basePath = "/shop" }) => {
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "fr" ? "fr" : "en";
   const { country } = useApp() || {};
   const cc = country?.code || "CI";
   const { categorySlug } = useParams();
@@ -119,27 +123,28 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
   });
   const clearFilters = () => setFilters({ priceMax: null, brands: new Set(), colours: new Set(), sizes: new Set() });
 
-  const title = cat ? (locale === "fr" ? cat.name_fr : cat.name_en) : categorySlug;
+  const title = cat ? pickCatalogueName(cat, lang) : categorySlug;
   const subcats = cat?.subcategories || [];
 
   return (
     // Constrain content width + horizontal padding so the category landing
-    // aligns with the header / home / other storefront pages. Previously the
-    // page stretched edge-to-edge on desktop (QA — Fixing_Prompt "Home #1").
+    // aligns with the header / home / other storefront pages.
     <div data-testid="shopbaked-category" className="mx-auto max-w-7xl px-4 sm:px-6">
       {/* Sub header row: back + category title + layout toggle */}
       <div className="pt-1 pb-2 flex items-center gap-2">
         <button data-testid="shopbaked-category-back" onClick={() => nav(`${basePath}/categories`)}
+                aria-label={t("shop.back_aria")}
                 className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
           <div className="text-base font-bold truncate">{title}</div>
           <div className="text-[10px] text-muted-foreground">
-            {products ? `${products.length} products` : "Loading…"}
+            {products ? t("shop.products_count", { count: products.length }) : t("shop.loading")}
           </div>
         </div>
         <button data-testid="shopbaked-category-filters"
+                aria-label={t("shop.filters")}
                 onClick={() => setFiltersOpen(true)}
                 className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center relative">
           <SlidersHorizontal size={16} />
@@ -165,7 +170,7 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
             data-testid="shopbaked-category-search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search in this category"
+            placeholder={t("shop.search_in_category")}
             className="w-full baked-input bg-secondary pl-9 pr-3 py-2.5 text-xs"
           />
         </div>
@@ -182,10 +187,10 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
             }`}
             style={activeSub === "all" ? { borderColor: SHOP_ACCENT, color: SHOP_ACCENT } : {}}
           >
-            All
+            {t("shop.all_tab")}
           </button>
           {subcats.map((s) => {
-            const name = locale === "fr" ? (s.name_fr || s.name_en) : (s.name_en || s.name_fr);
+            const name = pickCatalogueName(s, lang);
             const img = abs(s.image);
             const isAct = activeSub === s.slug;
             return (
@@ -210,16 +215,16 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
           <div className="rounded-xl overflow-hidden mb-3 relative"
                style={{ background: `linear-gradient(135deg, ${SHOP_ACCENT} 0%, #b98a1f 100%)` }}>
             <div className="px-3 py-2.5 text-black">
-              <div className="text-[11px] font-bold">Fresh drops in {title}</div>
-              <div className="text-[10px] opacity-80">Vetted sellers · shipped across CI</div>
+              <div className="text-[11px] font-bold">{t("shop.fresh_drops_in", { cat: title })}</div>
+              <div className="text-[10px] opacity-80">{t("shop.vetted_shipped_ci")}</div>
             </div>
           </div>
 
           {products === null ? (
-            <div className="text-center py-16 text-sm text-muted-foreground">Loading…</div>
+            <div className="text-center py-16 text-sm text-muted-foreground">{t("shop.loading")}</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-sm text-muted-foreground" data-testid="shopbaked-category-empty">
-              No products match. Try clearing filters.
+              {t("shop.no_products_match")}
             </div>
           ) : layout === "grid" ? (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-4"
@@ -235,6 +240,7 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
       </div>
       {filtersOpen && (
         <FilterDrawer
+          t={t}
           facets={facets}
           filters={filters}
           setFilters={setFilters}
@@ -251,16 +257,16 @@ export const ShopCategory = ({ locale = "fr", basePath = "/shop" }) => {
 // SHOP amber accent; matches MART UX so switching modules doesn't retrain
 // the user.
 // ---------------------------------------------------------------------------
-const FilterDrawer = ({ facets, filters, setFilters, onClear, onClose }) => {
+const FilterDrawer = ({ t, facets, filters, setFilters, onClear, onClose }) => {
   return (
     <div className="fixed inset-0 z-50" data-testid="shopbaked-filters-drawer">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <aside className="absolute right-0 top-0 h-full w-[92%] max-w-md bg-card border-l border-border overflow-y-auto flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="text-sm font-bold">Filters</div>
+          <div className="text-sm font-bold">{t("shop.filters")}</div>
           <div className="flex items-center gap-2">
             <button onClick={onClear} data-testid="shopbaked-filters-clear"
-                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground">Clear</button>
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground">{t("shop.clear")}</button>
             <button onClick={onClose} data-testid="shopbaked-filters-close"
                     className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
               <X size={14} />
@@ -272,7 +278,7 @@ const FilterDrawer = ({ facets, filters, setFilters, onClear, onClose }) => {
         {facets.maxPrice > 0 && (
           <section className="px-4 py-4 border-b border-border">
             <div className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: SHOP_ACCENT }}>
-              Max price
+              {t("shop.max_price")}
             </div>
             <input
               type="range" min={0} max={facets.maxPrice} step={1000}
@@ -288,24 +294,21 @@ const FilterDrawer = ({ facets, filters, setFilters, onClear, onClose }) => {
           </section>
         )}
 
-        {/* Brand */}
-        <FacetGroup label="Brand" facets={facets.brands} testid="brand"
+        <FacetGroup label={t("shop.brand")} facets={facets.brands} testid="brand"
                     active={filters.brands}
                     onToggle={(v) => setFilters((f) => {
                       const n = new Set(f.brands); n.has(v) ? n.delete(v) : n.add(v);
                       return { ...f, brands: n };
                     })} />
 
-        {/* Colour */}
-        <FacetGroup label="Colour" facets={facets.colours} testid="colour"
+        <FacetGroup label={t("shop.colour")} facets={facets.colours} testid="colour"
                     active={filters.colours}
                     onToggle={(v) => setFilters((f) => {
                       const n = new Set(f.colours); n.has(v) ? n.delete(v) : n.add(v);
                       return { ...f, colours: n };
                     })} />
 
-        {/* Size / capacity */}
-        <FacetGroup label="Size / Capacity" facets={facets.sizes} testid="size"
+        <FacetGroup label={t("shop.size_capacity")} facets={facets.sizes} testid="size"
                     active={filters.sizes}
                     onToggle={(v) => setFilters((f) => {
                       const n = new Set(f.sizes); n.has(v) ? n.delete(v) : n.add(v);
@@ -317,7 +320,7 @@ const FilterDrawer = ({ facets, filters, setFilters, onClear, onClose }) => {
                   data-testid="shopbaked-filters-apply"
                   className="w-full h-11 rounded-xl font-bold text-black"
                   style={{ background: SHOP_ACCENT }}>
-            Apply filters
+            {t("shop.apply_filters")}
           </button>
         </div>
       </aside>

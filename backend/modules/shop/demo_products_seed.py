@@ -560,10 +560,34 @@ _FALLBACK_VARIANTS = [
 ]
 
 
-def _title_for(sub_name: str, idx: int) -> str:
-    """Human-readable demo product title."""
-    labels = ["Signature", "Everyday", "Weekender", "Premium"]
+def _title_for(sub_name: str, idx: int, country: str = "CI") -> str:
+    """Human-readable demo product title.
+
+    For French-first markets we generate the title in French so the storefront
+    doesn't leak English into the FR default. English (`en_labels`) is kept
+    in the mapping for future bilingual product-title support if / when the
+    schema grows a `title_fr` column — for now the demo seed is
+    single-language per country because these titles are placeholders that
+    real sellers will replace once they onboard.
+    """
+    fr_labels = ["Signature", "Essentiel", "Weekend", "Premium"]
+    en_labels = ["Signature", "Everyday", "Weekender", "Premium"]
+    labels = fr_labels if country.upper() == "CI" else en_labels
     return f"{labels[idx % len(labels)]} {sub_name}"
+
+
+def _description_for(sub_name: str, country: str) -> str:
+    if country.upper() == "CI":
+        return (
+            f"Article démo — {sub_name.lower()} : contenu de démonstration livré avec "
+            "la boutique SHOPbakēd afin que les clients puissent naviguer dans un "
+            "catalogue complet avant l'arrivée des vraies annonces des vendeurs."
+        )
+    return (
+        f"Demo {sub_name.lower()} listing — placeholder content shipped with "
+        "the SHOPbakēd storefront so customers can browse a fully populated "
+        "catalogue before real sellers list their inventory."
+    )
 
 
 async def seed_shop_demo_products(session: AsyncSession, country: str = "CI") -> dict:
@@ -615,22 +639,21 @@ async def seed_shop_demo_products(session: AsyncSession, country: str = "CI") ->
                 stats["skipped"] += 1
                 continue
 
-            sub_name = sub.name_en or sub.name_fr or sub.slug.replace("-", " ").title()
+            sub_name = (
+                sub.name_fr if country.upper() == "CI" and sub.name_fr
+                else (sub.name_en or sub.name_fr or sub.slug.replace("-", " ").title())
+            )
             hero_img = _keyword_image(sub.slug, 0)
             product = ShopProduct(
                 id=demo_pid,
-                title=_title_for(sub_name, i),
+                title=_title_for(sub_name, i, country),
                 slug=demo_pid,
                 country=country,
                 module="shop",
                 supplier_id=DEMO_SUPPLIER_ID,
                 category_id=cat.id,
                 subcategory_id=sub.id,
-                description=(
-                    f"Demo {sub_name.lower()} listing — placeholder content shipped with "
-                    "the SHOPbakēd storefront so customers can browse a fully populated "
-                    "catalogue before real sellers list their inventory."
-                ),
+                description=_description_for(sub_name, country),
                 images=[hero_img],
                 attributes={},
                 status="active",

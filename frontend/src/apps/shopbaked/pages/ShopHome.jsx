@@ -18,11 +18,13 @@
 import { useEffect, useMemo, useState } from "react";
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useApp, useCart } from "@/contexts/BakedContexts";
 import {
   ArrowRight, Sparkles, ShieldCheck, Truck, Tag, ShoppingBag, Loader2, Plus,
 } from "lucide-react";
+import { pickBilingual, pickCatalogueName } from "../lib/i18nCms";
 
 // SHOP accent tokens — keep parity with lib/modules.js `shop.color`.
 const SHOP_ACCENT = "#FCC44C";     // primary amber/gold
@@ -34,10 +36,19 @@ const abs = (u) => (u && typeof u === "string" && u.startsWith("/")
   ? `${process.env.REACT_APP_BACKEND_URL}${u}`
   : u);
 
-const l = (r, locale) =>
-  (locale === "fr" ? r?.name_fr : r?.name_en) || r?.name_en || r?.name_fr || r?.slug;
+// Locale-aware section title/subtitle picker. Homepage `title`/`subtitle`
+// are top-level DB columns; the FR override lives inside `config.title_fr`
+// / `config.subtitle_fr` since the schema is intentionally not language-
+// aware. The picker also handles nested slide/promo/usp fields.
+const sectionText = (section, key, lang) => {
+  const fr = section?.config?.[`${key}_fr`];
+  if (lang === "fr" && fr) return fr;
+  return section?.[key];
+};
 
-export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
+export const ShopHome = ({ basePath = "/shop" }) => {
+  const { i18n, t } = useTranslation("customer");
+  const lang = i18n.language === "fr" ? "fr" : "en";
   const { country } = useApp() || {};
   const cc = country?.code || "CI";
   const [tree, setTree] = useState(null);
@@ -52,9 +63,9 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
       api.get(`/shop/products?country=${cc}&limit=12`),
       api.get(`/homepage?country=${cc}&module=shop`),
     ])
-      .then(([t, p, h]) => {
+      .then(([tr, p, h]) => {
         if (cancelled) return;
-        setTree(t.data || []);
+        setTree(tr.data || []);
         setProducts(p.data || []);
         setHomepage(h.data?.sections || []);
       })
@@ -65,7 +76,7 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
   if (error) {
     return (
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-16 text-center">
-        <p className="text-red-400" data-testid="shopbaked-home-error">Error: {error}</p>
+        <p className="text-red-400" data-testid="shopbaked-home-error">{t("shop.error_prefix", { msg: error })}</p>
       </div>
     );
   }
@@ -84,7 +95,7 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
              data-testid="shopbaked-home-empty">
           <ShoppingBag size={28} className="mx-auto text-amber-400 mb-3" />
           <div className="text-sm text-neutral-300">
-            SHOPbakēd homepage has no enabled sections yet. Configure it at{" "}
+            {t("shop.hp_no_sections")}{" "}
             <Link to="/admin/homepage-management" className="text-amber-400 underline">
               /admin/homepage-management
             </Link>.
@@ -93,7 +104,7 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
       )}
       {homepage.map((section) => (
         <SectionRenderer key={section.id} section={section}
-                         tree={tree} products={products} locale={locale}
+                         tree={tree} products={products} lang={lang} t={t}
                          basePath={basePath} country={cc} />
       ))}
     </div>
@@ -105,11 +116,11 @@ export const ShopHome = ({ locale = "fr", basePath = "/shop" }) => {
 // Unknown section_types render nothing so admins can safely experiment.
 // ==========================================================================
 
-const SectionRenderer = ({ section, tree, products, locale, basePath = "/shop", country = "CI" }) => {
+const SectionRenderer = ({ section, tree, products, lang, t, basePath = "/shop", country = "CI" }) => {
   const testId = `shopbaked-section-${section.section_type}-${section.id}`;
   const R = RENDERERS[section.section_type];
   if (!R) return null;
-  return <R section={section} tree={tree} products={products} locale={locale}
+  return <R section={section} tree={tree} products={products} lang={lang} t={t}
             testId={testId} basePath={basePath} country={country} />;
 };
 
@@ -128,7 +139,7 @@ const SectionRenderer = ({ section, tree, products, locale, basePath = "/shop", 
 //   config.usp[]           — [{icon, title, subtitle}, …]
 // If `slides[]` is missing, the renderer falls back to the legacy single-
 // hero fields so older seeds keep working.
-const HeroSection = ({ section, testId, basePath = "/shop" }) => {
+const HeroSection = ({ section, testId, lang, basePath = "/shop" }) => {
   const cfg = section.config || {};
   const resolveLink = (l) => (l && l.startsWith("/shopbaked")
     ? l.replace("/shopbaked", basePath)
@@ -139,34 +150,33 @@ const HeroSection = ({ section, testId, basePath = "/shop" }) => {
     ? cfg.slides
     : [{
         eyebrow: "THE BAKĒD MARKETPLACE",
-        headline: section.title,
-        description: section.subtitle,
+        eyebrow_fr: "LE MARKETPLACE BAKĒD",
+        headline: sectionText(section, "title", lang),
+        description: sectionText(section, "subtitle", lang),
         image: cfg.background_image,
-        cta_label: cfg.cta_label, cta_link: cfg.cta_link,
-        secondary_cta_label: cfg.secondary_cta_label,
+        cta_label: pickBilingual(cfg, "cta_label", lang), cta_link: cfg.cta_link,
+        secondary_cta_label: pickBilingual(cfg, "secondary_cta_label", lang),
         secondary_cta_link: cfg.secondary_cta_link,
       }];
-  const slides = rawSlides.filter((s) => s && (s.headline || s.image));
+  const slides = rawSlides.filter((s) => s && (s.headline || s.headline_fr || s.image));
   const rightTop = cfg.right_top?.enabled === false ? null : cfg.right_top;
   const rightBottom = cfg.right_bottom?.enabled === false ? null : cfg.right_bottom;
   const usps = Array.isArray(cfg.usp) ? cfg.usp : [];
 
   return (
     <section className="mb-10" data-testid={testId}>
-      {/* Row 1: carousel + right stack. Right column hidden < lg per spec. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
-        <HeroCarousel slides={slides} resolveLink={resolveLink} />
+        <HeroCarousel slides={slides} resolveLink={resolveLink} lang={lang} />
         <div className="hidden lg:flex flex-col gap-4">
-          {rightTop && <RightPromo promo={rightTop} resolveLink={resolveLink} testid="shopbaked-hero-right-top" />}
-          {rightBottom && <RightPromo promo={rightBottom} resolveLink={resolveLink} testid="shopbaked-hero-right-bottom" />}
+          {rightTop && <RightPromo promo={rightTop} resolveLink={resolveLink} lang={lang} testid="shopbaked-hero-right-top" />}
+          {rightBottom && <RightPromo promo={rightBottom} resolveLink={resolveLink} lang={lang} testid="shopbaked-hero-right-bottom" />}
         </div>
       </div>
 
-      {/* USP strip — desktop only. Never renders on mobile per spec §9. */}
       {usps.length > 0 && (
         <div className="hidden lg:grid gap-4 grid-cols-4 mt-6 pt-6 border-t border-neutral-800"
              data-testid="shopbaked-hero-usp">
-          {usps.map((u, i) => <UspTile key={i} u={u} />)}
+          {usps.map((u, i) => <UspTile key={i} u={u} lang={lang} />)}
         </div>
       )}
     </section>
@@ -174,7 +184,7 @@ const HeroSection = ({ section, testId, basePath = "/shop" }) => {
 };
 
 // ---------------------------------------------------------------- carousel
-const HeroCarousel = ({ slides, resolveLink }) => {
+const HeroCarousel = ({ slides, resolveLink, lang }) => {
   const [idx, setIdx] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
   // touch swipe state
@@ -189,6 +199,12 @@ const HeroCarousel = ({ slides, resolveLink }) => {
   if (!slides.length) return null;
   const s = slides[idx];
   const bg = abs(s.image);
+  const eyebrow = pickBilingual(s, "eyebrow", lang);
+  const headline = pickBilingual(s, "headline", lang);
+  const description = pickBilingual(s, "description", lang);
+  const badge = pickBilingual(s, "badge", lang);
+  const ctaLabel = pickBilingual(s, "cta_label", lang);
+  const secondaryCtaLabel = pickBilingual(s, "secondary_cta_label", lang);
 
   const onTouchStart = (e) => { touch.current.x0 = e.touches[0].clientX; };
   const onTouchMove  = (e) => { touch.current.x1 = e.touches[0].clientX; };
@@ -225,37 +241,37 @@ const HeroCarousel = ({ slides, resolveLink }) => {
 
       <div className="relative z-10 h-full flex flex-col justify-center px-6 sm:px-10 lg:px-14 py-8 max-w-3xl"
            data-testid={`shopbaked-hero-slide-${idx}`}>
-        {s.eyebrow && (
+        {eyebrow && (
           <div className="inline-flex items-center gap-2 text-[10px] sm:text-xs uppercase tracking-widest mb-3"
                style={{ color: SHOP_ACCENT }}>
-            <Sparkles size={12} /> {s.eyebrow}
+            <Sparkles size={12} /> {eyebrow}
           </div>
         )}
-        {s.badge && (
+        {badge && (
           <span className="self-start inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded mb-3"
                 style={{ background: SHOP_ACCENT, color: "#0a0a0a" }}>
-            {s.badge}
+            {badge}
           </span>
         )}
         <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
-          {s.headline}
+          {headline}
         </h1>
-        {s.description && (
-          <p className="mt-3 sm:mt-5 text-neutral-300 max-w-xl text-sm sm:text-base">{s.description}</p>
+        {description && (
+          <p className="mt-3 sm:mt-5 text-neutral-300 max-w-xl text-sm sm:text-base">{description}</p>
         )}
         <div className="mt-5 flex flex-wrap gap-3">
-          {s.cta_label && (
+          {ctaLabel && (
             <Link to={resolveLink(s.cta_link)}
                   className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
                   style={{ background: SHOP_ACCENT, color: "#0a0a0a" }}
                   data-testid={`shopbaked-hero-cta-${idx}`}>
-              {s.cta_label} <ArrowRight size={14} />
+              {ctaLabel} <ArrowRight size={14} />
             </Link>
           )}
-          {s.secondary_cta_label && (
+          {secondaryCtaLabel && (
             <Link to={resolveLink(s.secondary_cta_link)}
                   className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl font-semibold text-sm bg-white/10 hover:bg-white/20 backdrop-blur border border-white/25 text-white inline-flex items-center gap-2">
-              {s.secondary_cta_label}
+              {secondaryCtaLabel}
             </Link>
           )}
         </div>
@@ -281,8 +297,13 @@ const HeroCarousel = ({ slides, resolveLink }) => {
   );
 };
 
-const RightPromo = ({ promo, resolveLink, testid }) => {
+const RightPromo = ({ promo, resolveLink, lang, testid }) => {
   const img = abs(promo.image);
+  const badge = pickBilingual(promo, "badge", lang);
+  const label = pickBilingual(promo, "label", lang);
+  const heading = pickBilingual(promo, "heading", lang);
+  const description = pickBilingual(promo, "description", lang);
+  const ctaLabel = pickBilingual(promo, "cta_label", lang);
   return (
     <Link to={resolveLink(promo.cta_link)}
           data-testid={testid}
@@ -293,24 +314,24 @@ const RightPromo = ({ promo, resolveLink, testid }) => {
               : `linear-gradient(160deg, ${SHOP_ACCENT_DEEP}44, #0a0a0a)`,
           }}>
       <div>
-        {promo.badge && (
+        {badge && (
           <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded mb-2"
                 style={{ background: "#FF4C52", color: "white" }}>
-            {promo.badge}
+            {badge}
           </span>
         )}
-        {promo.label && (
+        {label && (
           <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: SHOP_ACCENT }}>
-            {promo.label}
+            {label}
           </div>
         )}
-        <h3 className="text-lg font-bold text-white mt-1 leading-tight">{promo.heading}</h3>
-        {promo.description && <p className="text-xs text-neutral-300 mt-1">{promo.description}</p>}
+        <h3 className="text-lg font-bold text-white mt-1 leading-tight">{heading}</h3>
+        {description && <p className="text-xs text-neutral-300 mt-1">{description}</p>}
       </div>
-      {promo.cta_label && (
+      {ctaLabel && (
         <span className="self-start mt-3 h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 group-hover:opacity-90 transition-opacity"
               style={{ background: SHOP_ACCENT, color: "#0a0a0a" }}>
-          {promo.cta_label} <ArrowRight size={12} />
+          {ctaLabel} <ArrowRight size={12} />
         </span>
       )}
     </Link>
@@ -318,8 +339,10 @@ const RightPromo = ({ promo, resolveLink, testid }) => {
 };
 
 const _USP_ICONS = { shield: ShieldCheck, truck: Truck, sparkles: Sparkles, tag: Tag };
-const UspTile = ({ u }) => {
+const UspTile = ({ u, lang }) => {
   const Icon = _USP_ICONS[u.icon] || Sparkles;
+  const title = pickBilingual(u, "title", lang);
+  const subtitle = pickBilingual(u, "subtitle", lang);
   return (
     <div className="flex items-start gap-3">
       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -327,20 +350,19 @@ const UspTile = ({ u }) => {
         <Icon size={18} />
       </div>
       <div>
-        <div className="text-sm font-semibold text-neutral-100">{u.title}</div>
-        <div className="text-xs text-neutral-500 mt-0.5">{u.subtitle}</div>
+        <div className="text-sm font-semibold text-neutral-100">{title}</div>
+        <div className="text-xs text-neutral-500 mt-0.5">{subtitle}</div>
       </div>
     </div>
   );
 };
 
 // ---------------------------------------------------- CATEGORY GRID -------
-const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop" }) => {
+const CategoryGridSection = ({ section, tree, lang, t, testId, basePath = "/shop" }) => {
   const cats = section.config?.categories || [];
-  // Merge CMS ordering with catalogue metadata for i18n names.
   const enriched = cats
     .map((c) => {
-      const meta = (tree || []).find((t) => t.slug === c.slug);
+      const meta = (tree || []).find((tt) => tt.slug === c.slug);
       return meta ? { ...c, meta } : { ...c, meta: null };
     })
     .filter((c) => c.meta || c.name);
@@ -348,28 +370,26 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
     <section className="mb-12" id="shop-catalogue" data-testid={testId}>
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-neutral-100">{section.title}</h2>
-          {section.subtitle && (
-            <p className="text-sm text-neutral-500 mt-1">{section.subtitle}</p>
+          <h2 className="text-xl font-semibold text-neutral-100">{sectionText(section, "title", lang)}</h2>
+          {sectionText(section, "subtitle", lang) && (
+            <p className="text-sm text-neutral-500 mt-1">{sectionText(section, "subtitle", lang)}</p>
           )}
         </div>
         <Link to={`${basePath}/categories`}
               data-testid="shopbaked-category-view-all"
               className="text-xs font-semibold hover:underline flex items-center gap-1"
               style={{ color: SHOP_ACCENT }}>
-          View all <ArrowRight size={12} />
+          {t("shop.view_all")} <ArrowRight size={12} />
         </Link>
       </div>
       <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6"
            data-testid="shopbaked-category-rail">
         {enriched.map((c) => {
           const img = abs(c.image);
-          // Prefer explicit `link` when set; otherwise deep-link to the
-          // category landing via slug (QA — Fixing_Prompt "Home #3"). Admin
-          // can override for CMS tiles that don't map 1:1 to a real category
-          // (e.g., a curated promo tile).
           const normalise = (u) => (u && u.startsWith("/shopbaked") ? u.replace("/shopbaked", basePath) : u);
           const target = normalise(c.link) || `${basePath}/c/${c.slug}`;
+          const displayName = c.meta ? pickCatalogueName(c.meta, lang) : c.name;
+          const subCount = c.meta?.subcategories?.length || 0;
           return (
             <Link key={c.slug || c.name} to={target}
                   data-testid={`shopbaked-category-tile-${c.slug || c.name}`}
@@ -377,7 +397,7 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
               <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center"
                    style={{ background: img ? "transparent" : `${SHOP_ACCENT}22` }}>
                 {img ? (
-                  <img src={img} alt={c.name}
+                  <img src={img} alt={displayName}
                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                        onError={(e) => { e.currentTarget.style.display = "none"; }} />
                 ) : (
@@ -386,10 +406,10 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
               </div>
               <div className="text-center">
                 <div className="text-sm font-semibold text-neutral-100 group-hover:text-amber-300 transition-colors">
-                  {c.meta ? l(c.meta, locale) : c.name}
+                  {displayName}
                 </div>
                 <div className="text-[11px] text-neutral-500 mt-1">
-                  {c.meta?.subcategories?.length || 0} sub-categories
+                  {t("shop.sub_categories_count", { count: subCount })}
                 </div>
               </div>
             </Link>
@@ -414,7 +434,7 @@ const CategoryGridSection = ({ section, tree, locale, testId, basePath = "/shop"
 //   configured `filter` (category slug) + optional `subcategory`. Blank /
 //   `bestsellers` / `new` fall back to the shared homepage product list
 //   so older seeds keep working without extra requests.
-const ProductCarouselSection = ({ section, products, testId, basePath = "/shop", country = "CI" }) => {
+const ProductCarouselSection = ({ section, products, lang, t, testId, basePath = "/shop", country = "CI" }) => {
   const limit = section.config?.limit || 12;
   const rawCatSlug = section.config?.filter;
   const rawSubSlug = section.config?.subcategory;
@@ -462,26 +482,24 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop",
     <section className="mb-12" data-testid={testId}>
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-neutral-100">{section.title}</h2>
-          {section.subtitle && (
-            <p className="text-sm text-neutral-500 mt-1">{section.subtitle}</p>
+          <h2 className="text-xl font-semibold text-neutral-100">{sectionText(section, "title", lang)}</h2>
+          {sectionText(section, "subtitle", lang) && (
+            <p className="text-sm text-neutral-500 mt-1">{sectionText(section, "subtitle", lang)}</p>
           )}
         </div>
         <Link to={viewAllHref}
               data-testid="shopbaked-carousel-view-all"
               className="text-xs font-semibold hover:underline flex items-center gap-1"
               style={{ color: SHOP_ACCENT }}>
-          View all <ArrowRight size={12} />
+          {t("shop.view_all")} <ArrowRight size={12} />
         </Link>
       </div>
       {items.length === 0 ? (
         <div className="text-sm text-neutral-500" data-testid="shopbaked-no-products">
-          No approved SHOP products yet — check back once suppliers publish new listings.
+          {t("shop.no_products")}
         </div>
       ) : (
         <div className="relative group">
-          {/* Single-row scroll rail. `basis-*` widths give:
-                mobile 2 / sm 3 / lg 4 / xl 5 cards per viewport. */}
           <div
             ref={railRef}
             className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2 scroll-smooth"
@@ -497,12 +515,10 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop",
             ))}
           </div>
 
-          {/* Desktop-only prev/next chevrons — hidden on touch/mobile where
-              natural horizontal swipe is the primary affordance. */}
           <button
             type="button"
             onClick={() => scrollBy(-1)}
-            aria-label="Scroll left"
+            aria-label={t("shop.scroll_left")}
             data-testid="shopbaked-carousel-prev"
             className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-10 h-10 rounded-full items-center justify-center bg-neutral-900/90 border border-neutral-700 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
           >
@@ -511,7 +527,7 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop",
           <button
             type="button"
             onClick={() => scrollBy(1)}
-            aria-label="Scroll right"
+            aria-label={t("shop.scroll_right")}
             data-testid="shopbaked-carousel-next"
             className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 w-10 h-10 rounded-full items-center justify-center bg-neutral-900/90 border border-neutral-700 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
           >
@@ -524,8 +540,12 @@ const ProductCarouselSection = ({ section, products, testId, basePath = "/shop",
 };
 
 // ------------------------------------------------ PROMOTIONAL BANNER -----
-const PromoBannerSection = ({ section, testId, basePath = "/shop" }) => {
-  const { title, subtitle, config = {} } = section;
+const PromoBannerSection = ({ section, lang, testId, basePath = "/shop" }) => {
+  const { config = {} } = section;
+  const title = sectionText(section, "title", lang);
+  const subtitle = sectionText(section, "subtitle", lang);
+  const badge = pickBilingual(config, "badge", lang);
+  const ctaLabel = pickBilingual(config, "cta_label", lang);
   const link = (config.link && config.link.startsWith("/shopbaked"))
     ? config.link.replace("/shopbaked", basePath) : (config.link || basePath);
   const img = abs(config.image);
@@ -540,20 +560,20 @@ const PromoBannerSection = ({ section, testId, basePath = "/shop" }) => {
           : `linear-gradient(160deg, ${SHOP_ACCENT_DEEP}22 0%, #0a0a0a 100%)`,
       }}
     >
-      {config.badge && (
+      {badge && (
         <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest border rounded-full px-2.5 py-1 mb-4"
              style={{ color: SHOP_ACCENT, borderColor: `${SHOP_ACCENT}66`, background: `${SHOP_ACCENT}18` }}>
-          <Tag size={10} /> {config.badge}
+          <Tag size={10} /> {badge}
         </div>
       )}
       <h2 className="text-2xl md:text-3xl font-bold text-neutral-100">{title}</h2>
       {subtitle && <p className="mt-2 text-neutral-300 max-w-xl">{subtitle}</p>}
-      {config.cta_label && (
+      {ctaLabel && (
         <Link to={link}
               className="mt-6 inline-flex items-center gap-2 h-11 px-5 rounded-xl font-semibold text-sm text-neutral-900 hover:opacity-90 transition-opacity"
               style={{ background: SHOP_ACCENT }}
               data-testid="shopbaked-promo-cta">
-          {config.cta_label} <ArrowRight size={14} />
+          {ctaLabel} <ArrowRight size={14} />
         </Link>
       )}
     </section>
@@ -561,21 +581,26 @@ const PromoBannerSection = ({ section, testId, basePath = "/shop" }) => {
 };
 
 // ------------------------------------------------------ BANNER TRIO ------
-const BannerTrioSection = ({ section, testId }) => {
+const BannerTrioSection = ({ section, lang, testId }) => {
   const banners = section.config?.banners || [];
+  const title = sectionText(section, "title", lang);
+  const subtitle = sectionText(section, "subtitle", lang);
   if (!banners.length) return null;
   return (
     <section className="mb-12" data-testid={testId}>
-      {(section.title || section.subtitle) && (
+      {(title || subtitle) && (
         <div className="mb-4">
-          {section.title && <h2 className="text-xl font-semibold text-neutral-100">{section.title}</h2>}
-          {section.subtitle && <p className="text-sm text-neutral-500 mt-1">{section.subtitle}</p>}
+          {title && <h2 className="text-xl font-semibold text-neutral-100">{title}</h2>}
+          {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
         </div>
       )}
       <div className="flex gap-4 overflow-x-auto lg:overflow-visible lg:grid lg:grid-cols-4 no-scrollbar pb-2 lg:pb-0"
            data-testid="shopbaked-banner-row">
         {banners.map((b, i) => {
           const img = abs(b.image);
+          const eyebrow = pickBilingual(b, "eyebrow", lang);
+          const label = pickBilingual(b, "label", lang);
+          const bSubtitle = pickBilingual(b, "subtitle", lang);
           return (
             <Link key={i} to={b.link || "/shop"}
                   className="group relative rounded-2xl overflow-hidden flex items-end p-5 hover:-translate-y-0.5 transition-transform shrink-0"
@@ -587,11 +612,11 @@ const BannerTrioSection = ({ section, testId }) => {
                   }}
                   data-testid={`shopbaked-banner-tile-${i}`}>
               <div className="relative text-white">
-                {b.eyebrow && (
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/70 mb-1">{b.eyebrow}</div>
+                {eyebrow && (
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/70 mb-1">{eyebrow}</div>
                 )}
-                <div className="text-lg md:text-xl font-bold leading-tight">{b.label}</div>
-                {b.subtitle && <div className="text-xs md:text-sm text-white/80 mt-1">{b.subtitle}</div>}
+                <div className="text-lg md:text-xl font-bold leading-tight">{label}</div>
+                {bSubtitle && <div className="text-xs md:text-sm text-white/80 mt-1">{bSubtitle}</div>}
               </div>
             </Link>
           );
@@ -602,12 +627,12 @@ const BannerTrioSection = ({ section, testId }) => {
 };
 
 // ------------------------------------------------ BRAND CAROUSEL ---------
-const BrandCarouselSection = ({ section, testId }) => {
+const BrandCarouselSection = ({ section, lang, testId }) => {
   const brands = section.config?.brands || [];
   if (brands.length === 0) return null;
   return (
     <section className="mb-12" data-testid={testId}>
-      <h2 className="text-xl font-semibold text-neutral-100 mb-4">{section.title}</h2>
+      <h2 className="text-xl font-semibold text-neutral-100 mb-4">{sectionText(section, "title", lang)}</h2>
       <div className="flex flex-wrap gap-2" data-testid="shopbaked-brand-rail">
         {brands.map((b, i) => {
           const img = abs(b.image);
@@ -626,8 +651,11 @@ const BrandCarouselSection = ({ section, testId }) => {
 };
 
 // ------------------------------------------------ CTA STRIP --------------
-const CtaStripSection = ({ section, testId, basePath = "/shop" }) => {
+const CtaStripSection = ({ section, lang, testId, basePath = "/shop" }) => {
   const cfg = section.config || {};
+  const title = sectionText(section, "title", lang);
+  const subtitle = sectionText(section, "subtitle", lang);
+  const ctaLabel = pickBilingual(cfg, "cta_label", lang);
   const link = (cfg.cta_link && cfg.cta_link.startsWith("/shopbaked"))
     ? cfg.cta_link.replace("/shopbaked", basePath) : (cfg.cta_link || basePath);
   return (
@@ -635,13 +663,13 @@ const CtaStripSection = ({ section, testId, basePath = "/shop" }) => {
       <div className="relative overflow-hidden rounded-3xl p-8 md:p-14 text-center"
            style={{ background: `linear-gradient(90deg, ${SHOP_ACCENT} 0%, ${SHOP_ACCENT_DEEP} 100%)`, color: "#1a1300" }}>
         <div className="relative">
-          <div className="text-2xl md:text-4xl font-bold tracking-tight">{section.title}</div>
-          {section.subtitle && <p className="text-sm md:text-base mt-2 opacity-90 max-w-2xl mx-auto">{section.subtitle}</p>}
-          {cfg.cta_label && (
+          <div className="text-2xl md:text-4xl font-bold tracking-tight">{title}</div>
+          {subtitle && <p className="text-sm md:text-base mt-2 opacity-90 max-w-2xl mx-auto">{subtitle}</p>}
+          {ctaLabel && (
             <Link to={link}
                   className="mt-6 inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-black text-white text-sm font-bold hover:bg-black/85 transition"
                   data-testid="shopbaked-cta-strip-link">
-              {cfg.cta_label} <ArrowRight size={16} />
+              {ctaLabel} <ArrowRight size={16} />
             </Link>
           )}
         </div>
@@ -662,6 +690,7 @@ const RENDERERS = {
 };
 
 export const ProductCard = ({ product, basePath = "/shop" }) => {
+  const { t } = useTranslation("customer");
   const { addShopVariant } = useCart() || {};
   const img = abs(product.images?.[0]);
   const price = product.min_price;
@@ -671,17 +700,17 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
   const spec = React.useMemo(() => {
     const a = product.variant_attributes || {};
     const parts = [];
-    if (a.size)     parts.push(`Size ${a.size}`);
+    if (a.size)     parts.push(t("shop.size_prefix", { v: a.size }));
     if (a.capacity) parts.push(a.capacity);
-    if (a.colour)   parts.push(a.colour);
-    if (product.variant_count > 1) parts.push(`+${product.variant_count - 1} options`);
+    if (a.colour) {
+      const key = String(a.colour).toLowerCase();
+      parts.push(t(`shop.colour_label.${key}`, { defaultValue: a.colour }));
+    }
+    if (product.variant_count > 1) parts.push(t("shop.options_plus", { n: product.variant_count - 1 }));
     return parts.join(" · ");
-  }, [product]);
+  }, [product, t]);
 
   const addToCart = async (e) => {
-    // MART-style + button — never navigates. Adds the cheapest variant.
-    // Works for guests too: routed through CartContext, which persists to
-    // localStorage until the customer logs in at checkout (Fixing_Prompt §3).
     e.preventDefault();
     e.stopPropagation();
     if (!product.first_variant_id || !addShopVariant) return;
@@ -696,10 +725,10 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
         variant_attributes: product.variant_attributes || {},
       });
       const { toast } = await import("sonner");
-      toast.success(`${product.title} added`);
+      toast.success(t("shop.product_added", { title: product.title }));
     } catch (err) {
       const { toast } = await import("sonner");
-      toast.error(err?.response?.data?.detail || "Add to cart failed");
+      toast.error(err?.response?.data?.detail || t("shop.add_to_cart_failed"));
     }
   };
 
@@ -713,7 +742,7 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
         {off > 0 && (
           <span className="absolute top-2 left-2 z-10 text-[10px] font-bold px-2 py-0.5 rounded"
                 style={{ background: "#FF4C52", color: "white" }}>
-            {off}% OFF
+            −{off}%
           </span>
         )}
         {img ? (
@@ -741,14 +770,14 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
                 )}
               </>
             ) : (
-              <div className="text-[11px] text-neutral-500">Ships from Côte d'Ivoire</div>
+              <div className="text-[11px] text-neutral-500">{t("shop.ships_from")}</div>
             )}
           </div>
           {product.first_variant_id && (
             <button
               data-testid={`shopbaked-card-add-${product.id}`}
               onClick={addToCart}
-              aria-label="Add to cart"
+              aria-label={t("shop.add_to_cart")}
               className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-black hover:scale-105 transition-transform"
               style={{ background: SHOP_ACCENT }}
             >

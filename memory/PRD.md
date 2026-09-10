@@ -1,6 +1,32 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-09) — Order Tracking i18n — COMPLETE
+## Latest (2026-03-10) — SHOPbakēd Full French Localisation — COMPLETE
+
+**Root cause**: SHOP frontend components (`ShopHome.jsx`, `ShopCategory.jsx`, `ShopCategoriesIndex.jsx`, `ShopProduct.jsx`, `ShopCheckout.jsx`, `AddressPill.jsx`, `ShopbakedApp.jsx`) had never called `useTranslation` — they rendered raw English strings AND read CMS content (`section.title`, `config.slides[].headline`, etc.) directly from an English-only database seed. Product demo seed and MartAttribute names were also English-only.
+
+**Fixes applied**:
+1. **CMS content** — SHOP homepage seed (`modules/shop/homepage_seed.py`) rewritten so every user-visible string in hero slides, right-column promos, USP tiles, category grid, product carousel, promotional banner, and brand carousel carries a `_fr` sibling (`title_fr`, `subtitle_fr`, `headline_fr`, `description_fr`, `cta_label_fr`, `eyebrow_fr`, `heading_fr`, `label_fr`, `badge_fr`, `secondary_cta_label_fr`) — 40+ new bilingual fields. Existing English keys are preserved so admin/API contracts stay unchanged. Existing English-only rows deleted & re-seeded for both CI and IN.
+2. **Frontend picker** — new `apps/shopbaked/lib/i18nCms.js` exposes `pickBilingual(obj, key, lang)` and `pickCatalogueName(row, lang)`. Every SHOP component now reads through the picker.
+3. **All SHOP pages localised** — `ShopHome.jsx` (hero, USP, category grid, product carousel, promo banner, banner trio, brand carousel, CTA strip, ProductCard) + `ShopCategoriesIndex.jsx` + `ShopCategory.jsx` (search placeholder, subcategory rail, filter drawer, empty state, fresh-drops strip) + `ShopProduct.jsx` (back link, stock/condition/SKU/description labels, attribute picker names, colour swatch labels, CTA states) + `ShopCheckout.jsx` (address form, payment methods, order summary, order confirmation + PIN card) + `AddressPill.jsx` (header pill "CHOOSE DELIVERY / Set address").
+4. **Product titles** — `demo_products_seed.py` `_title_for` now emits French labels ("Signature / Essentiel / Weekend / Premium") for CI and picks `sub.name_fr` first; description function returns French copy. Old English demo rows deleted & re-seeded (181 CI + 181 IN products, 362 variants each).
+5. **Attribute schema** — colour codes (`black`, `silver`, `oak`, `space-grey`) and attribute names (`Size`, `Colour`, `Storage`, `Condition`) now translated on the frontend via `customer:shop.colour_label.*` and `customer:shop.attr_name.*` keys, so no schema migration was required.
+6. **Language switcher** — `ShopbakedApp` now reads/writes to the global `i18n` instance so switching FR ↔ EN in the header propagates to every SHOP page immediately.
+
+**Coverage**:
+- SHOP home: **~50 hardcoded strings + ~40 CMS English fields → 0** English leaks in FR mode.
+- SHOP categories index: fully localised (headline + sub-count + empty state).
+- SHOP category detail: fully localised (search, filters, empty, fresh-drops strip, all attributes).
+- SHOP PDP: fully localised (stock, condition, SKU labels, colour swatches, CTA states, description).
+- SHOP checkout + order confirmation: fully localised (address form, payment methods, summary, PIN card).
+
+**Live verified** (screenshots captured):
+- `/shop` FR default → "Mode, tech & maison — chez des vendeurs BAKĒD vérifiés / Parcourir les catégories / Nouveautés / Vendeurs vérifiés / Livraison le jour même / Acheter par catégorie / Voir tout / sous-catégories".
+- `/shop/categories` FR → "Toutes les catégories / Mode, électronique et lifestyle — expédiés par des vendeurs BAKĒD vérifiés".
+- `/shop/c/mode-femme` FR → French product titles "Premium Accessoires de mode femme / Weekend Chaussettes & Collants femme / Signature Ensembles & Combinaisons femme" + attribute "Taille S · noir · +1 options".
+- `/shop/p/shpprd_demo_accessoires-mode-femme` FR → "Retour au marketplace / COULEUR (noir · ivory) / TAILLE / Choisir les options / EN STOCK / État: neuf / Survolez pour zoomer".
+- EN toggle instantly restores English on all pages.
+
+## Previous (2026-03-09) — Order Tracking i18n — COMPLETE
 - ✅ **18 strings localised** across `MobileOrderTracking.jsx` (11), `ExpressLiveTracking.jsx` (7) and `components/mobile/OrderTimeline.jsx` (stage code → localised label). Every hero, ETA line, stepper label, timeline label, driver card and CTA now switches FR↔EN.
 - ✅ **~60 new keys** under `customer:orders.tracking.*` (MART live-tracking) and `customer:orders.live.*` (SEND WebSocket tracking) with `{{n}}` / `{{count}}` / `{{number}}` interpolation.
 - ✅ `OrderTimeline` component now reads the timeline `code` (from the backend payload) and maps to `orders.tracking.timeline_*` keys — the backend keeps sending stable English codes; the frontend picks the locale-correct label so no backend change was required.

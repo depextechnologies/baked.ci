@@ -1,15 +1,14 @@
 /**
  * ShopCategoriesIndex — full SHOPbakēd category tree grid.
- *
- * Rendered at `/shop/categories`. When a customer is inside SHOPbakēd and
- * taps the Categories tab, this page loads (Fixing_Prompt v5 §2). It uses
- * the SHOP catalogue endpoint (never MART) so the wrong data set can't leak.
+ * Rendered at `/shop/categories`. Fully French-first via useTranslation.
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingBag, ChevronRight, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { ShoppingBag, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useApp } from "@/contexts/BakedContexts";
+import { pickCatalogueName } from "../lib/i18nCms";
 
 const SHOP_ACCENT = "#FCC44C";
 
@@ -17,10 +16,9 @@ const abs = (u) => (u && typeof u === "string" && u.startsWith("/")
   ? `${process.env.REACT_APP_BACKEND_URL}${u}`
   : u);
 
-const l = (r, locale) =>
-  (locale === "fr" ? r?.name_fr : r?.name_en) || r?.name_en || r?.name_fr || r?.slug;
-
-export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
+export const ShopCategoriesIndex = ({ basePath = "/shop" }) => {
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "fr" ? "fr" : "en";
   const { country } = useApp() || {};
   const cc = country?.code || "CI";
   const [tree, setTree] = useState(null);
@@ -37,7 +35,7 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
   if (error) {
     return (
       <div className="px-4 py-8 text-center" data-testid="shopbaked-categories-error">
-        <p className="text-red-400 text-sm">Error: {error}</p>
+        <p className="text-red-400 text-sm">{t("shop.error_prefix", { msg: error })}</p>
       </div>
     );
   }
@@ -50,28 +48,27 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
   }
 
   return (
-    // QA v15 §A — constrain to max-w-7xl + horizontal padding so the
-    // category-index aligns with the header (was edge-to-edge before).
     <div className="pb-24 mx-auto max-w-7xl px-4 sm:px-6" data-testid="shopbaked-categories-index">
       <div className="pt-4 pb-3">
         <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: SHOP_ACCENT }}>
           SHOPbakēd
         </div>
-        <h1 className="text-2xl font-bold text-foreground">All categories</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("shop.all_categories")}</h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Fashion, electronics and lifestyle — shipped by vetted BAKĒD sellers.
+          {t("shop.all_categories_sub")}
         </p>
       </div>
 
       {tree.length === 0 ? (
         <div className="rounded-xl border border-border p-6 text-center">
           <ShoppingBag size={22} className="mx-auto mb-2 opacity-40" />
-          <p className="text-xs text-muted-foreground">No SHOP categories published yet.</p>
+          <p className="text-xs text-muted-foreground">{t("shop.no_categories")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6 md:gap-4">
           {tree.map((c) => {
             const img = abs(c.image);
+            const name = pickCatalogueName(c, lang);
             return (
               <Link
                 key={c.id || c.slug}
@@ -83,7 +80,7 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
                   {img ? (
                     <img
                       src={img}
-                      alt={l(c, locale)}
+                      alt={name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
@@ -96,10 +93,10 @@ export const ShopCategoriesIndex = ({ locale = "fr", basePath = "/shop" }) => {
                 </div>
                 <div className="p-2">
                   <div className="text-[11px] font-semibold text-foreground line-clamp-2 leading-tight">
-                    {l(c, locale)}
+                    {name}
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
-                    {c.subcategories?.length || 0} sub
+                    {c.subcategories?.length || 0} {t("shop.sub_short")}
                   </div>
                 </div>
               </Link>

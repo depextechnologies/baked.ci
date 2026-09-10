@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import React from "react";
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useCart } from "@/contexts/BakedContexts";
@@ -19,6 +20,7 @@ import { ShoppingBag, ArrowLeft } from "lucide-react";
 const isSelect = (a) => a.type === "select" || a.type === "multi_select";
 
 export const ShopProduct = ({ basePath = "/shop" }) => {
+  const { t } = useTranslation("customer");
   const { productId } = useParams();
   const { addShopVariant } = useCart() || {};
   const [detail, setDetail] = useState(null);
@@ -85,11 +87,11 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
         variant_attributes: activeVariant.attributes || {},
         sku: activeVariant.sku,
       });
-      toast.success(`Added ${activeVariant.sku} to your cart`);
+      toast.success(t("shop.added_to_cart", { sku: activeVariant.sku }));
     } catch (e) {
       const detail = e?.response?.data?.detail;
-      if (detail) toast.error(typeof detail === "string" ? detail : detail?.message || "Add to cart failed");
-      else toast.error(e?.message || "Add to cart failed");
+      if (detail) toast.error(typeof detail === "string" ? detail : detail?.message || t("shop.add_to_cart_failed"));
+      else toast.error(e?.message || t("shop.add_to_cart_failed"));
     } finally {
       setBusy(false);
     }
@@ -98,24 +100,21 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
   if (error) {
     return (
       <div className="text-sm text-neutral-400" data-testid="shopbaked-pdp-error">
-        <Link to={basePath} className="text-amber-300 hover:underline">← Back</Link>
-        <p className="mt-4">Error: {typeof error === "string" ? error : "Product unavailable"}</p>
+        <Link to={basePath} className="text-amber-300 hover:underline">← {t("shop.back_aria")}</Link>
+        <p className="mt-4">{t("shop.error_prefix", { msg: typeof error === "string" ? error : t("shop.product_unavailable") })}</p>
       </div>
     );
   }
-  if (!detail) return <div className="text-sm text-neutral-500">Loading…</div>;
+  if (!detail) return <div className="text-sm text-neutral-500">{t("shop.loading")}</div>;
 
   return (
     <article className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-pdp">
       <Link to={basePath} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-amber-300 mb-4"
             data-testid="shopbaked-pdp-back">
-        <ArrowLeft size={12} /> Back to marketplace
+        <ArrowLeft size={12} /> {t("shop.back_to_marketplace")}
       </Link>
 
       <div className="grid gap-8 md:grid-cols-2">
-        {/* Left: image with hover-zoom (MART parity). Moves the transform
-            origin under the cursor so the pixel under the pointer stays
-            fixed while the image scales up. */}
         <ProductImageZoom
           src={activeVariant?.images?.[0] || detail.images?.[0]}
           alt={detail.title}
@@ -137,15 +136,15 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
             )}
             {activeVariant && activeVariant.stock_qty > 0 ? (
               <span className="text-xs uppercase tracking-widest text-emerald-400 ml-auto"
-                    data-testid="shopbaked-pdp-stock">in stock</span>
+                    data-testid="shopbaked-pdp-stock">{t("shop.in_stock")}</span>
             ) : (
               <span className="text-xs uppercase tracking-widest text-red-400 ml-auto"
-                    data-testid="shopbaked-pdp-stock">out of stock</span>
+                    data-testid="shopbaked-pdp-stock">{t("shop.out_of_stock")}</span>
             )}
           </div>
 
           <p className="mt-4 text-neutral-400 leading-relaxed">
-            {detail.description || "No description provided."}
+            {detail.description || t("shop.no_description")}
           </p>
 
           {/* Variant picker */}
@@ -155,15 +154,20 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
                 const values = Array.from(new Set(
                   (detail.variants || []).map((v) => v.attributes?.[a.key]).filter(Boolean),
                 ));
+                const attrName = t(`shop.attr_name.${a.key}`, { defaultValue: a.name });
                 return (
                   <div key={a.key}>
                     <div className="text-xs uppercase tracking-widest text-neutral-400 mb-2">
-                      {a.name}{a.unit ? ` (${a.unit})` : ""}
+                      {attrName}{a.unit ? ` (${a.unit})` : ""}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {values.map((val) => {
                         const on = chosen[a.key] === val;
-                        const label = a.options?.find((o) => o.value === val)?.label || val;
+                        const rawLabel = a.options?.find((o) => o.value === val)?.label || val;
+                        // For colour attribute, look up localised colour name.
+                        const label = a.key === "colour"
+                          ? t(`shop.colour_label.${String(val).toLowerCase()}`, { defaultValue: rawLabel })
+                          : rawLabel;
                         return (
                           <button key={val}
                                   onClick={() => setChosen({ ...chosen, [a.key]: val })}
@@ -189,14 +193,14 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
                   className="mt-8 pl-btn pl-btn-primary text-base px-6 py-3"
                   style={{ opacity: (!activeVariant || activeVariant.stock_qty <= 0) ? 0.5 : 1 }}>
             <ShoppingBag size={16} />
-            {busy ? "Adding…" :
-             !fullyChosen && pickerAttrs.length > 0 ? "Select options"
-             : activeVariant?.stock_qty > 0 ? "Add to cart" : "Out of stock"}
+            {busy ? t("shop.adding") :
+             !fullyChosen && pickerAttrs.length > 0 ? t("shop.select_options")
+             : activeVariant?.stock_qty > 0 ? t("shop.add_to_cart") : t("shop.out_of_stock")}
           </button>
 
           <div className="mt-6 text-xs text-neutral-500 space-y-1">
-            <div>SKU: <span className="font-mono">{activeVariant?.sku || "—"}</span></div>
-            <div>Condition: {activeVariant?.condition || "new"}</div>
+            <div>{t("shop.sku_label")}: <span className="font-mono">{activeVariant?.sku || "—"}</span></div>
+            <div>{t("shop.condition_label")}: {t(`shop.condition_value.${activeVariant?.condition || "new"}`, { defaultValue: activeVariant?.condition || t("shop.condition_new") })}</div>
           </div>
         </div>
       </div>
@@ -212,6 +216,7 @@ export default ShopProduct;
 // touch/mobile the extra pane is skipped (native pinch-to-zoom takes over).
 // ---------------------------------------------------------------------------
 const ProductImageZoom = ({ src, alt }) => {
+  const { t } = useTranslation("customer");
   const [hover, setHover] = useState(false);
   const [origin, setOrigin] = useState({ x: 50, y: 50 });
   const wrapRef = React.useRef(null);
@@ -258,7 +263,7 @@ const ProductImageZoom = ({ src, alt }) => {
       />
       {canZoom && !hover && (
         <span className="absolute bottom-2 right-2 text-[10px] uppercase tracking-widest bg-black/60 text-neutral-200 px-2 py-1 rounded">
-          Hover to zoom
+          {t("shop.hover_to_zoom")}
         </span>
       )}
     </div>
