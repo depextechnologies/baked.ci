@@ -281,7 +281,7 @@ async def shop_list_products(
         vs = variants_by_pid.get(r.id, [])
         cheapest = vs[0] if vs else None
         out.append({
-            "id": r.id, "title": r.title, "slug": r.slug,
+            "id": r.id, "title": r.title, "title_fr": r.title_fr, "slug": r.slug,
             "brand_id": r.brand_id, "category_id": r.category_id,
             "subcategory_id": r.subcategory_id, "images": r.images or [],
             "status": r.status,

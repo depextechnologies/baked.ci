@@ -1,5 +1,41 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-03-10 — SHOP Product Bilingual Columns — COMPLETE
+
+**Schema**:
+- `migrations/versions/0047_shop_bilingual_product.py` — adds `shop_products.title_fr` (VARCHAR 400, nullable) + `shop_products.description_fr` (TEXT, nullable). English canonical column stays unchanged.
+- `core/models/shop.py` — `ShopProduct.title_fr` + `ShopProduct.description_fr` mapped columns with docstring calling out the fallback rule (FR falls back to `title` when empty).
+
+**Backend endpoints round-tripping the new fields**:
+- `POST /api/shop/portal/products` — accepts `title_fr` + `description_fr`
+- `PATCH /api/shop/portal/products/{id}` — accepts `title_fr` + `description_fr`
+- `GET /api/shop/portal/products/{id}` — returns both
+- `GET /api/shop/portal/products` — returns both (list view)
+- `GET /api/shop/products/{id}` (public PDP) — returns both
+- `GET /api/shop/products` (public list) — returns both
+- `GET /api/shop/cart/me` — `items[].product.title_fr` for cart-line rendering
+
+**Seller portal UI** (`apps/martbaked-sellers/portal/PortalShop.jsx`):
+- Grid form now shows Title(EN) alongside Titre(FR), and Description(EN) alongside Description(FR)
+- Helper text distinguishes canonical vs override
+- Left-hand product list prefers FR title with "FR + EN" badge when both are set
+
+**Frontend consumers** (`apps/shopbaked/lib/i18nCms.js`):
+- New `pickProductTitle(product, lang)` + `pickProductDescription(product, lang)` — pick FR when lang=fr, English otherwise, always safe for null/undefined
+- Wired into `ShopHome.jsx` ProductCard, `ShopProduct.jsx` PDP heading + image alt + description, `ShopCheckout.jsx` cart-line label
+
+**Demo seed** (`modules/shop/demo_products_seed.py`):
+- `_title_for` now returns `(english_title, french_title)` tuple
+- `_description_for` now returns `(english_desc, french_desc)` tuple
+- Seed writes BOTH into every demo product; 362 demo rows across CI + IN reseeded
+
+**Live verified**:
+- API: `/api/shop/products?country=CI&limit=2` returns `title=Premium Motorcycle Parts & Accessories` and `title_fr=Premium Pièces & accessoires moto` ✅
+- `/shop/c/mode-femme` FR default → French titles ("Premium Accessoires de mode femme")
+- Click "EN" toggle → titles instantly swap to English ("Premium Women's Fashion Accessories")
+- Category title also swaps ("Mode Femme" ↔ "Women's Fashion")
+
+
 ## 2026-03-10 — SHOPbakēd Full French Localisation — COMPLETE
 
 Root-cause audit: SHOP frontend was **never** wired to i18next — components used hardcoded English + raw CMS values. CMS seed and product/attribute seeds were English-only. This slice fixes the root cause across all three layers.

@@ -13,9 +13,11 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { ShoppingBag, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
+import { pickProductTitle } from "../lib/i18nCms";
 
 export const ShopCheckout = ({ basePath = "/shop" }) => {
-  const { t } = useTranslation("customer");
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "fr" ? "fr" : "en";
   const [cart, setCart] = useState(null);
   const [addr, setAddr] = useState({ line1: "", city: "Abidjan" });
   const [instructions, setInstructions] = useState("");
@@ -112,7 +114,7 @@ export const ShopCheckout = ({ basePath = "/shop" }) => {
               {cart.items.map((it) => (
                 <li key={it.id} className="flex items-baseline justify-between gap-2">
                   <span className="text-neutral-300 truncate">
-                    {it.product?.title || it.variant.sku} × {it.quantity}
+                    {(it.product ? pickProductTitle(it.product, lang) : null) || it.variant.sku} × {it.quantity}
                   </span>
                   <span className="text-neutral-400 font-mono text-xs">
                     {it.line_total.toLocaleString()} {cart.currency}

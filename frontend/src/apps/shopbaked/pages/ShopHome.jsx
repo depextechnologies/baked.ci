@@ -24,7 +24,7 @@ import { useApp, useCart } from "@/contexts/BakedContexts";
 import {
   ArrowRight, Sparkles, ShieldCheck, Truck, Tag, ShoppingBag, Loader2, Plus,
 } from "lucide-react";
-import { pickBilingual, pickCatalogueName } from "../lib/i18nCms";
+import { pickBilingual, pickCatalogueName, pickProductTitle } from "../lib/i18nCms";
 
 // SHOP accent tokens — keep parity with lib/modules.js `shop.color`.
 const SHOP_ACCENT = "#FCC44C";     // primary amber/gold
@@ -690,7 +690,9 @@ const RENDERERS = {
 };
 
 export const ProductCard = ({ product, basePath = "/shop" }) => {
-  const { t } = useTranslation("customer");
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "fr" ? "fr" : "en";
+  const displayTitle = pickProductTitle(product, lang);
   const { addShopVariant } = useCart() || {};
   const img = abs(product.images?.[0]);
   const price = product.min_price;
@@ -717,7 +719,7 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
     try {
       await addShopVariant(product.first_variant_id, 1, {
         product_id: product.id,
-        title: product.title,
+        title: displayTitle,
         image: product.images?.[0] || null,
         price: product.min_price,
         compare_at_price: product.compare_at_price,
@@ -725,7 +727,7 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
         variant_attributes: product.variant_attributes || {},
       });
       const { toast } = await import("sonner");
-      toast.success(t("shop.product_added", { title: product.title }));
+      toast.success(t("shop.product_added", { title: displayTitle }));
     } catch (err) {
       const { toast } = await import("sonner");
       toast.error(err?.response?.data?.detail || t("shop.add_to_cart_failed"));
@@ -746,7 +748,7 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
           </span>
         )}
         {img ? (
-          <img src={img} alt={product.title}
+          <img src={img} alt={displayTitle}
                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                onError={(e) => { e.currentTarget.style.display = "none"; }} />
         ) : (
@@ -754,7 +756,7 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
         )}
       </div>
       <div className="p-3">
-        <div className="text-sm font-semibold text-neutral-100 line-clamp-2 min-h-[2.5rem]">{product.title}</div>
+        <div className="text-sm font-semibold text-neutral-100 line-clamp-2 min-h-[2.5rem]">{displayTitle}</div>
         {spec && <div className="text-[11px] text-neutral-500 mt-1 truncate">{spec}</div>}
         <div className="mt-2 flex items-end justify-between gap-2">
           <div className="min-w-0">

@@ -16,11 +16,13 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useCart } from "@/contexts/BakedContexts";
 import { ShoppingBag, ArrowLeft } from "lucide-react";
+import { pickProductTitle, pickProductDescription } from "../lib/i18nCms";
 
 const isSelect = (a) => a.type === "select" || a.type === "multi_select";
 
 export const ShopProduct = ({ basePath = "/shop" }) => {
-  const { t } = useTranslation("customer");
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "fr" ? "fr" : "en";
   const { productId } = useParams();
   const { addShopVariant } = useCart() || {};
   const [detail, setDetail] = useState(null);
@@ -77,9 +79,10 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
       // Route through the shared CartContext. For guests the context stores
       // a snapshot in localStorage; for authed users it POSTs to the server.
       // Login is deferred to Proceed-to-Checkout per Fixing_Prompt §3.
+      const productTitle = pickProductTitle(detail, lang);
       await addShopVariant(activeVariant.id, 1, {
         product_id: detail.id,
-        title: detail.title + (activeVariant.title_suffix ? ` — ${activeVariant.title_suffix}` : ""),
+        title: productTitle + (activeVariant.title_suffix ? ` — ${activeVariant.title_suffix}` : ""),
         image: (activeVariant.images && activeVariant.images[0]) || detail.images?.[0] || null,
         price: activeVariant.price,
         compare_at_price: activeVariant.compare_at_price,
@@ -117,13 +120,13 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
       <div className="grid gap-8 md:grid-cols-2">
         <ProductImageZoom
           src={activeVariant?.images?.[0] || detail.images?.[0]}
-          alt={detail.title}
+          alt={pickProductTitle(detail, lang)}
         />
 
         {/* Right: metadata + picker */}
         <div>
           <h1 className="text-3xl font-bold text-neutral-100" data-testid="shopbaked-pdp-title">
-            {detail.title}
+            {pickProductTitle(detail, lang)}
           </h1>
           <div className="mt-4 flex items-baseline gap-3">
             <span className="text-2xl font-semibold text-amber-300" data-testid="shopbaked-pdp-price">
@@ -144,7 +147,7 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
           </div>
 
           <p className="mt-4 text-neutral-400 leading-relaxed">
-            {detail.description || t("shop.no_description")}
+            {pickProductDescription(detail, lang) || t("shop.no_description")}
           </p>
 
           {/* Variant picker */}

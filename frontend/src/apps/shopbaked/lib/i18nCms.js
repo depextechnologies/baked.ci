@@ -18,3 +18,20 @@ export const pickCatalogueName = (row, lang) => {
   if (lang === "fr") return row.name_fr || row.name_en || row.slug;
   return row.name_en || row.name_fr || row.slug;
 };
+
+// Locale-aware product-title picker. SHOP product rows expose an English
+// canonical `title` and an optional `title_fr` (added in migration 0047).
+// French customers see the French value when set; otherwise the English
+// title is rendered.
+export const pickProductTitle = (product, lang) => {
+  if (!product) return "";
+  if (lang === "fr" && product.title_fr) return product.title_fr;
+  return product.title || product.title_fr || "";
+};
+
+// Same rule for the product description.
+export const pickProductDescription = (product, lang) => {
+  if (!product) return "";
+  if (lang === "fr" && product.description_fr) return product.description_fr;
+  return product.description || product.description_fr || "";
+};

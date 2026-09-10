@@ -1,6 +1,14 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-10) — SHOPbakēd Full French Localisation — COMPLETE
+## Latest (2026-03-10) — SHOP Product Bilingual Columns — COMPLETE
+- ✅ **Schema migration `0047_shop_bilingual_product`**: added `title_fr` and `description_fr` columns on `shop_products` (both nullable — English stays canonical, French is an optional per-SKU override).
+- ✅ **Backend contract** now round-trips both fields through: seller-portal create (`POST /api/shop/portal/products`), seller-portal patch (`PATCH …`), seller-portal get, storefront PDP (`GET /api/shop/products/{id}`), storefront list (`GET /api/shop/products`), cart hydrate (`GET /api/shop/cart/me`).
+- ✅ **Seller portal UI** (`PortalShop.jsx`) exposes side-by-side "Title (English)" + "Titre (Français)" and "Description (English)" + "Description (Français)" fields; left-hand product list shows the French title if present with an "FR + EN" badge.
+- ✅ **Storefront rendering** — new `pickProductTitle(product, lang)` / `pickProductDescription(product, lang)` helpers used in ProductCard, PDP heading, PDP image alt, PDP description block, and cart-line label. French is preferred when `i18n.language === "fr"`, falls back to English when the French value is empty.
+- ✅ **Demo seed** now writes both `title` (English) and `title_fr` (French) for every demo product (362 rows across CI + IN reseeded).
+- ✅ Live verified: `/shop/c/mode-femme` FR → "Premium Accessoires de mode femme" · "Weekender Chaussettes & Collants femme"; EN toggle → "Premium Women's Fashion Accessories" · "Weekender Women's Socks & Tights". No cross-language leaks.
+
+## Previous (2026-03-10) — SHOPbakēd Full French Localisation — COMPLETE
 
 **Root cause**: SHOP frontend components (`ShopHome.jsx`, `ShopCategory.jsx`, `ShopCategoriesIndex.jsx`, `ShopProduct.jsx`, `ShopCheckout.jsx`, `AddressPill.jsx`, `ShopbakedApp.jsx`) had never called `useTranslation` — they rendered raw English strings AND read CMS content (`section.title`, `config.slides[].headline`, etc.) directly from an English-only database seed. Product demo seed and MartAttribute names were also English-only.
 

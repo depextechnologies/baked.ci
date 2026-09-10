@@ -76,11 +76,12 @@ def _variant_dict(v: ShopVariant) -> dict:
 
 def _product_dict(p: ShopProduct, variants: List[ShopVariant] | None = None) -> dict:
     d = {
-        "id": p.id, "title": p.title, "slug": p.slug,
+        "id": p.id, "title": p.title, "title_fr": p.title_fr, "slug": p.slug,
         "country": p.country, "module": p.module,
         "supplier_id": p.supplier_id, "brand_id": p.brand_id,
         "category_id": p.category_id, "subcategory_id": p.subcategory_id,
-        "description": p.description, "images": p.images or [],
+        "description": p.description, "description_fr": p.description_fr,
+        "images": p.images or [],
         "attributes": p.attributes or {}, "status": p.status,
         "published_at": p.published_at.isoformat() if p.published_at else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
@@ -98,23 +99,24 @@ def _product_dict(p: ShopProduct, variants: List[ShopVariant] | None = None) -> 
 class ProductIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(..., min_length=2, max_length=400)
+    title_fr: Optional[str] = Field(None, max_length=400)
     category_id: str = Field(..., min_length=2)
     subcategory_id: Optional[str] = None
     brand_id: Optional[str] = None
     description: Optional[str] = None
+    description_fr: Optional[str] = None
     images: Optional[List[str]] = None
-    # Parent-level attribute snapshot ({key: value|list}) — validated against
-    # the resolver in Slice 4 shallowly (structure only). Deep validation
-    # lives in Slice 5 admin approval.
     attributes: Optional[dict] = None
 
 
 class ProductPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: Optional[str] = Field(None, min_length=2, max_length=400)
+    title_fr: Optional[str] = Field(None, max_length=400)
     subcategory_id: Optional[str] = None
     brand_id: Optional[str] = None
     description: Optional[str] = None
+    description_fr: Optional[str] = None
     images: Optional[List[str]] = None
     attributes: Optional[dict] = None
 
@@ -200,6 +202,7 @@ async def create_product(
     prod = ShopProduct(
         id=new_id("shpprd"),
         title=payload.title,
+        title_fr=payload.title_fr,
         country=supplier.country,
         module="shop",
         supplier_id=supplier.id,
@@ -207,6 +210,7 @@ async def create_product(
         category_id=payload.category_id,
         subcategory_id=payload.subcategory_id,
         description=payload.description,
+        description_fr=payload.description_fr,
         images=payload.images or [],
         attributes=payload.attributes or {},
         status="pending_review",

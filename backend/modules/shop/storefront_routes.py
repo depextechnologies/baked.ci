@@ -85,10 +85,12 @@ async def public_product_detail(
     price_max = max((float(v.price) for v in variants), default=None)
 
     return {
-        "id": p.id, "title": p.title, "slug": p.slug, "country": p.country,
+        "id": p.id, "title": p.title, "title_fr": p.title_fr,
+        "slug": p.slug, "country": p.country,
         "brand_id": p.brand_id, "category_id": p.category_id,
         "subcategory_id": p.subcategory_id,
-        "description": p.description, "images": p.images or [],
+        "description": p.description, "description_fr": p.description_fr,
+        "images": p.images or [],
         "attributes": p.attributes or {}, "status": p.status,
         "price_min": price_min, "price_max": price_max,
         "variants": [_variant_public(v) for v in variants],
@@ -164,7 +166,7 @@ async def _hydrate_shop_cart(session: AsyncSession, cart: Cart) -> dict:
             "added_at": it.added_at.isoformat() if it.added_at else None,
             "variant": _variant_public(v),
             "product": None if not p else {
-                "id": p.id, "title": p.title, "slug": p.slug,
+                "id": p.id, "title": p.title, "title_fr": p.title_fr, "slug": p.slug,
                 "images": p.images or [], "status": p.status,
             },
             "line_total": line_total,
