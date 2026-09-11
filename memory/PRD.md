@@ -1,6 +1,22 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-03-10) — Global Inter Typography Migration — COMPLETE
+## Latest (2026-03-11) — SENDbakēd Phase A · 6-Tile Service Home — COMPLETE
+- ✅ **Six-service SEND home shipped**. `SendServiceTiles.jsx` (new, `/app/frontend/src/components/express/SendServiceTiles.jsx`) renders a responsive 3×2 grid (`grid-cols-2` mobile / `sm:grid-cols-2 lg:grid-cols-3` desktop) with French-first + English-second labels and the user-supplied hero images:
+  1. Envoyer par moto / Send by Motorcycle → `/send/book/location` (existing bike wizard, pre-selects `vehicle_code="bike"`).
+  2. Envoyer par CARGO / Send by CARGO → `/send/cargo` (Phase C placeholder — reuses `SendComingSoon`).
+  3. Envoyer des produits frais / Send Fresh Products → `/send/fresh` (Phase C placeholder).
+  4. Envoyer entre villes / Send Between Cities → `/send/between-cities` (Phase D placeholder).
+  5. Déménagement & Transport / Packers & Movers → `/send/movers` (existing MoversLanding).
+  6. Expéditions multiples / Multiple Shipments → `/send/multi-stop` (Phase E placeholder).
+- ✅ **Assets**: `Bike_baked.png` (existing) reused for Motorcycle. 5 new hero renders stored at `/app/frontend/public/send-tiles/*.png` (send_by_cargo · fresh_products · between_cities · packers_movers · multiple_shipments). Central catalogue in `SEND_TILE_ASSETS` (`/app/frontend/src/lib/expressAssets.js`).
+- ✅ **ExpressHome rewired** (mobile + desktop). Removed the "Send Now" vehicle carousel, the Parcel + Home Shifting cards, and the "Explore All Services" strip + `BOOK NOW` CTA from both layouts. Kept the header, map hero, pickup+add-stop bar, trust banner. Desktop 45/55 split preserved.
+- ✅ **Coming-soon shell**: `SendComingSoon.jsx` (new, `/app/frontend/src/pages/express/`). Renders the hero image + FR/EN title + description + friendly "Bientôt disponible / Coming soon" callout. Exports `SendCargoPlaceholder`, `SendFreshPlaceholder`, `SendBetweenPlaceholder`, `SendMultiStopPlaceholder`. Every element `data-testid`'d for future QA.
+- ✅ **Routes registered** in both `DesktopCustomerShell` and `MobileCustomerShell` (`/app/frontend/src/apps/customer/CustomerApp.jsx`) — `/send/cargo`, `/send/fresh`, `/send/between-cities`, `/send/multi-stop`.
+- ✅ **i18n**: 24 new keys under `customer.send.tile.*` + `send.services_heading` + `send.services_sub` + `send.coming_soon_title` + `send.coming_soon_sub` + `send.back_to_send` (both `fr/customer.json` and `en/customer.json`).
+- ✅ **Phase D change (per user directive 2026-03-11)**: **Toll backend is DROPPED**. Between-Cities pricing will NOT compute or store tolls. Customers pay toll booths directly out-of-pocket. Roadmap items `send_toll_locations`, `send_toll_vehicle_pricing`, `send_toll_overrides` are removed from the plan.
+- ✅ **Live smoke test** at 1440×900 desktop, 390×844 mobile, and `/send/cargo` placeholder — all 6 tiles render with the correct hero image and full French title (line-clamped to 2 lines to prevent truncation). Map + address selector + module tabs untouched.
+
+## Previous (2026-03-10) — Global Inter Typography Migration — COMPLETE
 - ✅ **Previous font**: Poppins (imported in `src/index.css` line 1, applied via `body {}` + `.baked-logo-text`). Partner-landing/hub CSS shipped their own Inter fallback stacks (three sources of truth).
 - ✅ **Single source of truth**: `src/index.css` now exposes `--font-family-sans: "Inter", "SF Pro Display", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;` on `:root`. `html`, `body`, form controls and `.baked-logo-text` all use `var(--font-family-sans)`.
 - ✅ **Google font**: `@import` in `index.css` now loads Inter weights 400/500/600/700/800 with `display=swap` (was Poppins 300/400/500/600/700/800). One controlled load; no duplicates.

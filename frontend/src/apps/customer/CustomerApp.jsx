@@ -56,6 +56,12 @@ import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
 import { ExpressBookings } from "@/pages/express/ExpressBookings";
 import { ExpressServices } from "@/pages/express/ExpressServices";
 import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
+import {
+  SendCargoPlaceholder,
+  SendFreshPlaceholder,
+  SendBetweenPlaceholder,
+  SendMultiStopPlaceholder,
+} from "@/pages/express/SendComingSoon";
 
 // SHOPbakēd storefront (Slice 6+7) — mounted under /shop/* so the module
 // tabs (MART / SHOP / SEND / …) switch to it in-shell, matching MART UX.
@@ -152,6 +158,10 @@ const DesktopCustomerShell = () => (
       <Route path="/send/home-shifting" element={<MoversLanding />} />
       <Route path="/send/movers" element={<MoversLanding />} />
       <Route path="/send/movers/wizard" element={<MoversWizard />} />
+      <Route path="/send/cargo" element={<SendCargoPlaceholder />} />
+      <Route path="/send/fresh" element={<SendFreshPlaceholder />} />
+      <Route path="/send/between-cities" element={<SendBetweenPlaceholder />} />
+      <Route path="/send/multi-stop" element={<SendMultiStopPlaceholder />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -232,6 +242,10 @@ const MobileCustomerShell = () => (
       <Route path="/send/home-shifting" element={<MoversLanding />} />
       <Route path="/send/movers" element={<MoversLanding />} />
       <Route path="/send/movers/wizard" element={<MoversWizard />} />
+      <Route path="/send/cargo" element={<SendCargoPlaceholder />} />
+      <Route path="/send/fresh" element={<SendFreshPlaceholder />} />
+      <Route path="/send/between-cities" element={<SendBetweenPlaceholder />} />
+      <Route path="/send/multi-stop" element={<SendMultiStopPlaceholder />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />

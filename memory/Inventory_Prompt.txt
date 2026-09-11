@@ -1,0 +1,1223 @@
+SENDbakēd – REDESIGN SEND SERVICE HOME + IMPLEMENT SIX SERVICE FLOWS + VEHICLE/TOLL/PRICING ARCHITECTURE
+
+We need to make a major but controlled enhancement to the existing SENDbakēd module.
+
+IMPORTANT:
+This is an enhancement of the EXISTING SENDbakēd system.
+
+DO NOT rebuild the SEND module from scratch.
+
+Reuse the existing:
+- authentication
+- user profile
+- saved addresses
+- Google Maps/location functionality
+- booking infrastructure
+- vehicle architecture
+- pricing architecture where applicable
+- payment flow
+- driver architecture
+- booking/order database
+- notification system
+- admin architecture
+- existing Packers & Movers flow
+- existing Send by Bike booking flow
+
+Extend the current architecture cleanly instead of creating duplicate or parallel systems.
+
+The current SEND home screen is attached/referenced as the design baseline.
+
+I will ALSO ATTACH THE REQUIRED ICONS/IMAGES FOR ALL SIX SERVICE TILES.
+
+USE THE ATTACHED ICONS/IMAGES EXACTLY AS PROVIDED.
+
+Do not create substitute icons.
+Do not use generic emoji.
+Do not replace the supplied visual assets with Font Awesome or other icons unless specifically required for a small UI control.
+
+==================================================
+1. NEW SEND HOME SCREEN – SIX SERVICES
+==================================================
+
+Replace the current SEND service selection area with exactly SIX service tiles.
+
+The six services are:
+
+1. Envoyer par moto
+   Send by Motorcycle
+
+2. Envoyer par CARGO
+   Send by CARGO
+
+3. Envoyer des produits frais
+   Send Fresh Products
+
+4. Envoyer entre villes
+   Send Between Cities
+
+5. Déménagement & Transport
+   Packers & Movers
+
+6. Expéditions multiples
+   Multiple Shipments
+
+French MUST appear first.
+
+English MUST appear second.
+
+The platform's language strategy is:
+- French = primary/default
+- English = secondary/testing language
+
+Therefore, the visible service tile should use the French name prominently, with the English name underneath or as the secondary label according to the existing bilingual design system.
+
+Do not show English first.
+
+==================================================
+2. TILE DESIGN
+==================================================
+
+The six tiles must visually follow the existing SEND vehicle cards shown in the attached/current SEND screen.
+
+We want:
+
+ROW 1:
+[ Send by Motorcycle ] [ Send by CARGO ] [ Send Fresh Products ]
+
+ROW 2:
+[ Send Between Cities ] [ Packers & Movers ] [ Multiple Shipments ]
+
+Exactly 3 tiles per row.
+
+Desktop:
+- 3 columns
+- equal-width cards
+- equal height
+- consistent spacing
+- premium dark SEND design
+- rounded borders
+- supplied image/icon prominently displayed
+- service name
+- English secondary label
+- short service description
+- circular yellow/orange arrow CTA on the right/bottom-right
+- consistent typography
+
+Mobile:
+- maintain a clean 2-column or appropriately responsive arrangement based on available width
+- cards must remain large and readable
+- do not make the six tiles excessively small
+- ensure the tile artwork remains visible
+- maintain the SEND visual identity
+
+DO NOT redesign the entire SEND application.
+
+Only redesign the service selection area and implement the new flows.
+
+==================================================
+3. REMOVE OLD SERVICE CARDS
+==================================================
+
+The current service selection includes:
+- Send by Bike
+- Send by Mini 3 Wheeler
+- Send by Truck
+- Parcel Delivery
+- Home Shifting
+- Explore All Services
+
+These should no longer appear as separate top-level service tiles.
+
+Replace them with the new six-service architecture.
+
+The old "Explore All Services" card should be removed because the six tiles now represent the primary SEND service catalogue.
+
+The existing BOOK NOW button should remain only if it still makes functional sense with the existing booking architecture.
+
+Do not leave duplicate or obsolete service entry points.
+
+==================================================
+4. SERVICE 1 – ENVOYER PAR MOTO
+SEND BY MOTORCYCLE
+==================================================
+
+This service must use the EXISTING Send by Bike booking flow.
+
+Do not redesign the actual booking logic unnecessarily.
+
+When the user selects:
+
+Envoyer par moto
+Send by Motorcycle
+
+open the existing Send by Bike flow.
+
+Preserve:
+- pickup
+- destination
+- map
+- address selection
+- distance calculation
+- pricing
+- package information
+- date/time where currently supported
+- review
+- payment
+- booking confirmation
+- driver assignment
+- tracking
+
+The only required conceptual change is terminology:
+
+"Send by Bike" should become:
+
+French:
+Envoyer par moto
+
+English:
+Send by Motorcycle
+
+Use the existing motorcycle/bike vehicle configuration.
+
+==================================================
+5. SERVICE 2 – ENVOYER PAR CARGO
+SEND BY CARGO
+==================================================
+
+Rename the current "Send by Truck" top-level service to:
+
+French:
+Envoyer par CARGO
+
+English:
+Send by CARGO
+
+When the customer clicks this tile, DO NOT immediately create a booking.
+
+First show a vehicle selection screen/modal/card selection containing exactly:
+
+1. Tricycle
+2. Mini Truck
+3. Truck
+
+French-first bilingual presentation.
+
+Example:
+
+Tricycle
+Tricycle
+
+Mini Camion
+Mini Truck
+
+Camion
+Truck
+
+Use the existing SEND vehicle card visual language.
+
+The user selects one vehicle and then proceeds to the booking flow.
+
+The booking flow should reuse the existing parcel/cargo booking architecture wherever possible.
+
+Vehicle-specific pricing must come from the central pricing engine.
+
+DO NOT hard-code prices into the frontend.
+
+==================================================
+6. SERVICE 3 – ENVOYER DES PRODUITS FRAIS
+SEND FRESH PRODUCTS
+==================================================
+
+When the user selects:
+
+Envoyer des produits frais
+Send Fresh Products
+
+show three refrigerated vehicle options:
+
+1. Refrigerated Tricycle
+2. Refrigerated Utility
+3. Refrigerated Truck
+
+French first, English second.
+
+Example:
+
+Tricycle frigorifique
+Refrigerated Tricycle
+
+Utilitaire frigorifique
+Refrigerated Utility
+
+Camion frigorifique
+Refrigerated Truck
+
+Use the supplied Fresh Products visual/icon assets where applicable.
+
+After selecting the refrigerated vehicle, proceed to a booking flow based on the existing parcel booking flow, but add fresh-product-specific information.
+
+Required information:
+
+- Type of fresh product
+- Product category
+- Fish
+- Meat
+- Vegetables
+- Other
+- Approximate quantity/weight
+- Pickup location
+- Destination
+- Vehicle
+- Date/time
+- Price
+
+The user should be able to specify the approximate quantity/weight.
+
+Support appropriate units such as:
+- kg
+- tonnes
+
+The architecture should allow additional units/configuration later.
+
+The booking summary must clearly show:
+
+Product type
+Quantity/weight
+Pickup
+Destination
+Vehicle
+Date/time
+Price
+
+The system must use the selected refrigerated vehicle for pricing and driver matching.
+
+==================================================
+7. FRESH PRODUCT DRIVER VEHICLE TYPES
+==================================================
+
+The driver signup/onboarding system must also support refrigerated vehicle types.
+
+Driver vehicle selection should include:
+
+STANDARD VEHICLES:
+- Motorcycle
+- Tricycle
+- Mini Truck
+- Truck
+
+REFRIGERATED VEHICLES:
+- Refrigerated Tricycle
+- Refrigerated Utility
+- Refrigerated Truck
+
+French must appear first and English second.
+
+A driver should be able to select MULTIPLE vehicle types if they operate/own multiple eligible vehicles.
+
+For example, one driver could select:
+
+- Motorcycle
+- Tricycle
+
+or:
+
+- Refrigerated Truck
+- Truck
+
+Do not restrict a driver to only one vehicle type.
+
+Store these vehicle capabilities in the backend so that dispatch/driver matching can use them.
+
+A fresh-product booking requiring a Refrigerated Truck must NOT be assigned to a driver who does not have Refrigerated Truck capability.
+
+==================================================
+8. SERVICE 4 – ENVOYER ENTRE VILLES
+SEND BETWEEN CITIES / NATIONAL
+==================================================
+
+This service is intended for inter-city/national deliveries.
+
+IMPORTANT:
+
+The client has not yet finalized whether city selection will be restricted to a predefined city list.
+
+Therefore, architect this flow to support FREE-FORM origin/destination addresses.
+
+The user should be able to select:
+
+Pickup / Origin
++
+Destination
+
+using the existing location/address system.
+
+The system should support:
+
+City → City
+
+and ideally:
+
+Exact Address → Exact Address
+
+because the client currently prefers Option B.
+
+Example:
+
+Abidjan
+→
+Yamoussoukro
+
+The system must calculate the route using the exact selected coordinates.
+
+==================================================
+9. INTER-CITY VEHICLE SELECTION
+==================================================
+
+After selecting origin and destination, the user chooses:
+
+1. Tricycle
+2. Mini Truck
+3. Truck
+
+French first / English second.
+
+The system should calculate the route and distance for the selected vehicle.
+
+Vehicle-specific pricing must be configurable by Super Admin.
+
+==================================================
+10. INTER-CITY PRICING ENGINE
+==================================================
+
+DO NOT hard-code inter-city pricing.
+
+Build a configurable pricing architecture that allows Super Admin to configure:
+
+- Base inter-city price
+- Price per km
+- Toll
+- Fuel surcharge
+- Other charges
+- Vehicle-specific pricing
+
+Pricing must be calculated dynamically.
+
+Example:
+
+Base price
++
+Distance × vehicle-specific price/km
++
+Tolls
++
+Fuel surcharge
++
+Other applicable charges
+=
+Total
+
+The exact calculation should be represented clearly in the booking price breakdown.
+
+==================================================
+11. TOLL MANAGEMENT – IMPORTANT
+==================================================
+
+Because the user may enter ANY origin/destination address, do NOT build toll management only as a city-to-city table.
+
+Build a scalable ROUTE-BASED TOLL CONFIGURATION architecture.
+
+Super Admin must be able to configure toll locations/segments.
+
+Each toll configuration should support:
+
+- Toll name
+- Country
+- Region
+- Road/corridor
+- Latitude
+- Longitude
+- Optional toll segment/geofence
+- Direction if applicable
+- Vehicle type applicability
+- Toll amount
+- Currency
+- Effective date
+- Expiry date if applicable
+- Active/inactive status
+
+The system should use the calculated route between pickup and destination and determine which configured toll locations/segments apply to the journey.
+
+The applicable tolls should then be added to the price calculation.
+
+Example:
+
+Origin:
+Abidjan
+
+Destination:
+Yamoussoukro
+
+Calculated route:
+240 km
+
+Pricing:
+
+Base inter-city charge
++
+240 km × vehicle price/km
++
+Toll A
++
+Toll B
++
+Fuel surcharge
++
+Other charges
+
+=
+Total
+
+The customer must see the toll component in the price breakdown.
+
+==================================================
+12. TOLL VEHICLE DIFFERENTIATION
+==================================================
+
+Tolls may vary by vehicle type.
+
+Therefore, Super Admin must be able to configure toll pricing by:
+
+- Tricycle
+- Mini Truck
+- Truck
+
+and any future vehicle classes.
+
+Do not assume one toll price applies to every vehicle.
+
+The data model must support future vehicle categories.
+
+==================================================
+13. TOLL FALLBACK / MANUAL OVERRIDE
+==================================================
+
+The toll architecture MUST include an administrative fallback.
+
+If the system cannot confidently determine a toll from the configured toll data:
+
+- do not silently invent a toll
+- allow Super Admin/admin operations to review
+- allow manual toll addition/removal/override where authorized
+
+The booking should record:
+- calculated toll
+- manually overridden toll if applicable
+- reason/user for override
+- timestamp
+
+This is important for financial auditability.
+
+==================================================
+14. ROUTE-BASED TOLL ARCHITECTURE MUST BE FUTURE-READY
+==================================================
+
+Do not implement a simplistic:
+
+Abidjan → Yamoussoukro = Toll X
+
+only.
+
+The architecture should support:
+
+Abidjan → Yamoussoukro
+Abidjan → Bouaké
+Abidjan → Korhogo
+Abidjan → San Pedro
+
+and arbitrary future routes.
+
+The same toll location can therefore be used across many routes automatically when the calculated route passes through it.
+
+Do not duplicate toll data for every city pair.
+
+==================================================
+15. SERVICE 5 – DÉMÉNAGEMENT & TRANSPORT
+PACKERS & MOVERS
+==================================================
+
+Keep the existing Packers & Movers functionality exactly as it currently works.
+
+Do not unnecessarily redesign or rewrite the booking logic.
+
+Only change its entry point so that it appears as the fifth tile:
+
+French:
+Déménagement & Transport
+
+English:
+Packers & Movers
+
+When clicked, open the existing Packers & Movers flow.
+
+Preserve all existing functionality.
+
+==================================================
+16. SERVICE 6 – EXPÉDITIONS MULTIPLES
+MULTIPLE SHIPMENTS
+==================================================
+
+This service allows the customer to create multiple parcel shipments as ONE multi-stop trip.
+
+The customer should be able to add multiple shipments/stops.
+
+Example:
+
+Shipment 1:
+Pickup A → Drop A
+
+Shipment 2:
+Pickup B → Drop B
+
+Shipment 3:
+Pickup C → Drop C
+
+The same selected vehicle handles all shipments.
+
+Supported vehicles:
+
+1. Motorcycle
+2. Tricycle
+3. Mini Truck
+4. Truck
+
+French first / English second.
+
+The user should be able to:
+
+- Add shipment
+- Enter pickup
+- Enter destination
+- Review shipment
+- Add another shipment
+- Remove shipment
+- Reorder stops where technically appropriate
+- Select vehicle
+- See total route
+- See total price
+- Review all shipments
+- Confirm booking
+
+The architecture should treat this as ONE booking/trip with MULTIPLE stops/shipments, rather than creating unrelated independent bookings.
+
+==================================================
+17. MULTI-STOP ROUTE
+==================================================
+
+The map must show all relevant stops.
+
+Example:
+
+Pickup A
+↓
+Drop A
+↓
+Pickup B
+↓
+Drop B
+↓
+Pickup C
+↓
+Drop C
+
+Use the existing Google Maps integration.
+
+The route must be calculated using actual selected coordinates.
+
+Do NOT draw fake/manual straight-line polylines.
+
+Use the appropriate Google Maps routing/directions functionality already used by the platform.
+
+The route should update if stops are added, removed or reordered.
+
+==================================================
+18. MULTI-SHIPMENT PRICING
+==================================================
+
+The pricing engine must support multi-stop pricing.
+
+At minimum, architecture should support:
+
+Base vehicle charge
++
+Total route distance charge
++
+Additional stop charges if configured
++
+Tolls where applicable
++
+Fuel surcharge
++
+Other applicable charges
+
+The Super Admin should eventually be able to configure:
+
+- Base charge
+- Per-km charge
+- Per-stop charge
+- Vehicle-specific pricing
+- Toll rules
+- Fuel surcharge
+- Other charges
+
+Do not hard-code the pricing in frontend code.
+
+==================================================
+19. CENTRAL VEHICLE ARCHITECTURE
+==================================================
+
+Review the current SEND vehicle architecture.
+
+Do not create separate vehicle databases for:
+
+- CARGO
+- Fresh Products
+- Between Cities
+- Multiple Shipments
+- Driver Signup
+
+Instead, create/reuse a central vehicle catalogue.
+
+Vehicle catalogue should support at least:
+
+STANDARD:
+- Motorcycle
+- Tricycle
+- Mini Truck
+- Truck
+
+REFRIGERATED:
+- Refrigerated Tricycle
+- Refrigerated Utility
+- Refrigerated Truck
+
+Vehicle records should support attributes such as:
+
+- Vehicle type
+- Display name
+- French name
+- English name
+- Category
+- Refrigerated capability
+- Active/inactive
+- Pricing configuration
+- Driver eligibility
+- Image/icon
+- Capacity if applicable
+
+This allows the system to grow later.
+
+==================================================
+20. CENTRAL PRICING ARCHITECTURE
+==================================================
+
+Pricing must be managed centrally.
+
+Avoid separate hard-coded pricing logic for each frontend flow.
+
+The pricing engine should receive inputs such as:
+
+Service type
+Vehicle type
+Pickup coordinates
+Destination coordinates
+Route distance
+Stops
+Tolls
+Quantity/weight where applicable
+Date/time where applicable
+Surcharges
+
+and return a transparent pricing breakdown.
+
+Each booking must store the final calculated price at booking time so that historical orders do not change if the admin later changes pricing configuration.
+
+==================================================
+21. SUPER ADMIN PRICING MANAGEMENT
+==================================================
+
+Add/extend Super Admin functionality to configure SEND pricing.
+
+Super Admin should be able to configure:
+
+SERVICE
+- Motorcycle
+- CARGO
+- Fresh Products
+- Between Cities
+- Multiple Shipments
+- Packers & Movers where applicable
+
+VEHICLE
+- Motorcycle
+- Tricycle
+- Mini Truck
+- Truck
+- Refrigerated Tricycle
+- Refrigerated Utility
+- Refrigerated Truck
+
+PRICING:
+- Base price
+- Price/km
+- Price/stop
+- Vehicle-specific price
+- Fuel surcharge
+- Other charges
+- Toll configuration
+
+All pricing changes must be auditable.
+
+==================================================
+22. BOOKING PRICE BREAKDOWN
+==================================================
+
+Before payment/confirmation, show a transparent breakdown.
+
+Example:
+
+Base fare
+Distance charge
+Vehicle charge
+Toll charges
+Fuel surcharge
+Additional stop charges
+Other charges
+
+----------------
+Total
+
+Use French first and English second.
+
+Do not hide significant charges inside a single unexplained amount.
+
+==================================================
+23. FRENCH-FIRST BILINGUAL UI
+==================================================
+
+This entire enhancement must follow the platform localization strategy.
+
+French is the PRIMARY language.
+
+English is SECONDARY.
+
+All new strings must be properly internationalized.
+
+Do not hard-code English-only labels.
+
+This includes:
+
+- six service tiles
+- vehicle selection
+- booking forms
+- validation
+- price breakdown
+- confirmation
+- errors
+- driver vehicle selection
+- Super Admin pricing configuration
+- toll configuration
+- notifications where applicable
+
+Example:
+
+Envoyer par moto
+Send by Motorcycle
+
+Envoyer par CARGO
+Send by CARGO
+
+Envoyer des produits frais
+Send Fresh Products
+
+Envoyer entre villes
+Send Between Cities
+
+Déménagement & Transport
+Packers & Movers
+
+Expéditions multiples
+Multiple Shipments
+
+==================================================
+24. EXISTING SEND VISUAL DESIGN
+==================================================
+
+Maintain the current SENDbakēd visual identity.
+
+The existing visual language is:
+
+- dark background
+- SEND yellow/orange accent
+- premium rounded cards
+- large vehicle/service imagery
+- strong readable typography
+- yellow circular arrow buttons
+- spacious layout
+- modern delivery/logistics aesthetic
+
+Do not introduce unrelated colors.
+
+Do not convert the UI into a generic dashboard.
+
+Do not remove the existing SEND branding.
+
+==================================================
+25. MAP BEHAVIOR
+==================================================
+
+Preserve the existing persistent map architecture where applicable.
+
+For flows involving routes:
+
+- pickup marker must be exact
+- destination marker must be exact
+- multi-stop markers must be exact
+- route must connect to the actual selected coordinates
+- map must fit all relevant points
+- route must update dynamically
+
+Do not manually draw approximate route lines.
+
+==================================================
+26. DRIVER MATCHING
+==================================================
+
+Extend driver matching so that vehicle capability is respected.
+
+Examples:
+
+Motorcycle booking:
+→ eligible Motorcycle drivers
+
+Tricycle booking:
+→ eligible Tricycle drivers
+
+Truck booking:
+→ eligible Truck drivers
+
+Refrigerated Tricycle:
+→ eligible Refrigerated Tricycle drivers
+
+Refrigerated Utility:
+→ eligible Refrigerated Utility drivers
+
+Refrigerated Truck:
+→ eligible Refrigerated Truck drivers
+
+A driver without the required vehicle capability must not be offered for a booking.
+
+==================================================
+27. DRIVER SIGNUP UI
+==================================================
+
+Update driver signup to include all SEND vehicle types.
+
+Allow multiple vehicle capabilities.
+
+French-first bilingual labels.
+
+The UI should remain simple and easy to use.
+
+Do not overwhelm the driver with unnecessary information.
+
+==================================================
+28. DATA MODEL
+==================================================
+
+Review the existing PostgreSQL architecture.
+
+PostgreSQL is the official database.
+
+Do NOT introduce MongoDB.
+
+Create or extend appropriate entities/tables for:
+
+- SEND services
+- vehicle types
+- driver vehicle capabilities
+- pricing rules
+- toll locations/segments
+- toll vehicle pricing
+- inter-city configuration
+- multi-stop shipments
+- route/pricing calculation records
+- booking pricing breakdown
+- pricing overrides
+- toll overrides
+
+Reuse existing entities where appropriate rather than duplicating them.
+
+Create proper foreign keys, indexes and constraints.
+
+==================================================
+29. BOOKING AUDITABILITY
+==================================================
+
+Financial calculations must be reproducible.
+
+When a booking is confirmed, store the pricing snapshot used at that moment.
+
+For example:
+
+- Base price
+- Distance
+- Price/km
+- Vehicle price
+- Toll amount
+- Fuel surcharge
+- Other charges
+- Stop charges
+- Final total
+- Pricing rule/version where applicable
+
+Later pricing changes must NOT modify historical booking prices.
+
+==================================================
+30. ADMIN CONTROL
+==================================================
+
+Super Admin should have control over:
+
+- Services
+- Vehicles
+- Vehicle activation
+- Driver vehicle eligibility
+- Pricing
+- Toll configuration
+- Fuel surcharge
+- Other charges
+- Inter-city configuration
+- Pricing overrides
+
+Do not expose dangerous financial configuration to normal customers, drivers or sellers.
+
+==================================================
+31. RESPONSIVE DESIGN
+==================================================
+
+Everything must work properly on:
+
+- desktop
+- mobile
+- small mobile screens
+
+Mobile is especially important.
+
+Cards must remain readable.
+
+Buttons must be large enough to tap.
+
+Do not create dense forms.
+
+Maps and booking steps must remain usable on mobile.
+
+==================================================
+32. DO NOT BREAK EXISTING FUNCTIONALITY
+==================================================
+
+Before changing anything:
+
+Audit the existing SEND module.
+
+Identify:
+- current booking routes
+- booking APIs
+- vehicle APIs
+- pricing APIs
+- driver signup
+- driver matching
+- map integration
+- Packers & Movers
+- Send by Bike
+- authentication
+- payment
+- notifications
+
+Reuse these systems wherever possible.
+
+After implementation, regression-test:
+
+1. Existing Send by Motorcycle
+2. CARGO booking
+3. Fresh Products booking
+4. Between Cities booking
+5. Packers & Movers
+6. Multiple Shipments
+7. Driver signup
+8. Driver multiple vehicle selection
+9. Pricing calculation
+10. Toll calculation
+11. Payment
+12. Booking confirmation
+13. Driver matching
+14. Map routing
+15. French language
+16. English language
+17. Mobile layout
+18. Desktop layout
+
+==================================================
+33. IMPORTANT – DO NOT USE PLACEHOLDERS
+==================================================
+
+Do not implement:
+
+- "Coming Soon"
+- dummy buttons
+- fake prices
+- fake tolls
+- placeholder vehicle data
+- mock booking completion
+- disconnected frontend-only flows
+
+Every UI element that is presented as functional must connect to the actual backend architecture.
+
+If a business rule cannot yet be finalized, build the configurable architecture and clearly isolate the admin-configurable value instead of hard-coding an assumption.
+
+==================================================
+34. ATTACHED ICONS / IMAGES
+==================================================
+
+I will attach the six required service icons/images.
+
+Use those exact supplied assets for:
+
+1. Send by Motorcycle
+2. Send by CARGO
+3. Send Fresh Products
+4. Send Between Cities
+5. Packers & Movers
+6. Multiple Shipments
+
+Maintain consistent image sizing/cropping.
+
+Do not distort the images.
+
+Do not replace them with generic icons.
+
+==================================================
+35. IMPORTANT IMPLEMENTATION APPROACH
+==================================================
+
+Before coding, inspect the existing SENDbakēd implementation.
+
+Create a short internal implementation plan covering:
+
+- existing architecture
+- reusable components
+- required database changes
+- required API changes
+- required frontend changes
+- pricing architecture
+- toll architecture
+- driver vehicle architecture
+- multi-stop booking architecture
+
+Then implement.
+
+Do NOT spend the majority of the task only analyzing or describing the plan.
+
+We need the actual working implementation.
+
+==================================================
+36. FINAL ACCEPTANCE CRITERIA
+==================================================
+
+The SEND home screen must show exactly six primary service tiles:
+
+ROW 1:
+Envoyer par moto
+Send by Motorcycle
+
+Envoyer par CARGO
+Send by CARGO
+
+Envoyer des produits frais
+Send Fresh Products
+
+ROW 2:
+Envoyer entre villes
+Send Between Cities
+
+Déménagement & Transport
+Packers & Movers
+
+Expéditions multiples
+Multiple Shipments
+
+Each tile must use the supplied image/icon.
+
+Functional behavior:
+
+Motorcycle
+→ existing Send by Bike flow
+
+CARGO
+→ Tricycle / Mini Truck / Truck
+→ booking
+
+Fresh Products
+→ Refrigerated Tricycle / Refrigerated Utility / Refrigerated Truck
+→ fresh-product information
+→ booking
+
+Between Cities
+→ free-form origin/destination
+→ route calculation
+→ Tricycle / Mini Truck / Truck
+→ distance pricing
+→ configured tolls
+→ fuel surcharge
+→ other charges
+→ booking
+
+Packers & Movers
+→ existing flow
+
+Multiple Shipments
+→ multiple pickup/drop pairs
+→ one vehicle
+→ one multi-stop trip
+→ Motorcycle / Tricycle / Mini Truck / Truck
+→ route and price calculation
+→ booking
+
+Driver signup:
+→ all standard + refrigerated vehicles
+→ multiple vehicle selection supported
+
+Super Admin:
+→ configurable vehicle pricing
+→ base pricing
+→ price/km
+→ toll configuration
+→ fuel surcharge
+→ other charges
+→ vehicle-specific pricing
+→ pricing/toll overrides
+→ auditability
+
+Language:
+French first
+English second
+
+Database:
+PostgreSQL only.
+
+Most importantly:
+
+DO NOT create six disconnected booking systems.
+
+Build these as six service experiences on top of a SHARED SEND booking, vehicle, route, pricing and driver architecture.
+
+The goal is a scalable production-ready SENDbakēd logistics system, not just a visual redesign.

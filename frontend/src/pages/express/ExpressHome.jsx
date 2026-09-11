@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { useMoney } from "../../components/express/ExpressLayout";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { EXPRESS_ASSETS, vehicleImage } from "../../lib/expressAssets";
+import { SendServiceTiles } from "../../components/express/SendServiceTiles";
 import { BrandedModuleLabel } from "../../components/layout/BakedLogo";
 
 /**
@@ -230,36 +231,8 @@ const ExpressHomeMobile = () => {
         </div>
       </section>
 
-      {/* Send Now — image-first horizontal cards */}
-      <section className="mt-5">
-        <div className="px-4 flex items-center justify-between mb-3">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("send.send_now")}</h2>
-          <Link data-testid="exp-home-see-all" to="/send/book/location" className="text-[0.75rem] font-semibold" style={{ color: YELLOW }}>{t("send.see_all")}</Link>
-        </div>
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pl-4 pr-4 pb-2 snap-x snap-mandatory" style={{ scrollPaddingLeft: 16 }}>
-          {shortcutCards.map((v) => (
-            <VehicleCard key={v.code} v={v} money={money} onClick={() => start(v.code)} testid={`exp-home-vehicle-${v.code}`} />
-          ))}
-        </div>
-      </section>
-
-      {/* Bulk & Home Shifting — branded artwork */}
-      <section className="px-4 mt-4 grid grid-cols-2 gap-3">
-        <ServiceCard
-          testid="exp-home-bulk"
-          title={t("send.parcel_title")}
-          subtitle={t("send.parcel_sub")}
-          image={EXPRESS_ASSETS.parcel}
-          onClick={() => navigate("/send/book/location")}
-        />
-        <ServiceCard
-          testid="exp-home-movers"
-          title={t("send.movers_title")}
-          subtitle={t("send.movers_sub")}
-          image={EXPRESS_ASSETS.moving}
-          onClick={() => navigate("/send/movers")}
-        />
-      </section>
+      {/* Phase A — 6 SEND service tiles */}
+      <SendServiceTiles layout="mobile" />
 
       <section className="px-4 mt-4">
         <div className="rounded-2xl p-3 flex items-center gap-3 border border-border bg-card">
@@ -375,46 +348,8 @@ const ExpressDesktopHome = () => {
             </button>
           </div>
 
-          {/* Section 2 — vehicle cards, 3 in a row */}
-          <div className="grid grid-cols-3 gap-3">
-            {shortcutCards.map((v) => (
-              <DesktopVehicleCard key={v.code} v={v} money={money} onClick={() => start(v.code)} testid={`exp-dt-vehicle-${v.code}`} />
-            ))}
-          </div>
-
-          {/* Section 3 — 2 service cards side-by-side */}
-          <div className="grid grid-cols-2 gap-3">
-            <DesktopServiceCard testid="exp-dt-parcel"  title={t("send.parcel_title")} subtitle={<>{t("send.parcel_sub")}</>} image={EXPRESS_ASSETS.parcel} onClick={() => navigate("/send/parcel")} />
-            <DesktopServiceCard testid="exp-dt-movers"  title={t("send.movers_title")}   subtitle={<>{t("send.movers_sub")}</>} image={EXPRESS_ASSETS.moving} onClick={() => navigate("/send/home-shifting")} />
-          </div>
-
-          {/* Section 4 — Explore All Services */}
-          <button
-            data-testid="exp-dt-explore"
-            onClick={() => navigate("/send/services")}
-            className="exp-dt-tile rounded-2xl p-4 flex items-center gap-3 text-left motion-fast active:scale-[0.995] hover:border-[#FCC44C44] border border-border"
-          >
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}>
-              <LayoutGrid size={18} color={YELLOW} />
-            </div>
-            <div className="flex-1">
-              <div className="text-[0.9rem] font-semibold leading-tight text-foreground">{t("send.explore_all")}</div>
-              <div className="text-[0.75rem] font-normal text-muted-foreground mt-0.5">{t("send.explore_all_sub")}</div>
-            </div>
-            <div className="w-9 h-9 rounded-full flex items-center justify-center border border-border">
-              <ArrowRight size={14} color={YELLOW} strokeWidth={2.5} />
-            </div>
-          </button>
-
-          {/* Section 5 — Book Now primary CTA */}
-          <button
-            data-testid="exp-dt-book"
-            onClick={() => navigate("/send/book/location")}
-            className="rounded-2xl h-14 flex items-center justify-center gap-2 text-base font-bold text-black motion-fast active:scale-[0.99]"
-            style={{ backgroundColor: YELLOW }}
-          >
-            <Briefcase size={17} strokeWidth={2.5} /> {t("send.book_now")}
-          </button>
+          {/* Phase A — 6 SEND service tiles (replaces vehicle carousel + parcel/movers + explore + book-now) */}
+          <SendServiceTiles layout="desktop" />
 
           <div className="exp-dt-tile rounded-2xl px-3 py-2.5 flex items-center gap-2 border border-border">
             <ShieldCheck size={14} color={YELLOW} />

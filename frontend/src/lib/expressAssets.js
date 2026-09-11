@@ -14,6 +14,21 @@ export const EXPRESS_ASSETS = {
 };
 
 /**
+ * Phase A — six SEND service tiles.
+ * Motorcycle keeps the existing Bike_baked asset (per user brief).
+ * The other five images are shipped in /public/send-tiles/*.png so they
+ * render offline and can be swapped by ops without a code change.
+ */
+export const SEND_TILE_ASSETS = {
+  moto:          EXPRESS_ASSETS.bike,
+  cargo:         "/send-tiles/send_by_cargo.png",
+  fresh:         "/send-tiles/fresh_products.png",
+  between_cities: "/send-tiles/between_cities.png",
+  movers:        "/send-tiles/packers_movers.png",
+  multi:         "/send-tiles/multiple_shipments.png",
+};
+
+/**
  * Map a vehicle code to its brand image. Fallback to truck for larger types
  * (mini_truck, truck) until dedicated renders are supplied.
  */
