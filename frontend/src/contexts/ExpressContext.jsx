@@ -12,6 +12,10 @@ const initialDraft = {
   pickup: null,          // { line1, latitude, longitude, place_id, formatted_address, city, country }
   drop: null,
   service_type: null,    // Phase C — SEND service tile origin: moto | cargo | fresh_products | between_cities | multiple_shipments
+  // Phase E — Multi-stop trip payload. Populated only when service_type is
+  // `multiple_shipments`; the first entry mirrors {pickup, drop} so the
+  // existing wizard (Step 1) auto-seeds the trip with one shipment.
+  stops: [],
   receiver: {
     name: "",
     phone: "",

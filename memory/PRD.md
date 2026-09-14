@@ -1,5 +1,25 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-11) — SENDbakēd Phase E · Multi-Stop Trip Builder — COMPLETE
+- ✅ **DB**: migration `0050_send_multi_stop` adds `express_bookings.stops JSONB` (nullable). Legacy single-shipment bookings keep the JSON payload NULL.
+- ✅ **Pricing**: new `pricing.quote_multi_stop()` sums haversine distance across every consecutive waypoint of the trip (pickup1 → drop1 → pickup2 → drop2 → …). Extra shipments beyond the first add a fixed surcharge (`500 XOF` / `200 LRD` per extra stop) exposed as a top-level `extra_stop_surcharge` line so nothing about pricing is hidden.
+- ✅ **API**:
+  - `POST /api/express/quote/multi_stop` — accepts `{country, vehicle_code, stops:[{pickup:{lat,lng}, drop:{lat,lng}}], promo_code?}`. Pydantic-enforced `1 ≤ stops ≤ 8`. Returns the full breakdown + `shipments`, `extra_stops`, `extra_stop_surcharge`.
+  - `POST /api/express/bookings/parcel` now accepts an optional `stops[]` payload. When `service_type == "multiple_shipments"` and stops are provided the endpoint prices via `quote_multi_stop`, persists the full stops payload on `express_bookings.stops`, and validates that the first stop matches the top-level `pickup`/`drop` pair (Step-1 seed) — mismatch → 400 `multi_stop_head_mismatch`.
+  - Booking serializer + `public_booking_fields()` surface `stops` + `service_type` end-to-end.
+- ✅ **Frontend**:
+  - `ExpressBookingContext` gains `draft.stops`. `resetDraft` clears it.
+  - New `MultiStopBuilder` component in `ExpressWizard.jsx`. Renders inside `ExpressStepDetails` when `service_type = multiple_shipments`.
+    - Shipment #1 is a live mirror of Step-1 pickup/drop (locked read-only, arrow + trash disabled, hint "Défini à l'étape 1").
+    - Shipments 2-N support inline pickup + drop editing via the global `openAddressSelector`, up/down reorder, and a trash remove button.
+    - `+ Ajouter une expédition` button opens the address selector twice (pickup then drop) and appends a new shipment; counter chip `n/8` visible; disabled at max.
+  - `WizardMap` gained `MultiStopPolyline` — a single `DirectionsService` call with N-1 waypoints so the polyline updates atomically as shipments are added/removed/reordered. Markers auto-labeled `1P/1D · 2P/2D · …`; `FitBounds` includes every waypoint.
+  - `ExpressStepBook.fetchQuotes` auto-switches to `/quote/multi_stop` when the draft holds a multi-shipment trip so every vehicle card reflects the full-trip price side-by-side.
+  - Breakdown Row now includes `extra_stop_surcharge` when > 0 with i18n label `"Arrêts supplémentaires (n)"` / `"Extra stops (n)"`.
+  - Booking POST auto-attaches `stops` (with `{lat, lng, formatted_address, line1}` per entry) when the service is multi-shipment.
+- ✅ **Live smoke**: 3-shipment CI trip renders 6 numbered markers (1P/1D · 2P/2D · 3P/3D) on the map, 17.9 km · 62 min chip auto-updates, Tricycle price surfaces at **11 909 CFA** (matches backend curl exactly: base 5 000 + distance 3 304 + time 1 800 + extra-stop surcharge 1 000 + service fee 555 + insurance 250 = 11 909 CFA).
+- ✅ **Tests**: `tests/test_send_phase_e_multi_stop.py` — 7/7 green (surcharge math, single-shipment no surcharge, empty/too-many-stops rejected, booking persistence, head-mismatch rejection, single-shipment leaves `stops` NULL). Combined Phase B/C/E suite: **26/26 pass**. Frontend E2E validated by the testing agent — no regressions.
+
 ## Latest (2026-03-11) — SENDbakēd Phase D · 5-Step → 4-Step Wizard Consolidation — COMPLETE
 - ✅ **New booking journey** (matches user spec exactly):
   1. **Étape 1 · Ramassage & livraison** — unchanged.

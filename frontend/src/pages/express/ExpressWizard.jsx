@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { MapPin, Navigation2, Edit3, ChevronRight, Star, ShieldCheck, Clock, Info, PhoneCall, Home, DoorOpen, PenSquare, ArrowLeft, CheckCircle2, Package, Truck, Bike } from "lucide-react";
+import { MapPin, Navigation2, Edit3, ChevronRight, Star, ShieldCheck, Clock, Info, PhoneCall, Home, DoorOpen, PenSquare, ArrowLeft, ArrowUp, ArrowDown, CheckCircle2, Package, Plus, Trash2, Truck, Bike } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
@@ -212,6 +212,171 @@ const FRESH_PRODUCT_TYPES = [
   { code: "other",      labelKey: "send.wizard.fresh_product_other" },
 ];
 
+/**
+ * Phase E — Multi-stop trip builder.
+ *
+ * Shipments are stored on `draft.stops` as `[{id, pickup, drop}, …]`.
+ * Shipment #1 is a live mirror of `draft.pickup` / `draft.drop` (Step 1)
+ * so the customer never has to re-enter their first pair. Extra shipments
+ * are collected here via the global `openAddressSelector` — same picker
+ * Step 1 uses so keyboard/UX behaviour is identical.
+ */
+const MultiStopBuilder = () => {
+  const { t } = useTranslation("customer");
+  const { openAddressSelector } = useApp();
+  const { draft, setDraft } = useExpressBooking();
+  const MAX_STOPS = 8;
+
+  // Keep shipment #1 in perfect sync with the primary pickup/drop. If Step 1
+  // is edited the trip builder auto-reflects the change without a full reset.
+  useEffect(() => {
+    if (!draft.pickup || !draft.drop) return;
+    const first = { id: draft.stops?.[0]?.id || "stop_0", pickup: draft.pickup, drop: draft.drop };
+    const rest = (draft.stops || []).slice(1);
+    const next = [first, ...rest];
+    // Cheap equality — avoid setting on every rerender if unchanged.
+    const same = JSON.stringify(next) === JSON.stringify(draft.stops || []);
+    if (!same) setDraft({ stops: next });
+  }, [draft.pickup?.place_id, draft.drop?.place_id]); // eslint-disable-line
+
+  const stops = draft.stops?.length ? draft.stops : (draft.pickup && draft.drop ? [{ id: "stop_0", pickup: draft.pickup, drop: draft.drop }] : []);
+
+  const editStop = (idx, kind) => {
+    openAddressSelector({
+      title: kind === "pickup" ? t("send.wizard.pickup_location") : t("send.wizard.dropoff_location"),
+      onPick: (addr) => {
+        const next = stops.map((s, i) => i === idx ? { ...s, [kind]: addr } : s);
+        setDraft({ stops: next });
+      },
+    });
+  };
+
+  const addShipment = () => {
+    if (stops.length >= MAX_STOPS) return;
+    openAddressSelector({
+      title: t("send.wizard.new_pickup"),
+      onPick: (pickup) => {
+        openAddressSelector({
+          title: t("send.wizard.new_dropoff"),
+          onPick: (drop) => {
+            setDraft({ stops: [...stops, { id: `stop_${Date.now()}`, pickup, drop }] });
+          },
+        });
+      },
+    });
+  };
+
+  const removeShipment = (idx) => {
+    if (idx === 0) return; // first shipment is bound to Step 1
+    setDraft({ stops: stops.filter((_, i) => i !== idx) });
+  };
+
+  const move = (idx, delta) => {
+    if (idx === 0 && delta < 0) return;
+    const j = idx + delta;
+    if (j < 1 || j >= stops.length) return; // never displace shipment #1
+    const next = stops.slice();
+    [next[idx], next[j]] = [next[j], next[idx]];
+    setDraft({ stops: next });
+  };
+
+  return (
+    <div className="baked-card border border-border p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-bold">{t("send.wizard.multi_trip_title")}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">{t("send.wizard.multi_trip_sub", { count: stops.length })}</div>
+        </div>
+        <div className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>{stops.length}/{MAX_STOPS}</div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {stops.map((s, idx) => {
+          const isFirst = idx === 0;
+          return (
+            <div
+              key={s.id}
+              data-testid={`exp-stop-${idx}`}
+              className="rounded-2xl border border-border bg-secondary/30 p-3 space-y-2"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}>
+                  {idx + 1}
+                </div>
+                <div className="text-[11px] font-bold flex-1">{t("send.wizard.shipment_n", { n: idx + 1 })}</div>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    data-testid={`exp-stop-${idx}-up`}
+                    onClick={() => move(idx, -1)}
+                    disabled={idx <= 1}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center border border-border disabled:opacity-30 hover:border-[#FCC44C55] motion-fast"
+                    aria-label={t("send.wizard.move_up")}
+                  ><ArrowUp size={12} /></button>
+                  <button
+                    data-testid={`exp-stop-${idx}-down`}
+                    onClick={() => move(idx, +1)}
+                    disabled={idx === 0 || idx >= stops.length - 1}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center border border-border disabled:opacity-30 hover:border-[#FCC44C55] motion-fast"
+                    aria-label={t("send.wizard.move_down")}
+                  ><ArrowDown size={12} /></button>
+                  {!isFirst && (
+                    <button
+                      data-testid={`exp-stop-${idx}-remove`}
+                      onClick={() => removeShipment(idx)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center border border-border hover:border-red-400/40 hover:text-red-400 motion-fast"
+                      aria-label={t("send.wizard.remove")}
+                    ><Trash2 size={12} /></button>
+                  )}
+                </div>
+              </div>
+
+              <button
+                data-testid={`exp-stop-${idx}-pickup`}
+                onClick={() => !isFirst && editStop(idx, "pickup")}
+                disabled={isFirst}
+                className="w-full flex items-start gap-2 text-left rounded-xl border border-border bg-background/60 p-2 disabled:opacity-90 hover:border-[#FCC44C55] motion-fast"
+              >
+                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><MapPin size={11} /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("send.wizard.pickup")}</div>
+                  <div className="text-xs font-semibold truncate">{s.pickup?.formatted_address || "—"}</div>
+                </div>
+                {!isFirst && <Edit3 size={12} className="text-muted-foreground shrink-0 mt-1" />}
+              </button>
+              <button
+                data-testid={`exp-stop-${idx}-drop`}
+                onClick={() => !isFirst && editStop(idx, "drop")}
+                disabled={isFirst}
+                className="w-full flex items-start gap-2 text-left rounded-xl border border-border bg-background/60 p-2 disabled:opacity-90 hover:border-[#FCC44C55] motion-fast"
+              >
+                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><MapPin size={11} /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("send.wizard.dropoff")}</div>
+                  <div className="text-xs font-semibold truncate">{s.drop?.formatted_address || "—"}</div>
+                </div>
+                {!isFirst && <Edit3 size={12} className="text-muted-foreground shrink-0 mt-1" />}
+              </button>
+              {isFirst && (
+                <div className="text-[10px] text-muted-foreground pl-1">{t("send.wizard.first_stop_hint")}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        data-testid="exp-multi-add"
+        onClick={addShipment}
+        disabled={stops.length >= MAX_STOPS}
+        className="mt-3 w-full h-11 rounded-2xl border border-dashed border-border hover:border-[#FCC44C] hover:text-[#FCC44C] disabled:opacity-40 disabled:cursor-not-allowed motion-fast text-sm font-bold flex items-center justify-center gap-2"
+      >
+        <Plus size={14} />
+        {stops.length >= MAX_STOPS ? t("send.wizard.multi_max_reached") : t("send.wizard.add_shipment")}
+      </button>
+    </div>
+  );
+};
+
 export const ExpressStepDetails = () => {
   const { t } = useTranslation("customer");
   const navigate = useNavigate();
@@ -255,12 +420,7 @@ export const ExpressStepDetails = () => {
         <div className="space-y-4">
           <ServiceHeader />
 
-          {isMulti && (
-            <div className="baked-card border p-3" style={{ borderColor: "#FCC44C55", backgroundColor: "#FCC44C0A" }}>
-              <div className="text-sm font-bold">{t("send.wizard.multi_note_title")}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">{t("send.wizard.multi_note_body")}</div>
-            </div>
-          )}
+          {isMulti && <MultiStopBuilder />}
           {isBetween && (
             <div className="baked-card border p-3" style={{ borderColor: "#FCC44C55", backgroundColor: "#FCC44C0A" }}>
               <div className="text-sm font-bold">{t("send.wizard.between_note_title")}</div>
@@ -408,21 +568,36 @@ export const ExpressStepBook = () => {
   // side-by-side without opening a breakdown.
   const fetchQuotes = async (withPromo) => {
     if (!draft.pickup || !draft.drop || vehicles.length === 0) return;
+    const isMultiTrip = draft.service_type === "multiple_shipments" && (draft.stops?.length || 0) >= 1;
     const entries = await Promise.all(vehicles.map(async (v) => {
       try {
-        const { data } = await api.post("/express/quote/parcel", {
-          country: country?.code || "CI",
-          vehicle_code: v.code,
-          pickup_lat: draft.pickup.latitude, pickup_lng: draft.pickup.longitude,
-          drop_lat: draft.drop.latitude, drop_lng: draft.drop.longitude,
-          promo_code: withPromo || undefined,
-        });
+        let data;
+        if (isMultiTrip) {
+          const stops = (draft.stops || []).map((s) => ({
+            pickup: { lat: s.pickup.latitude, lng: s.pickup.longitude },
+            drop:   { lat: s.drop.latitude,   lng: s.drop.longitude },
+          }));
+          ({ data } = await api.post("/express/quote/multi_stop", {
+            country: country?.code || "CI",
+            vehicle_code: v.code,
+            stops,
+            promo_code: withPromo || undefined,
+          }));
+        } else {
+          ({ data } = await api.post("/express/quote/parcel", {
+            country: country?.code || "CI",
+            vehicle_code: v.code,
+            pickup_lat: draft.pickup.latitude, pickup_lng: draft.pickup.longitude,
+            drop_lat: draft.drop.latitude, drop_lng: draft.drop.longitude,
+            promo_code: withPromo || undefined,
+          }));
+        }
         return [v.code, data];
       } catch { return [v.code, null]; }
     }));
     setQuotes(Object.fromEntries(entries));
   };
-  useEffect(() => { fetchQuotes(); /* eslint-disable-line */ }, [vehicles, draft.pickup, draft.drop, country?.code]);
+  useEffect(() => { fetchQuotes(); /* eslint-disable-line */ }, [vehicles, draft.pickup, draft.drop, draft.stops, country?.code]);
 
   const applyPromo = async () => {
     if (!promo.trim()) return;
@@ -458,6 +633,12 @@ export const ExpressStepBook = () => {
         service_type: draft.service_type,
         pickup: draft.pickup,
         drop: draft.drop,
+        stops: draft.service_type === "multiple_shipments" && draft.stops?.length
+          ? draft.stops.map((s) => ({
+              pickup: { lat: s.pickup.latitude, lng: s.pickup.longitude, formatted_address: s.pickup.formatted_address, line1: s.pickup.line1 },
+              drop:   { lat: s.drop.latitude,   lng: s.drop.longitude,   formatted_address: s.drop.formatted_address,   line1: s.drop.line1 },
+            }))
+          : undefined,
         receiver: draft.receiver,
         package_type: p.type || "general_parcel",
         package_weight_range: p.weight_range || "up_to_5kg",
@@ -537,6 +718,7 @@ export const ExpressStepBook = () => {
               <Row label={t("send.wizard.base_fare")} value={money(q.base_fare)} />
               <Row label={t("send.wizard.distance", { km: q.distance_km })} value={money(q.distance_fare)} />
               <Row label={t("send.wizard.time", { min: q.duration_min })} value={money(q.time_fare)} />
+              {q.extra_stop_surcharge > 0 && <Row label={t("send.wizard.extra_stop_surcharge", { count: q.extra_stops })} value={money(q.extra_stop_surcharge)} />}
               {q.surcharge > 0 && <Row label={t("send.wizard.surcharge")} value={money(q.surcharge)} />}
               <Row label={t("send.wizard.service_fee")} value={money(q.service_fee)} tone />
               <Row label={t("send.wizard.insurance")} value={money(q.insurance)} tone />

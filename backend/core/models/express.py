@@ -46,6 +46,10 @@ class ExpressBooking(Base, TimestampMixin):
     # Phase C — SEND service tile the customer originated from. Nullable
     # because legacy bookings pre-date the six-tile home.
     service_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    # Phase E — multi-stop payload for `service_type = multiple_shipments`.
+    # Ordered list of `{pickup, drop}` pairs (each with lat/lng + address).
+    # NULL for standard single-shipment bookings.
+    stops: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     payment_method: Mapped[Optional[str]] = mapped_column(String, nullable=True)

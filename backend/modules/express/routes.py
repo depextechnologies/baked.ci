@@ -193,6 +193,43 @@ async def parcel_quote(payload: ParcelQuoteIn, session: AsyncSession = Depends(g
     )
 
 
+# ---------- Phase E · Multi-stop trip quote ----------
+
+class MultiStopLatLng(BaseModel):
+    lat: float
+    lng: float
+
+
+class MultiStopEntry(BaseModel):
+    pickup: MultiStopLatLng
+    drop:   MultiStopLatLng
+
+
+class MultiStopQuoteIn(BaseModel):
+    country: str = "CI"
+    vehicle_code: str
+    stops: List[MultiStopEntry] = Field(min_length=1, max_length=8)
+    promo_code: Optional[str] = None
+    peak: bool = False
+    night: bool = False
+
+
+@router.post("/quote/multi_stop")
+async def multi_stop_quote(payload: MultiStopQuoteIn, session: AsyncSession = Depends(get_session)):
+    from .pricing import quote_multi_stop
+    try:
+        return await quote_multi_stop(
+            session,
+            country=payload.country,
+            vehicle_code=payload.vehicle_code,
+            stops=[s.model_dump() for s in payload.stops],
+            promo_code=payload.promo_code,
+            peak=payload.peak, night=payload.night,
+        )
+    except ValueError as e:
+        raise HTTPException(400, {"code": "invalid_multi_stop", "message": str(e)})
+
+
 class MoverItemIn(BaseModel):
     item_id: str
     qty: int = Field(ge=1)
@@ -305,6 +342,10 @@ class ParcelBookingIn(BaseModel):
     service_type: Optional[str] = None    # Phase C — SEND service tile origin
     pickup: AddressPoint
     drop: AddressPoint
+    # Phase E — ordered list of {pickup, drop} pairs, used when
+    # service_type=multiple_shipments. When present the first entry must
+    # match the top-level pickup/drop (Step 1 seed). Ignored otherwise.
+    stops: Optional[List[dict]] = None
     receiver: ReceiverIn
     package_type: Optional[str] = None
     package_weight_range: Optional[str] = None
@@ -360,14 +401,51 @@ async def create_parcel_booking(
                 "message": f"Vehicle '{payload.vehicle_code}' is not eligible for service '{payload.service_type}'",
                 "eligible_vehicle_codes": list(allowed),
             })
-    quote = await quote_parcel(
-        session,
-        country=payload.country,
-        vehicle_code=payload.vehicle_code,
-        pickup_lat=payload.pickup.latitude, pickup_lng=payload.pickup.longitude,
-        drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
-        promo_code=payload.promo_code, declared_value=payload.declared_value,
-    )
+    # Phase E — Multi-stop pricing when the customer built a trip with N
+    # shipments. Falls back to the legacy single-shipment quote for every
+    # other service_type.
+    multi_stops_payload = None
+    if payload.service_type == "multiple_shipments" and payload.stops and len(payload.stops) >= 1:
+        from .pricing import quote_multi_stop
+        # Normalise into {pickup:{lat,lng}, drop:{lat,lng}} tuples.
+        norm_stops = []
+        for s in payload.stops:
+            try:
+                norm_stops.append({
+                    "pickup": {"lat": float(s["pickup"]["lat"]), "lng": float(s["pickup"]["lng"])},
+                    "drop":   {"lat": float(s["drop"]["lat"]),   "lng": float(s["drop"]["lng"])},
+                })
+            except (KeyError, TypeError, ValueError):
+                raise HTTPException(400, {"code": "invalid_multi_stop", "message": "Malformed stop entry"})
+        # The first stop must match the top-level pickup/drop (Step 1 seed).
+        first = norm_stops[0]
+        if (abs(first["pickup"]["lat"] - payload.pickup.latitude)  > 1e-4
+            or abs(first["pickup"]["lng"] - payload.pickup.longitude) > 1e-4
+            or abs(first["drop"]["lat"]  - payload.drop.latitude)   > 1e-4
+            or abs(first["drop"]["lng"]  - payload.drop.longitude)  > 1e-4):
+            raise HTTPException(400, {
+                "code": "multi_stop_head_mismatch",
+                "message": "First shipment must match the primary pickup/drop pair.",
+            })
+        quote = await quote_multi_stop(
+            session,
+            country=payload.country,
+            vehicle_code=payload.vehicle_code,
+            stops=norm_stops,
+            promo_code=payload.promo_code,
+        )
+        # Full stops payload (with the raw address blobs from the client) is
+        # persisted on the booking row so drivers + admin see every stop.
+        multi_stops_payload = [s for s in payload.stops]
+    else:
+        quote = await quote_parcel(
+            session,
+            country=payload.country,
+            vehicle_code=payload.vehicle_code,
+            pickup_lat=payload.pickup.latitude, pickup_lng=payload.pickup.longitude,
+            drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
+            promo_code=payload.promo_code, declared_value=payload.declared_value,
+        )
     ref = _make_booking_ref("EXP")
     booking = ExpressBooking(
         id=new_id("exp"),
@@ -376,6 +454,7 @@ async def create_parcel_booking(
         module="express",
         booking_type="parcel",
         service_type=payload.service_type,
+        stops=multi_stops_payload,
         country=payload.country.upper(),
         status="searching",
         payment_method=payload.payment_method,

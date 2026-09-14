@@ -98,6 +98,8 @@ async def booking_to_dict(session: AsyncSession, booking: ExpressBooking) -> dic
     data["package"] = _package(booking)
     data["driver_location"] = _driver_location(booking)
     data["timeline"] = [{"code": t.code, "label": t.label, "at": t.at.isoformat()} for t in timeline_rows]
+    # Phase E — surface the multi-stop payload verbatim for the driver + admin.
+    data["stops"] = booking.stops or None
     if booking.booking_type == "movers":
         item_rows = (
             (await session.execute(select(ExpressBookingItem).where(ExpressBookingItem.booking_id == booking.id)))
@@ -114,6 +116,7 @@ async def booking_to_dict(session: AsyncSession, booking: ExpressBooking) -> dic
 def public_booking_fields(data: dict) -> dict:
     keep = {
         "id", "ref", "status", "booking_type", "vehicle_code", "country",
+        "service_type", "stops",
         "pickup", "drop", "receiver", "distance_km", "duration_min",
         "currency", "currency_symbol", "total", "payment_method",
         "payment_status", "driver_id", "driver_snapshot",
