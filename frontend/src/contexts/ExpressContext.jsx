@@ -11,6 +11,7 @@ const ExpressBookingCtx = createContext();
 const initialDraft = {
   pickup: null,          // { line1, latitude, longitude, place_id, formatted_address, city, country }
   drop: null,
+  service_type: null,    // Phase C — SEND service tile origin: moto | cargo | fresh_products | between_cities | multiple_shipments
   receiver: {
     name: "",
     phone: "",

@@ -91,36 +91,32 @@ export const SendServiceTiles = ({ layout = "mobile" }) => {
   const { setDraft } = useExpressBooking();
 
   const handleClick = useCallback((key) => {
-    if (key === "moto") {
-      // Reuse the existing Send-by-Bike wizard — pre-select motorcycle.
-      setDraft((d) => ({
-        ...d,
-        pickup: activeAddress || d.pickup,
-        vehicle_code: "bike",
-      }));
-      navigate("/send/book/location");
-      return;
-    }
+    // Phase C — every SEND service tile funnels into the existing booking
+    // experience. The tile only sets `service_type` on the draft; the
+    // downstream vehicle-picker step filters eligible vehicles via
+    // GET /api/express/vehicles?service_type=…, exactly as the current
+    // wizard already renders vehicle cards + live prices. No extra picker
+    // screens, no duplicate components.
     if (key === "movers") {
+      // Movers has its own dedicated wizard — keep the existing UX.
       navigate("/send/movers");
       return;
     }
-    if (key === "cargo") {
-      navigate("/send/cargo");
-      return;
-    }
-    if (key === "fresh") {
-      navigate("/send/fresh");
-      return;
-    }
-    if (key === "between_cities") {
-      navigate("/send/between-cities");
-      return;
-    }
-    if (key === "multi") {
-      navigate("/send/multi-stop");
-      return;
-    }
+    const SERVICE_TYPE_MAP = {
+      moto:           "moto",
+      cargo:          "cargo",
+      fresh:          "fresh_products",
+      between_cities: "between_cities",
+      multi:          "multiple_shipments",
+    };
+    const service_type = SERVICE_TYPE_MAP[key] || null;
+    setDraft((d) => ({
+      ...d,
+      pickup: activeAddress || d.pickup,
+      service_type,
+      vehicle_code: null,       // force the customer to pick from the filtered list
+    }));
+    navigate("/send/book/location");
   }, [activeAddress, navigate, setDraft]);
 
   const gridClass = layout === "desktop"

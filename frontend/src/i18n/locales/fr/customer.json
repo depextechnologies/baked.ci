@@ -731,6 +731,8 @@
       "delivery_notes_ph": "Sonner à la porte, laisser à la sécurité…",
       "delivery_preferences": "Préférences de livraison",
       "choose_vehicle": "Choisissez un véhicule adapté à votre livraison",
+      "service_label": "Service",
+      "no_eligible_vehicles": "Aucun véhicule éligible pour ce service pour le moment.",
       "prices_vary_demand": "Les prix peuvent varier selon la demande",
       "up_to_kg": "Jusqu'à {{kg}} kg",
       "eta_range": "ETA {{min}}-{{max}} min",

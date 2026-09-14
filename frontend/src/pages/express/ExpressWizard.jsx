@@ -142,7 +142,21 @@ export const ExpressStepVehicle = () => {
   const money = useMoney();
   const STEPS = useSteps();
 
-  useEffect(() => { api.get(`/express/vehicles?country=${country?.code || "CI"}`).then((r) => setVehicles(r.data)); }, [country?.code]);
+  useEffect(() => {
+    // Phase C — always ask the backend to filter by service_type. The tile
+    // wrote it on the draft when the customer entered the flow. No client
+    // hard-coding, no extra picker screen.
+    const params = new URLSearchParams({ country: country?.code || "CI" });
+    if (draft.service_type) params.set("service_type", draft.service_type);
+    api.get(`/express/vehicles?${params.toString()}`).then((r) => {
+      setVehicles(r.data);
+      // If the previously selected vehicle isn't in the new eligible set
+      // (e.g. customer switched from CARGO to Fresh Products), clear it.
+      if (draft.vehicle_code && !r.data.some((v) => v.code === draft.vehicle_code)) {
+        setDraft({ vehicle_code: null });
+      }
+    });
+  }, [country?.code, draft.service_type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefetch quotes per vehicle so shopper sees live prices side-by-side
   useEffect(() => {
@@ -177,15 +191,36 @@ export const ExpressStepVehicle = () => {
       <WizardProgress steps={STEPS} current={2} />
       <ExpressWizardShell>
         <div>
+          {draft.service_type && (
+            <div
+              data-testid="exp-service-header"
+              className="baked-card border border-border p-3 mb-3 flex items-center gap-3"
+              style={{ backgroundColor: "#FCC44C0A", borderColor: "#FCC44C33" }}
+            >
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#FCC44C22" }}>
+                <Truck size={16} color="#FCC44C" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("send.wizard.service_label")}</div>
+                <div className="text-sm font-bold leading-tight">{t(`send.tile.${draft.service_type === "fresh_products" ? "fresh" : draft.service_type === "between_cities" ? "between_cities" : draft.service_type === "multiple_shipments" ? "multi" : draft.service_type}_title`)}</div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="text-sm font-bold">{t("send.wizard.choose_vehicle")}</div>
             <div className="text-[10px] text-muted-foreground">{t("send.wizard.prices_vary_demand")}</div>
           </div>
           <div className="mt-3 space-y-2">
+            {vehicles.length === 0 && (
+              <div data-testid="exp-veh-empty" className="baked-card border border-border p-4 text-xs text-muted-foreground text-center">
+                {t("send.wizard.no_eligible_vehicles")}
+              </div>
+            )}
             {vehicles.map((v) => {
               const q = quotes[v.code];
               const isBest = v.code === cheapestCode;
               const selected = draft.vehicle_code === v.code;
+              const displayName = v.name_fr || v.name;
               return (
                 <button
                   key={v.code}
@@ -194,11 +229,11 @@ export const ExpressStepVehicle = () => {
                   className={`w-full baked-card border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${selected ? "border-[#FCC44C] bg-[#FCC44C14]" : "border-border hover:border-[#FCC44C44]"}`}
                 >
                   <div className="w-20 h-16 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 55%, #FCC44C22, transparent 65%)` }}>
-                    <img src={vehicleImage(v.code)} alt={v.name} className="max-h-14 max-w-full w-auto object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" loading="lazy" />
+                    <img src={vehicleImage(v.code)} alt={displayName} className="max-h-14 max-w-full w-auto object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" loading="lazy" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="text-sm font-bold">{v.name}</div>
+                      <div className="text-sm font-bold">{displayName}</div>
                       {isBest && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Star size={9} className="inline mr-0.5" />{t("send.wizard.best_badge")}</span>}
                     </div>
                     <div className="text-[11px] text-muted-foreground">{t("send.wizard.up_to_kg", { kg: v.max_weight_kg })} · {v.description}</div>
@@ -371,6 +406,7 @@ export const ExpressStepEstimate = () => {
       const { data } = await api.post("/express/bookings/parcel", {
         country: country?.code || "CI",
         vehicle_code: draft.vehicle_code,
+        service_type: draft.service_type,
         pickup: draft.pickup,
         drop: draft.drop,
         receiver: draft.receiver,

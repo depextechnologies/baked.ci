@@ -1,5 +1,30 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-11) — SENDbakēd Phase C · Service-Type Routing (No Duplicate Picker) — COMPLETE
+- ✅ **Core UX principle honoured** (per user directive 2026-03-11): SEND service tiles are now **service-type selectors, not additional booking steps**. Every tile funnels the customer straight into the existing wizard (`/send/book/location`) — no separate `/send/cargo`, `/send/fresh`, `/send/between-cities`, `/send/multi-stop` pages. The old placeholder file has been deleted.
+- ✅ **Migration `0049_send_service_types`** adds:
+  - `express_bookings.service_type` (nullable, CHECK-constrained to 5 values) + composite index `(service_type, status)`.
+  - New `send_service_vehicles` config table (composite PK `service_type, vehicle_code` + `active` + `sort_order`) — single source of truth for which vehicles qualify for which SEND service. Editable by ops row-level; future Super Admin UI-ready.
+- ✅ **Seed** (`modules/express/seed.py`) populates the eligibility catalogue:
+  - `moto` → `bike`
+  - `cargo` → `three_wheeler`, `mini_truck`, `truck`
+  - `fresh_products` → `ref_tricycle`, `ref_utility`, `ref_truck` (refrigerated-only; also enforced by the Phase B dispatch guarantee).
+  - `between_cities` → `three_wheeler`, `mini_truck`, `truck`
+  - `multiple_shipments` → `bike`, `three_wheeler`, `mini_truck`, `truck`
+- ✅ **Backend API**:
+  - `GET /api/express/vehicles?service_type=<s>` — filters via the config table + honours per-service sort order. Empty result set returns `[]` (not an error). Unknown types → 400 with the allow-list echoed back.
+  - `GET /api/express/services` — full catalogue endpoint the frontend uses when it needs the map without a customer flow.
+  - `POST /api/express/bookings/parcel` accepts `service_type` and validates it against `send_service_vehicles` before persisting — a compromised client cannot submit `service_type=fresh_products` + `vehicle_code=bike` (rejected with `vehicle_not_eligible` + `eligible_vehicle_codes`).
+  - Booking rows now persist `service_type` so every downstream flow (analytics, admin, dispatch replay) can filter/segment by SEND service without joining new tables.
+- ✅ **Frontend**:
+  - `ExpressBookingContext.draft` gained `service_type`. `resetDraft` clears it.
+  - `SendServiceTiles.handleClick` sets `service_type` on the draft and always navigates to `/send/book/location` (Movers keeps its own wizard). No client-side eligibility logic.
+  - `ExpressStepVehicle` refetches `/express/vehicles?service_type=<from-draft>` and shows a **service-context header** ("SERVICE · Envoyer par CARGO / Envoyer des produits frais / …") — the customer sees the current service without an extra screen. Uses `name_fr` when locale is French. Auto-clears `vehicle_code` when the customer switches services.
+  - The booking POST payload includes `service_type` end-to-end.
+  - `expressAssets.js`: new `VEHICLE_IMAGES` map + shared `/public/send-tiles/vehicles/{tricycle|mini_truck|truck}.png` renders (user-supplied SEND-branded artwork). `vehicleImage(code)` falls back to the truck silhouette for unknown variants.
+- ✅ **Live smoke test**: CARGO tile → wizard → vehicle step shows **Tricycle · Mini camion · Camion** with the service-context header; Fresh Products tile → **Tricycle frigorifique · Utilitaire frigorifique · Camion frigorifique**. Existing wizard chrome (steps · map · footer) unchanged.
+- ✅ **Tests**: `tests/test_send_phase_c_service_types.py` — 11/11 green covering the services endpoint, the vehicle filter for every service_type, allow-list on invalid `service_type`, and booking-endpoint enforcement of the service→vehicle mapping. Combined Phase B + C suite: **19/19 pass**.
+
 ## Latest (2026-03-11) — SENDbakēd Phase B · Central Vehicle Catalogue + Driver Capabilities — COMPLETE
 - ✅ **Migration `0048_send_vehicle_capabilities`** adds:
   - `express_vehicles.name_fr` (nullable) — French display name per vehicle.

@@ -43,6 +43,9 @@ class ExpressBooking(Base, TimestampMixin):
     customer_id: Mapped[str] = mapped_column(String, ForeignKey("customers.id"), nullable=False)
     module: Mapped[str] = mapped_column(String, nullable=False, default="express")
     booking_type: Mapped[str] = mapped_column(String, nullable=False)
+    # Phase C — SEND service tile the customer originated from. Nullable
+    # because legacy bookings pre-date the six-tile home.
+    service_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     payment_method: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -372,3 +375,31 @@ class ExpressTimeSlot(Base, AuditMixin):
     badge: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+
+# ---------------------------------------------------------------------------
+# Phase C (SEND redesign) — service_type → eligible vehicle catalogue
+# ---------------------------------------------------------------------------
+
+
+SEND_SERVICE_TYPES = ("moto", "cargo", "fresh_products", "between_cities", "multiple_shipments")
+
+
+class SendServiceVehicle(Base):
+    """Config table: which vehicle codes may serve which SEND service tile.
+
+    Source of truth for the vehicle-picker filter inside the existing SEND
+    booking wizard. Editable by ops (row-level) and by Super Admin (future
+    UI) — the *frontend never hard-codes eligibility*.
+    """
+    __tablename__ = "send_service_vehicles"
+    __table_args__ = (
+        Index("ix_ssv_vehicle_code", "vehicle_code"),
+    )
+
+    service_type: Mapped[str]  = mapped_column(String(32), primary_key=True)
+    vehicle_code: Mapped[str]  = mapped_column(String(64), primary_key=True)
+    active:       Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    sort_order:   Mapped[int]  = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at:   Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

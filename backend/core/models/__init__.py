@@ -35,6 +35,8 @@ from core.models.express import (
     ExpressPromo,
     ExpressTimeSlot,
     ExpressVehicle,
+    SendServiceVehicle,
+    SEND_SERVICE_TYPES,
     ExpressWeightTier,
     ModuleDriver,
 )
@@ -139,6 +141,8 @@ __all__ = [
     "ExpressPromo",
     "ExpressTimeSlot",
     "ExpressVehicle",
+    "SendServiceVehicle",
+    "SEND_SERVICE_TYPES",
     "ExpressWeightTier",
     "ModuleDriver",
     "ModuleVendor",

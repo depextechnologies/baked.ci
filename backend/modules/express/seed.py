@@ -21,6 +21,7 @@ from core.models import (
     ExpressPricingRule,
     ExpressTimeSlot,
     ExpressVehicle,
+    SendServiceVehicle,
     ExpressWeightTier,
     ModuleDriver,
     new_id,
@@ -175,6 +176,23 @@ TIME_SLOTS = [
 ]
 
 
+# Phase C — SEND service → eligible vehicle codes.
+#   * moto ................. single vehicle, kept for symmetry so booking rows
+#                            always carry a real `service_type`.
+#   * cargo ................ standard cargo fleet (no refrigerated).
+#   * fresh_products ....... refrigerated fleet only — enforced by dispatch too.
+#   * between_cities ....... long-distance-capable non-refrigerated fleet.
+#   * multiple_shipments ... any parcel-scale vehicle the customer picks for
+#                            the whole multi-stop trip.
+SEND_SERVICE_VEHICLES = {
+    "moto":               [("bike", 1)],
+    "cargo":              [("three_wheeler", 1), ("mini_truck", 2), ("truck", 3)],
+    "fresh_products":     [("ref_tricycle", 1),  ("ref_utility", 2), ("ref_truck", 3)],
+    "between_cities":     [("three_wheeler", 1), ("mini_truck", 2), ("truck", 3)],
+    "multiple_shipments": [("bike", 1), ("three_wheeler", 2), ("mini_truck", 3), ("truck", 4)],
+}
+
+
 async def seed_express():
     async with SessionLocal() as session:
         # Vehicles per country
@@ -262,6 +280,14 @@ async def seed_express():
                     "id": new_id("ts"), "code": code, "country": country, "name": label, "window": window,
                     "surcharge": int(surcharge * mult), "badge": badge,
                     "sort_order": sort, "active": True,
+                })
+
+        # Phase C — SEND service → eligible vehicles catalogue (global config).
+        for service_type, entries in SEND_SERVICE_VEHICLES.items():
+            for vehicle_code, sort in entries:
+                await _upsert(session, SendServiceVehicle, ["service_type", "vehicle_code"], {
+                    "service_type": service_type, "vehicle_code": vehicle_code,
+                    "active": True, "sort_order": sort,
                 })
 
         await session.commit()

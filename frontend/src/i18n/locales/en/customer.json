@@ -731,6 +731,8 @@
       "delivery_notes_ph": "Please ring the bell, leave with security…",
       "delivery_preferences": "Delivery Preferences",
       "choose_vehicle": "Choose a vehicle that fits your delivery",
+      "service_label": "Service",
+      "no_eligible_vehicles": "No eligible vehicles for this service right now.",
       "prices_vary_demand": "Prices may vary with demand",
       "up_to_kg": "Up to {{kg}} kg",
       "eta_range": "ETA {{min}}-{{max}} min",

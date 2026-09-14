@@ -28,6 +28,8 @@ from core.models import (
     ExpressPackageType,
     ExpressTimeSlot,
     ExpressVehicle,
+    SendServiceVehicle,
+    SEND_SERVICE_TYPES,
     ExpressWeightTier,
     new_id,
 )
@@ -54,20 +56,70 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
 
 # ---------- Configuration reads ----------
 @router.get("/vehicles")
-async def list_vehicles(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
-    """Active vehicles for a given country, sorted by admin-controlled order."""
-    rows = (
-        (
-            await session.execute(
-                select(ExpressVehicle)
-                .where(ExpressVehicle.country == country.upper(), ExpressVehicle.active.is_(True))
-                .order_by(ExpressVehicle.sort_order)
-            )
-        )
-        .scalars()
-        .all()
+async def list_vehicles(
+    country: str = Query("CI"),
+    service_type: Optional[str] = Query(None, description="Filter to vehicles eligible for a SEND service tile"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Active vehicles for a given country, sorted by admin-controlled order.
+
+    When `service_type` is supplied the result is filtered via the
+    `send_service_vehicles` config table so the customer only sees vehicles
+    eligible for the SEND service they picked (Phase C — no separate vehicle
+    picker screen). Rows are sorted by the service-specific `sort_order`
+    when the filter applies, otherwise by the vehicle's own `sort_order`.
+    """
+    if service_type is not None and service_type not in SEND_SERVICE_TYPES:
+        raise HTTPException(400, {
+            "code": "unknown_service_type",
+            "message": f"Unknown SEND service_type: {service_type}",
+            "allowed": list(SEND_SERVICE_TYPES),
+        })
+
+    q = (
+        select(ExpressVehicle)
+        .where(ExpressVehicle.country == country.upper(), ExpressVehicle.active.is_(True))
     )
+    if service_type:
+        eligibility = (await session.execute(
+            select(SendServiceVehicle.vehicle_code, SendServiceVehicle.sort_order)
+            .where(
+                SendServiceVehicle.service_type == service_type,
+                SendServiceVehicle.active.is_(True),
+            )
+        )).all()
+        allowed_order = {code: sort for code, sort in eligibility}
+        if not allowed_order:
+            return []
+        q = q.where(ExpressVehicle.code.in_(list(allowed_order.keys())))
+        rows = (await session.execute(q)).scalars().all()
+        rows.sort(key=lambda v: (allowed_order.get(v.code, 999), v.sort_order))
+    else:
+        rows = (await session.execute(q.order_by(ExpressVehicle.sort_order))).scalars().all()
+
     return [row_to_dict(r) for r in rows]
+
+
+@router.get("/services")
+async def list_send_services(session: AsyncSession = Depends(get_session)):
+    """Return the full SEND service → eligible vehicle catalogue.
+
+    The frontend uses this endpoint as a single source of truth: which
+    services exist, which vehicle codes qualify, in what order. No
+    hard-coded lists on the client.
+    """
+    rows = (await session.execute(
+        select(SendServiceVehicle)
+        .where(SendServiceVehicle.active.is_(True))
+        .order_by(SendServiceVehicle.service_type, SendServiceVehicle.sort_order)
+    )).scalars().all()
+    grouped: dict[str, list[dict]] = {s: [] for s in SEND_SERVICE_TYPES}
+    for r in rows:
+        grouped.setdefault(r.service_type, []).append({
+            "vehicle_code": r.vehicle_code,
+            "sort_order":   r.sort_order,
+        })
+    return {"service_types": list(SEND_SERVICE_TYPES), "services": grouped}
 
 
 @router.get("/package-types")
@@ -250,6 +302,7 @@ class ReceiverIn(BaseModel):
 class ParcelBookingIn(BaseModel):
     country: str = "CI"
     vehicle_code: str
+    service_type: Optional[str] = None    # Phase C — SEND service tile origin
     pickup: AddressPoint
     drop: AddressPoint
     receiver: ReceiverIn
@@ -284,6 +337,29 @@ async def create_parcel_booking(
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_session),
 ):
+    # Phase C — service_type → eligible-vehicle enforcement. Guarantees a
+    # customer who selected e.g. Fresh Products can only book a refrigerated
+    # vehicle, no matter what payload the client happens to send.
+    if payload.service_type is not None:
+        if payload.service_type not in SEND_SERVICE_TYPES:
+            raise HTTPException(400, {
+                "code": "unknown_service_type",
+                "message": f"Unknown SEND service_type: {payload.service_type}",
+                "allowed": list(SEND_SERVICE_TYPES),
+            })
+        allowed = (await session.execute(
+            select(SendServiceVehicle.vehicle_code)
+            .where(
+                SendServiceVehicle.service_type == payload.service_type,
+                SendServiceVehicle.active.is_(True),
+            )
+        )).scalars().all()
+        if payload.vehicle_code not in set(allowed):
+            raise HTTPException(400, {
+                "code": "vehicle_not_eligible",
+                "message": f"Vehicle '{payload.vehicle_code}' is not eligible for service '{payload.service_type}'",
+                "eligible_vehicle_codes": list(allowed),
+            })
     quote = await quote_parcel(
         session,
         country=payload.country,
@@ -299,6 +375,7 @@ async def create_parcel_booking(
         customer_id=customer.id,
         module="express",
         booking_type="parcel",
+        service_type=payload.service_type,
         country=payload.country.upper(),
         status="searching",
         payment_method=payload.payment_method,
