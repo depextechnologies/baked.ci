@@ -27,7 +27,7 @@ SERVICE_TYPES = ("moto", "cargo", "fresh_products", "between_cities", "multiple_
 # What the seed guarantees per service. Test uses subset assertions so ops
 # adding a new eligible vehicle later doesn't break these guards.
 EXPECTED = {
-    "moto":               {"bike"},
+    "moto":               {"bike", "three_wheeler", "mini_truck", "truck"},
     "cargo":              {"three_wheeler", "mini_truck", "truck"},
     "fresh_products":     {"ref_tricycle",  "ref_utility", "ref_truck"},
     "between_cities":     {"three_wheeler", "mini_truck", "truck"},

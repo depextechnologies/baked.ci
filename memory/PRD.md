@@ -1,5 +1,27 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-11) — SENDbakēd Phase D · 5-Step → 4-Step Wizard Consolidation — COMPLETE
+- ✅ **New booking journey** (matches user spec exactly):
+  1. **Étape 1 · Ramassage & livraison** — unchanged.
+  2. **Étape 2 · Destinataire (skippable)** — new `data-testid="exp-receiver-skip"` button next to Continue; footer replaced with a two-button layout, receiver fields no longer block progression.
+  3. **Étape 3 · Article / Service** — new `ExpressStepDetails` at `/send/book/details` (route `send/book/package` kept as a compat alias to the same component). Adaptive to `service_type`:
+      - Fresh Products → produce chips (Poisson · Viande · Légumes · Autre) + quantity input + kg/tonnes unit toggle.
+      - Between Cities → info card ("frais de péage éventuels payés directement par le client au poste de péage") + standard package chips.
+      - Multiple Shipments → info card ("adding several stops is coming soon") + standard package chips.
+      - Motorcycle / CARGO → existing 6 package types + weight tiers + optional dimensions + notes.
+  4. **Étape 4 · Véhicule & réservation** — new `ExpressStepBook` at `/send/book/vehicle` (route `/send/book/estimate` kept as compat alias). Renders all eligible vehicles from `GET /api/express/vehicles?service_type=…` with:
+      - Live per-vehicle price (`POST /express/quote/parcel` in parallel).
+      - Compact ⓘ info icon per card → opens an inline price breakdown (Prix de base · Distance · Durée · Surcharge · Frais de service · Assurance · Taxes · Promo · Total estimé). Breakdown is hidden by default.
+      - Promo code strip + Insurance included card. **No** duplicated payment page, **no** separate estimation step.
+      - CTA: `Réserver · <price>` for signed-in customers, `Se connecter pour réserver` otherwise.
+- ✅ **Motorcycle cross-sell exception** honoured — `send_service_vehicles` seed for `moto` now includes `bike + three_wheeler + mini_truck + truck`. `ExpressStepBook` renders `bike` under the **RECOMMANDÉ POUR VOTRE ENVOI** heading and the 3 CARGO alternatives under **AUTRES OPTIONS DE VÉHICULE**. No other service exhibits this cross-sell.
+- ✅ **`useSteps` refactored** to 4 codes (`location · receiver · details · book`) — the progress bar auto-updates across the whole wizard. `ExpressHeader` default `totalSteps` bumped from 5 → 4 so every screen reads *"Étape n sur 4"*.
+- ✅ **Back-compat exports**: `ExpressStepPackage = ExpressStepDetails`, `ExpressStepEstimate = ExpressStepVehicle = ExpressStepBook` — the CustomerApp still imports the old names, and lingering deep-links (`/send/book/package`, `/send/book/estimate`) render the new steps instead of 404-ing.
+- ✅ **Fresh Products payload** compresses produce type + quantity + unit into `[FRESH] fish · 2 kg` prefix of `package_notes` on the booking POST, so nothing about the backend contract changes and the driver/admin still see the payload.
+- ✅ **Existing wizard chrome preserved**: same header, same map/split layout, same `ExpressWizardShell`, same footer CTA component, same booking POST + tracking flow.
+- ✅ **Regression**: `test_send_phase_b_capabilities.py` + `test_send_phase_c_service_types.py` — **19/19 green** (Phase C `moto` eligibility expected-set updated to `{bike, three_wheeler, mini_truck, truck}` to match the new cross-sell).
+- ✅ **Live smoke**: mobile (390×844) CARGO + desktop (1440×900) Moto — Recommandé + Autres options rendered with live prices, `2 132 CFA / 6 632 CFA / 15 629 CFA / 32 042 CFA`, breakdown expands correctly on ⓘ tap.
+
 ## Latest (2026-03-11) — SENDbakēd Phase C · Service-Type Routing (No Duplicate Picker) — COMPLETE
 - ✅ **Core UX principle honoured** (per user directive 2026-03-11): SEND service tiles are now **service-type selectors, not additional booking steps**. Every tile funnels the customer straight into the existing wizard (`/send/book/location`) — no separate `/send/cargo`, `/send/fresh`, `/send/between-cities`, `/send/multi-stop` pages. The old placeholder file has been deleted.
 - ✅ **Migration `0049_send_service_types`** adds:

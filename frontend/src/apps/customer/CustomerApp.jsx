@@ -50,7 +50,7 @@ import { ExpressBookingProvider, MoversBookingProvider } from "@/contexts/Expres
 import { ExpressHome } from "@/pages/express/ExpressHome";
 import {
   ExpressStepLocation, ExpressStepReceiver, ExpressStepVehicle,
-  ExpressStepPackage, ExpressStepEstimate, ExpressBookingConfirmation,
+  ExpressStepPackage, ExpressStepEstimate, ExpressStepDetails, ExpressStepBook, ExpressBookingConfirmation,
 } from "@/pages/express/ExpressWizard";
 import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
 import { ExpressBookings } from "@/pages/express/ExpressBookings";
@@ -141,9 +141,10 @@ const DesktopCustomerShell = () => (
       <Route path="/send" element={<ExpressHome />} />
       <Route path="/send/book/location" element={<ExpressStepLocation />} />
       <Route path="/send/book/receiver" element={<ExpressStepReceiver />} />
-      <Route path="/send/book/vehicle" element={<ExpressStepVehicle />} />
-      <Route path="/send/book/package" element={<ExpressStepPackage />} />
-      <Route path="/send/book/estimate" element={<ExpressStepEstimate />} />
+      <Route path="/send/book/details" element={<ExpressStepDetails />} />
+      <Route path="/send/book/vehicle" element={<ExpressStepBook />} />
+      <Route path="/send/book/package" element={<ExpressStepDetails />} />
+      <Route path="/send/book/estimate" element={<ExpressStepBook />} />
       <Route path="/send/booking/:id" element={<ExpressBookingConfirmation />} />
       <Route path="/send/booking/:id/track" element={<ExpressLiveTracking />} />
       <Route path="/send/bookings" element={<ExpressBookings />} />
@@ -221,9 +222,10 @@ const MobileCustomerShell = () => (
       <Route path="/send" element={<ExpressHome />} />
       <Route path="/send/book/location" element={<ExpressStepLocation />} />
       <Route path="/send/book/receiver" element={<ExpressStepReceiver />} />
-      <Route path="/send/book/vehicle" element={<ExpressStepVehicle />} />
-      <Route path="/send/book/package" element={<ExpressStepPackage />} />
-      <Route path="/send/book/estimate" element={<ExpressStepEstimate />} />
+      <Route path="/send/book/details" element={<ExpressStepDetails />} />
+      <Route path="/send/book/vehicle" element={<ExpressStepBook />} />
+      <Route path="/send/book/package" element={<ExpressStepDetails />} />
+      <Route path="/send/book/estimate" element={<ExpressStepBook />} />
       <Route path="/send/booking/:id" element={<ExpressBookingConfirmation />} />
       <Route path="/send/booking/:id/track" element={<ExpressLiveTracking />} />
       <Route path="/send/bookings" element={<ExpressBookings />} />

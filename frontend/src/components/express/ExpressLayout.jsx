@@ -8,7 +8,7 @@ import { useApp } from "../../contexts/BakedContexts";
  * ExpressHeader — matches the PDF spec: back button + centered title + optional
  * right-aligned "Step X of Y" or "Help" text. Used across every Express screen.
  */
-export const ExpressHeader = ({ title, step, totalSteps = 5, right, onBack }) => {
+export const ExpressHeader = ({ title, step, totalSteps = 4, right, onBack }) => {
   const { t } = useTranslation("customer");
   const navigate = useNavigate();
   const handleBack = onBack || (() => navigate(-1));

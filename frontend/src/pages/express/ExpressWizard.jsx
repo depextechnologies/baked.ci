@@ -15,9 +15,8 @@ const useSteps = () => {
   return useMemo(() => ([
     { code: "location", label: t("send.wizard.step_location") },
     { code: "receiver", label: t("send.wizard.step_receiver") },
-    { code: "vehicle",  label: t("send.wizard.step_vehicle") },
-    { code: "package",  label: t("send.wizard.step_package") },
-    { code: "review",   label: t("send.wizard.step_estimate") },
+    { code: "details",  label: t("send.wizard.step_details") },
+    { code: "book",     label: t("send.wizard.step_book") },
   ]), [t]);
 };
 
@@ -86,7 +85,12 @@ export const ExpressStepReceiver = () => {
     patch("preferences", Array.from(set));
   };
 
-  const ok = r.name?.trim() && r.phone?.trim();
+  // Phase D — receiver is now OPTIONAL. Customer may fill in or skip.
+  const goNext = () => navigate("/send/book/details");
+  const skip = () => {
+    setDraft({ receiver: { name: "", phone: "", alt_phone: "", building: "", landmark: "", notes: "", preferences: [] } });
+    goNext();
+  };
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <ExpressHeader title={t("send.wizard.header_receiver")} step={2} />
@@ -119,7 +123,23 @@ export const ExpressStepReceiver = () => {
           </div>
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/send/book/vehicle")} disabled={!ok} />
+      <div className="border-t border-border bg-background/70 backdrop-blur px-4 pt-3 pb-4 flex items-center gap-2">
+        <button
+          data-testid="exp-receiver-skip"
+          onClick={skip}
+          className="h-11 px-4 rounded-2xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-[#FCC44C55] motion-fast"
+        >
+          {t("send.wizard.skip_for_now")}
+        </button>
+        <button
+          data-testid="exp-receiver-continue"
+          onClick={goNext}
+          className="flex-1 h-11 rounded-2xl font-bold text-black motion-fast active:scale-[0.99]"
+          style={{ backgroundColor: "#FCC44C" }}
+        >
+          {t("common.continue", { defaultValue: "Continuer" })}
+        </button>
+      </div>
     </div>
   );
 };
@@ -131,135 +151,7 @@ const Field = ({ label, children }) => (
   </label>
 );
 
-// ---------------- STEP 3: Vehicle ----------------
-export const ExpressStepVehicle = () => {
-  const { t } = useTranslation("customer");
-  const navigate = useNavigate();
-  const { country } = useApp();
-  const { draft, setDraft } = useExpressBooking();
-  const [vehicles, setVehicles] = useState([]);
-  const [quotes, setQuotes] = useState({}); // { vehicle_code: total }
-  const money = useMoney();
-  const STEPS = useSteps();
-
-  useEffect(() => {
-    // Phase C — always ask the backend to filter by service_type. The tile
-    // wrote it on the draft when the customer entered the flow. No client
-    // hard-coding, no extra picker screen.
-    const params = new URLSearchParams({ country: country?.code || "CI" });
-    if (draft.service_type) params.set("service_type", draft.service_type);
-    api.get(`/express/vehicles?${params.toString()}`).then((r) => {
-      setVehicles(r.data);
-      // If the previously selected vehicle isn't in the new eligible set
-      // (e.g. customer switched from CARGO to Fresh Products), clear it.
-      if (draft.vehicle_code && !r.data.some((v) => v.code === draft.vehicle_code)) {
-        setDraft({ vehicle_code: null });
-      }
-    });
-  }, [country?.code, draft.service_type]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Prefetch quotes per vehicle so shopper sees live prices side-by-side
-  useEffect(() => {
-    if (!draft.pickup || !draft.drop || vehicles.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(vehicles.map(async (v) => {
-        try {
-          const { data } = await api.post("/express/quote/parcel", {
-            country: country?.code || "CI",
-            vehicle_code: v.code,
-            pickup_lat: draft.pickup.latitude, pickup_lng: draft.pickup.longitude,
-            drop_lat: draft.drop.latitude, drop_lng: draft.drop.longitude,
-          });
-          return [v.code, data];
-        } catch { return [v.code, null]; }
-      }));
-      if (!cancelled) setQuotes(Object.fromEntries(entries));
-    })();
-    return () => { cancelled = true; };
-  }, [vehicles, draft.pickup, draft.drop, country?.code]);
-
-  const cheapestCode = useMemo(() => {
-    const eligible = Object.entries(quotes).filter(([, q]) => q?.total != null);
-    if (!eligible.length) return null;
-    return eligible.sort((a, b) => a[1].total - b[1].total)[0][0];
-  }, [quotes]);
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <ExpressHeader title={t("send.wizard.header_vehicle")} step={3} />
-      <WizardProgress steps={STEPS} current={2} />
-      <ExpressWizardShell>
-        <div>
-          {draft.service_type && (
-            <div
-              data-testid="exp-service-header"
-              className="baked-card border border-border p-3 mb-3 flex items-center gap-3"
-              style={{ backgroundColor: "#FCC44C0A", borderColor: "#FCC44C33" }}
-            >
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#FCC44C22" }}>
-                <Truck size={16} color="#FCC44C" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("send.wizard.service_label")}</div>
-                <div className="text-sm font-bold leading-tight">{t(`send.tile.${draft.service_type === "fresh_products" ? "fresh" : draft.service_type === "between_cities" ? "between_cities" : draft.service_type === "multiple_shipments" ? "multi" : draft.service_type}_title`)}</div>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-bold">{t("send.wizard.choose_vehicle")}</div>
-            <div className="text-[10px] text-muted-foreground">{t("send.wizard.prices_vary_demand")}</div>
-          </div>
-          <div className="mt-3 space-y-2">
-            {vehicles.length === 0 && (
-              <div data-testid="exp-veh-empty" className="baked-card border border-border p-4 text-xs text-muted-foreground text-center">
-                {t("send.wizard.no_eligible_vehicles")}
-              </div>
-            )}
-            {vehicles.map((v) => {
-              const q = quotes[v.code];
-              const isBest = v.code === cheapestCode;
-              const selected = draft.vehicle_code === v.code;
-              const displayName = v.name_fr || v.name;
-              return (
-                <button
-                  key={v.code}
-                  data-testid={`exp-veh-${v.code}`}
-                  onClick={() => setDraft({ vehicle_code: v.code })}
-                  className={`w-full baked-card border p-3 flex items-center gap-3 text-left motion-fast active:scale-[0.995] ${selected ? "border-[#FCC44C] bg-[#FCC44C14]" : "border-border hover:border-[#FCC44C44]"}`}
-                >
-                  <div className="w-20 h-16 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 55%, #FCC44C22, transparent 65%)` }}>
-                    <img src={vehicleImage(v.code)} alt={displayName} className="max-h-14 max-w-full w-auto object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" loading="lazy" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-bold">{displayName}</div>
-                      {isBest && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Star size={9} className="inline mr-0.5" />{t("send.wizard.best_badge")}</span>}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">{t("send.wizard.up_to_kg", { kg: v.max_weight_kg })} · {v.description}</div>
-                    <div className="text-[10px] font-semibold mt-0.5" style={{ color: "#FCC44C" }}>{t("send.wizard.eta_range", { min: v.eta_min_min, max: v.eta_min_max })}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-bold">{q ? money(q.total) : "…"}</div>
-                    <div className="text-[10px] text-muted-foreground">{t("send.wizard.est_short")}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 baked-card border p-3 flex items-start gap-3" style={{ borderColor: "#FCC44C44", backgroundColor: "#FCC44C0A" }}>
-            <ShieldCheck size={16} style={{ color: "#FCC44C" }} className="shrink-0 mt-0.5" />
-            <div><div className="text-xs font-bold">{t("send.wizard.all_deliveries_insured")}</div><div className="text-[10px] text-muted-foreground">{t("send.wizard.safe_with_send")}</div></div>
-          </div>
-        </div>
-      </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/send/book/package")} disabled={!draft.vehicle_code} />
-    </div>
-  );
-};
-
-// ---------------- Route Summary strip reused across steps 3-5 ----------------
+// ---------------- Route Summary strip reused across steps 3-4 ----------------
 const RouteSummary = () => {
   const { t } = useTranslation("customer");
   const navigate = useNavigate();
@@ -286,8 +178,41 @@ const RouteSummary = () => {
   );
 };
 
-// ---------------- STEP 4: Package ----------------
-export const ExpressStepPackage = () => {
+// ---------------- Shared: service-context header ----------------
+const ServiceHeader = () => {
+  const { t } = useTranslation("customer");
+  const { draft } = useExpressBooking();
+  if (!draft.service_type) return null;
+  const tileKey = draft.service_type === "fresh_products" ? "fresh"
+    : draft.service_type === "between_cities" ? "between_cities"
+    : draft.service_type === "multiple_shipments" ? "multi"
+    : draft.service_type;
+  return (
+    <div
+      data-testid="exp-service-header"
+      className="baked-card border p-3 mb-3 flex items-center gap-3"
+      style={{ backgroundColor: "#FCC44C0A", borderColor: "#FCC44C33" }}
+    >
+      <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#FCC44C22" }}>
+        <Truck size={16} color="#FCC44C" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("send.wizard.service_label")}</div>
+        <div className="text-sm font-bold leading-tight">{t(`send.tile.${tileKey}_title`)}</div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------- STEP 3: Item / Service Details (adaptive) ----------------
+const FRESH_PRODUCT_TYPES = [
+  { code: "fish",       labelKey: "send.wizard.fresh_product_fish" },
+  { code: "meat",       labelKey: "send.wizard.fresh_product_meat" },
+  { code: "vegetables", labelKey: "send.wizard.fresh_product_vegetables" },
+  { code: "other",      labelKey: "send.wizard.fresh_product_other" },
+];
+
+export const ExpressStepDetails = () => {
   const { t } = useTranslation("customer");
   const navigate = useNavigate();
   const { country } = useApp();
@@ -296,13 +221,19 @@ export const ExpressStepPackage = () => {
   const [tiers, setTiers] = useState([]);
   const p = draft.package;
   const STEPS = useSteps();
+  const isFresh = draft.service_type === "fresh_products";
+  const isMulti = draft.service_type === "multiple_shipments";
+  const isBetween = draft.service_type === "between_cities";
 
   useEffect(() => {
-    api.get(`/express/package-types?country=${country?.code || "CI"}`).then((r) => setTypes(r.data));
+    if (!isFresh) {
+      api.get(`/express/package-types?country=${country?.code || "CI"}`).then((r) => setTypes(r.data));
+    }
     api.get("/express/weight-tiers").then((r) => setTiers(r.data));
-  }, [country?.code]);
+  }, [country?.code, isFresh]);
 
   const setPkg = (k, v) => setDraft({ package: { ...p, [k]: v } });
+  const setFresh = (k, v) => setDraft({ package: { ...p, fresh: { ...(p.fresh || { unit: "kg" }), [k]: v } } });
   const setDim = (k, v) => setDraft({ package: { ...p, dimensions: { ...(p.dimensions || {}), [k]: v } } });
 
   const dimPlaceholder = (k) => {
@@ -311,98 +242,216 @@ export const ExpressStepPackage = () => {
     return t("send.wizard.dim_height");
   };
 
+  // Details step never blocks the flow: weight_range gets a sensible default.
+  const canContinue = isFresh
+    ? Boolean(p.fresh?.type && p.fresh?.quantity)
+    : Boolean(p.type && p.weight_range);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <ExpressHeader title={t("send.wizard.header_package")} step={4} />
-      <WizardProgress steps={STEPS} current={3} />
+      <ExpressHeader title={t("send.wizard.header_details")} step={3} />
+      <WizardProgress steps={STEPS} current={2} />
       <ExpressWizardShell>
         <div className="space-y-4">
-          <div className="text-xs text-muted-foreground">{t("send.wizard.package_helps")}</div>
+          <ServiceHeader />
 
-          <div>
-            <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.package_type")}</div>
-            <div className="flex flex-wrap gap-2">
-              {types.map((tp) => {
-                const active = p.type === tp.code;
-                return (
-                  <button key={tp.code} data-testid={`exp-pkg-type-${tp.code}`} onClick={() => setPkg("type", tp.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>
-                    {active && <CheckCircle2 size={11} className="inline mr-1" />}{tp.name}
-                  </button>
-                );
-              })}
+          {isMulti && (
+            <div className="baked-card border p-3" style={{ borderColor: "#FCC44C55", backgroundColor: "#FCC44C0A" }}>
+              <div className="text-sm font-bold">{t("send.wizard.multi_note_title")}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">{t("send.wizard.multi_note_body")}</div>
             </div>
-          </div>
-
-          <div>
-            <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.package_weight")}</div>
-            <div className="flex flex-wrap gap-2">
-              {tiers.map((tr) => {
-                const active = p.weight_range === tr.code;
-                return (
-                  <button key={tr.code} data-testid={`exp-pkg-weight-${tr.code}`} onClick={() => setPkg("weight_range", tr.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>
-                    {tr.name}
-                  </button>
-                );
-              })}
+          )}
+          {isBetween && (
+            <div className="baked-card border p-3" style={{ borderColor: "#FCC44C55", backgroundColor: "#FCC44C0A" }}>
+              <div className="text-sm font-bold">{t("send.wizard.between_note_title")}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">{t("send.wizard.between_note_body")}</div>
             </div>
-          </div>
+          )}
 
-          <div>
-            <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.package_dimensions")} <span className="text-muted-foreground">{t("send.wizard.optional")}</span></div>
-            <div className="grid grid-cols-3 gap-2">
-              {["length", "width", "height"].map((k) => (
-                <input key={k} data-testid={`exp-pkg-dim-${k}`} inputMode="numeric" value={p.dimensions?.[k] ?? ""} onChange={(e) => setDim(k, e.target.value.replace(/[^\d.]/g, ""))} placeholder={dimPlaceholder(k)} className="baked-input h-11 px-3 border border-border bg-secondary/40 text-sm" />
-              ))}
-            </div>
-          </div>
-
-          <Field label={t("send.wizard.additional_info")}>
-            <textarea data-testid="exp-pkg-notes" value={p.notes} maxLength={150} onChange={(e) => setPkg("notes", e.target.value)} rows={3} placeholder={t("send.wizard.additional_info_ph")} className="baked-input w-full px-3 py-2 border border-border bg-secondary/40 text-sm" />
-            <div className="text-[10px] text-muted-foreground text-right">{(p.notes || "").length}/150</div>
-          </Field>
+          {isFresh ? (
+            <>
+              <div>
+                <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.fresh_product_type")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {FRESH_PRODUCT_TYPES.map((tp) => {
+                    const active = p.fresh?.type === tp.code;
+                    return (
+                      <button
+                        key={tp.code}
+                        data-testid={`exp-fresh-type-${tp.code}`}
+                        onClick={() => setFresh("type", tp.code)}
+                        className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}
+                      >
+                        {active && <CheckCircle2 size={11} className="inline mr-1" />}{t(tp.labelKey)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.fresh_approx_quantity")}</div>
+                <div className="flex gap-2">
+                  <input
+                    data-testid="exp-fresh-qty"
+                    inputMode="decimal"
+                    value={p.fresh?.quantity ?? ""}
+                    onChange={(e) => setFresh("quantity", e.target.value.replace(/[^\d.]/g, ""))}
+                    placeholder="0"
+                    className="flex-1 baked-input h-11 px-3 border border-border bg-secondary/40 text-sm"
+                  />
+                  <div className="flex rounded-2xl border border-border overflow-hidden">
+                    {["kg", "tonnes"].map((u) => {
+                      const active = (p.fresh?.unit || "kg") === u;
+                      return (
+                        <button
+                          key={u}
+                          data-testid={`exp-fresh-unit-${u}`}
+                          onClick={() => setFresh("unit", u)}
+                          className={`h-11 px-4 text-xs font-bold motion-fast ${active ? "text-black" : "text-muted-foreground"}`}
+                          style={active ? { backgroundColor: "#FCC44C" } : {}}
+                        >
+                          {t(`send.wizard.unit_${u}`)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <Field label={t("send.wizard.additional_info")}>
+                <textarea data-testid="exp-pkg-notes" value={p.notes} maxLength={150} onChange={(e) => setPkg("notes", e.target.value)} rows={3} placeholder={t("send.wizard.additional_info_ph")} className="baked-input w-full px-3 py-2 border border-border bg-secondary/40 text-sm" />
+                <div className="text-[10px] text-muted-foreground text-right">{(p.notes || "").length}/150</div>
+              </Field>
+            </>
+          ) : (
+            <>
+              <div>
+                <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.package_type")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {types.map((tp) => {
+                    const active = p.type === tp.code;
+                    return (
+                      <button key={tp.code} data-testid={`exp-pkg-type-${tp.code}`} onClick={() => setPkg("type", tp.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>
+                        {active && <CheckCircle2 size={11} className="inline mr-1" />}{tp.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.package_weight")}</div>
+                <div className="flex flex-wrap gap-2">
+                  {tiers.map((tr) => {
+                    const active = p.weight_range === tr.code;
+                    return (
+                      <button key={tr.code} data-testid={`exp-pkg-weight-${tr.code}`} onClick={() => setPkg("weight_range", tr.code)} className={`h-9 px-3 baked-chip text-xs font-semibold border motion-fast ${active ? "border-[#FCC44C] text-[#FCC44C] bg-[#FCC44C14]" : "border-border bg-secondary"}`}>
+                        {tr.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.package_dimensions")} <span className="text-muted-foreground">{t("send.wizard.optional")}</span></div>
+                <div className="grid grid-cols-3 gap-2">
+                  {["length", "width", "height"].map((k) => (
+                    <input key={k} data-testid={`exp-pkg-dim-${k}`} inputMode="numeric" value={p.dimensions?.[k] ?? ""} onChange={(e) => setDim(k, e.target.value.replace(/[^\d.]/g, ""))} placeholder={dimPlaceholder(k)} className="baked-input h-11 px-3 border border-border bg-secondary/40 text-sm" />
+                  ))}
+                </div>
+              </div>
+              <Field label={t("send.wizard.additional_info")}>
+                <textarea data-testid="exp-pkg-notes" value={p.notes} maxLength={150} onChange={(e) => setPkg("notes", e.target.value)} rows={3} placeholder={t("send.wizard.additional_info_ph")} className="baked-input w-full px-3 py-2 border border-border bg-secondary/40 text-sm" />
+                <div className="text-[10px] text-muted-foreground text-right">{(p.notes || "").length}/150</div>
+              </Field>
+            </>
+          )}
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={() => navigate("/send/book/estimate")} disabled={!p.type || !p.weight_range} />
+      <ExpressFooter onContinue={() => navigate("/send/book/vehicle")} disabled={!canContinue} />
     </div>
   );
 };
 
-// ---------------- STEP 5: Price Estimate + Book ----------------
-export const ExpressStepEstimate = () => {
+// Back-compat alias: `/send/book/package` was the old Step 4; the exported
+// symbol is preserved so any lingering route/link stays functional.
+export const ExpressStepPackage = ExpressStepDetails;
+
+// ---------------- STEP 4: Vehicle & Booking (merged) ----------------
+export const ExpressStepBook = () => {
   const { t } = useTranslation("customer");
   const navigate = useNavigate();
-  const { country, openAddressSelector } = useApp();
+  const { country } = useApp();
   const { customer, openLogin } = useAuth();
-  const { draft, resetDraft } = useExpressBooking();
-  const [quote, setQuote] = useState(null);
+  const { draft, setDraft, resetDraft } = useExpressBooking();
+  const [vehicles, setVehicles] = useState([]);
+  const [quotes, setQuotes] = useState({});   // { vehicle_code: quote }
+  const [openInfo, setOpenInfo] = useState(null); // vehicle_code whose breakdown is expanded
   const [promo, setPromo] = useState(draft.promo_code || "");
+  const [promoApplied, setPromoApplied] = useState(false);
   const [busy, setBusy] = useState(false);
   const money = useMoney();
   const STEPS = useSteps();
 
-  const fetchQuote = async (withPromo) => {
-    if (!draft.pickup || !draft.drop || !draft.vehicle_code) return;
-    const { data } = await api.post("/express/quote/parcel", {
-      country: country?.code || "CI",
-      vehicle_code: draft.vehicle_code,
-      pickup_lat: draft.pickup.latitude, pickup_lng: draft.pickup.longitude,
-      drop_lat: draft.drop.latitude, drop_lng: draft.drop.longitude,
-      promo_code: withPromo || undefined,
+  // Fetch eligible vehicles for the current service_type. No hard-coding
+  // — the config table on the backend is the only source of truth.
+  useEffect(() => {
+    const params = new URLSearchParams({ country: country?.code || "CI" });
+    if (draft.service_type) params.set("service_type", draft.service_type);
+    api.get(`/express/vehicles?${params.toString()}`).then((r) => {
+      setVehicles(r.data);
+      if (draft.vehicle_code && !r.data.some((v) => v.code === draft.vehicle_code)) {
+        setDraft({ vehicle_code: null });
+      }
     });
-    setQuote(data);
+  }, [country?.code, draft.service_type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch a live quote per eligible vehicle so the customer sees prices
+  // side-by-side without opening a breakdown.
+  const fetchQuotes = async (withPromo) => {
+    if (!draft.pickup || !draft.drop || vehicles.length === 0) return;
+    const entries = await Promise.all(vehicles.map(async (v) => {
+      try {
+        const { data } = await api.post("/express/quote/parcel", {
+          country: country?.code || "CI",
+          vehicle_code: v.code,
+          pickup_lat: draft.pickup.latitude, pickup_lng: draft.pickup.longitude,
+          drop_lat: draft.drop.latitude, drop_lng: draft.drop.longitude,
+          promo_code: withPromo || undefined,
+        });
+        return [v.code, data];
+      } catch { return [v.code, null]; }
+    }));
+    setQuotes(Object.fromEntries(entries));
   };
-  useEffect(() => { fetchQuote(); /* initial */ /* eslint-disable-line */ }, [draft.pickup, draft.drop, draft.vehicle_code]);
+  useEffect(() => { fetchQuotes(); /* eslint-disable-line */ }, [vehicles, draft.pickup, draft.drop, country?.code]);
 
   const applyPromo = async () => {
     if (!promo.trim()) return;
-    await fetchQuote(promo.trim());
-    if (!quote?.promo) toast.info(t("send.wizard.promo_applied"));
+    await fetchQuotes(promo.trim());
+    setPromoApplied(true);
+    toast.info(t("send.wizard.promo_applied"));
   };
 
+  const cheapestCode = useMemo(() => {
+    const eligible = Object.entries(quotes).filter(([, q]) => q?.total != null);
+    if (!eligible.length) return null;
+    return eligible.sort((a, b) => a[1].total - b[1].total)[0][0];
+  }, [quotes]);
+
+  const selectedQuote = draft.vehicle_code ? quotes[draft.vehicle_code] : null;
+
   const book = async () => {
-    if (!customer) { openLogin("/send/book/estimate"); return; }
+    if (!draft.vehicle_code) { toast.info(t("send.wizard.pick_vehicle_first", { defaultValue: "Choisissez un véhicule" })); return; }
+    if (!customer) { openLogin("/send/book/vehicle"); return; }
     setBusy(true);
     try {
+      // For Fresh Products, compact the produce type + quantity into
+      // package_notes so the driver + admin see the payload without a
+      // schema change.
+      const p = draft.package || {};
+      const freshLine = p.fresh?.type
+        ? `[FRESH] ${p.fresh.type} · ${p.fresh.quantity || 0} ${p.fresh.unit || "kg"}`
+        : "";
+      const notes = [freshLine, p.notes].filter(Boolean).join("\n");
       const { data } = await api.post("/express/bookings/parcel", {
         country: country?.code || "CI",
         vehicle_code: draft.vehicle_code,
@@ -410,11 +459,11 @@ export const ExpressStepEstimate = () => {
         pickup: draft.pickup,
         drop: draft.drop,
         receiver: draft.receiver,
-        package_type: draft.package.type,
-        package_weight_range: draft.package.weight_range,
-        package_dimensions: draft.package.dimensions,
-        package_notes: draft.package.notes,
-        promo_code: quote?.promo?.code,
+        package_type: p.type || "general_parcel",
+        package_weight_range: p.weight_range || "up_to_5kg",
+        package_dimensions: p.dimensions,
+        package_notes: notes || undefined,
+        promo_code: selectedQuote?.promo?.code,
         payment_method: "cod",
       });
       resetDraft();
@@ -424,10 +473,10 @@ export const ExpressStepEstimate = () => {
     } finally { setBusy(false); }
   };
 
-  if (!draft.pickup || !draft.drop || !draft.vehicle_code) {
+  if (!draft.pickup || !draft.drop) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <ExpressHeader title={t("send.wizard.header_estimate")} step={5} />
+        <ExpressHeader title={t("send.wizard.header_book")} step={4} />
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
           <div className="text-sm font-semibold">{t("send.wizard.booking_incomplete")}</div>
           <button onClick={() => navigate("/send/book/location")} className="mt-4 baked-btn h-11 px-6 font-bold text-black" style={{ backgroundColor: "#FCC44C" }}>{t("send.wizard.restart_booking")}</button>
@@ -436,46 +485,109 @@ export const ExpressStepEstimate = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <ExpressHeader title={t("send.wizard.header_estimate")} step={5} />
-      <WizardProgress steps={STEPS} current={4} />
-      <ExpressWizardShell>
-        <div className="space-y-3">
-          <div className="baked-card border border-border p-3 flex items-center gap-3">
-            <div className="w-16 h-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 55%, #FCC44C22, transparent 65%)` }}>
-              <img src={vehicleImage(draft.vehicle_code)} alt={draft.vehicle_code} className="max-h-12 max-w-full w-auto object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" />
-            </div>
-            <div className="flex-1"><div className="text-sm font-bold capitalize">{draft.vehicle_code.replace("_", " ")}</div><div className="text-[11px] text-muted-foreground">{t("send.wizard.selected_vehicle")}</div></div>
-            <button data-testid="exp-est-change-veh" onClick={() => navigate("/send/book/vehicle")} className="text-xs font-semibold" style={{ color: "#FCC44C" }}>{t("send.wizard.change")}</button>
-          </div>
+  // Phase D — Send-by-Motorcycle deliberately cross-sells the 3 CARGO
+  // alternatives after the primary bike. All other services just list
+  // their eligible vehicles.
+  const isMoto = draft.service_type === "moto";
+  const primary = isMoto ? vehicles.filter((v) => v.code === "bike") : vehicles;
+  const alternatives = isMoto ? vehicles.filter((v) => v.code !== "bike") : [];
 
-          <div className="baked-card border border-border p-4">
-            <div className="text-sm font-bold mb-2">{t("send.wizard.price_breakdown")}</div>
-            {!quote ? (
-              <div className="text-xs text-muted-foreground">{t("send.wizard.calculating")}</div>
-            ) : (
-              <div className="space-y-1.5 text-xs">
-                <Row label={t("send.wizard.base_fare")} value={money(quote.base_fare)} />
-                <Row label={t("send.wizard.distance", { km: quote.distance_km })} value={money(quote.distance_fare)} />
-                <Row label={t("send.wizard.time", { min: quote.duration_min })} value={money(quote.time_fare)} />
-                {quote.surcharge > 0 && <Row label={t("send.wizard.surcharge")} value={money(quote.surcharge)} />}
-                <Row label={t("send.wizard.service_fee")} value={money(quote.service_fee)} tone />
-                <Row label={t("send.wizard.insurance")} value={money(quote.insurance)} tone />
-                {quote.taxes > 0 && <Row label={t("send.wizard.taxes")} value={money(quote.taxes)} tone />}
-                {quote.promo_discount > 0 && <Row label={t("send.wizard.promo_line", { code: quote.promo?.code })} value={`− ${money(quote.promo_discount)}`} tone="#FCC44C" />}
-                <div className="border-t border-border my-2" />
-                <Row label={<strong>{t("send.wizard.estimated_total")}</strong>} value={<strong data-testid="exp-est-total">{money(quote.total)}</strong>} />
-                <div className="text-[10px] text-muted-foreground">{t("send.wizard.all_prices_inclusive")}</div>
-              </div>
+  const renderCard = (v) => {
+    const q = quotes[v.code];
+    const isBest = v.code === cheapestCode;
+    const selected = draft.vehicle_code === v.code;
+    const displayName = v.name_fr || v.name;
+    const info = openInfo === v.code;
+    return (
+      <div key={v.code} className={`baked-card border overflow-hidden motion-fast ${selected ? "border-[#FCC44C]" : "border-border hover:border-[#FCC44C44]"}`}>
+        <button
+          data-testid={`exp-veh-${v.code}`}
+          onClick={() => setDraft({ vehicle_code: v.code })}
+          className={`w-full p-3 flex items-center gap-3 text-left ${selected ? "bg-[#FCC44C14]" : ""}`}
+        >
+          <div className="w-20 h-16 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: `radial-gradient(circle at 50% 55%, #FCC44C22, transparent 65%)` }}>
+            <img src={vehicleImage(v.code)} alt={displayName} className="max-h-14 max-w-full w-auto object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)]" loading="lazy" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-bold">{displayName}</div>
+              {isBest && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Star size={9} className="inline mr-0.5" />{t("send.wizard.best_badge")}</span>}
+            </div>
+            <div className="text-[11px] text-muted-foreground">{t("send.wizard.up_to_kg", { kg: v.max_weight_kg })} · {v.description}</div>
+            <div className="text-[10px] font-semibold mt-0.5" style={{ color: "#FCC44C" }}>{t("send.wizard.eta_range", { min: v.eta_min_min, max: v.eta_min_max })}</div>
+          </div>
+          <div className="text-right shrink-0 flex flex-col items-end gap-1">
+            <div className="text-sm font-bold" data-testid={`exp-veh-price-${v.code}`}>{q ? money(q.total) : "…"}</div>
+            <div className="text-[10px] text-muted-foreground">{t("send.wizard.est_short")}</div>
+            {q && (
+              <button
+                data-testid={`exp-veh-info-${v.code}`}
+                onClick={(e) => { e.stopPropagation(); setOpenInfo(info ? null : v.code); }}
+                aria-label={t("send.wizard.info_price_breakdown")}
+                className="w-6 h-6 rounded-full flex items-center justify-center border border-border hover:border-[#FCC44C55] hover:text-[#FCC44C] motion-fast"
+              >
+                <Info size={12} />
+              </button>
             )}
           </div>
-
-          <div className="baked-card border border-border p-3 flex items-center gap-3">
-            <ShieldCheck size={16} style={{ color: "#FCC44C" }} />
-            <div className="flex-1"><div className="text-xs font-bold">{t("send.wizard.insurance_included")}</div><div className="text-[10px] text-muted-foreground">{t("send.wizard.goods_covered_up_to", { amount: money(50000) })}</div></div>
-            <div className="text-right"><Clock size={13} style={{ color: "#FCC44C" }} className="ml-auto" /><div className="text-[10px] text-muted-foreground mt-0.5">{quote?.duration_min ?? "—"} {t("send.wizard.eta_min_short")}</div></div>
+        </button>
+        {info && q && (
+          <div data-testid={`exp-veh-breakdown-${v.code}`} className="px-3 pb-3 pt-0">
+            <div className="rounded-xl border border-dashed border-border p-3 space-y-1 text-xs">
+              <Row label={t("send.wizard.base_fare")} value={money(q.base_fare)} />
+              <Row label={t("send.wizard.distance", { km: q.distance_km })} value={money(q.distance_fare)} />
+              <Row label={t("send.wizard.time", { min: q.duration_min })} value={money(q.time_fare)} />
+              {q.surcharge > 0 && <Row label={t("send.wizard.surcharge")} value={money(q.surcharge)} />}
+              <Row label={t("send.wizard.service_fee")} value={money(q.service_fee)} tone />
+              <Row label={t("send.wizard.insurance")} value={money(q.insurance)} tone />
+              {q.taxes > 0 && <Row label={t("send.wizard.taxes")} value={money(q.taxes)} tone />}
+              {q.promo_discount > 0 && <Row label={t("send.wizard.promo_line", { code: q.promo?.code })} value={`− ${money(q.promo_discount)}`} tone="#FCC44C" />}
+              <div className="border-t border-border my-1.5" />
+              <Row label={<strong>{t("send.wizard.estimated_total")}</strong>} value={<strong data-testid={`exp-veh-total-${v.code}`}>{money(q.total)}</strong>} />
+              <div className="text-[10px] text-muted-foreground mt-0.5">{t("send.wizard.all_prices_inclusive")}</div>
+            </div>
           </div>
+        )}
+      </div>
+    );
+  };
+
+  const cta = customer
+    ? (selectedQuote
+        ? t("send.wizard.book_now_with_price", { price: money(selectedQuote.total) })
+        : t("send.wizard.book_now_simple"))
+    : t("send.wizard.sign_in_to_book");
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <ExpressHeader title={t("send.wizard.header_book")} step={4} />
+      <WizardProgress steps={STEPS} current={3} />
+      <ExpressWizardShell>
+        <div className="space-y-3">
+          <ServiceHeader />
+
+          {isMoto && primary.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">{t("send.wizard.recommended_for_shipment")}</div>
+              {primary.map(renderCard)}
+            </div>
+          )}
+          {isMoto && alternatives.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground mt-3 mb-2">{t("send.wizard.other_vehicle_options")}</div>
+              <div className="space-y-2">{alternatives.map(renderCard)}</div>
+            </div>
+          )}
+          {!isMoto && (
+            <div className="space-y-2">
+              {vehicles.length === 0 && (
+                <div data-testid="exp-veh-empty" className="baked-card border border-border p-4 text-xs text-muted-foreground text-center">
+                  {t("send.wizard.no_eligible_vehicles")}
+                </div>
+              )}
+              {vehicles.map(renderCard)}
+            </div>
+          )}
 
           <div className="baked-card border border-border p-3">
             <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.have_promo")}</div>
@@ -483,28 +595,25 @@ export const ExpressStepEstimate = () => {
               <input data-testid="exp-est-promo-input" value={promo} onChange={(e) => setPromo(e.target.value.toUpperCase())} placeholder={t("send.wizard.promo_ph")} className="flex-1 baked-input h-10 px-3 border border-border bg-secondary/40 text-sm uppercase" />
               <button data-testid="exp-est-promo-apply" onClick={applyPromo} className="baked-btn h-10 px-4 font-bold text-black" style={{ backgroundColor: "#FCC44C" }}>{t("send.wizard.apply")}</button>
             </div>
-            <div className="text-[10px] text-muted-foreground mt-1">{t("send.wizard.final_price_note")}</div>
+            {promoApplied && <div className="text-[10px] text-muted-foreground mt-1">{t("send.wizard.final_price_note")}</div>}
           </div>
 
-          <div className="baked-card border border-border p-3">
-            <div className="text-[11px] font-semibold mb-1.5">{t("send.wizard.payment")}</div>
-            <div className="grid grid-cols-2 gap-2">
-              <div data-testid="exp-est-pay-cod" className="baked-card border p-3 flex items-center gap-3" style={{ borderColor: "#FCC44C", backgroundColor: "#FCC44C0F" }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#FCC44C22", color: "#FCC44C" }}><Package size={15} /></div>
-                <div><div className="text-xs font-bold">{t("send.wizard.cash_on_delivery")}</div><div className="text-[10px] text-muted-foreground">{t("send.wizard.pay_to_driver")}</div></div>
-              </div>
-              <div data-testid="exp-est-pay-wallet" className="baked-card border p-3 flex items-center gap-3 border-border opacity-60">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-secondary text-muted-foreground"><Info size={15} /></div>
-                <div><div className="text-xs font-bold">{t("send.wizard.baked_wallet")}</div><div className="text-[10px] text-muted-foreground">{t("send.wizard.coming_soon")}</div></div>
-              </div>
-            </div>
+          <div className="baked-card border p-3 flex items-center gap-3" style={{ borderColor: "#FCC44C44", backgroundColor: "#FCC44C0A" }}>
+            <ShieldCheck size={16} style={{ color: "#FCC44C" }} />
+            <div className="flex-1"><div className="text-xs font-bold">{t("send.wizard.insurance_included")}</div><div className="text-[10px] text-muted-foreground">{t("send.wizard.goods_covered_up_to", { amount: money(50000) })}</div></div>
           </div>
         </div>
       </ExpressWizardShell>
-      <ExpressFooter onContinue={book} disabled={!quote || busy} label={customer ? t("send.wizard.book_now_with_price", { price: quote ? money(quote.total) : "" }) : t("send.wizard.sign_in_to_book")} loading={busy} testid="exp-est-book" />
+      <ExpressFooter onContinue={book} disabled={!draft.vehicle_code || busy} label={cta} loading={busy} testid="exp-est-book" />
     </div>
   );
 };
+
+// Back-compat alias — any legacy `/send/book/estimate` route now renders
+// the new merged Vehicle & Booking step instead of a dead page.
+export const ExpressStepEstimate = ExpressStepBook;
+// Ditto for the old `/send/book/vehicle` route.
+export const ExpressStepVehicle = ExpressStepBook;
 
 const Row = ({ label, value, tone }) => (
   <div className="flex items-center justify-between">

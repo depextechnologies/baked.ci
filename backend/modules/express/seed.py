@@ -185,7 +185,11 @@ TIME_SLOTS = [
 #   * multiple_shipments ... any parcel-scale vehicle the customer picks for
 #                            the whole multi-stop trip.
 SEND_SERVICE_VEHICLES = {
-    "moto":               [("bike", 1)],
+    # `moto` shows the motorcycle first (sort=1) and, as a deliberate
+    # cross-sell, three larger CARGO vehicles the customer can upgrade to
+    # without leaving the flow. Frontend renders the bike under the
+    # "Recommandé" heading, the rest under "Autres options".
+    "moto":               [("bike", 1), ("three_wheeler", 2), ("mini_truck", 3), ("truck", 4)],
     "cargo":              [("three_wheeler", 1), ("mini_truck", 2), ("truck", 3)],
     "fresh_products":     [("ref_tricycle", 1),  ("ref_utility", 2), ("ref_truck", 3)],
     "between_cities":     [("three_wheeler", 1), ("mini_truck", 2), ("truck", 3)],
