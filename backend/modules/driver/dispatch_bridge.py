@@ -17,24 +17,85 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Driver, ModuleDriver
+from core.models import Driver, DriverVehicleCapability, ModuleDriver
 
 
 DEFAULT_VEHICLE_TYPE = "bike"
+REFRIGERATED_CODES = {"ref_tricycle", "ref_utility", "ref_truck"}
+
+
+async def _driver_capabilities(session: AsyncSession, driver_id: str) -> list[str]:
+    """Return the list of vehicle_codes this driver is authorised to operate.
+    Empty list is a valid answer — the caller then falls back to the legacy
+    single `Driver.vehicle_type` field."""
+    rows = (
+        await session.execute(
+            select(DriverVehicleCapability.vehicle_code, DriverVehicleCapability.is_primary)
+            .where(DriverVehicleCapability.driver_id == driver_id)
+        )
+    ).all()
+    if not rows:
+        return []
+    # Primary first, then alphabetical — stable ordering for the /me payload.
+    return [r[0] for r in sorted(rows, key=lambda r: (not r[1], r[0]))]
+
+
+def _has_refrigerated(codes: list[str]) -> bool:
+    return any(c in REFRIGERATED_CODES for c in codes)
+
+
+async def sync_capabilities(
+    session: AsyncSession, driver: Driver, codes: list[str], *, primary: Optional[str] = None
+) -> list[str]:
+    """Replace the driver's capability set with `codes` (dedup + normalised).
+    Optionally promote one code to `is_primary=True`. Idempotent.
+
+    Caller must `session.commit()`.
+    """
+    normalised = [c for c in dict.fromkeys(codes) if c]
+    if primary and primary not in normalised:
+        # Auto-add the requested primary so the caller doesn't have to think
+        # about ordering.
+        normalised.append(primary)
+    await session.execute(
+        delete(DriverVehicleCapability).where(DriverVehicleCapability.driver_id == driver.id)
+    )
+    for c in normalised:
+        session.add(DriverVehicleCapability(
+            driver_id=driver.id,
+            vehicle_code=c,
+            is_primary=(c == (primary or (normalised[0] if normalised else None))),
+        ))
+    await session.flush()
+    # Mirror the primary into the legacy single-vehicle column so any code
+    # path still reading Driver.vehicle_type keeps working.
+    if normalised:
+        driver.vehicle_type = primary or normalised[0]
+    return normalised
 
 
 async def get_or_create_module_driver(session: AsyncSession, driver: Driver) -> ModuleDriver:
     """Return the ModuleDriver row linked to this Driver, creating it if
-    missing. Idempotent — safe to call on every online toggle."""
+    missing. Idempotent — safe to call on every online toggle. Also keeps
+    `is_refrigerated` in sync with the driver's declared capabilities."""
     md = (
         await session.execute(
             select(ModuleDriver).where(ModuleDriver.linked_driver_id == driver.id)
         )
     ).scalar_one_or_none()
+    caps = await _driver_capabilities(session, driver.id)
+    # Vehicle type: prefer primary capability, then legacy driver.vehicle_type,
+    # then a safe default. Refrigerated flag = any capability is a ref_*.
+    vehicle_type = (caps[0] if caps else None) or getattr(driver, "vehicle_type", None) or DEFAULT_VEHICLE_TYPE
+    is_refrigerated = _has_refrigerated(caps) or vehicle_type in REFRIGERATED_CODES
     if md is not None:
+        # Keep the derived flags fresh in case the driver just edited their
+        # capability list.
+        md.vehicle_type = vehicle_type
+        md.is_refrigerated = is_refrigerated
         return md
 
     md = ModuleDriver(
@@ -48,11 +109,12 @@ async def get_or_create_module_driver(session: AsyncSession, driver: Driver) -> 
         phone=driver.phone_e164 or f"drv:{driver.id}",
         email=driver.email,
         country=driver.country,
-        vehicle_type=getattr(driver, "vehicle_type", None) or DEFAULT_VEHICLE_TYPE,
+        vehicle_type=vehicle_type,
         vehicle_reg=getattr(driver, "vehicle_reg", None),
         license_number=getattr(driver, "license_number", None),
         status="active",
         is_available=False,     # not-yet-online
+        is_refrigerated=is_refrigerated,
         linked_driver_id=driver.id,
     )
     session.add(md)

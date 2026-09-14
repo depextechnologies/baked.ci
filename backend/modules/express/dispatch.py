@@ -53,13 +53,23 @@ def _haversine_km(a_lat: float, a_lng: float, b_lat: float, b_lng: float) -> flo
 # The dispatch layer accepts either the exact vehicle code, or the "capability
 # family" (a larger vehicle can serve a smaller job). Keeps dispatch usable
 # when a market has few drivers of a given class.
+#
+# Phase B — refrigerated codes NEVER fall back to a non-refrigerated vehicle.
+# A `ref_tricycle` job may be served by a bigger refrigerated vehicle, but
+# never by a plain (non-cold-chain) truck.
 FALLBACK_CHAIN = {
     "bike":          ["bike", "scooter", "three_wheeler"],
     "scooter":       ["scooter", "bike", "three_wheeler"],
     "three_wheeler": ["three_wheeler", "mini_truck", "truck"],
     "mini_truck":    ["mini_truck", "truck", "three_wheeler"],
     "truck":         ["truck", "mini_truck"],
+    "ref_tricycle":  ["ref_tricycle", "ref_utility", "ref_truck"],
+    "ref_utility":   ["ref_utility", "ref_truck"],
+    "ref_truck":     ["ref_truck"],
 }
+
+# Vehicle codes that require a cold-chain-certified driver.
+REFRIGERATED_CODES = {"ref_tricycle", "ref_utility", "ref_truck"}
 
 
 async def find_nearest_driver(
@@ -80,6 +90,7 @@ async def find_nearest_driver(
     exclude_ids = exclude_ids or []
     stale_before = datetime.now(timezone.utc) - timedelta(seconds=STALE_AFTER_SECONDS)
     families = FALLBACK_CHAIN.get(vehicle_code, [vehicle_code])
+    needs_refrigerated = vehicle_code in REFRIGERATED_CODES
     for vt in families:
         q = (
             select(ModuleDriver)
@@ -98,6 +109,10 @@ async def find_nearest_driver(
             )
             .limit(200)
         )
+        if needs_refrigerated:
+            # Phase B — cold-chain guarantee. Fresh-Products bookings must
+            # never be assigned to a driver without a refrigerated vehicle.
+            q = q.where(ModuleDriver.is_refrigerated.is_(True))
         if exclude_ids:
             q = q.where(~ModuleDriver.id.in_(exclude_ids))
         drivers = (await session.execute(q)).scalars().all()

@@ -166,6 +166,10 @@ class ModuleDriver(Base, AuditMixin):
     rating: Mapped[float] = mapped_column(Numeric(2, 1), nullable=False, default=4.8)
     photo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Phase B — quick refrigerated dispatch filter (mirrors the driver's active
+    # vehicle capability). Kept as a column on module_drivers so the dispatch
+    # query stays index-only and doesn't need to join capabilities.
+    is_refrigerated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # Bridge back to the SENDbakēd Driver record (0032). NULL for legacy seed
     # rows; set for real drivers going through /driver/me/online.
     linked_driver_id: Mapped[Optional[str]] = mapped_column(
@@ -191,6 +195,7 @@ class ExpressVehicle(Base, AuditMixin):
     code: Mapped[str] = mapped_column(String, nullable=False)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    name_fr: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     max_weight_kg: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
     eta_min_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -198,6 +203,7 @@ class ExpressVehicle(Base, AuditMixin):
     base_price: Mapped[Optional[float]] = mapped_column(Numeric(14, 2), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_refrigerated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     icon: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     image: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 

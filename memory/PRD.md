@@ -1,5 +1,36 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-11) — SENDbakēd Phase B · Central Vehicle Catalogue + Driver Capabilities — COMPLETE
+- ✅ **Migration `0048_send_vehicle_capabilities`** adds:
+  - `express_vehicles.name_fr` (nullable) — French display name per vehicle.
+  - `express_vehicles.is_refrigerated` (default `false`) — cold-chain marker.
+  - `module_drivers.is_refrigerated` (default `false`) + composite index `ix_module_drivers_refrigerated` — enables an index-only dispatch filter without a JOIN into capabilities.
+  - New `driver_vehicle_capabilities` table — composite PK `(driver_id, vehicle_code)` + `is_primary` + `created_at` + `ix_dvc_vehicle_code`. FK `driver_id → drivers(id) ON DELETE CASCADE`. `vehicle_code` is intentionally a plain string (country-agnostic).
+- ✅ **Models updated** (`core/models/express.py` + `core/models/driver.py` + `core/models/__init__.py`):
+  - `ExpressVehicle` gains `name_fr` + `is_refrigerated`.
+  - `ModuleDriver` gains `is_refrigerated`.
+  - New `DriverVehicleCapability` many-to-many model exported from `core.models`.
+- ✅ **Seed** (`modules/express/seed.py`) now emits **8 SEND vehicles per country** (up from 5), including the 3 refrigerated fleet members with idiomatic French labels:
+  - `bike` · Moto · non-fridge
+  - `scooter` · Scooter · non-fridge
+  - `three_wheeler` · Tricycle · non-fridge
+  - `mini_truck` · Mini camion · non-fridge
+  - `truck` · Camion · non-fridge
+  - `ref_tricycle` · **Tricycle frigorifique** · fridge · base CI 8 000 XOF / LR 2 500 LRD
+  - `ref_utility` · **Utilitaire frigorifique** · fridge · base CI 18 000 XOF / LR 6 000 LRD
+  - `ref_truck` · **Camion frigorifique** · fridge · base CI 32 000 XOF / LR 11 000 LRD
+  - `ExpressPricingRule` rows auto-created for the 3 new codes with cold-chain-adjusted `per_km`/`per_min` values.
+- ✅ **Dispatch guarantee** (`modules/express/dispatch.py`):
+  - New `REFRIGERATED_CODES = {ref_tricycle, ref_utility, ref_truck}`.
+  - `FALLBACK_CHAIN` extended with 3 strict refrigerated chains — a `ref_tricycle` job may only walk down to `ref_utility` or `ref_truck`, **never** to plain `truck`.
+  - `find_nearest_driver()` adds a `ModuleDriver.is_refrigerated == True` filter whenever the requested code is in `REFRIGERATED_CODES` — Fresh-Products bookings CANNOT be offered to a non-cold-chain driver.
+- ✅ **Driver capability endpoints** (in `modules/driver/routes.py`):
+  - `GET  /api/driver/me/capabilities` → `{ allowed:[…8 codes…], capabilities:[{vehicle_code, is_primary}] }`.
+  - `PUT  /api/driver/me/capabilities` → replaces the driver's capability set; validates against `SEND_CAPABILITY_CODES`, promotes the requested primary (auto-adds it to `codes` if missing), mirrors the primary into `Driver.vehicle_type`, and refreshes the linked `ModuleDriver.is_refrigerated` so an already-online driver becomes eligible for cold-chain bookings on the next dispatch tick — zero downtime.
+  - Unknown codes → 400 with the allow-list echoed back for the client.
+- ✅ **Bridge helper `sync_capabilities()`** in `modules/driver/dispatch_bridge.py` — idempotent replace-set semantics; `get_or_create_module_driver()` now derives `vehicle_type` + `is_refrigerated` from the capability rows, falling back to the legacy `Driver.vehicle_type` field when a driver hasn't opted in yet.
+- ✅ **Tests**: `tests/test_send_phase_b_capabilities.py` — 8/8 green covering the 8-vehicle catalogue, French labels, empty→populated capability flow, primary auto-add, idempotent replace, unknown-code rejection, `Driver.vehicle_type` mirror, and 401 auth guards.
+
 ## Latest (2026-03-11) — SENDbakēd Phase A · 6-Tile Service Home — COMPLETE
 - ✅ **Six-service SEND home shipped**. `SendServiceTiles.jsx` (new, `/app/frontend/src/components/express/SendServiceTiles.jsx`) renders a responsive 3×2 grid (`grid-cols-2` mobile / `sm:grid-cols-2 lg:grid-cols-3` desktop) with French-first + English-second labels and the user-supplied hero images:
   1. Envoyer par moto / Send by Motorcycle → `/send/book/location` (existing bike wizard, pre-selects `vehicle_code="bike"`).

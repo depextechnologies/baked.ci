@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db import get_session
 from core.models import (
     AdminUser, DRIVER_STATUSES, Driver, DriverEarning, DriverJob, DriverJobMessage,
-    DriverOtp, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
+    DriverOtp, DriverVehicleCapability, DriverWithdrawal, KYC_STEPS, VEHICLE_TYPES, WITHDRAWAL_STATUSES,
 )
 from core.providers import object_storage
 from core.providers.otp_provider import get_otp_provider
@@ -57,6 +57,15 @@ GOOGLE_TOKEN_URL     = "https://oauth2.googleapis.com/token"
 OTP_TTL_MIN     = 10
 OTP_MAX_TRIES   = 5
 DRIVER_JWT_ROLE = "driver"
+
+# Phase B — the full list of SEND vehicle codes a driver may advertise as a
+# capability. This is deliberately looser than the KYC `VEHICLE_TYPES` tuple
+# (which is the legacy single-vehicle field kept for backwards compat) —
+# drivers can select multiple codes here, including refrigerated variants.
+SEND_CAPABILITY_CODES = (
+    "bike", "scooter", "three_wheeler", "mini_truck", "truck",
+    "ref_tricycle", "ref_utility", "ref_truck",
+)
 
 
 def _dev_mode() -> bool:
@@ -565,6 +574,78 @@ async def patch_kyc(
     await session.commit()
     await session.refresh(driver)
     return _driver_dict(driver)
+
+
+# ---------------------------------------------------------------------------
+# Phase B — Driver vehicle capabilities (multi-vehicle support)
+# ---------------------------------------------------------------------------
+
+class CapabilitiesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    codes:   list[str] = Field(default_factory=list, max_length=8)
+    primary: Optional[str] = None
+
+
+def _serialise_capabilities(rows: list[DriverVehicleCapability]) -> list[dict]:
+    return [
+        {"vehicle_code": r.vehicle_code, "is_primary": bool(r.is_primary)}
+        for r in sorted(rows, key=lambda r: (not r.is_primary, r.vehicle_code))
+    ]
+
+
+@router.get("/me/capabilities")
+async def list_my_capabilities(
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (await session.execute(
+        select(DriverVehicleCapability).where(DriverVehicleCapability.driver_id == driver.id)
+    )).scalars().all()
+    return {
+        "allowed": list(SEND_CAPABILITY_CODES),
+        "capabilities": _serialise_capabilities(list(rows)),
+    }
+
+
+@router.put("/me/capabilities")
+async def replace_my_capabilities(
+    payload: CapabilitiesIn,
+    driver: Driver = Depends(_current_driver),
+    session: AsyncSession = Depends(get_session),
+):
+    """Replace the driver's SEND vehicle capability set. Idempotent."""
+    unknown = [c for c in payload.codes if c not in SEND_CAPABILITY_CODES]
+    if unknown:
+        raise HTTPException(400, {
+            "code": "unknown_capability",
+            "message": f"Unknown vehicle capability codes: {', '.join(unknown)}",
+            "allowed": list(SEND_CAPABILITY_CODES),
+        })
+    if payload.primary and payload.primary not in SEND_CAPABILITY_CODES:
+        raise HTTPException(400, {
+            "code": "unknown_capability",
+            "message": f"Unknown primary vehicle capability: {payload.primary}",
+            "allowed": list(SEND_CAPABILITY_CODES),
+        })
+
+    from modules.driver.dispatch_bridge import sync_capabilities, get_or_create_module_driver
+    normalised = await sync_capabilities(
+        session, driver, list(payload.codes or []), primary=payload.primary
+    )
+    # Ensure the dispatch mirror stays fresh so an already-online driver
+    # picking up a new capability starts qualifying for those bookings
+    # immediately.
+    await get_or_create_module_driver(session, driver)
+    await session.commit()
+
+    rows = (await session.execute(
+        select(DriverVehicleCapability).where(DriverVehicleCapability.driver_id == driver.id)
+    )).scalars().all()
+    return {
+        "capabilities": _serialise_capabilities(list(rows)),
+        "primary_vehicle_type": driver.vehicle_type,
+        "count": len(normalised),
+    }
 
 
 # ---------------------------------------------------------------------------

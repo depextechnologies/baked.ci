@@ -29,12 +29,16 @@ from seed import _upsert
 
 
 VEHICLES = [
-    # (code, name, description, max_weight_kg, eta_min, eta_max, base_ci, base_lr, sort)
-    ("bike",          "Bike",         "Best for small parcels · Fastest delivery",     5,     15, 20,  1500,  500, 1),
-    ("scooter",       "Scooter",      "Perfect for medium parcels · Affordable & quick", 15,   20, 25,  2500,  800, 2),
-    ("three_wheeler", "3 Wheeler",    "Ideal for bulky items · More space",              300,  30, 40,  5000, 1500, 3),
-    ("mini_truck",    "Mini Truck",   "For large deliveries · Furniture & appliances",   1000, 45, 60, 12000, 4000, 4),
-    ("truck",         "Truck",        "Extra large deliveries · Long distance",          3000, 60, 90, 25000, 8000, 5),
+    # (code, name_en, name_fr, description, max_weight_kg, eta_min, eta_max, base_ci, base_lr, sort, is_refrigerated)
+    ("bike",          "Bike",                    "Moto",                    "Best for small parcels · Fastest delivery",       5,     15, 20,  1500,  500, 1, False),
+    ("scooter",       "Scooter",                 "Scooter",                 "Perfect for medium parcels · Affordable & quick", 15,    20, 25,  2500,  800, 2, False),
+    ("three_wheeler", "3 Wheeler",               "Tricycle",                "Ideal for bulky items · More space",              300,   30, 40,  5000, 1500, 3, False),
+    ("mini_truck",    "Mini Truck",              "Mini camion",             "For large deliveries · Furniture & appliances",   1000,  45, 60, 12000, 4000, 4, False),
+    ("truck",         "Truck",                   "Camion",                  "Extra large deliveries · Long distance",          3000,  60, 90, 25000, 8000, 5, False),
+    # Phase B — Fresh Products refrigerated fleet
+    ("ref_tricycle",  "Refrigerated Tricycle",   "Tricycle frigorifique",   "Refrigerated tricycle · fish, meat, vegetables",  250,   35, 45,  8000, 2500, 6, True),
+    ("ref_utility",   "Refrigerated Utility",    "Utilitaire frigorifique", "Refrigerated utility van · mid-volume cold chain", 800,  45, 60, 18000, 6000, 7, True),
+    ("ref_truck",     "Refrigerated Truck",      "Camion frigorifique",     "Refrigerated truck · high-volume cold chain",     2500,  60, 90, 32000, 11000,8, True),
 ]
 
 PACKAGE_TYPES = [
@@ -78,6 +82,10 @@ PRICING_PARAMS = {
     "three_wheeler": {"per_km_ci": 400, "per_min_ci": 90,  "per_km_lr": 140, "per_min_lr": 35},
     "mini_truck":    {"per_km_ci": 900, "per_min_ci": 180, "per_km_lr": 320, "per_min_lr": 60},
     "truck":         {"per_km_ci": 1800,"per_min_ci": 300, "per_km_lr": 620, "per_min_lr": 100},
+    # Phase B — refrigerated fleet carries a cold-chain surcharge in the per-km rate.
+    "ref_tricycle":  {"per_km_ci": 600, "per_min_ci": 130, "per_km_lr": 210, "per_min_lr": 50},
+    "ref_utility":   {"per_km_ci": 1300,"per_min_ci": 230, "per_km_lr": 460, "per_min_lr": 85},
+    "ref_truck":     {"per_km_ci": 2400,"per_min_ci": 380, "per_km_lr": 820, "per_min_lr": 130},
 }
 
 # Packers & Movers
@@ -170,12 +178,12 @@ TIME_SLOTS = [
 async def seed_express():
     async with SessionLocal() as session:
         # Vehicles per country
-        for code, name, desc, max_w, eta_min, eta_max, base_ci, base_lr, sort in VEHICLES:
+        for code, name, name_fr, desc, max_w, eta_min, eta_max, base_ci, base_lr, sort, is_refrigerated in VEHICLES:
             for country, base in (("CI", base_ci), ("LR", base_lr)):
                 await _upsert(session, ExpressVehicle, ["code", "country"], {
-                    "id": new_id("veh"), "code": code, "country": country, "name": name, "description": desc,
+                    "id": new_id("veh"), "code": code, "country": country, "name": name, "name_fr": name_fr, "description": desc,
                     "max_weight_kg": max_w, "eta_min_min": eta_min, "eta_min_max": eta_max,
-                    "base_price": base, "sort_order": sort, "active": True,
+                    "base_price": base, "sort_order": sort, "active": True, "is_refrigerated": is_refrigerated,
                     "icon": code, "image": None,
                 })
 
@@ -202,7 +210,7 @@ async def seed_express():
             })
 
         # Pricing rules per (country, vehicle)
-        for code, _n, _d, _mw, _emin, _emax, base_ci, base_lr, _s in VEHICLES:
+        for code, _n, _nfr, _d, _mw, _emin, _emax, base_ci, base_lr, _s, _rfr in VEHICLES:
             p = PRICING_PARAMS[code]
             for country, base, per_km, per_min in (
                 ("CI", base_ci, p["per_km_ci"], p["per_min_ci"]),
