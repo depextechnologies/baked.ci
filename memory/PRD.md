@@ -1,5 +1,25 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+
+## Latest (2026-02-15) — SENDbakēd · Driver Multi-Stop UX (mirrors customer stops[]) — COMPLETE
+- ✅ **New helper module** `/app/backend/modules/express/multi_stop.py` owns the entire multi-stop lifecycle:
+  - `enrich_stops()` — normalises the raw customer stops payload and adds `sequence`, per-leg `status`/`completed_at`, and a **4-digit `delivery_pin` per drop leg**.
+  - `advance_stop_leg()` — advances a single (pickup|drop) leg with strict ordering (cannot skip), PIN verification for drop legs, and cascades the overall booking status (`picked_up` on first pickup → `in_transit` between → `delivered` only after the final drop). Errors raised as `MultiStopError(code, message)`.
+  - `summarise_progress()` — returns `{total, completed, current:{sequence,leg}}` for the driver UI.
+  - `strip_pins()` — scrubs `drop.delivery_pin` from every customer-facing serializer response. PINs stay in the DB for validation; SMS is the sole channel that reaches the receiver.
+  - `dispatch_delivery_pins()` — best-effort per-drop SMS to each stop's `receiver_phone` (French-first / English-second) via the shared `core.providers.sms_provider.send_sms()`. Fire-and-forget: never fails the booking response.
+- ✅ **Booking creation** (`routes.create_parcel_booking`) now runs `enrich_stops()` on the raw wizard payload before persisting, and fires `dispatch_delivery_pins()` after commit. Existing single-stop bookings (`service_type ≠ multiple_shipments`) are untouched.
+- ✅ **New endpoint** `POST /api/express/bookings/{booking_id}/stop-advance` `{sequence, leg, delivery_pin?, lat?, lng?}` — driver-JWT-gated (reuses the shared `_authorise_driver_for_booking()` helper extracted from `/driver-status`). Validates ordering + PIN + assignment, persists the mutated JSONB with `flag_modified`, appends a `stop_{leg}_{sequence}_completed` timeline row, cascades the overall booking status via the existing `transition_status()` + WebSocket broadcast pipeline, and releases the driver on final delivery.
+- ✅ **Serializers** — `booking_to_dict` returns `stops` (PIN scrubbed) + `stops_progress`; `public_booking_fields` exposes both. Single-shipment bookings keep `stops=null, stops_progress=null`.
+- ✅ **Driver PWA** (`/app/frontend/src/apps/driver/DriverTripSheet.jsx`):
+  - New `MultiStopTripSheet` component renders the driver's ordered checkpoint list with ✓ Terminé / ● En cours / ○ À venir bullets, French-first labels, per-stop shipment header, and a progress bar (`N/M points confirmés`).
+  - Dynamic Slide-to-Confirm label per current leg: `Confirmer le ramassage N · Confirm Pickup N` / `Confirmer la livraison N · Confirm Delivery N`.
+  - `DeliveryPinModal` prompts the receiver's SMS PIN before every drop leg (French + English microcopy).
+  - Single-stop bookings continue rendering the legacy `SingleStopTripSheet` (backward-compatible split refactor keeps React hooks unconditional in both trees).
+- ✅ **Driver map** (`DriverApp.navJob`) auto-targets the current pickup/drop coords for multi-stop trips so `NAVIGATE` always points at the right anchor.
+- ✅ **Tests** — `/app/backend/tests/test_send_driver_multi_stop_ux.py` (13/13 pass): stops enrichment, PIN scrubbing, `stops_progress` shape, backward-compat null for single-stop, auth guards (401 anon + 401 customer JWT), plus unit coverage for strict ordering / wrong PIN / no leg replay / happy-path cascade to `delivered`. Full SEND regression: **47/47** (Phases B+C+D+E+F + new Driver Multi-Stop UX).
+
+
 ## Latest (2026-03-11) — SENDbakēd Phase F · Driver Multi-Vehicle Signup UI — COMPLETE
 - ✅ **KYC vehicle step redesigned** (`/app/frontend/src/apps/driver/DriverApp.jsx` — `StepVehicle`). Two grouped sections — **Standard fleet** (bike · scooter · tricycle · mini truck · truck) and **Refrigerated fleet · cold chain** (refrigerated tricycle · utility · truck). Each row is a checkbox + a "Set primary" toggle; the currently selected primary shows a **PRIMARY** pill in SEND-orange.
 - ✅ **Dual-write on Continue**: the button calls `PUT /api/driver/me/capabilities` first (persists the tick set + primary, mirrors primary into `Driver.vehicle_type`, refreshes `ModuleDriver.is_refrigerated`), then the standard `PATCH /me/kyc` for the same step (plate + advance). Both writes agree on the primary code so downstream KYC review + dispatch stay consistent.
