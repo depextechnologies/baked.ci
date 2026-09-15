@@ -1,5 +1,21 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-15) — SENDbakēd · Multiple Shipments 2-Step Booking Flow — COMPLETE
+- ✅ **Migration `0051_send_product_types`** — new `send_product_types` catalogue table (code · name_fr · name_en · is_default · sort_order · active · timestamps) with a partial unique index enforcing at most one default row. Seeded with the 8 canonical rows from the redesign prompt (`general_product` (default) → Documents → Aliments → Électronique → Vêtements → Meubles → Produits frais → Autre).
+- ✅ **New endpoint `GET /api/express/product-types`** — returns active rows ordered by sort_order with FR + EN labels + `is_default`. Frontend hydrates the Multiple-Shipments product-type dropdown dynamically; no hard-coded list.
+- ✅ **`enrich_stops()` extended** — preserves per-leg optional metadata (`landmark`, `contact_name`, `contact_phone`, `product_type`) inside `stops[]`. `product_type` defaults to `general_product` (looked up from the catalogue at booking time so ops changes propagate without a redeploy). PIN scrubbing + strict ordering + all Phase-E behaviour unchanged.
+- ✅ **`ParcelBookingIn.receiver` now optional** — Multi-Shipments captures per-leg contacts on each drop; the top-level receiver falls back to the first drop's contact via a new `_receiver_field()` helper so SMS + driver snapshots keep receiving a valid name/phone.
+- ✅ **New dedicated wizard** `/app/frontend/src/pages/express/MultiShipmentsWizard.jsx`:
+  - **Route `/send/multi-shipments`** (Step 1) — shipment builder. Each shipment card renders a Pickup + a Drop AddressRow, each with a collapsible "Informations supplémentaires (optionnel)" panel exposing Landmark, Contact name/phone, and Product-type dropdown (defaults to General Product, options loaded from the catalogue). `+ Ajouter une expédition` up to 8. Persistent desktop map with the existing `WizardMap` (P1/D1 · P2/D2 ordered polyline). Compact map on mobile. `Continuer` CTA disabled until every shipment has both endpoints.
+  - **Route `/send/multi-shipments/vehicle`** (Step 2) — four fixed vehicle cards (Moto · Tricycle · Mini Camion · Camion), live multi_stop quote per vehicle, cheapest tagged "MEILLEUR PRIX", ⓘ icon opens the `PriceBreakdownModal` (base fare · distance · time · extra stops · service fee · insurance · taxes · promo). `Réserver maintenant` posts to `POST /api/express/bookings/parcel` with the enriched stops[] and a null top-level receiver.
+  - Renders `WizardProgress` "1 · Arrêts / 2 · Véhicule" — NO 4-step SEND progress bar.
+  - FR-first / EN-second via 45 new customer-namespace i18n keys.
+- ✅ **Tile routing** — `SendServiceTiles.handleClick("multi")` now navigates to `/send/multi-shipments` (skips the unified 4-step wizard for this service only; the other 5 services untouched).
+- ✅ **Tests** — `/app/backend/tests/test_send_multi_shipments_2step.py` (5/5 pass): catalogue endpoint returns 8 rows with `general_product` as unique default; per-leg optional metadata persisted verbatim; product_type defaults to `general_product` when omitted; receiver-optional fallback; explicit receiver wins over stop contact. **Full SEND regression: 53/53** (Multi-Shipments 5 + Driver Multi-Stop 14 + Phase B 5 + Phase C 8 + Phase D 2 + Phase E 7 + Phase F 12).
+- ✅ **Live smoke** — desktop (1920×900) + mobile (430×900) — Étape 1 sur 2 · Expéditions multiples · shipment card + optional panel + 8-option product-type dropdown · persistent map · Continuer button. Rendered cleanly on both viewports.
+
+
+
 ## Latest (2026-02-15) — SENDbakēd · Customer Multi-Stop Tracking Column — COMPLETE
 - ✅ **New MultiStopProgress component** in `/app/frontend/src/pages/express/ExpressLiveTracking.jsx` — renders a live per-shipment column between the driver card and the route summary whenever `state.stops` is populated.
   - Header + progress bar `{done} sur {total} points confirmés · N of M checkpoints`.

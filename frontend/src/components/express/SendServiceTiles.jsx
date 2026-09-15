@@ -102,6 +102,19 @@ export const SendServiceTiles = ({ layout = "mobile" }) => {
       navigate("/send/movers");
       return;
     }
+    if (key === "multi") {
+      // Multi-Shipments has its own dedicated 2-step wizard (build-your-trip
+      // → vehicle & reservation). No receiver/package/estimate detour.
+      setDraft((d) => ({
+        ...d,
+        pickup: activeAddress || d.pickup,
+        service_type: "multiple_shipments",
+        vehicle_code: null,
+        stops: [],
+      }));
+      navigate("/send/multi-shipments");
+      return;
+    }
     const SERVICE_TYPE_MAP = {
       moto:           "moto",
       cargo:          "cargo",

@@ -53,6 +53,7 @@ import {
   ExpressStepPackage, ExpressStepEstimate, ExpressStepDetails, ExpressStepBook, ExpressBookingConfirmation,
 } from "@/pages/express/ExpressWizard";
 import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
+import { MultiShipmentsStep1, MultiShipmentsStep2 } from "@/pages/express/MultiShipmentsWizard";
 import { ExpressBookings } from "@/pages/express/ExpressBookings";
 import { ExpressServices } from "@/pages/express/ExpressServices";
 import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
@@ -153,6 +154,8 @@ const DesktopCustomerShell = () => (
       <Route path="/send/home-shifting" element={<MoversLanding />} />
       <Route path="/send/movers" element={<MoversLanding />} />
       <Route path="/send/movers/wizard" element={<MoversWizard />} />
+      <Route path="/send/multi-shipments" element={<MultiShipmentsStep1 />} />
+      <Route path="/send/multi-shipments/vehicle" element={<MultiShipmentsStep2 />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -234,6 +237,8 @@ const MobileCustomerShell = () => (
       <Route path="/send/home-shifting" element={<MoversLanding />} />
       <Route path="/send/movers" element={<MoversLanding />} />
       <Route path="/send/movers/wizard" element={<MoversWizard />} />
+      <Route path="/send/multi-shipments" element={<MultiShipmentsStep1 />} />
+      <Route path="/send/multi-shipments/vehicle" element={<MultiShipmentsStep2 />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />

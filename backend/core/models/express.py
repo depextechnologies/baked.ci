@@ -407,3 +407,28 @@ class SendServiceVehicle(Base):
     active:       Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     sort_order:   Mapped[int]  = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at:   Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Multiple Shipments — configurable product-type catalogue (2026-02)
+# ---------------------------------------------------------------------------
+
+
+class SendProductType(Base):
+    """Lightweight, admin-editable catalogue used by the Multiple Shipments
+    Step-1 optional "Product Type" dropdown. FR-first, EN-second. Exactly
+    one row can be flagged `is_default=True` (partial unique index) — that
+    row is what the frontend selects when the customer never touches the
+    field. Legs may still store `product_type=null` (backend fills in the
+    default at persistence time)."""
+    __tablename__ = "send_product_types"
+
+    id:         Mapped[str]  = mapped_column(String, primary_key=True, default=lambda: new_id("spt"))
+    code:       Mapped[str]  = mapped_column(String(64), unique=True, nullable=False)
+    name_fr:    Mapped[str]  = mapped_column(String(128), nullable=False)
+    name_en:    Mapped[str]  = mapped_column(String(128), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    sort_order: Mapped[int]  = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    active:     Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

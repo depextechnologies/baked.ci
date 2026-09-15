@@ -100,6 +100,32 @@ async def list_vehicles(
     return [row_to_dict(r) for r in rows]
 
 
+@router.get("/product-types")
+async def list_send_product_types(session: AsyncSession = Depends(get_session)):
+    """SEND Multiple Shipments — configurable product-type catalogue.
+
+    Returns active rows sorted by `sort_order`, with the row flagged as
+    default first-in-line (`is_default`). Frontend must NEVER hard-code
+    this list — ops edits are applied without a deploy.
+    """
+    from core.models import SendProductType
+    rows = (await session.execute(
+        select(SendProductType)
+        .where(SendProductType.active.is_(True))
+        .order_by(SendProductType.sort_order, SendProductType.code)
+    )).scalars().all()
+    return [
+        {
+            "code":       r.code,
+            "name_fr":    r.name_fr,
+            "name_en":    r.name_en,
+            "is_default": bool(r.is_default),
+            "sort_order": r.sort_order,
+        }
+        for r in rows
+    ]
+
+
 @router.get("/services")
 async def list_send_services(session: AsyncSession = Depends(get_session)):
     """Return the full SEND service → eligible vehicle catalogue.
@@ -346,7 +372,10 @@ class ParcelBookingIn(BaseModel):
     # service_type=multiple_shipments. When present the first entry must
     # match the top-level pickup/drop (Step 1 seed). Ignored otherwise.
     stops: Optional[List[dict]] = None
-    receiver: ReceiverIn
+    # Multi-shipments bookings capture the receiver per-leg inside stops[]
+    # so the top-level Receiver becomes optional. Falls back to the first
+    # drop's contact when the customer never entered a global receiver.
+    receiver: Optional[ReceiverIn] = None
     package_type: Optional[str] = None
     package_weight_range: Optional[str] = None
     package_dimensions: Optional[dict] = None
@@ -369,6 +398,24 @@ def _address_columns(prefix: str, addr: AddressPoint) -> dict:
         f"{prefix}_city": addr.city,
         f"{prefix}_country": addr.country,
     }
+
+
+def _receiver_field(payload: "ParcelBookingIn", field: str, stops: Optional[list]) -> Optional[str]:
+    """Multi-Shipments makes the top-level Receiver optional (per-leg
+    contact is captured inside stops[]). Falls back to the FIRST drop's
+    contact so downstream single-column code (SMS, driver snapshot) keeps
+    working uniformly. Never raises."""
+    if payload.receiver is not None:
+        val = getattr(payload.receiver, field, None)
+        if val:
+            return val
+    if stops:
+        first_drop = (stops[0] or {}).get("drop") or {}
+        if field == "name":
+            return first_drop.get("receiver_name") or first_drop.get("contact_name") or "Recipient"
+        if field == "phone":
+            return first_drop.get("receiver_phone") or first_drop.get("contact_phone") or ""
+    return None
 
 
 @router.post("/bookings/parcel")
@@ -437,8 +484,21 @@ async def create_parcel_booking(
         # Full stops payload (with the raw address blobs from the client) is
         # persisted on the booking row so drivers + admin see every stop.
         # Enrich with per-leg status + delivery PIN (Driver Multi-Stop UX).
+        # Product-type default is fetched from the send_product_types
+        # catalogue so ops changes propagate without a redeploy.
         from .multi_stop import enrich_stops
-        multi_stops_payload = enrich_stops([s for s in payload.stops])
+        from core.models import SendProductType
+        default_row = (await session.execute(
+            select(SendProductType).where(
+                SendProductType.is_default.is_(True),
+                SendProductType.active.is_(True),
+            ).limit(1)
+        )).scalar_one_or_none()
+        default_pt = default_row.code if default_row else "general_product"
+        multi_stops_payload = enrich_stops(
+            [s for s in payload.stops],
+            default_product_type=default_pt,
+        )
     else:
         quote = await quote_parcel(
             session,
@@ -467,13 +527,13 @@ async def create_parcel_booking(
         vehicle_code=payload.vehicle_code,
         **_address_columns("pickup", payload.pickup),
         **_address_columns("drop", payload.drop),
-        receiver_name=payload.receiver.name,
-        receiver_phone=payload.receiver.phone,
-        receiver_alt_phone=payload.receiver.alt_phone,
-        receiver_building=payload.receiver.building,
-        receiver_landmark=payload.receiver.landmark,
-        receiver_notes=payload.receiver.notes,
-        receiver_preferences=payload.receiver.preferences,
+        receiver_name=_receiver_field(payload, "name",  multi_stops_payload),
+        receiver_phone=_receiver_field(payload, "phone", multi_stops_payload),
+        receiver_alt_phone=(payload.receiver.alt_phone if payload.receiver else None),
+        receiver_building=(payload.receiver.building if payload.receiver else None),
+        receiver_landmark=(payload.receiver.landmark if payload.receiver else None),
+        receiver_notes=(payload.receiver.notes if payload.receiver else None),
+        receiver_preferences=(payload.receiver.preferences if payload.receiver else []),
         package_type=payload.package_type,
         package_weight_range=payload.package_weight_range,
         package_dimensions=payload.package_dimensions,

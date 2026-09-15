@@ -56,42 +56,58 @@ def _addr_of(entry: dict) -> str:
     )
 
 
-def enrich_stops(raw_stops: list[dict]) -> list[dict]:
+def enrich_stops(raw_stops: list[dict], *, default_product_type: str = "general_product") -> list[dict]:
     """Normalise + enrich the raw customer-supplied stops payload.
 
     Accepts the shape the wizard sends today
     (`{pickup:{lat,lng,formatted_address,...}, drop:{lat,lng,...},
       receiver:{name,phone}?}` per stop) and adds `sequence`, per-leg
-    `status/completed_at`, and a `delivery_pin` per drop.
+    `status/completed_at`, a `delivery_pin` per drop, and preserves the
+    Multiple-Shipments per-leg **optional** metadata:
+      * landmark        — free-text hint
+      * contact_name    — separate from the primary receiver at booking level
+      * contact_phone   — same
+      * product_type    — defaults to `default_product_type` (usually
+                          `general_product`) when the customer left it blank.
     """
     enriched: list[dict] = []
     for idx, stop in enumerate(raw_stops or [], start=1):
         pickup_src = (stop or {}).get("pickup") or {}
         drop_src = (stop or {}).get("drop") or {}
         receiver_src = (stop or {}).get("receiver") or {}
+        pickup_contact_src = (stop or {}).get("pickup_contact") or {}
+        drop_contact_src = (stop or {}).get("drop_contact") or {}
+
+        def _norm(entry_src, contact_src, is_drop):
+            base = {
+                "lat":       entry_src.get("lat") or entry_src.get("latitude"),
+                "lng":       entry_src.get("lng") or entry_src.get("longitude"),
+                "address":   _addr_of(entry_src),
+                "building":  entry_src.get("building"),
+                "landmark":  entry_src.get("landmark") or contact_src.get("landmark") or None,
+                "contact_name":  entry_src.get("contact_name")  or contact_src.get("name")  or None,
+                "contact_phone": entry_src.get("contact_phone") or contact_src.get("phone") or None,
+                "product_type":  entry_src.get("product_type") or contact_src.get("product_type")
+                                 or default_product_type,
+                "status": "pending",
+                "completed_at": None,
+            }
+            if is_drop:
+                # Legacy receiver fallback — the primary receiver on the
+                # booking is used only when the leg's own contact is empty.
+                base["receiver_name"]  = (entry_src.get("receiver_name")
+                                          or receiver_src.get("name")
+                                          or base["contact_name"])
+                base["receiver_phone"] = (entry_src.get("receiver_phone")
+                                          or receiver_src.get("phone")
+                                          or base["contact_phone"])
+                base["delivery_pin"] = _pin()
+            return base
+
         enriched.append({
             "sequence": idx,
-            "pickup": {
-                "lat": pickup_src.get("lat") or pickup_src.get("latitude"),
-                "lng": pickup_src.get("lng") or pickup_src.get("longitude"),
-                "address": _addr_of(pickup_src),
-                "building": pickup_src.get("building"),
-                "landmark": pickup_src.get("landmark"),
-                "status": "pending",
-                "completed_at": None,
-            },
-            "drop": {
-                "lat": drop_src.get("lat") or drop_src.get("latitude"),
-                "lng": drop_src.get("lng") or drop_src.get("longitude"),
-                "address": _addr_of(drop_src),
-                "building": drop_src.get("building"),
-                "landmark": drop_src.get("landmark"),
-                "receiver_name": receiver_src.get("name") or drop_src.get("receiver_name"),
-                "receiver_phone": receiver_src.get("phone") or drop_src.get("receiver_phone"),
-                "delivery_pin": _pin(),
-                "status": "pending",
-                "completed_at": None,
-            },
+            "pickup": _norm(pickup_src, pickup_contact_src, is_drop=False),
+            "drop":   _norm(drop_src,   drop_contact_src,   is_drop=True),
         })
     return enriched
 
