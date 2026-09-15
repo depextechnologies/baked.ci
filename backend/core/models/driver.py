@@ -16,7 +16,13 @@ from core.models.base import Base, new_id, TimestampMixin
 
 DRIVER_STATUSES  = ("onboarding", "pending_review", "approved", "suspended", "rejected")
 KYC_STEPS        = ("personal", "id", "licence", "selfie", "vehicle", "bank", "emergency", "submitted")
-VEHICLE_TYPES    = ("bike", "scooter", "tricycle", "mini_truck", "big_truck")
+VEHICLE_TYPES    = (
+    # Legacy KYC codes — kept for existing driver rows.
+    "bike", "scooter", "tricycle", "mini_truck", "big_truck",
+    # Phase B/F — SEND vehicle codes so the primary capability written by
+    # `sync_capabilities()` also passes the KYC allow-list check.
+    "three_wheeler", "truck", "ref_tricycle", "ref_utility", "ref_truck",
+)
 JOB_STATUSES     = ("offered", "declined", "accepted", "arriving_pickup", "picked_up",
                     "arriving_dropoff", "delivered", "cancelled", "expired")
 

@@ -1,5 +1,17 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-11) — SENDbakēd Phase F · Driver Multi-Vehicle Signup UI — COMPLETE
+- ✅ **KYC vehicle step redesigned** (`/app/frontend/src/apps/driver/DriverApp.jsx` — `StepVehicle`). Two grouped sections — **Standard fleet** (bike · scooter · tricycle · mini truck · truck) and **Refrigerated fleet · cold chain** (refrigerated tricycle · utility · truck). Each row is a checkbox + a "Set primary" toggle; the currently selected primary shows a **PRIMARY** pill in SEND-orange.
+- ✅ **Dual-write on Continue**: the button calls `PUT /api/driver/me/capabilities` first (persists the tick set + primary, mirrors primary into `Driver.vehicle_type`, refreshes `ModuleDriver.is_refrigerated`), then the standard `PATCH /me/kyc` for the same step (plate + advance). Both writes agree on the primary code so downstream KYC review + dispatch stay consistent.
+- ✅ **KYC allow-list widened** (`core/models/driver.VEHICLE_TYPES`) to include the SEND codes (`three_wheeler`, `truck`, `ref_tricycle`, `ref_utility`, `ref_truck`) so a driver picking a refrigerated primary no longer 400s on the vehicle KYC step.
+- ✅ **Never-empty invariant**: unticking the current primary is silently no-op'd. Ticking "Set primary" on an unticked row also auto-ticks it. The set can never be empty, so dispatch always has at least one capability to match against.
+- ✅ **Test IDs** added on every checkbox (`kyc-cap-check-<code>`), primary button (`kyc-cap-primary-<code>`), and row wrapper (`kyc-cap-row-<code>`) so QA + E2E tests can drive any capability combination.
+- ✅ **Live smoke** (430×900): fresh driver → advance through personal/id/licence/selfie → land on `/driver/kyc/vehicle` with all 8 codes visible; tick bike + tricycle + ref_truck, promote ref_truck to primary, plate `CI 1234 ABC`, hit Continue → automatically advances to Bank step. `GET /me/capabilities` returns the 3 rows with `ref_truck` as `is_primary=true`; `GET /me` shows `vehicle_type=ref_truck` + `vehicle_plate=CI 1234 ABC`.
+- ✅ **Tests**: `tests/test_send_phase_f_driver_signup.py` — 6/6 green:
+  - `test_kyc_vehicle_accepts_send_primary_codes[three_wheeler|truck|ref_tricycle|ref_utility|ref_truck]` — each new SEND primary code passes the widened KYC allow-list.
+  - `test_capabilities_and_kyc_stay_consistent` — after the dual write, `Driver.vehicle_type` == primary + capability set stays intact + only one row has `is_primary=true`.
+  - **Full SEND phase suite (B + C + D + E + F): 34/34 pass.**
+
 ## Latest (2026-03-11) — SENDbakēd Phase D · Between-Cities City-Only UX — COMPLETE
 - ✅ **Eligibility tightened**: `send_service_vehicles` for `between_cities` reduced to `mini_truck` (sort 1) + `truck` (sort 2). Seed now **reconciles** stale rows (drops `three_wheeler` automatically) so ops never need a manual DB fix when we tighten a service.
 - ✅ **CityAutocomplete component** (`/app/frontend/src/components/express/CityAutocomplete.jsx`) — inline city-only Google Places autocomplete restricted via `includedPrimaryTypes: ["locality", "administrative_area_level_3"]`. Emits the same address shape as the global selector so downstream (draft, booking POST, map) works unchanged. Shows an inline dropdown of city suggestions with a clear (×) affordance once one is chosen.
