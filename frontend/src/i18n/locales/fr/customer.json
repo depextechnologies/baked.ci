@@ -217,7 +217,16 @@
       "vehicle": "Véhicule",
       "total": "Total",
       "cod_short": "Paiement à la livraison · payer au chauffeur",
-      "book_another": "Réserver une autre livraison"
+      "book_another": "Réserver une autre livraison",
+      "multi_stop_title": "Livraison multi-arrêts",
+      "multi_stop_progress": "{{done}} sur {{total}} points confirmés",
+      "shipment_label": "Colis {{n}}",
+      "shipment_next": "Prochaine livraison",
+      "shipment_active": "En cours",
+      "shipment_done": "Livré",
+      "shipment_upcoming": "En attente",
+      "checkpoint_pickup": "Ramassage",
+      "checkpoint_drop": "Livraison"
     }
   },
   "home": {

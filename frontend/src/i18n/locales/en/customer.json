@@ -217,7 +217,16 @@
       "vehicle": "Vehicle",
       "total": "Total",
       "cod_short": "Cash on Delivery · pay to the driver",
-      "book_another": "Book another delivery"
+      "book_another": "Book another delivery",
+      "multi_stop_title": "Multi-stop delivery",
+      "multi_stop_progress": "{{done}} of {{total}} checkpoints",
+      "shipment_label": "Shipment {{n}}",
+      "shipment_next": "Out for delivery next",
+      "shipment_active": "In progress",
+      "shipment_done": "Delivered",
+      "shipment_upcoming": "Waiting",
+      "checkpoint_pickup": "Pickup",
+      "checkpoint_drop": "Delivery"
     }
   },
   "home": {

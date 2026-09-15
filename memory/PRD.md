@@ -1,5 +1,18 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-15) — SENDbakēd · Customer Multi-Stop Tracking Column — COMPLETE
+- ✅ **New MultiStopProgress component** in `/app/frontend/src/pages/express/ExpressLiveTracking.jsx` — renders a live per-shipment column between the driver card and the route summary whenever `state.stops` is populated.
+  - Header + progress bar `{done} sur {total} points confirmés · N of M checkpoints`.
+  - One card per shipment with ✓ Terminé / ● En cours / ○ À venir dots on each pickup + drop leg.
+  - Badges: `EN COURS · In progress` on the active shipment, `PROCHAINE LIVRAISON · Out for delivery next` on the next pending shipment, `LIVRÉ · Delivered` on completed, `EN ATTENTE · Waiting` on later.
+  - Reads live from the same WebSocket snapshots the tracking screen already consumes — every driver `stop-advance` immediately updates the customer column with zero extra plumbing (broadcast covers it via `public_booking_fields`).
+- ✅ **Map markers extended** — `P1/D1 · P2/D2 · P3/D3 …` pin dots for every stop coord in `stops[]`, on top of the existing `A/B` primary anchors.
+- ✅ **i18n** — 8 new keys (`multi_stop_title`, `multi_stop_progress`, `shipment_label`, `shipment_next`, `shipment_active`, `shipment_done`, `shipment_upcoming`, `checkpoint_pickup`, `checkpoint_drop`) in FR + EN customer namespace.
+- ✅ **Live smoke** (430×900) — booked a real 2-shipment multi-stop trip end-to-end; tracking screen renders the panel with **Colis 1 · EN COURS** (active pickup 1) and **Colis 2 · PROCHAINE LIVRAISON** exactly as spec'd. Map shows P1/D1/P2/D2 pins.
+- ✅ **Tests** — new `TestCustomerTracking` class in `test_send_driver_multi_stop_ux.py` verifies `GET /bookings/{id}` returns `stops_progress={completed:0, total:4, current:{sequence:1, leg:"pickup"}}` and continues scrubbing per-drop PINs. Full driver-multi-stop suite: **14/14**; Phase E regression: **7/7**.
+
+
+
 
 ## Latest (2026-02-15) — SENDbakēd · Driver Multi-Stop UX (mirrors customer stops[]) — COMPLETE
 - ✅ **New helper module** `/app/backend/modules/express/multi_stop.py` owns the entire multi-stop lifecycle:

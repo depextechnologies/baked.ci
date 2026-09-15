@@ -152,6 +152,28 @@ class TestStopAdvanceAuth:
         assert r.status_code == 401, r.text
 
 
+class TestCustomerTracking:
+    """Customer-facing GET must expose the enriched stops + progress so the
+    live-tracking panel can render "which parcel is out for delivery next"
+    without any additional round-trip."""
+
+    def test_customer_get_returns_stops_and_progress(self):
+        tok, body = _create_multi_stop_booking()
+        r = requests.get(
+            f"{API}/express/bookings/{body['id']}",
+            headers={"Authorization": f"Bearer {tok}"},
+            timeout=15,
+        )
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["stops_progress"]["current"] == {"sequence": 1, "leg": "pickup"}
+        assert data["stops_progress"]["completed"] == 0
+        assert data["stops_progress"]["total"] == 4
+        # PIN still scrubbed at the tracking endpoint.
+        for s in data["stops"]:
+            assert "delivery_pin" not in s["drop"]
+
+
 # --------------------------------------------------------------------------- #
 # Unit tests — strict ordering + PIN enforcement                              #
 # --------------------------------------------------------------------------- #
