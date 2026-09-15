@@ -192,7 +192,7 @@ SEND_SERVICE_VEHICLES = {
     "moto":               [("bike", 1), ("three_wheeler", 2), ("mini_truck", 3), ("truck", 4)],
     "cargo":              [("three_wheeler", 1), ("mini_truck", 2), ("truck", 3)],
     "fresh_products":     [("ref_tricycle", 1),  ("ref_utility", 2), ("ref_truck", 3)],
-    "between_cities":     [("three_wheeler", 1), ("mini_truck", 2), ("truck", 3)],
+    "between_cities":     [("mini_truck", 1), ("truck", 2)],
     "multiple_shipments": [("bike", 1), ("three_wheeler", 2), ("mini_truck", 3), ("truck", 4)],
 }
 
@@ -287,12 +287,25 @@ async def seed_express():
                 })
 
         # Phase C — SEND service → eligible vehicles catalogue (global config).
+        # First upsert every desired row, then prune anything that no longer
+        # belongs so ops don't need a manual DB fix when we tighten a service
+        # (e.g. Phase D drops `three_wheeler` from `between_cities`).
         for service_type, entries in SEND_SERVICE_VEHICLES.items():
             for vehicle_code, sort in entries:
                 await _upsert(session, SendServiceVehicle, ["service_type", "vehicle_code"], {
                     "service_type": service_type, "vehicle_code": vehicle_code,
                     "active": True, "sort_order": sort,
                 })
+        for service_type, entries in SEND_SERVICE_VEHICLES.items():
+            keep = {code for code, _ in entries}
+            stale = (await session.execute(
+                select(SendServiceVehicle).where(
+                    SendServiceVehicle.service_type == service_type,
+                    SendServiceVehicle.vehicle_code.notin_(keep) if keep else True,
+                )
+            )).scalars().all()
+            for row in stale:
+                await session.delete(row)
 
         await session.commit()
 

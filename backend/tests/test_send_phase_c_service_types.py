@@ -30,7 +30,7 @@ EXPECTED = {
     "moto":               {"bike", "three_wheeler", "mini_truck", "truck"},
     "cargo":              {"three_wheeler", "mini_truck", "truck"},
     "fresh_products":     {"ref_tricycle",  "ref_utility", "ref_truck"},
-    "between_cities":     {"three_wheeler", "mini_truck", "truck"},
+    "between_cities":     {"mini_truck", "truck"},
     "multiple_shipments": {"bike", "three_wheeler", "mini_truck", "truck"},
 }
 

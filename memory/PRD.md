@@ -1,5 +1,19 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-03-11) — SENDbakēd Phase D · Between-Cities City-Only UX — COMPLETE
+- ✅ **Eligibility tightened**: `send_service_vehicles` for `between_cities` reduced to `mini_truck` (sort 1) + `truck` (sort 2). Seed now **reconciles** stale rows (drops `three_wheeler` automatically) so ops never need a manual DB fix when we tighten a service.
+- ✅ **CityAutocomplete component** (`/app/frontend/src/components/express/CityAutocomplete.jsx`) — inline city-only Google Places autocomplete restricted via `includedPrimaryTypes: ["locality", "administrative_area_level_3"]`. Emits the same address shape as the global selector so downstream (draft, booking POST, map) works unchanged. Shows an inline dropdown of city suggestions with a clear (×) affordance once one is chosen.
+- ✅ **Google Maps helper**: `fetchAutocompleteSuggestions()` gained a `types` parameter that maps to Places New `includedPrimaryTypes` — reusable if any other module needs a filtered search.
+- ✅ **ExpressStepLocation** now branches on `service_type === "between_cities"`:
+  - Renders the "Livraison inter-villes / toll-paid-at-booth" info card + the two `CityAutocomplete` inputs (VILLE DE DÉPART, VILLE DE DESTINATION).
+  - Once both cities are picked, a **BetweenCitiesRouteStrip** appears on Step 1 with the driving distance (km) and ETA (min) computed via `google.maps.importLibrary("routes") → DirectionsService`, with a haversine fallback if routes fail to load.
+- ✅ **importLibrary guard**: `DirectionsService` isn't always ready at first render (Places-New loader is async). The strip now `await`s `google.maps.importLibrary("routes")` before instantiating the service — fixes the `is not a constructor` crash seen on early mounts.
+- ✅ **i18n**: 8 new keys (`origin_city`, `destination_city`, `between_city_placeholder`, `trip_summary`, `searching`, plus reused `between_note_*`) — French primary + English secondary.
+- ✅ **Live smoke** (1440×900):
+  - Step 1 with pickup=Abidjan, drop=Yamoussoukro → strip renders "TRAJET · Abidjan → Yamoussoukro · 238 km · 182 min"; map draws the inter-city polyline with A/B markers.
+  - Step 4 → 4-step progress bar; header "Envoyer entre villes"; only **Mini camion (299 062 CFA · MEILLEUR)** and **Camion (563 504 CFA)** cards — no Tricycle.
+- ✅ **Tests**: `tests/test_send_phase_d_between_cities.py` — 2/2 green (catalogue is exactly `{mini_truck, truck}`; vehicle-filter endpoint returns them in the seeded order; explicit safety asserts `three_wheeler` and `bike` are absent). Combined Phase B/C/D/E: **28/28 pass**.
+
 ## Latest (2026-03-11) — SENDbakēd Phase E · Multi-Stop Trip Builder — COMPLETE
 - ✅ **DB**: migration `0050_send_multi_stop` adds `express_bookings.stops JSONB` (nullable). Legacy single-shipment bookings keep the JSON payload NULL.
 - ✅ **Pricing**: new `pricing.quote_multi_stop()` sums haversine distance across every consecutive waypoint of the trip (pickup1 → drop1 → pickup2 → drop2 → …). Extra shipments beyond the first add a fixed surcharge (`500 XOF` / `200 LRD` per extra stop) exposed as a top-level `extra_stop_surcharge` line so nothing about pricing is hidden.

@@ -13,7 +13,7 @@
  * Returns an array of normalized suggestions: { placeId, mainText, secondaryText, description, _suggestion }
  * The raw suggestion is preserved so consumers can call `.placePrediction.toPlace()`.
  */
-export const fetchAutocompleteSuggestions = async ({ input, countryCode, sessionToken }) => {
+export const fetchAutocompleteSuggestions = async ({ input, countryCode, sessionToken, types }) => {
   const g = window.google;
   if (!g?.maps?.places?.AutocompleteSuggestion || !input?.trim()) return [];
   try {
@@ -21,6 +21,9 @@ export const fetchAutocompleteSuggestions = async ({ input, countryCode, session
       input,
       sessionToken,
       includedRegionCodes: countryCode ? [countryCode.toLowerCase()] : undefined,
+      // Optional Places-New type filter — pass e.g. ["locality","administrative_area_level_3"]
+      // to restrict city-level searches (Phase D · Between-Cities).
+      includedPrimaryTypes: Array.isArray(types) && types.length ? types : undefined,
     };
     const { suggestions } = await g.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
     return (suggestions || []).map((s) => {

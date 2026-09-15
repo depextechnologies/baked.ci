@@ -7,6 +7,7 @@ import { api } from "../../lib/api";
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useExpressBooking } from "../../contexts/ExpressContext";
 import { ExpressHeader, WizardProgress, ExpressFooter, useMoney } from "../../components/express/ExpressLayout";
+import { CityAutocomplete } from "../../components/express/CityAutocomplete";
 import { ExpressWizardShell } from "../../components/express/ExpressWizardShell";
 import { vehicleImage } from "../../lib/expressAssets";
 
@@ -27,6 +28,7 @@ export const ExpressStepLocation = () => {
   const { openAddressSelector } = useApp();
   const { draft, setDraft } = useExpressBooking();
   const STEPS = useSteps();
+  const isBetween = draft.service_type === "between_cities";
 
   const pickPickup = () => openAddressSelector({
     title: t("send.wizard.pickup_location"),
@@ -44,11 +46,113 @@ export const ExpressStepLocation = () => {
       <WizardProgress steps={STEPS} current={0} />
       <ExpressWizardShell>
         <div className="space-y-3">
-          <AddressField testid="exp-pickup" label={t("send.wizard.pickup_location")} address={draft.pickup} onEdit={pickPickup} tone="#FCC44C" hint={t("send.wizard.tap_to_choose")} />
-          <AddressField testid="exp-drop" label={t("send.wizard.dropoff_location")} address={draft.drop} onEdit={pickDrop} tone="#FCC44C" hint={t("send.wizard.tap_to_choose")} />
+          {isBetween ? (
+            <>
+              <div className="baked-card border p-3" style={{ borderColor: "#FCC44C55", backgroundColor: "#FCC44C0A" }}>
+                <div className="text-sm font-bold">{t("send.wizard.between_note_title")}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{t("send.wizard.between_note_body")}</div>
+              </div>
+              <CityAutocomplete
+                testid="exp-pickup-city"
+                label={t("send.wizard.origin_city")}
+                value={draft.pickup}
+                onPick={(a) => setDraft({ pickup: a })}
+                placeholder={t("send.wizard.between_city_placeholder")}
+              />
+              <CityAutocomplete
+                testid="exp-drop-city"
+                label={t("send.wizard.destination_city")}
+                value={draft.drop}
+                onPick={(a) => setDraft({ drop: a })}
+                placeholder={t("send.wizard.between_city_placeholder")}
+              />
+              {ok && <BetweenCitiesRouteStrip pickup={draft.pickup} drop={draft.drop} />}
+            </>
+          ) : (
+            <>
+              <AddressField testid="exp-pickup" label={t("send.wizard.pickup_location")} address={draft.pickup} onEdit={pickPickup} tone="#FCC44C" hint={t("send.wizard.tap_to_choose")} />
+              <AddressField testid="exp-drop" label={t("send.wizard.dropoff_location")} address={draft.drop} onEdit={pickDrop} tone="#FCC44C" hint={t("send.wizard.tap_to_choose")} />
+            </>
+          )}
         </div>
       </ExpressWizardShell>
       <ExpressFooter onContinue={() => navigate("/send/book/receiver")} disabled={!ok} />
+    </div>
+  );
+};
+
+/**
+ * Phase D — Between-Cities inline "route strip". Shows origin → destination
+ * with the driving distance + ETA so the customer sees the trip metrics
+ * before they reach Step 4. Uses the Google `DirectionsService` when the
+ * map key is available; falls back to a haversine estimate otherwise.
+ */
+const BetweenCitiesRouteStrip = ({ pickup, drop }) => {
+  const { t } = useTranslation("customer");
+  const [meta, setMeta] = React.useState(null);
+
+  useEffect(() => {
+    setMeta(null);
+    if (!pickup || !drop) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // The Places-New loader is async — DirectionsService may not exist
+        // at first render. `importLibrary` waits for it without triggering
+        // a second script load.
+        if (window.google?.maps?.importLibrary) {
+          await window.google.maps.importLibrary("routes");
+        }
+        if (!window.google?.maps?.DirectionsService) return;
+        const svc = new window.google.maps.DirectionsService();
+        svc.route({
+          origin: { lat: pickup.latitude, lng: pickup.longitude },
+          destination: { lat: drop.latitude, lng: drop.longitude },
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (res, status) => {
+          if (cancelled || status !== "OK") return;
+          const leg = res.routes?.[0]?.legs?.[0];
+          if (!leg) return;
+          setMeta({
+            distance_km: (leg.distance?.value || 0) / 1000,
+            duration_min: Math.round((leg.duration?.value || 0) / 60),
+          });
+        });
+      } catch { /* fall through to haversine estimate */ }
+    })();
+    return () => { cancelled = true; };
+  }, [pickup?.latitude, pickup?.longitude, drop?.latitude, drop?.longitude]);
+
+  const fallback = React.useMemo(() => {
+    if (!pickup || !drop) return null;
+    const R = 6371, toRad = (x) => (x * Math.PI) / 180;
+    const dlat = toRad(drop.latitude - pickup.latitude);
+    const dlng = toRad(drop.longitude - pickup.longitude);
+    const a = Math.sin(dlat / 2) ** 2 + Math.cos(toRad(pickup.latitude)) * Math.cos(toRad(drop.latitude)) * Math.sin(dlng / 2) ** 2;
+    const km = 2 * R * Math.asin(Math.sqrt(a));
+    return { distance_km: km, duration_min: Math.round(km * 1.2) };
+  }, [pickup, drop]);
+
+  const distance = meta?.distance_km ?? fallback?.distance_km;
+  const duration = meta?.duration_min ?? fallback?.duration_min;
+
+  return (
+    <div
+      data-testid="exp-between-route-strip"
+      className="baked-card border p-3 flex items-center gap-3"
+      style={{ borderColor: "#FCC44C55", backgroundColor: "#FCC44C0A" }}
+    >
+      <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#FCC44C22" }}>
+        <Navigation2 size={16} color="#FCC44C" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("send.wizard.trip_summary")}</div>
+        <div className="text-xs font-semibold truncate">{pickup.line1 || pickup.formatted_address} → {drop.line1 || drop.formatted_address}</div>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-sm font-bold" data-testid="exp-between-distance">{distance != null ? `${distance.toFixed(0)} km` : "…"}</div>
+        <div className="text-[10px] text-muted-foreground" data-testid="exp-between-eta">{duration != null ? `${duration} min` : "…"}</div>
+      </div>
     </div>
   );
 };
