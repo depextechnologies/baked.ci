@@ -1619,9 +1619,33 @@ const DashboardPage = () => {
 
   // Adapt an ExpressBooking → the shape DriverNavMap needs.
   // Uses booking.status to decide whether the route heads to pickup or dropoff.
+  // For multi-stop bookings (stops[] populated), always aim the map at the
+  // *current* leg the driver still needs to reach.
   const navJob = useMemo(() => {
     if (!activeExpressJob) return null;
     const st = activeExpressJob.status;
+    const stops = Array.isArray(activeExpressJob.stops) ? activeExpressJob.stops : null;
+
+    if (stops && stops.length && activeExpressJob.service_type === "multiple_shipments") {
+      // First still-pending pickup+drop informs the map anchors.
+      let currentStop = null;
+      let currentLeg = "pickup";
+      for (const s of stops) {
+        if (s?.pickup?.status !== "completed") { currentStop = s; currentLeg = "pickup"; break; }
+        if (s?.drop?.status !== "completed")   { currentStop = s; currentLeg = "drop";   break; }
+      }
+      if (currentStop) {
+        const p = currentStop.pickup || {};
+        const d = currentStop.drop || {};
+        return {
+          id: activeExpressJob.id,
+          status: currentLeg === "drop" ? "picked_up" : "arriving_pickup",
+          pickup:  { lat: Number(p.lat), lng: Number(p.lng) },
+          dropoff: { lat: Number(d.lat), lng: Number(d.lng) },
+        };
+      }
+    }
+
     const isDropoffPhase = st === "picked_up" || st === "in_transit";
     return {
       id: activeExpressJob.id,

@@ -436,7 +436,9 @@ async def create_parcel_booking(
         )
         # Full stops payload (with the raw address blobs from the client) is
         # persisted on the booking row so drivers + admin see every stop.
-        multi_stops_payload = [s for s in payload.stops]
+        # Enrich with per-leg status + delivery PIN (Driver Multi-Stop UX).
+        from .multi_stop import enrich_stops
+        multi_stops_payload = enrich_stops([s for s in payload.stops])
     else:
         quote = await quote_parcel(
             session,
@@ -489,6 +491,14 @@ async def create_parcel_booking(
         ExpressBookingTimeline(booking_id=booking.id, code="searching", label="Searching for a driver…", at=now),
     ])
     await session.commit()
+    # Multi-stop: fire off per-drop SMS with the receiver's delivery PIN.
+    # Best-effort — never fails the booking response.
+    if multi_stops_payload:
+        try:
+            from .multi_stop import dispatch_delivery_pins
+            await dispatch_delivery_pins(booking)
+        except Exception:  # noqa: BLE001
+            pass
     # --- Phase A: try to dispatch a real online driver immediately -------
     # The dispatcher is fire-and-forget — if no driver qualifies right now
     # the timeout worker will retry when a driver next comes online / pings.
@@ -677,6 +687,34 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+async def _authorise_driver_for_booking(booking, request, session):
+    """Enforce that the caller is the ModuleDriver assigned to this booking.
+
+    Shared by /driver-status and /stop-advance so both endpoints reject
+    unauthenticated callers and drivers who aren't assigned to the trip.
+    Raises HTTPException(401/403) — never returns falsy.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
+    try:
+        from core.security import decode_token
+        from core.models import ModuleDriver
+        claims = decode_token(auth.split(" ", 1)[1])
+        if not claims or claims.get("role") != "driver":
+            raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
+        md = (await session.execute(
+            select(ModuleDriver).where(ModuleDriver.linked_driver_id == claims["sub"])
+        )).scalar_one_or_none()
+        if md is None or booking.driver_id != md.id:
+            raise HTTPException(403, {"code": "not_your_booking",
+                                      "message": _t("errors.auth.not_your_booking", current_lang())})
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(401, _t("errors.auth.invalid_driver_creds", current_lang()))
+
+
 class DriverStatusIn(BaseModel):
     status: str  # arriving | picked_up | in_transit | delivered
     lat: Optional[float] = None
@@ -695,31 +733,7 @@ async def driver_advance_status(
     booking = await session.get(ExpressBooking, booking_id)
     if not booking:
         raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
-
-    # Auth: caller must be the driver assigned to this booking. Accepts the
-    # SENDbakēd driver JWT (role='driver') and matches via ModuleDriver.
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        try:
-            from core.security import decode_token
-            from core.models import ModuleDriver
-            from sqlalchemy import select
-            claims = decode_token(auth.split(" ", 1)[1])
-            if claims and claims.get("role") == "driver":
-                md = (await session.execute(
-                    select(ModuleDriver).where(ModuleDriver.linked_driver_id == claims["sub"])
-                )).scalar_one_or_none()
-                if md is None or booking.driver_id != md.id:
-                    raise HTTPException(403, {"code": "not_your_booking",
-                                              "message": _t("errors.auth.not_your_booking", current_lang())})
-            else:
-                raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
-        except HTTPException:
-            raise
-        except Exception:
-            raise HTTPException(401, _t("errors.auth.invalid_driver_creds", current_lang()))
-    else:
-        raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
+    await _authorise_driver_for_booking(booking, request, session)
 
     curr = booking.status
     allowed = ALLOWED_TRANSITIONS.get(curr, set())
@@ -736,6 +750,83 @@ async def driver_advance_status(
     driver_id = booking.driver_id
     result = await transition_status(session, booking_id, payload.status, extra=extra, driver_location=driver_loc)
     if payload.status == "delivered" and driver_id:
+        await release_driver(session, driver_id)
+    return result
+
+
+# ---------- Multi-stop leg advancement (Phase E driver UX) ----------
+class StopAdvanceIn(BaseModel):
+    sequence: int = Field(..., ge=1, le=32)
+    leg: str = Field(..., description="'pickup' or 'drop'")
+    delivery_pin: Optional[str] = Field(default=None, max_length=8)
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+@router.post("/bookings/{booking_id}/stop-advance")
+async def driver_advance_stop_leg(
+    booking_id: str, payload: StopAdvanceIn,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Advance a single (pickup|drop) leg of a specific stop in a multi-stop
+    booking. Enforces ordered execution and delivery-PIN verification.
+    Cascades the overall booking status and appends a timeline event.
+    """
+    from modules.express.multi_stop import advance_stop_leg, MultiStopError
+    from modules.express.tracking import transition_status
+    from modules.express.dispatch import release_driver
+
+    booking = await session.get(ExpressBooking, booking_id)
+    if not booking:
+        raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
+    await _authorise_driver_for_booking(booking, request, session)
+
+    if not booking.stops:
+        raise HTTPException(400, {"code": "not_multi_stop",
+                                  "message": "Booking is not a multi-stop booking."})
+
+    try:
+        target_stop, new_status = advance_stop_leg(
+            booking,
+            sequence=payload.sequence,
+            leg=payload.leg,
+            delivery_pin=payload.delivery_pin,
+        )
+    except MultiStopError as e:
+        raise HTTPException(400, {"code": e.code, "message": e.message})
+
+    # Persist the mutated stops JSONB.
+    await session.commit()
+    await session.refresh(booking)
+
+    # Append a timeline event scoped to the checkpoint (survives status re-use).
+    label = (
+        f"Pickup {payload.sequence} completed" if payload.leg == "pickup"
+        else f"Delivery {payload.sequence} completed"
+    )
+    code = f"stop_{payload.leg}_{payload.sequence}_completed"
+    session.add(ExpressBookingTimeline(
+        booking_id=booking.id, code=code, label=label,
+        at=datetime.now(timezone.utc),
+    ))
+    await session.commit()
+
+    # Cascade overall booking status through the standard tracker so all
+    # WebSocket subscribers see the update.
+    driver_loc = None
+    if payload.lat is not None and payload.lng is not None:
+        driver_loc = {"lat": payload.lat, "lng": payload.lng}
+    extra = {}
+    driver_id = booking.driver_id
+    if new_status == "delivered":
+        extra["delivered_at"] = datetime.now(timezone.utc)
+        extra["payment_status"] = "paid"
+    result = await transition_status(
+        session, booking_id, new_status,
+        extra=extra, driver_location=driver_loc, label=label,
+    )
+    if new_status == "delivered" and driver_id:
         await release_driver(session, driver_id)
     return result
 
