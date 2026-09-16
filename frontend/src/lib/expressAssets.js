@@ -40,9 +40,13 @@ export const VEHICLE_IMAGES = {
   three_wheeler: "/send-tiles/vehicles/tricycle.png",
   mini_truck:    "/send-tiles/vehicles/mini_truck.png",
   truck:         "/send-tiles/vehicles/truck.png",
-  ref_tricycle:  "/send-tiles/vehicles/tricycle.png",
-  ref_utility:   "/send-tiles/vehicles/mini_truck.png",
-  ref_truck:     "/send-tiles/vehicles/truck.png",
+  // Fresh Products / cold-chain fleet — dedicated refrigerated renders
+  // (SENDbakēd-branded reefer bodies) so the card immediately reads as
+  // cold chain and cannot be visually confused with the non-refrigerated
+  // silhouettes above.
+  ref_tricycle:  "/send-tiles/vehicles/ref_tricycle.png",
+  ref_utility:   "/send-tiles/vehicles/ref_utility.png",
+  ref_truck:     "/send-tiles/vehicles/ref_truck.png",
 };
 
 /**
