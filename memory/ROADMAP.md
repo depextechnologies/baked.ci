@@ -24,6 +24,9 @@ _Last snapshot: 2026-03-01 after shipping SHOPbakēd Slices 1–9 + Unified Cart
 - **Analytics Dashboard (Slice D)** — partner-side charts (sales, top SKUs, waste %, avg pick time) via `recharts` (already in `package.json`).
 - **Returns / Refunds (Slice H)** — customer-initiated returns + refund via wallet or original tender + restocking flow.
 - **Real Stripe integration** — replace mocked wallet top-up + checkout with the pre-configured Stripe test key.
+- **Driver SOS / Emergency Ping** — panic button in driver PWA → alerts admin dashboard + broadcasts geo to nearby drivers.
+- **Refactoring** — split `server.py` and `DriverApp.jsx` (KYC screen) into smaller modules. Move backend routes into `/app/backend/routes` and models into `/app/backend/models`.
+- **Apple Sign-In for Driver PWA** — blocked on Apple Services Key.
 
 ### India NCR follow-ups
 

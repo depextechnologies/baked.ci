@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend verification of Multiple Shipments 2-step wizard. Authenticated via OTP dev_code flow (POST /api/auth/otp/request → /api/auth/otp/verify), seeded ExpressContext draft via sessionStorage key 'baked_express_draft' with 2 valid Abidjan stops. Verified Step 1 rendering, Step 2 authenticated rendering with all 7 vehicle cards, real PNG images, refrigerated variants, live pricing, and Book Now button. All acceptance criteria PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MultiShipmentsStep2 vehicle card", "issues": ["HTML nesting warning: <button data-testid='multi-vehicle-info-*'> is rendered inside the outer <button data-testid='multi-vehicle-card-*'>. React hydration warning printed: 'In HTML, <button> cannot be a descendant of <button>'. Works functionally but is an a11y/hydration violation. Fix by converting the outer clickable card to a div with role='button' + onKeyDown, or move the Info trigger outside the card button."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: Fix nested <button> inside <button> in MultiShipmentsWizard.jsx vehicle card (line ~645 outer button, line ~698 inner Info button) to eliminate hydration warning."
+  ],
+  "critical_code_review_comments": [
+    "MultiShipmentsWizard.jsx line ~645: outer vehicle card is <button>, and lines ~698 renders <button data-testid='multi-vehicle-info-*'> inside — invalid HTML, causes React hydration warning.",
+    "Step 2 auth guard is client-side only (openLogin on 'book' action). Direct navigation to /send/multi-shipments/vehicle is allowed if unauthenticated — user must click Book Now to be prompted. Acceptable, but consider redirecting sooner.",
+    "Vehicle codes are 'ref_tricycle / ref_utility / ref_truck'. Test request mentioned 'refrigerated cargo' — the actual catalogue exposes 'ref_utility' (Utilitaire frigorifique). Naming aligned with backend seed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only run)", "frontend": "100%"},
+  "test_credentials": "Phone OTP: country_code=CI, phone=0700000123. Fetch dev_code from POST /api/auth/otp/request response, then POST /api/auth/otp/verify → access_token. Store in localStorage key 'baked_access_token'.",
+  "seed_data_creation": "Seeded ExpressContext draft in sessionStorage['baked_express_draft'] with 2 Abidjan stops (Cocody→Plateau, Marcory→Riviera) to jump directly to Step 2.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "ExpressContext draft is persisted in sessionStorage under 'baked_express_draft' (NOT localStorage). To land on Step 2 (/send/multi-shipments/vehicle) without going through the address picker, seed this sessionStorage key with a draft containing stops[] each with pickup & drop objects that have latitude+longitude+formatted_address. Auth token localStorage key is 'baked_access_token'. Backend returns 7 vehicles for country=CI + service_type=multiple_shipments: bike, three_wheeler, mini_truck, truck, ref_tricycle, ref_utility, ref_truck — all with /vehicles/*.png images that exist in /app/frontend/public/vehicles/.",
+  "verified_features": [
+    "Step 1 route /send/multi-shipments renders data-testid='multi-shipments-step1' with shipment card 1 and Continue button (initially disabled until addresses selected)",
+    "Step 2 route /send/multi-shipments/vehicle renders data-testid='multi-shipments-step2' after auth and completed stops",
+    "All 7 vehicle cards present: bike, three_wheeler, mini_truck, truck, ref_tricycle, ref_utility, ref_truck (data-testid='multi-vehicle-card-{code}')",
+    "3 refrigerated vehicles (ref_tricycle/ref_utility/ref_truck) show 'FRIGO' badge",
+    "Every card renders a real <img> from /vehicles/{code}.png with naturalWidth >1400px (verified not emoji/icon)",
+    "Live prices from /api/express/quote/multi_stop populate for all 7 cards (e.g. Moto 5,598 CFA; Camion frigorifique 79,220 CFA)",
+    "'MEILLEUR PRIX' (cheapest) badge appears on Moto (cheapest)",
+    "Card shows 'Calcul...' loader state per code (line 675-678) while quotes are undefined — verified via code review that setQuotes({}) is called before recompute so cards never render 0",
+    "data-testid='multi-shipments-book-now' present, becomes enabled after selecting a vehicle, is clickable"
+  ]
+}

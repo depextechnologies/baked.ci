@@ -1,5 +1,24 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-05 — Phase C: Phase-A Dispatch Pytest Suite — COMPLETE
+
+**Coverage**: 22 direct-DB pytests over `modules.express.dispatch` — the algorithmic core of Phase A real-driver dispatch.
+
+**File**: `backend/tests/test_express_dispatch_phase_a.py` (all 22 tests pass, 2.74s runtime).
+
+**Contracts locked in**
+- `find_nearest_driver` — nearest-first ranking, freshness gate (`last_seen_at ≥ now − STALE_AFTER_SECONDS`), `linked_driver_id IS NOT NULL` guard (excludes legacy seed rows), `is_available=True`, MATCH_RADIUS_KM cap, `exclude_ids` skip, country isolation.
+- Vehicle fallback chain — bike→scooter, three_wheeler→mini_truck→truck, own-family scanned first.
+- Cold-chain guarantee — `ref_tricycle` NEVER dispatches to a non-refrigerated driver (even in-family), and `REFRIGERATED_CODES = {ref_tricycle, ref_utility, ref_truck}`.
+- `dispatch_next_offer` — sets `status='offering' + offered_to_driver_id + offer_expires_at`; on exhausted pool reverts to `status='searching'` and nulls the offer fields.
+- `accept_offer_atomic` — winning driver flips row + reserves `module_driver.active_booking_id`; expired offer → `expired`; wrong driver → `offer_gone`; second attempt after success → `already_taken`.
+- **Race semantics** — two `asyncio.gather()` accepts against isolated sessions produce exactly one winner (single `UPDATE .. WHERE`).
+- `decline_offer` — appends to `declined_driver_ids`, immediately re-dispatches to the next eligible driver, falls back to `searching` when pool exhausts.
+
+**Fix — MultiShipmentsWizard vehicle card HTML nesting**: outer `<button>` → `<div role="button" tabIndex + onKeyDown>` so the inner Info button no longer produces the "button descendant of button" React hydration warning flagged in iteration_86.json.
+
+
+
 ## 2026-03-10 — Global Inter Typography Migration — COMPLETE
 
 **Previous typography**: Poppins imported in `src/index.css` line 1 and applied to `body`. Partner-landing + partner-hub each shipped their own Inter fallback stack. Driver + SendTrack had 3 inline `fontFamily: "Inter, system-ui, sans-serif"` overrides. Three sources of truth, one legacy default.

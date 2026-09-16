@@ -642,13 +642,21 @@ export const MultiShipmentsStep2 = () => {
             const label = lang === "en" ? v.name : (v.name_fr || v.name);
             const secondary = lang === "en" ? (v.name_fr || v.name) : v.name;
             return (
-              <button
+              <div
                 key={v.code}
-                type="button"
+                role="button"
+                tabIndex={priceReady ? 0 : -1}
+                aria-disabled={!priceReady}
                 data-testid={`multi-vehicle-card-${v.code}`}
                 onClick={() => priceReady && setDraft({ vehicle_code: v.code })}
-                disabled={!priceReady}
-                className={`w-full rounded-2xl border p-4 text-left motion-fast flex items-center gap-3 disabled:opacity-70 ${selected ? "border-[#FCC44C] bg-[#FCC44C0F]" : "border-border bg-card"}`}
+                onKeyDown={(e) => {
+                  if (!priceReady) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDraft({ vehicle_code: v.code });
+                  }
+                }}
+                className={`w-full rounded-2xl border p-4 text-left motion-fast flex items-center gap-3 cursor-pointer ${!priceReady ? "opacity-70 pointer-events-none" : ""} ${selected ? "border-[#FCC44C] bg-[#FCC44C0F]" : "border-border bg-card"}`}
               >
                 <VehicleImage vehicle={v} />
                 <div className="flex-1 min-w-0">
@@ -712,7 +720,7 @@ export const MultiShipmentsStep2 = () => {
                     <Check size={13} strokeWidth={3} />
                   </span>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
