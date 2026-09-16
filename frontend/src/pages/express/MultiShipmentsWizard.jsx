@@ -24,7 +24,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   MapPin, Plus, Trash2, ChevronDown, ChevronUp, Info,
-  Truck, Bike, Check, Loader2,
+  Check, Loader2,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -410,11 +410,28 @@ export const MultiShipmentsStep1 = () => {
 /*  STEP 2 — Vehicle & Reservation                                             */
 /* -------------------------------------------------------------------------- */
 
-const MULTI_VEHICLE_ORDER = ["bike", "three_wheeler", "mini_truck", "truck"];
+const MULTI_VEHICLE_ORDER = [
+  "bike", "three_wheeler", "mini_truck", "truck",
+  "ref_tricycle", "ref_utility", "ref_truck",
+];
 
-const VehicleIcon = ({ code }) => {
-  if (code === "bike" || code === "scooter") return <Bike size={20} />;
-  return <Truck size={20} />;
+const VehicleImage = ({ vehicle }) => {
+  const src = vehicle?.image || `/vehicles/${vehicle?.code || "bike"}.png`;
+  return (
+    <div className="w-16 h-16 rounded-xl grid place-items-center shrink-0 overflow-hidden"
+         style={{ background: `${YELLOW}12` }}>
+      <img
+        src={src}
+        alt={vehicle?.name || vehicle?.code || "vehicle"}
+        loading="lazy"
+        className="max-w-full max-h-full object-contain"
+        onError={(e) => {
+          // Silent fallback — never break the card if the asset is missing.
+          e.currentTarget.style.visibility = "hidden";
+        }}
+      />
+    </div>
+  );
 };
 
 const PriceBreakdownModal = ({ open, onClose, quote, currency }) => {
@@ -511,6 +528,9 @@ export const MultiShipmentsStep2 = () => {
       pickup: { lat: s.pickup.latitude, lng: s.pickup.longitude },
       drop:   { lat: s.drop.latitude,   lng: s.drop.longitude },
     }));
+    // Reset to loading (undefined) before recomputing so cards show
+    // "Calculating…" instead of a stale ₹0 (Fixing_Prompt §21).
+    setQuotes({});
     Promise.all(vehicles.map(async (v) => {
       try {
         const { data } = await api.post("/express/quote/multi_stop", {
@@ -519,12 +539,12 @@ export const MultiShipmentsStep2 = () => {
           stops,
         });
         return [v.code, data];
-      } catch { return [v.code, null]; }
+      } catch { return [v.code, { error: true }]; }
     })).then((rows) => setQuotes(Object.fromEntries(rows)));
   }, [vehicles, draft.stops, country?.code]);
 
   const cheapest = useMemo(() => {
-    const eligible = Object.entries(quotes).filter(([, q]) => q?.total != null);
+    const eligible = Object.entries(quotes).filter(([, q]) => q?.total != null && !q?.error);
     if (!eligible.length) return null;
     return eligible.sort((a, b) => a[1].total - b[1].total)[0][0];
   }, [quotes]);
@@ -615,6 +635,9 @@ export const MultiShipmentsStep2 = () => {
           )}
           {vehicles.map((v) => {
             const q = quotes[v.code];
+            const loading = q === undefined;
+            const errored = q?.error === true;
+            const priceReady = !!q && !errored && q.total != null;
             const selected = draft.vehicle_code === v.code;
             const label = lang === "en" ? v.name : (v.name_fr || v.name);
             const secondary = lang === "en" ? (v.name_fr || v.name) : v.name;
@@ -623,16 +646,20 @@ export const MultiShipmentsStep2 = () => {
                 key={v.code}
                 type="button"
                 data-testid={`multi-vehicle-card-${v.code}`}
-                onClick={() => setDraft({ vehicle_code: v.code })}
-                className={`w-full rounded-2xl border p-4 text-left motion-fast flex items-center gap-3 ${selected ? "border-[#FCC44C] bg-[#FCC44C0F]" : "border-border bg-card"}`}
+                onClick={() => priceReady && setDraft({ vehicle_code: v.code })}
+                disabled={!priceReady}
+                className={`w-full rounded-2xl border p-4 text-left motion-fast flex items-center gap-3 disabled:opacity-70 ${selected ? "border-[#FCC44C] bg-[#FCC44C0F]" : "border-border bg-card"}`}
               >
-                <div className="w-12 h-12 rounded-xl grid place-items-center shrink-0"
-                     style={{ background: `${YELLOW}22`, color: YELLOW }}>
-                  <VehicleIcon code={v.code} />
-                </div>
+                <VehicleImage vehicle={v} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="text-sm font-bold truncate">{label}</div>
+                    {v.is_refrigerated && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                            style={{ background: "#3b82f622", color: "#3b82f6" }}>
+                        Frigo
+                      </span>
+                    )}
                     {cheapest === v.code && (
                       <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
                             style={{ background: `${YELLOW}22`, color: YELLOW }}>
@@ -641,33 +668,43 @@ export const MultiShipmentsStep2 = () => {
                     )}
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate">{secondary}</div>
-                  {q ? (
+                  {priceReady ? (
                     <div className="text-[11px] text-muted-foreground mt-1">
-                      {q.distance_km?.toFixed?.(1) ?? q.distance_km} km · {q.duration_min} min
+                      {q.distance_km?.toFixed?.(1) ?? q.distance_km} km · {q.duration_min} min · {q.shipments || draft.stops?.length || 1} colis
                     </div>
-                  ) : (
+                  ) : loading ? (
                     <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
                       <Loader2 size={10} className="animate-spin" /> {t("send.multi.pricing")}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-red-500 mt-1">
+                      {t("send.multi.pricing_failed", { defaultValue: "Prix indisponible" })}
                     </div>
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  {q?.total != null ? (
+                  {priceReady ? (
                     <div className="text-sm font-bold" style={{ color: selected ? YELLOW : undefined }}>
                       {money(q.total, { currency: q.currency })}
                     </div>
+                  ) : loading ? (
+                    <div className="text-xs text-muted-foreground">
+                      {t("send.multi.pricing")}
+                    </div>
                   ) : (
-                    <div className="text-sm text-muted-foreground">—</div>
+                    <div className="text-xs text-red-500">—</div>
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setBreakdownFor(v.code); }}
-                    data-testid={`multi-vehicle-info-${v.code}`}
-                    className="mt-1 w-7 h-7 rounded-full border border-border grid place-items-center text-muted-foreground hover:text-foreground"
-                    aria-label={t("send.multi.breakdown_title")}
-                  >
-                    <Info size={13} />
-                  </button>
+                  {priceReady && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setBreakdownFor(v.code); }}
+                      data-testid={`multi-vehicle-info-${v.code}`}
+                      className="mt-1 w-7 h-7 rounded-full border border-border grid place-items-center text-muted-foreground hover:text-foreground"
+                      aria-label={t("send.multi.breakdown_title")}
+                    >
+                      <Info size={13} />
+                    </button>
+                  )}
                 </div>
                 {selected && (
                   <span className="ml-2 w-6 h-6 rounded-full grid place-items-center shrink-0"
