@@ -136,16 +136,31 @@ export const AppProvider = ({ children }) => {
     else localStorage.removeItem("baked_active_address");
   }, []);
   const [addressSelectorOpen, setAddressSelectorOpen] = useState(false);
+  const [addressSelectorClosing, setAddressSelectorClosing] = useState(false);
   const [addressSelectorMode, setAddressSelectorMode] = useState({ callback: null, title: null });
   const openAddressSelector = useCallback((opts) => {
     // opts.onPick(address) — when provided, invoked with the picked address INSTEAD of updating global activeAddress.
     // opts.title — override modal title (e.g. "Pickup location")
     setAddressSelectorMode({ callback: opts?.onPick || null, title: opts?.title || null });
+    setAddressSelectorClosing(false);
     setAddressSelectorOpen(true);
   }, []);
   const closeAddressSelector = useCallback(() => {
-    setAddressSelectorOpen(false);
-    setAddressSelectorMode({ callback: null, title: null });
+    // Two-step unmount to defuse the "Failed to execute 'removeChild' on
+    // 'Node'" runtime error that fires when the AddressSelector modal
+    // closes while its Google Maps PreviewMap (@vis.gl/react-google-maps
+    // <AdvancedMarker> portal) is still mounted. Flipping `closing=true`
+    // signals AddressSelectorInner to reset its step to "search" (which
+    // unmounts the map cleanly), THEN we tear down the modal on the next
+    // microtask so React finishes committing the map-unmount before the
+    // ancestor is removed. Every close path (X button, backdrop click,
+    // Confirm callback) funnels through here so all three get the fix.
+    setAddressSelectorClosing(true);
+    queueMicrotask(() => {
+      setAddressSelectorOpen(false);
+      setAddressSelectorClosing(false);
+      setAddressSelectorMode({ callback: null, title: null });
+    });
   }, []);
 
   useEffect(() => {
@@ -243,7 +258,7 @@ export const AppProvider = ({ children }) => {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode]);
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);

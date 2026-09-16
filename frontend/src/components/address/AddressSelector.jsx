@@ -416,11 +416,24 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
   const [step, setStep] = useState("search"); // 'search' | 'confirm'
   const [candidate, setCandidate] = useState(null);
   const [detecting, setDetecting] = useState(false);
-  const { setActiveAddress } = useApp();
+  const { setActiveAddress, addressSelectorClosing } = useApp();
   const places = useMapsLibrary("places");
   const geo = useMapsLibrary("geocoding");
   // Force libraries to load — we use their globals directly via lib/googleMaps.js
   void places; void geo;
+
+  // Two-step unmount handshake — when the context flips `closing=true`
+  // (any close path: X button, backdrop, or Confirm), we reset the step
+  // back to "search" so the ConfirmStep + its Google Maps PreviewMap
+  // (@vis.gl/react-google-maps AdvancedMarker portal) unmounts in this
+  // commit. The context then closes the modal on the next microtask, so
+  // React finishes flushing the map-unmount before the ancestor is torn
+  // down. Without this, Chrome throws:
+  //   "Failed to execute 'removeChild' on 'Node': The node to be removed
+  //    is not a child of this node."
+  useEffect(() => {
+    if (addressSelectorClosing) setStep("search");
+  }, [addressSelectorClosing]);
 
   const onPickSuggestion = useCallback(async (suggestion) => {
     try {
@@ -502,15 +515,11 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
       setActiveAddress(finalized);
     }
     toast.success(onPick ? t("address_selector.toast_selected") : t("address_selector.toast_updated"));
-    // Unmount the PreviewMap FIRST (by flipping the step back to `search`),
-    // THEN close the modal on the next tick. `@vis.gl/react-google-maps`'s
-    // AdvancedMarker uses a React portal that manipulates the DOM outside
-    // React's tree — closing the modal in the same commit that unmounts
-    // the map racess with that portal cleanup and triggers:
-    //   "Failed to execute 'removeChild' on 'Node'"
-    // in Chrome (React 18 concurrent mode). Two-step unmount avoids it.
-    setStep("search");
-    queueMicrotask(onClose);
+    // `onClose` == `closeAddressSelector` from BakedContexts, which does
+    // the two-step (`closing=true` → microtask → `open=false`). The
+    // effect above (`addressSelectorClosing → setStep("search")`) fires
+    // in the same commit, unmounting the map before the modal tears down.
+    onClose();
   }, [onPick, setActiveAddress, onClose, t]);
 
   return (
