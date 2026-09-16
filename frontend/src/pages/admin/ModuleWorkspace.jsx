@@ -11,20 +11,25 @@ import {
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
 
 // Per PRD §7 — sub-nav for each Business Module admin workspace
+// Flags:
+//   martOnly     → visible only on MARTbakēd workspace
+//   expressOnly  → visible only on SENDbakēd workspace
+//   notForExpress→ hidden on SENDbakēd (catalog surfaces that don't apply
+//                  to a delivery-network module)
 const MODULE_NAV = [
   { seg: "", exact: true, label: "Overview", icon: LayoutDashboard },
-  { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores" },
+  { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores", notForExpress: true },
   { seg: "applications", label: "Applications", icon: ClipboardList, martOnly: true, note: "Partner applications" },
-  { seg: "products", label: "Products", icon: Package, note: "Read-only browse" },
-  { seg: "catalog", label: "Catalog", icon: Boxes, note: "Categories & sub-categories" },
-  { seg: "attributes", label: "Attributes", icon: Tag, note: "Dynamic category attributes" },
-  { seg: "approvals", label: "Approvals", icon: Sparkles, note: "Product review queue" },
+  { seg: "products", label: "Products", icon: Package, note: "Read-only browse", notForExpress: true },
+  { seg: "catalog", label: "Catalog", icon: Boxes, note: "Categories & sub-categories", notForExpress: true },
+  { seg: "attributes", label: "Attributes", icon: Tag, note: "Dynamic category attributes", notForExpress: true },
+  { seg: "approvals", label: "Approvals", icon: Sparkles, note: "Product review queue", notForExpress: true },
   { seg: "category-requests", label: "Category Requests", icon: Sparkles, martOnly: true, note: "Partner-proposed categories" },
   // Phase 1 (2026-03): un-gated for SHOP so admins can review SHOP seller
   // applications from /admin/modules/shop/suppliers. Backend filters by
   // Supplier.modules ? 'SHOP'. Product Requests still MART-only (SHOP uses
   // a different catalogue model — Phase 2 will add a SHOP-native flow).
-  { seg: "suppliers", label: "Suppliers", icon: Building2, note: "Seller onboarding & governance" },
+  { seg: "suppliers", label: "Suppliers", icon: Building2, note: "Seller onboarding & governance", notForExpress: true },
   { seg: "suppliers/product-requests", label: "Product Requests", icon: PackageIcon, martOnly: true, note: "Supplier-proposed products" },
   { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
   { seg: "purchase-orders", label: "Purchase Orders", icon: PackageIcon, martOnly: true, note: "Cross-network PO oversight" },
@@ -33,6 +38,8 @@ const MODULE_NAV = [
   { seg: "bookings", label: "Bookings", icon: Activity, expressOnly: true },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },
   { seg: "drivers", label: "Drivers", icon: Bike },
+  { seg: "driver-applications", label: "Driver Applications", icon: ClipboardList, expressOnly: true, note: "KYC review queue" },
+  { seg: "driver-payouts", label: "Driver Payouts", icon: DollarSign, expressOnly: true, note: "Weekly settlements & payouts" },
   { seg: "pricing", label: "Pricing", icon: Tag, expressOnly: true },
   { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true },
   { seg: "ai", label: "AI Operations", icon: Sparkles, comingSoon: true },
@@ -73,7 +80,7 @@ export const ModuleWorkspace = () => {
       {/* Sub-nav */}
       <div className="border-b border-border overflow-x-auto">
         <div className="flex items-center gap-1 min-w-max pb-2">
-          {MODULE_NAV.filter((n) => (!n.martOnly || code === "mart") && (!n.expressOnly || code === "express")).map((n) => {
+          {MODULE_NAV.filter((n) => (!n.martOnly || code === "mart") && (!n.expressOnly || code === "express") && (!n.notForExpress || code !== "express")).map((n) => {
             const path = n.seg ? `${base}/${n.seg}` : base;
             const isAct = active(n.seg, n.exact);
             const IconEl = n.icon;
