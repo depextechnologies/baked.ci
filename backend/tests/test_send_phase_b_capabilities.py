@@ -31,7 +31,7 @@ EXPECTED_FR = {
     "mini_truck":    "Mini camion",
     "truck":         "Camion",
     "ref_tricycle":  "Tricycle frigorifique",
-    "ref_utility":   "Utilitaire frigorifique",
+    "ref_utility":   "Mini camion frigorifique",
     "ref_truck":     "Camion frigorifique",
 }
 

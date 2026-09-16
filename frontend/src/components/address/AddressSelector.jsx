@@ -502,7 +502,15 @@ const AddressSelectorInner = ({ onClose, onPick, activeCountry }) => {
       setActiveAddress(finalized);
     }
     toast.success(onPick ? t("address_selector.toast_selected") : t("address_selector.toast_updated"));
-    onClose();
+    // Unmount the PreviewMap FIRST (by flipping the step back to `search`),
+    // THEN close the modal on the next tick. `@vis.gl/react-google-maps`'s
+    // AdvancedMarker uses a React portal that manipulates the DOM outside
+    // React's tree — closing the modal in the same commit that unmounts
+    // the map racess with that portal cleanup and triggers:
+    //   "Failed to execute 'removeChild' on 'Node'"
+    // in Chrome (React 18 concurrent mode). Two-step unmount avoids it.
+    setStep("search");
+    queueMicrotask(onClose);
   }, [onPick, setActiveAddress, onClose, t]);
 
   return (

@@ -1040,7 +1040,7 @@ const CAPABILITY_GROUPS = [
   ]},
   { key: "refrigerated", label: "Refrigerated fleet · cold chain", items: [
     { v: "ref_tricycle",  l: "Refrigerated tricycle",  icon: Truck },
-    { v: "ref_utility",   l: "Refrigerated utility",   icon: Truck },
+    { v: "ref_utility",   l: "Refrigerated Mini Truck",  icon: Truck },
     { v: "ref_truck",     l: "Refrigerated truck",     icon: Truck },
   ]},
 ];

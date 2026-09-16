@@ -38,7 +38,7 @@ VEHICLES = [
     ("truck",         "Truck",                   "Camion",                  "Extra large deliveries · Long distance",          3000,  60, 90, 25000, 8000, 5, False),
     # Phase B — Fresh Products refrigerated fleet
     ("ref_tricycle",  "Refrigerated Tricycle",   "Tricycle frigorifique",   "Refrigerated tricycle · fish, meat, vegetables",  250,   35, 45,  8000, 2500, 6, True),
-    ("ref_utility",   "Refrigerated Utility",    "Utilitaire frigorifique", "Refrigerated utility van · mid-volume cold chain", 800,  45, 60, 18000, 6000, 7, True),
+    ("ref_utility",   "Refrigerated Mini Truck", "Mini camion frigorifique","Refrigerated mini truck · mid-volume cold chain", 800,  45, 60, 18000, 6000, 7, True),
     ("ref_truck",     "Refrigerated Truck",      "Camion frigorifique",     "Refrigerated truck · high-volume cold chain",     2500,  60, 90, 32000, 11000,8, True),
 ]
 
