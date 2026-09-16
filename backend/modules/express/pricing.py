@@ -166,7 +166,7 @@ async def quote_parcel(
 # Phase E — Multi-stop trip pricing surcharge, charged per EXTRA shipment
 # (i.e. every shipment beyond the first). Kept in code for simplicity; ops
 # can later promote to a `express_pricing_rules` column if needed.
-MULTI_STOP_PER_EXTRA_SHIPMENT = {"XOF": 500, "LRD": 200}
+MULTI_STOP_PER_EXTRA_SHIPMENT = {"XOF": 500, "LRD": 200, "INR": 50}
 
 
 async def quote_multi_stop(
