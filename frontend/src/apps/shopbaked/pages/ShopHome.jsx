@@ -393,7 +393,7 @@ const CategoryGridSection = ({ section, tree, lang, t, testId, basePath = "/shop
           return (
             <Link key={c.slug || c.name} to={target}
                   data-testid={`shopbaked-category-tile-${c.slug || c.name}`}
-                  className="group border border-neutral-800 rounded-xl p-4 bg-neutral-900/40 hover:border-amber-400/60 transition-colors flex flex-col items-center gap-3">
+                  className="group border border-border rounded-xl p-4 bg-card hover:border-amber-400/60 hover:shadow-sm transition-colors flex flex-col items-center gap-3">
               <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center"
                    style={{ background: img ? "transparent" : `${SHOP_ACCENT}22` }}>
                 {img ? (
@@ -405,10 +405,10 @@ const CategoryGridSection = ({ section, tree, lang, t, testId, basePath = "/shop
                 )}
               </div>
               <div className="text-center">
-                <div className="text-sm font-semibold text-neutral-100 group-hover:text-amber-300 transition-colors">
+                <div className="text-sm font-semibold text-foreground group-hover:text-amber-500 dark:group-hover:text-amber-300 transition-colors">
                   {displayName}
                 </div>
-                <div className="text-[11px] text-neutral-500 mt-1">
+                <div className="text-[11px] text-muted-foreground mt-1">
                   {t("shop.sub_categories_count", { count: subCount })}
                 </div>
               </div>
