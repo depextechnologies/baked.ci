@@ -94,6 +94,18 @@ const ExpressLegacyRedirect = () => {
   return <Navigate to={`/send${rest}${loc.search || ""}`} replace />;
 };
 
+// Routes where the checkout experience should feel global and NOT be
+// coloured by any single module tab (MARTbakēd was highlighted by default
+// because activeModule falls back to 'mart' when the URL isn't module-
+// scoped). Hiding the tabs on the checkout screen is the cleanest fix.
+const ROUTES_WITHOUT_MODULE_TABS = ["/checkout", "/paiement"];
+
+const ConditionalModuleTabs = () => {
+  const { pathname } = useLocation();
+  if (ROUTES_WITHOUT_MODULE_TABS.some((p) => pathname.startsWith(p))) return null;
+  return <ModuleTabs />;
+};
+
 const DesktopCustomerShell = () => (
   <div className="App min-h-screen bg-background text-foreground">
     <LocaleRouteSync />
@@ -102,7 +114,7 @@ const DesktopCustomerShell = () => (
         any add-to-cart / cart-icon click on desktop opens the same drawer
         without prop-drilling. Renders nothing on < md viewports (Fixing_Prompt v4 §1b). */}
     <CartDrawer />
-    <ModuleTabs />
+    <ConditionalModuleTabs />
     <Routes>
       <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<CategoriesIndexPage />} />

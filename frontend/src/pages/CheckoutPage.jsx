@@ -186,10 +186,17 @@ export const CheckoutPage = () => {
   if (!customer) {
     return (
       <>
-        <div className="baked-container my-16 text-center">
-          <h2 className="text-2xl font-bold">{language === "en" ? "Sign in to check out" : "Connectez-vous pour valider"}</h2>
-          <p className="text-sm text-muted-foreground mt-2">{language === "en" ? "You'll need an account to complete your order." : "Vous avez besoin d'un compte pour finaliser."}</p>
-          <Button onClick={() => setLoginOpen(true)} className="mt-4 baked-btn h-11 px-6 font-semibold" style={{ backgroundColor: "#FF4C52", color: "white" }}>{language === "en" ? "Login" : "Se connecter"}</Button>
+        <div className="baked-container my-8">
+          <div className="mb-6" data-testid="checkout-heading">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {language === "en" ? "Checkout" : "Paiement"}
+            </h1>
+          </div>
+          <div className="my-16 text-center">
+            <h2 className="text-2xl font-bold">{language === "en" ? "Sign in to check out" : "Connectez-vous pour valider"}</h2>
+            <p className="text-sm text-muted-foreground mt-2">{language === "en" ? "You'll need an account to complete your order." : "Vous avez besoin d'un compte pour finaliser."}</p>
+            <Button onClick={() => setLoginOpen(true)} className="mt-4 baked-btn h-11 px-6 font-semibold" style={{ backgroundColor: "#FF4C52", color: "white" }}>{language === "en" ? "Login" : "Se connecter"}</Button>
+          </div>
         </div>
         <PhoneLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       </>
@@ -197,14 +204,35 @@ export const CheckoutPage = () => {
   }
 
   if (items.length === 0) {
-    return <div className="baked-container my-16 text-center text-muted-foreground">{language === "en" ? "Your cart is empty." : "Votre panier est vide."}</div>;
+    return (
+      <div className="baked-container my-8">
+        <div className="mb-6" data-testid="checkout-heading">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            {language === "en" ? "Checkout" : "Paiement"}
+          </h1>
+        </div>
+        <div className="my-16 text-center text-muted-foreground">
+          {language === "en" ? "Your cart is empty." : "Votre panier est vide."}
+        </div>
+      </div>
+    );
   }
 
   const iconFor = (code) => code === "stripe" ? CreditCard : code === "mobile_money" ? Smartphone : Wallet;
 
   return (
-    <div className="baked-container my-8 grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-5">
+    <div className="baked-container my-8">
+      {/* Neutral, module-free page heading — checkout must feel global
+          and not be visually tied to any single BAKĒD module (MART, SHOP,
+          FOOD…). Rendered here in place of a module tab strip which is
+          hidden for /checkout in CustomerApp shell. */}
+      <div className="mb-6" data-testid="checkout-heading">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+          {language === "en" ? "Checkout" : "Paiement"}
+        </h1>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-5">
         {/* Address */}
         <section className="baked-card bg-card border border-border p-5">
           <div className="flex items-center gap-2 mb-4"><MapPin size={18} style={{ color: "#77BC1F" }} /><h3 className="font-semibold">{language === "en" ? "Delivery address" : "Adresse de livraison"}</h3></div>
@@ -312,6 +340,7 @@ export const CheckoutPage = () => {
           </Button>
         </div>
       </aside>
+      </div>
     </div>
   );
 };
