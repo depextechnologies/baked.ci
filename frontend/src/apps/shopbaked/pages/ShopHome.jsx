@@ -738,9 +738,9 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
     <Link
       to={`${basePath}/p/${product.id}`}
       data-testid={`shopbaked-product-card-${product.id}`}
-      className="group block border border-neutral-800 rounded-xl overflow-hidden bg-neutral-900/40 hover:border-amber-400/60 transition-colors relative"
+      className="group block border border-border rounded-xl overflow-hidden bg-card hover:border-amber-400/60 hover:shadow-sm transition-colors relative"
     >
-      <div className="aspect-square bg-neutral-950 flex items-center justify-center overflow-hidden relative">
+      <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
         {off > 0 && (
           <span className="absolute top-2 left-2 z-10 text-[10px] font-bold px-2 py-0.5 rounded"
                 style={{ background: "#FF4C52", color: "white" }}>
@@ -752,27 +752,27 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                onError={(e) => { e.currentTarget.style.display = "none"; }} />
         ) : (
-          <span className="text-neutral-700 text-4xl">SHOP</span>
+          <span className="text-muted-foreground text-4xl">SHOP</span>
         )}
       </div>
       <div className="p-3">
-        <div className="text-sm font-semibold text-neutral-100 line-clamp-2 min-h-[2.5rem]">{displayTitle}</div>
-        {spec && <div className="text-[11px] text-neutral-500 mt-1 truncate">{spec}</div>}
+        <div className="text-sm font-semibold text-foreground line-clamp-2 min-h-[2.5rem]">{displayTitle}</div>
+        {spec && <div className="text-[11px] text-muted-foreground mt-1 truncate">{spec}</div>}
         <div className="mt-2 flex items-end justify-between gap-2">
           <div className="min-w-0">
             {price != null ? (
               <>
-                <div className="text-sm font-bold text-neutral-100">
+                <div className="text-sm font-bold text-foreground">
                   {Number(price).toLocaleString()} {product.currency || "XOF"}
                 </div>
                 {compareAt && compareAt > price && (
-                  <div className="text-[11px] text-neutral-500 line-through">
+                  <div className="text-[11px] text-muted-foreground line-through">
                     {Number(compareAt).toLocaleString()} {product.currency || "XOF"}
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-[11px] text-neutral-500">{t("shop.ships_from")}</div>
+              <div className="text-[11px] text-muted-foreground">{t("shop.ships_from")}</div>
             )}
           </div>
           {product.first_variant_id && (
