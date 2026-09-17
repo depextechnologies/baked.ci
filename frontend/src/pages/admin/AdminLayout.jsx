@@ -25,8 +25,6 @@ const GOVERNANCE = [
   { to: "/admin/ai-center", icon: Sparkles, label: "AI Center" },
   { to: "/admin/insights", icon: Brain, label: "AI Business Insights" },
   { to: "/admin/finance", icon: DollarSign, label: "Finance" },
-  { to: "/admin/driver-payouts", icon: Wallet, label: "Driver Payouts" },
-  { to: "/admin/driver-applications", icon: Bike, label: "Driver Applications" },
   { to: "/admin/homepage-management", icon: HomeIcon2, label: "Homepage" },
   { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
