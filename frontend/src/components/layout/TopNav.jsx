@@ -26,7 +26,7 @@ const DETECT_REASON_COPY = {
 export const TopNav = () => {
   const { customer, logout, openLogin } = useAuth();
   const { country, countries, setCountryCode, detectCountryByLocation, theme, toggleTheme, language, setLanguage, activeModule } = useApp();
-  const { cart } = useCart();
+  const { cart, openCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const path = useLocalePath();
@@ -170,10 +170,24 @@ export const TopNav = () => {
             </button>
           )}
 
-          {/* Cart — always visible. Icon + badge follow the active module accent. */}
+          {/* Cart — desktop opens the right-side drawer (Fixing_Prompt v4).
+              Mobile bottom-nav keeps navigating to the full /cart page
+              because on small viewports we still use the full-page cart.
+              The button itself remains keyboard-accessible; drawer manages
+              its own focus trap once open. */}
           <button
             data-testid={NAV.cartButton}
-            onClick={() => navigate(path("cart"))}
+            onClick={() => {
+              // < md: mobile bottom-nav is the primary cart entrypoint, but
+              // if someone reaches this top-nav button on a small viewport
+              // we still send them to the full page to match the mobile
+              // shopping model. Tailwind `md` breakpoint = 768px.
+              if (typeof window !== "undefined" && window.innerWidth < 768) {
+                navigate(path("cart"));
+              } else {
+                openCart();
+              }
+            }}
             className="relative baked-btn px-2 md:px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2 shrink-0"
           >
             <ShoppingCart size={18} style={{ color: moduleAccent }} />

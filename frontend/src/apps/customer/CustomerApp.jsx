@@ -18,6 +18,8 @@ import { CategoriesIndexPage, CategoryDetailPage } from "@/pages/CategoryPage";
 import { ProductListPage } from "@/pages/ProductListPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
 import { CartPage } from "@/pages/CartPage";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { CartRouteDrawerRedirect } from "@/components/cart/CartRouteDrawerRedirect";
 import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
@@ -96,6 +98,10 @@ const DesktopCustomerShell = () => (
   <div className="App min-h-screen bg-background text-foreground">
     <LocaleRouteSync />
     <TopNav />
+    {/* Global right-side cart drawer — mounted once at the shell level so
+        any add-to-cart / cart-icon click on desktop opens the same drawer
+        without prop-drilling. Renders nothing on < md viewports (Fixing_Prompt v4 §1b). */}
+    <CartDrawer />
     <ModuleTabs />
     <Routes>
       <Route path="/" element={<ConfigHomepage />} />
@@ -106,8 +112,9 @@ const DesktopCustomerShell = () => (
       <Route path="/produits/:id" element={<ProductDetailPage />} />
       <Route path="/products" element={<ProductListPage />} />
       <Route path="/products/:id" element={<ProductDetailPage />} />
-      <Route path="/panier" element={<CartPage />} />
-      <Route path="/cart" element={<CartPage />} />
+      {/* Desktop /cart routes open the drawer + redirect home (choice §2b). */}
+      <Route path="/panier" element={<CartRouteDrawerRedirect fallback="/" />} />
+      <Route path="/cart" element={<CartRouteDrawerRedirect fallback="/" />} />
       <Route path="/paiement" element={<CheckoutPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/commandes" element={<OrdersListPage />} />

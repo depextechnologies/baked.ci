@@ -290,6 +290,12 @@ export const CartProvider = ({ children }) => {
   const { customer } = useAuth() || {};
   const [cart, setCart] = useState({ items: [], subtotal: 0, item_count: 0 });
   const [loaded, setLoaded] = useState(false);
+  // Drawer state lives on the cart context so ANY component (top-nav,
+  // add-to-cart callbacks, /cart route redirect, etc.) can open/close
+  // without prop-drilling.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const openCart = useCallback(() => setDrawerOpen(true), []);
+  const closeCart = useCallback(() => setDrawerOpen(false), []);
   // Track auth transitions so we only run merge exactly once per login.
   const prevCustomerId = useRef(null);
 
@@ -531,7 +537,7 @@ export const CartProvider = ({ children }) => {
     setCart({ items: [], subtotal: 0, item_count: 0 });
   }, [customer, load]);
 
-  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load]);
+  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load, drawerOpen, openCart, closeCart }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load, drawerOpen, openCart, closeCart]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);
