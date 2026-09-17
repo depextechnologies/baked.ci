@@ -82,7 +82,7 @@ export const ShopHome = ({ basePath = "/shop" }) => {
   }
   if (homepage === null) {
     return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-24 text-center text-neutral-400">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-24 text-center text-muted-foreground">
         <Loader2 className="animate-spin inline" size={22} />
       </div>
     );
@@ -350,8 +350,8 @@ const UspTile = ({ u, lang }) => {
         <Icon size={18} />
       </div>
       <div>
-        <div className="text-sm font-semibold text-neutral-100">{title}</div>
-        <div className="text-xs text-neutral-500 mt-0.5">{subtitle}</div>
+        <div className="text-sm font-semibold text-foreground">{title}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{subtitle}</div>
       </div>
     </div>
   );
@@ -370,9 +370,9 @@ const CategoryGridSection = ({ section, tree, lang, t, testId, basePath = "/shop
     <section className="mb-12" id="shop-catalogue" data-testid={testId}>
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-neutral-100">{sectionText(section, "title", lang)}</h2>
+          <h2 className="text-xl font-semibold text-foreground">{sectionText(section, "title", lang)}</h2>
           {sectionText(section, "subtitle", lang) && (
-            <p className="text-sm text-neutral-500 mt-1">{sectionText(section, "subtitle", lang)}</p>
+            <p className="text-sm text-muted-foreground mt-1">{sectionText(section, "subtitle", lang)}</p>
           )}
         </div>
         <Link to={`${basePath}/categories`}
@@ -482,9 +482,9 @@ const ProductCarouselSection = ({ section, products, lang, t, testId, basePath =
     <section className="mb-12" data-testid={testId}>
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-neutral-100">{sectionText(section, "title", lang)}</h2>
+          <h2 className="text-xl font-semibold text-foreground">{sectionText(section, "title", lang)}</h2>
           {sectionText(section, "subtitle", lang) && (
-            <p className="text-sm text-neutral-500 mt-1">{sectionText(section, "subtitle", lang)}</p>
+            <p className="text-sm text-muted-foreground mt-1">{sectionText(section, "subtitle", lang)}</p>
           )}
         </div>
         <Link to={viewAllHref}
@@ -495,7 +495,7 @@ const ProductCarouselSection = ({ section, products, lang, t, testId, basePath =
         </Link>
       </div>
       {items.length === 0 ? (
-        <div className="text-sm text-neutral-500" data-testid="shopbaked-no-products">
+        <div className="text-sm text-muted-foreground" data-testid="shopbaked-no-products">
           {t("shop.no_products")}
         </div>
       ) : (
@@ -590,8 +590,8 @@ const BannerTrioSection = ({ section, lang, testId }) => {
     <section className="mb-12" data-testid={testId}>
       {(title || subtitle) && (
         <div className="mb-4">
-          {title && <h2 className="text-xl font-semibold text-neutral-100">{title}</h2>}
-          {subtitle && <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>}
+          {title && <h2 className="text-xl font-semibold text-foreground">{title}</h2>}
+          {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
         </div>
       )}
       <div className="flex gap-4 overflow-x-auto lg:overflow-visible lg:grid lg:grid-cols-4 no-scrollbar pb-2 lg:pb-0"
@@ -632,7 +632,7 @@ const BrandCarouselSection = ({ section, lang, testId }) => {
   if (brands.length === 0) return null;
   return (
     <section className="mb-12" data-testid={testId}>
-      <h2 className="text-xl font-semibold text-neutral-100 mb-4">{sectionText(section, "title", lang)}</h2>
+      <h2 className="text-xl font-semibold text-foreground mb-4">{sectionText(section, "title", lang)}</h2>
       <div className="flex flex-wrap gap-2" data-testid="shopbaked-brand-rail">
         {brands.map((b, i) => {
           const img = abs(b.image);
