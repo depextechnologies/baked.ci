@@ -22,7 +22,8 @@
     "confirm_clear_body": "This action cannot be undone.",
     "min_order_short": "Add {{amount}} to reach the {{min}} minimum.",
     "unavailable_warning": "{{count}} item(s) are not available in your area — MARTbakēd is coming to more stores soon. Please remove them to continue.",
-    "delivery_shop_note": "Calculated by seller"
+    "delivery_shop_note": "Calculated by seller",
+    "close": "Close cart"
   },
   "checkout": {
     "title": "Checkout",

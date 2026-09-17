@@ -22,7 +22,8 @@
     "confirm_clear_body": "Cette action est irréversible.",
     "min_order_short": "Ajoutez {{amount}} pour atteindre le minimum de {{min}}.",
     "unavailable_warning": "{{count}} article(s) indisponible(s) dans votre zone — MARTbakēd arrive bientôt dans d'autres magasins. Veuillez les retirer pour continuer.",
-    "delivery_shop_note": "Calculé par le vendeur"
+    "delivery_shop_note": "Calculé par le vendeur",
+    "close": "Fermer le panier"
   },
   "checkout": {
     "title": "Finaliser ma commande",

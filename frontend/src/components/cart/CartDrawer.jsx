@@ -188,7 +188,7 @@ export const CartDrawer = () => {
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate">{t("cart.title", { defaultValue: "Your cart" })}</div>
             <div className="text-[11px] text-muted-foreground" data-testid="cart-drawer-count">
-              {cart.item_count || 0} {t("cart.items_count", { defaultValue: "items" })}
+              {t("cart.item_count", { count: cart.item_count || 0, defaultValue: `${cart.item_count || 0} items` })}
             </div>
           </div>
         </header>
@@ -218,11 +218,23 @@ export const CartDrawer = () => {
                 const p = rowFacade(it);
                 return (
                   <li key={it.id} data-testid={CART.itemRow(it.id)} className="px-5 py-4 flex gap-3">
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="w-14 h-14 rounded-lg object-cover bg-secondary shrink-0"
-                    />
+                    {p.image ? (
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        className="w-14 h-14 rounded-lg object-cover bg-secondary shrink-0"
+                      />
+                    ) : (
+                      // Empty-string src emits a React runtime warning and
+                      // re-fetches the current URL — render a neutral
+                      // placeholder tile instead.
+                      <div
+                        aria-hidden="true"
+                        className="w-14 h-14 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground shrink-0"
+                      >
+                        <ShoppingCart size={18} />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <div className="text-sm font-semibold truncate">{p.name}</div>
@@ -302,7 +314,7 @@ export const CartDrawer = () => {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.delivery_fee")} (SHOP)</span>
                   <span className="text-[11px] text-muted-foreground">
-                    {t("cart.calculated_by_seller", { defaultValue: "Calculated by seller" })}
+                    {t("cart.delivery_shop_note")}
                   </span>
                 </div>
               )}
@@ -316,10 +328,10 @@ export const CartDrawer = () => {
             </div>
             {!minOrderOk && hasMart && (
               <div className="text-[11px] mt-3 p-2 rounded-lg bg-yellow-500/10 text-yellow-500" data-testid="cart-drawer-min-order-warning">
-                {t("cart.min_order_warning", { defaultValue: "Add" })}{" "}
-                <b>{formatMoney(shortfall, country?.currency, country?.currency_symbol)}</b>{" "}
-                {t("cart.min_order_more", { defaultValue: "more to reach the" })}{" "}
-                {formatMoney(minOrder, country?.currency, country?.currency_symbol)}.
+                {t("cart.min_order_short", {
+                  amount: formatMoney(shortfall, country?.currency, country?.currency_symbol),
+                  min: formatMoney(minOrder, country?.currency, country?.currency_symbol),
+                })}
               </div>
             )}
             <Button

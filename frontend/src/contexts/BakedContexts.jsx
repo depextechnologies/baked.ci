@@ -324,10 +324,17 @@ export const CartProvider = ({ children }) => {
           images: s.image ? [s.image] : [], unit_price: price,
         });
       } else {
-        // Guest MART row — render from the snapshot captured at add-time
-        // when present. Legacy entries (added before the snapshot was
-        // introduced) fall back to a network fetch so no cart is left
-        // stranded after the upgrade.
+        // Guest non-SHOP row (MART today, FOOD in the future) — render from
+        // the snapshot captured at add-time when present. Legacy entries
+        // (added before the snapshot was introduced) fall back to a
+        // network fetch so no cart is left stranded after the upgrade.
+        //
+        // Preserve `it.module` verbatim (defaulting to 'mart' for legacy
+        // rows that predate the module tag). Coercing to 'mart' here was
+        // the root cause of the FOOD chip regression flagged in
+        // iteration_87 — a guest row {module:'food',…} was rendered with
+        // a MART badge because both branches below hard-coded 'mart'.
+        const mod = it.module || "mart";
         if (it.snapshot) {
           const s = it.snapshot;
           const price = Number(s.price) || 0;
@@ -335,14 +342,14 @@ export const CartProvider = ({ children }) => {
           martSubtotal += line;
           items.push({
             id: it.id, product_id: it.product_id, quantity: it.quantity,
-            module: "mart", product: s, line_total: line,
+            module: mod, product: s, line_total: line,
           });
         } else {
           try {
             const { data: p } = await api.get(`/mart/products/${it.product_id}`);
             const line = (Number(p.price) || 0) * it.quantity;
             martSubtotal += line;
-            items.push({ ...it, product: p, line_total: line, module: "mart" });
+            items.push({ ...it, product: p, line_total: line, module: mod });
           } catch (e) { void e; }
         }
       }
