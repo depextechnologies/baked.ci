@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import SessionLocal, get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 from core.models import (
     Customer,
     ExpressBooking,
@@ -27,6 +28,8 @@ from core.models import (
     ExpressPackageType,
     ExpressTimeSlot,
     ExpressVehicle,
+    SendServiceVehicle,
+    SEND_SERVICE_TYPES,
     ExpressWeightTier,
     new_id,
 )
@@ -53,20 +56,96 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
 
 # ---------- Configuration reads ----------
 @router.get("/vehicles")
-async def list_vehicles(country: str = Query("CI"), session: AsyncSession = Depends(get_session)):
-    """Active vehicles for a given country, sorted by admin-controlled order."""
-    rows = (
-        (
-            await session.execute(
-                select(ExpressVehicle)
-                .where(ExpressVehicle.country == country.upper(), ExpressVehicle.active.is_(True))
-                .order_by(ExpressVehicle.sort_order)
-            )
-        )
-        .scalars()
-        .all()
+async def list_vehicles(
+    country: str = Query("CI"),
+    service_type: Optional[str] = Query(None, description="Filter to vehicles eligible for a SEND service tile"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Active vehicles for a given country, sorted by admin-controlled order.
+
+    When `service_type` is supplied the result is filtered via the
+    `send_service_vehicles` config table so the customer only sees vehicles
+    eligible for the SEND service they picked (Phase C — no separate vehicle
+    picker screen). Rows are sorted by the service-specific `sort_order`
+    when the filter applies, otherwise by the vehicle's own `sort_order`.
+    """
+    if service_type is not None and service_type not in SEND_SERVICE_TYPES:
+        raise HTTPException(400, {
+            "code": "unknown_service_type",
+            "message": f"Unknown SEND service_type: {service_type}",
+            "allowed": list(SEND_SERVICE_TYPES),
+        })
+
+    q = (
+        select(ExpressVehicle)
+        .where(ExpressVehicle.country == country.upper(), ExpressVehicle.active.is_(True))
     )
+    if service_type:
+        eligibility = (await session.execute(
+            select(SendServiceVehicle.vehicle_code, SendServiceVehicle.sort_order)
+            .where(
+                SendServiceVehicle.service_type == service_type,
+                SendServiceVehicle.active.is_(True),
+            )
+        )).all()
+        allowed_order = {code: sort for code, sort in eligibility}
+        if not allowed_order:
+            return []
+        q = q.where(ExpressVehicle.code.in_(list(allowed_order.keys())))
+        rows = (await session.execute(q)).scalars().all()
+        rows.sort(key=lambda v: (allowed_order.get(v.code, 999), v.sort_order))
+    else:
+        rows = (await session.execute(q.order_by(ExpressVehicle.sort_order))).scalars().all()
+
     return [row_to_dict(r) for r in rows]
+
+
+@router.get("/product-types")
+async def list_send_product_types(session: AsyncSession = Depends(get_session)):
+    """SEND Multiple Shipments — configurable product-type catalogue.
+
+    Returns active rows sorted by `sort_order`, with the row flagged as
+    default first-in-line (`is_default`). Frontend must NEVER hard-code
+    this list — ops edits are applied without a deploy.
+    """
+    from core.models import SendProductType
+    rows = (await session.execute(
+        select(SendProductType)
+        .where(SendProductType.active.is_(True))
+        .order_by(SendProductType.sort_order, SendProductType.code)
+    )).scalars().all()
+    return [
+        {
+            "code":       r.code,
+            "name_fr":    r.name_fr,
+            "name_en":    r.name_en,
+            "is_default": bool(r.is_default),
+            "sort_order": r.sort_order,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/services")
+async def list_send_services(session: AsyncSession = Depends(get_session)):
+    """Return the full SEND service → eligible vehicle catalogue.
+
+    The frontend uses this endpoint as a single source of truth: which
+    services exist, which vehicle codes qualify, in what order. No
+    hard-coded lists on the client.
+    """
+    rows = (await session.execute(
+        select(SendServiceVehicle)
+        .where(SendServiceVehicle.active.is_(True))
+        .order_by(SendServiceVehicle.service_type, SendServiceVehicle.sort_order)
+    )).scalars().all()
+    grouped: dict[str, list[dict]] = {s: [] for s in SEND_SERVICE_TYPES}
+    for r in rows:
+        grouped.setdefault(r.service_type, []).append({
+            "vehicle_code": r.vehicle_code,
+            "sort_order":   r.sort_order,
+        })
+    return {"service_types": list(SEND_SERVICE_TYPES), "services": grouped}
 
 
 @router.get("/package-types")
@@ -138,6 +217,43 @@ async def parcel_quote(payload: ParcelQuoteIn, session: AsyncSession = Depends(g
         peak=payload.peak, night=payload.night,
         declared_value=payload.declared_value,
     )
+
+
+# ---------- Phase E · Multi-stop trip quote ----------
+
+class MultiStopLatLng(BaseModel):
+    lat: float
+    lng: float
+
+
+class MultiStopEntry(BaseModel):
+    pickup: MultiStopLatLng
+    drop:   MultiStopLatLng
+
+
+class MultiStopQuoteIn(BaseModel):
+    country: str = "CI"
+    vehicle_code: str
+    stops: List[MultiStopEntry] = Field(min_length=1, max_length=8)
+    promo_code: Optional[str] = None
+    peak: bool = False
+    night: bool = False
+
+
+@router.post("/quote/multi_stop")
+async def multi_stop_quote(payload: MultiStopQuoteIn, session: AsyncSession = Depends(get_session)):
+    from .pricing import quote_multi_stop
+    try:
+        return await quote_multi_stop(
+            session,
+            country=payload.country,
+            vehicle_code=payload.vehicle_code,
+            stops=[s.model_dump() for s in payload.stops],
+            promo_code=payload.promo_code,
+            peak=payload.peak, night=payload.night,
+        )
+    except ValueError as e:
+        raise HTTPException(400, {"code": "invalid_multi_stop", "message": str(e)})
 
 
 class MoverItemIn(BaseModel):
@@ -249,9 +365,17 @@ class ReceiverIn(BaseModel):
 class ParcelBookingIn(BaseModel):
     country: str = "CI"
     vehicle_code: str
+    service_type: Optional[str] = None    # Phase C — SEND service tile origin
     pickup: AddressPoint
     drop: AddressPoint
-    receiver: ReceiverIn
+    # Phase E — ordered list of {pickup, drop} pairs, used when
+    # service_type=multiple_shipments. When present the first entry must
+    # match the top-level pickup/drop (Step 1 seed). Ignored otherwise.
+    stops: Optional[List[dict]] = None
+    # Multi-shipments bookings capture the receiver per-leg inside stops[]
+    # so the top-level Receiver becomes optional. Falls back to the first
+    # drop's contact when the customer never entered a global receiver.
+    receiver: Optional[ReceiverIn] = None
     package_type: Optional[str] = None
     package_weight_range: Optional[str] = None
     package_dimensions: Optional[dict] = None
@@ -276,6 +400,24 @@ def _address_columns(prefix: str, addr: AddressPoint) -> dict:
     }
 
 
+def _receiver_field(payload: "ParcelBookingIn", field: str, stops: Optional[list]) -> Optional[str]:
+    """Multi-Shipments makes the top-level Receiver optional (per-leg
+    contact is captured inside stops[]). Falls back to the FIRST drop's
+    contact so downstream single-column code (SMS, driver snapshot) keeps
+    working uniformly. Never raises."""
+    if payload.receiver is not None:
+        val = getattr(payload.receiver, field, None)
+        if val:
+            return val
+    if stops:
+        first_drop = (stops[0] or {}).get("drop") or {}
+        if field == "name":
+            return first_drop.get("receiver_name") or first_drop.get("contact_name") or "Recipient"
+        if field == "phone":
+            return first_drop.get("receiver_phone") or first_drop.get("contact_phone") or ""
+    return None
+
+
 @router.post("/bookings/parcel")
 async def create_parcel_booking(
     payload: ParcelBookingIn,
@@ -283,14 +425,89 @@ async def create_parcel_booking(
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_session),
 ):
-    quote = await quote_parcel(
-        session,
-        country=payload.country,
-        vehicle_code=payload.vehicle_code,
-        pickup_lat=payload.pickup.latitude, pickup_lng=payload.pickup.longitude,
-        drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
-        promo_code=payload.promo_code, declared_value=payload.declared_value,
-    )
+    # Phase C — service_type → eligible-vehicle enforcement. Guarantees a
+    # customer who selected e.g. Fresh Products can only book a refrigerated
+    # vehicle, no matter what payload the client happens to send.
+    if payload.service_type is not None:
+        if payload.service_type not in SEND_SERVICE_TYPES:
+            raise HTTPException(400, {
+                "code": "unknown_service_type",
+                "message": f"Unknown SEND service_type: {payload.service_type}",
+                "allowed": list(SEND_SERVICE_TYPES),
+            })
+        allowed = (await session.execute(
+            select(SendServiceVehicle.vehicle_code)
+            .where(
+                SendServiceVehicle.service_type == payload.service_type,
+                SendServiceVehicle.active.is_(True),
+            )
+        )).scalars().all()
+        if payload.vehicle_code not in set(allowed):
+            raise HTTPException(400, {
+                "code": "vehicle_not_eligible",
+                "message": f"Vehicle '{payload.vehicle_code}' is not eligible for service '{payload.service_type}'",
+                "eligible_vehicle_codes": list(allowed),
+            })
+    # Phase E — Multi-stop pricing when the customer built a trip with N
+    # shipments. Falls back to the legacy single-shipment quote for every
+    # other service_type.
+    multi_stops_payload = None
+    if payload.service_type == "multiple_shipments" and payload.stops and len(payload.stops) >= 1:
+        from .pricing import quote_multi_stop
+        # Normalise into {pickup:{lat,lng}, drop:{lat,lng}} tuples.
+        norm_stops = []
+        for s in payload.stops:
+            try:
+                norm_stops.append({
+                    "pickup": {"lat": float(s["pickup"]["lat"]), "lng": float(s["pickup"]["lng"])},
+                    "drop":   {"lat": float(s["drop"]["lat"]),   "lng": float(s["drop"]["lng"])},
+                })
+            except (KeyError, TypeError, ValueError):
+                raise HTTPException(400, {"code": "invalid_multi_stop", "message": "Malformed stop entry"})
+        # The first stop must match the top-level pickup/drop (Step 1 seed).
+        first = norm_stops[0]
+        if (abs(first["pickup"]["lat"] - payload.pickup.latitude)  > 1e-4
+            or abs(first["pickup"]["lng"] - payload.pickup.longitude) > 1e-4
+            or abs(first["drop"]["lat"]  - payload.drop.latitude)   > 1e-4
+            or abs(first["drop"]["lng"]  - payload.drop.longitude)  > 1e-4):
+            raise HTTPException(400, {
+                "code": "multi_stop_head_mismatch",
+                "message": "First shipment must match the primary pickup/drop pair.",
+            })
+        quote = await quote_multi_stop(
+            session,
+            country=payload.country,
+            vehicle_code=payload.vehicle_code,
+            stops=norm_stops,
+            promo_code=payload.promo_code,
+        )
+        # Full stops payload (with the raw address blobs from the client) is
+        # persisted on the booking row so drivers + admin see every stop.
+        # Enrich with per-leg status + delivery PIN (Driver Multi-Stop UX).
+        # Product-type default is fetched from the send_product_types
+        # catalogue so ops changes propagate without a redeploy.
+        from .multi_stop import enrich_stops
+        from core.models import SendProductType
+        default_row = (await session.execute(
+            select(SendProductType).where(
+                SendProductType.is_default.is_(True),
+                SendProductType.active.is_(True),
+            ).limit(1)
+        )).scalar_one_or_none()
+        default_pt = default_row.code if default_row else "general_product"
+        multi_stops_payload = enrich_stops(
+            [s for s in payload.stops],
+            default_product_type=default_pt,
+        )
+    else:
+        quote = await quote_parcel(
+            session,
+            country=payload.country,
+            vehicle_code=payload.vehicle_code,
+            pickup_lat=payload.pickup.latitude, pickup_lng=payload.pickup.longitude,
+            drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
+            promo_code=payload.promo_code, declared_value=payload.declared_value,
+        )
     ref = _make_booking_ref("EXP")
     booking = ExpressBooking(
         id=new_id("exp"),
@@ -298,6 +515,8 @@ async def create_parcel_booking(
         customer_id=customer.id,
         module="express",
         booking_type="parcel",
+        service_type=payload.service_type,
+        stops=multi_stops_payload,
         country=payload.country.upper(),
         status="searching",
         payment_method=payload.payment_method,
@@ -308,13 +527,13 @@ async def create_parcel_booking(
         vehicle_code=payload.vehicle_code,
         **_address_columns("pickup", payload.pickup),
         **_address_columns("drop", payload.drop),
-        receiver_name=payload.receiver.name,
-        receiver_phone=payload.receiver.phone,
-        receiver_alt_phone=payload.receiver.alt_phone,
-        receiver_building=payload.receiver.building,
-        receiver_landmark=payload.receiver.landmark,
-        receiver_notes=payload.receiver.notes,
-        receiver_preferences=payload.receiver.preferences,
+        receiver_name=_receiver_field(payload, "name",  multi_stops_payload),
+        receiver_phone=_receiver_field(payload, "phone", multi_stops_payload),
+        receiver_alt_phone=(payload.receiver.alt_phone if payload.receiver else None),
+        receiver_building=(payload.receiver.building if payload.receiver else None),
+        receiver_landmark=(payload.receiver.landmark if payload.receiver else None),
+        receiver_notes=(payload.receiver.notes if payload.receiver else None),
+        receiver_preferences=(payload.receiver.preferences if payload.receiver else []),
         package_type=payload.package_type,
         package_weight_range=payload.package_weight_range,
         package_dimensions=payload.package_dimensions,
@@ -332,6 +551,14 @@ async def create_parcel_booking(
         ExpressBookingTimeline(booking_id=booking.id, code="searching", label="Searching for a driver…", at=now),
     ])
     await session.commit()
+    # Multi-stop: fire off per-drop SMS with the receiver's delivery PIN.
+    # Best-effort — never fails the booking response.
+    if multi_stops_payload:
+        try:
+            from .multi_stop import dispatch_delivery_pins
+            await dispatch_delivery_pins(booking)
+        except Exception:  # noqa: BLE001
+            pass
     # --- Phase A: try to dispatch a real online driver immediately -------
     # The dispatcher is fire-and-forget — if no driver qualifies right now
     # the timeout worker will retry when a driver next comes online / pings.
@@ -462,7 +689,7 @@ async def get_booking(
 ):
     booking = await session.get(ExpressBooking, booking_id)
     if not booking or booking.customer_id != customer.id:
-        raise HTTPException(404, "Booking not found")
+        raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
     return await booking_to_dict(session, booking)
 
 
@@ -478,7 +705,7 @@ async def cancel_booking(
         or booking.customer_id != customer.id
         or booking.status not in ("searching", "driver_assigned", "confirmed")
     ):
-        raise HTTPException(400, "Cannot cancel this booking")
+        raise HTTPException(400, _t("errors.order.cannot_cancel_booking", current_lang()))
     return await transition_status(session, booking_id, "cancelled", label="Cancelled by customer")
 
 
@@ -520,6 +747,34 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+async def _authorise_driver_for_booking(booking, request, session):
+    """Enforce that the caller is the ModuleDriver assigned to this booking.
+
+    Shared by /driver-status and /stop-advance so both endpoints reject
+    unauthenticated callers and drivers who aren't assigned to the trip.
+    Raises HTTPException(401/403) — never returns falsy.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
+    try:
+        from core.security import decode_token
+        from core.models import ModuleDriver
+        claims = decode_token(auth.split(" ", 1)[1])
+        if not claims or claims.get("role") != "driver":
+            raise HTTPException(401, _t("errors.auth.driver_jwt_required", current_lang()))
+        md = (await session.execute(
+            select(ModuleDriver).where(ModuleDriver.linked_driver_id == claims["sub"])
+        )).scalar_one_or_none()
+        if md is None or booking.driver_id != md.id:
+            raise HTTPException(403, {"code": "not_your_booking",
+                                      "message": _t("errors.auth.not_your_booking", current_lang())})
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(401, _t("errors.auth.invalid_driver_creds", current_lang()))
+
+
 class DriverStatusIn(BaseModel):
     status: str  # arriving | picked_up | in_transit | delivered
     lat: Optional[float] = None
@@ -537,37 +792,14 @@ async def driver_advance_status(
 
     booking = await session.get(ExpressBooking, booking_id)
     if not booking:
-        raise HTTPException(404, "Booking not found")
-
-    # Auth: caller must be the driver assigned to this booking. Accepts the
-    # SENDbakēd driver JWT (role='driver') and matches via ModuleDriver.
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        try:
-            from core.security import decode_token
-            from core.models import ModuleDriver
-            from sqlalchemy import select
-            claims = decode_token(auth.split(" ", 1)[1])
-            if claims and claims.get("role") == "driver":
-                md = (await session.execute(
-                    select(ModuleDriver).where(ModuleDriver.linked_driver_id == claims["sub"])
-                )).scalar_one_or_none()
-                if md is None or booking.driver_id != md.id:
-                    raise HTTPException(403, {"code": "not_your_booking",
-                                              "message": "You are not the driver for this booking."})
-            else:
-                raise HTTPException(401, "Driver JWT required")
-        except HTTPException:
-            raise
-        except Exception:
-            raise HTTPException(401, "Invalid driver credentials")
-    else:
-        raise HTTPException(401, "Driver JWT required")
+        raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
+    await _authorise_driver_for_booking(booking, request, session)
 
     curr = booking.status
     allowed = ALLOWED_TRANSITIONS.get(curr, set())
     if payload.status not in allowed:
-        raise HTTPException(400, f"Cannot transition {curr!r} → {payload.status!r}")
+        raise HTTPException(400, _t("errors.order.cannot_transition", current_lang(),
+                                    current=curr, target=payload.status))
     driver_loc = None
     if payload.lat is not None and payload.lng is not None:
         driver_loc = {"lat": payload.lat, "lng": payload.lng}
@@ -578,6 +810,83 @@ async def driver_advance_status(
     driver_id = booking.driver_id
     result = await transition_status(session, booking_id, payload.status, extra=extra, driver_location=driver_loc)
     if payload.status == "delivered" and driver_id:
+        await release_driver(session, driver_id)
+    return result
+
+
+# ---------- Multi-stop leg advancement (Phase E driver UX) ----------
+class StopAdvanceIn(BaseModel):
+    sequence: int = Field(..., ge=1, le=32)
+    leg: str = Field(..., description="'pickup' or 'drop'")
+    delivery_pin: Optional[str] = Field(default=None, max_length=8)
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+@router.post("/bookings/{booking_id}/stop-advance")
+async def driver_advance_stop_leg(
+    booking_id: str, payload: StopAdvanceIn,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Advance a single (pickup|drop) leg of a specific stop in a multi-stop
+    booking. Enforces ordered execution and delivery-PIN verification.
+    Cascades the overall booking status and appends a timeline event.
+    """
+    from modules.express.multi_stop import advance_stop_leg, MultiStopError
+    from modules.express.tracking import transition_status
+    from modules.express.dispatch import release_driver
+
+    booking = await session.get(ExpressBooking, booking_id)
+    if not booking:
+        raise HTTPException(404, _t("errors.order.booking_not_found", current_lang()))
+    await _authorise_driver_for_booking(booking, request, session)
+
+    if not booking.stops:
+        raise HTTPException(400, {"code": "not_multi_stop",
+                                  "message": "Booking is not a multi-stop booking."})
+
+    try:
+        target_stop, new_status = advance_stop_leg(
+            booking,
+            sequence=payload.sequence,
+            leg=payload.leg,
+            delivery_pin=payload.delivery_pin,
+        )
+    except MultiStopError as e:
+        raise HTTPException(400, {"code": e.code, "message": e.message})
+
+    # Persist the mutated stops JSONB.
+    await session.commit()
+    await session.refresh(booking)
+
+    # Append a timeline event scoped to the checkpoint (survives status re-use).
+    label = (
+        f"Pickup {payload.sequence} completed" if payload.leg == "pickup"
+        else f"Delivery {payload.sequence} completed"
+    )
+    code = f"stop_{payload.leg}_{payload.sequence}_completed"
+    session.add(ExpressBookingTimeline(
+        booking_id=booking.id, code=code, label=label,
+        at=datetime.now(timezone.utc),
+    ))
+    await session.commit()
+
+    # Cascade overall booking status through the standard tracker so all
+    # WebSocket subscribers see the update.
+    driver_loc = None
+    if payload.lat is not None and payload.lng is not None:
+        driver_loc = {"lat": payload.lat, "lng": payload.lng}
+    extra = {}
+    driver_id = booking.driver_id
+    if new_status == "delivered":
+        extra["delivered_at"] = datetime.now(timezone.utc)
+        extra["payment_status"] = "paid"
+    result = await transition_status(
+        session, booking_id, new_status,
+        extra=extra, driver_location=driver_loc, label=label,
+    )
+    if new_status == "delivered" and driver_id:
         await release_driver(session, driver_id)
     return result
 

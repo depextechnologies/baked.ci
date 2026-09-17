@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth, useApp, useCart } from "../contexts/BakedContexts";
 import { formatMoney, t } from "../lib/i18n";
+import { useLocalePath } from "../i18n/routes";
 import { checkOrderEligibility } from "../lib/checkout";
+import { getCartTheme } from "../lib/cartTheme";
 import { Button } from "../components/ui/button";
 import { MapPin, Clock, CreditCard, Wallet, Smartphone, PlusCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +16,7 @@ export const CheckoutPage = () => {
   const { country, uiLocale, language, activeAddress, openAddressSelector } = useApp();
   const { cart, reload: reloadCart } = useCart();
   const navigate = useNavigate();
+  const path = useLocalePath();
   const [loginOpen, setLoginOpen] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [slots, setSlots] = useState([]);
@@ -59,6 +62,9 @@ export const CheckoutPage = () => {
   const items = cart.items || [];
   const hasShop = (cart.shop?.item_count ?? 0) > 0 || items.some((i) => i.module === "shop");
   const hasMart = (cart.mart?.item_count ?? 0) > 0 || items.some((i) => i.module !== "shop");
+  // QA — Fixing_Prompt v14 §5: checkout branding follows cart composition
+  // (MART_ONLY / SHOP_ONLY / MIXED). Falls back to MART green when empty.
+  const theme = getCartTheme(cart);
   const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
   const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
   const elig = checkOrderEligibility(martSubtotal, country);
@@ -163,7 +169,7 @@ export const CheckoutPage = () => {
           : "Le code de livraison est sur votre page de commande",
           { duration: 5000 });
       }
-      if (martOrder) navigate(`/orders/${martOrder.id}`);
+      if (martOrder) navigate(path("order", { id: martOrder.id }));
       else if (shopOrder) navigate(`/shop/order/${shopOrder.id}`);
     } catch (e) {
       const detail = e?.response?.data?.detail;
@@ -180,10 +186,17 @@ export const CheckoutPage = () => {
   if (!customer) {
     return (
       <>
-        <div className="baked-container my-16 text-center">
-          <h2 className="text-2xl font-bold">{language === "en" ? "Sign in to check out" : "Connectez-vous pour valider"}</h2>
-          <p className="text-sm text-muted-foreground mt-2">{language === "en" ? "You'll need an account to complete your order." : "Vous avez besoin d'un compte pour finaliser."}</p>
-          <Button onClick={() => setLoginOpen(true)} className="mt-4 baked-btn h-11 px-6 font-semibold" style={{ backgroundColor: "#FF4C52", color: "white" }}>{language === "en" ? "Login" : "Se connecter"}</Button>
+        <div className="baked-container my-8">
+          <div className="mb-6" data-testid="checkout-heading">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {language === "en" ? "Checkout" : "Paiement"}
+            </h1>
+          </div>
+          <div className="my-16 text-center">
+            <h2 className="text-2xl font-bold">{language === "en" ? "Sign in to check out" : "Connectez-vous pour valider"}</h2>
+            <p className="text-sm text-muted-foreground mt-2">{language === "en" ? "You'll need an account to complete your order." : "Vous avez besoin d'un compte pour finaliser."}</p>
+            <Button onClick={() => setLoginOpen(true)} className="mt-4 baked-btn h-11 px-6 font-semibold" style={{ backgroundColor: "#FF4C52", color: "white" }}>{language === "en" ? "Login" : "Se connecter"}</Button>
+          </div>
         </div>
         <PhoneLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       </>
@@ -191,14 +204,35 @@ export const CheckoutPage = () => {
   }
 
   if (items.length === 0) {
-    return <div className="baked-container my-16 text-center text-muted-foreground">{language === "en" ? "Your cart is empty." : "Votre panier est vide."}</div>;
+    return (
+      <div className="baked-container my-8">
+        <div className="mb-6" data-testid="checkout-heading">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            {language === "en" ? "Checkout" : "Paiement"}
+          </h1>
+        </div>
+        <div className="my-16 text-center text-muted-foreground">
+          {language === "en" ? "Your cart is empty." : "Votre panier est vide."}
+        </div>
+      </div>
+    );
   }
 
   const iconFor = (code) => code === "stripe" ? CreditCard : code === "mobile_money" ? Smartphone : Wallet;
 
   return (
-    <div className="baked-container my-8 grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-5">
+    <div className="baked-container my-8">
+      {/* Neutral, module-free page heading — checkout must feel global
+          and not be visually tied to any single BAKĒD module (MART, SHOP,
+          FOOD…). Rendered here in place of a module tab strip which is
+          hidden for /checkout in CustomerApp shell. */}
+      <div className="mb-6" data-testid="checkout-heading">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+          {language === "en" ? "Checkout" : "Paiement"}
+        </h1>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-5">
         {/* Address */}
         <section className="baked-card bg-card border border-border p-5">
           <div className="flex items-center gap-2 mb-4"><MapPin size={18} style={{ color: "#77BC1F" }} /><h3 className="font-semibold">{language === "en" ? "Delivery address" : "Adresse de livraison"}</h3></div>
@@ -301,11 +335,12 @@ export const CheckoutPage = () => {
           <div className="h-px bg-border" />
           <div className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           {!minOrderOk && (<div data-testid="checkout-min-order-warning" className="text-[11px] p-2 rounded-lg bg-yellow-500/10 text-yellow-500">{language === "en" ? `Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum` : `Ajoutez ${formatMoney(shortfall, country.currency, country.currency_symbol)} pour atteindre le minimum de ${formatMoney(minOrder, country.currency, country.currency_symbol)}`}</div>)}
-          <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy || !minOrderOk} className="w-full h-12 baked-btn font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
+          <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy || !minOrderOk} className="w-full h-12 baked-btn font-semibold" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             {busy ? (language === "en" ? "Placing…" : "En cours…") : (language === "en" ? "Place order" : "Passer la commande")}
           </Button>
         </div>
       </aside>
+      </div>
     </div>
   );
 };

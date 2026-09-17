@@ -1,17 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useAuth, useApp } from "../../contexts/BakedContexts";
+import { useLocalePath } from "../../i18n/routes";
 import { formatMoney } from "../../lib/i18n";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Search, Truck, ShoppingBag, Home as HomeIcon, Car, ShieldCheck, ChevronRight, Sparkles, Package, Utensils, ShoppingCart } from "lucide-react";
 import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
-const TABS = [
-  { code: "deliveries", label: "Deliveries", icon: Truck },
-  { code: "orders", label: "Orders", icon: ShoppingBag },
-  { code: "property", label: "Property", icon: HomeIcon },
-  { code: "vehicle", label: "Vehicle", icon: Car },
+const TABS_META = [
+  { code: "deliveries", icon: Truck },
+  { code: "orders", icon: ShoppingBag },
+  { code: "property", icon: HomeIcon },
+  { code: "vehicle", icon: Car },
 ];
 
 const MODULE_LOGO = { mart: ShoppingCart, food: Utensils, shop: ShoppingBag, express: Truck };
@@ -39,10 +41,14 @@ const normaliseShopOrder = (o) => ({
 });
 
 export const MobileActivities = () => {
+  const { t } = useTranslation("customer");
   const nav = useNavigate();
+  const path = useLocalePath();
   const [searchParams] = useSearchParams();
   const { customer } = useAuth();
   const { country } = useApp();
+
+  const TABS = TABS_META.map((tp) => ({ ...tp, label: t(`activities.tab_${tp.code}`) }));
   // Support deep-links like /profile/activities?tab=orders so mailers /
   // notifications can jump straight to the merged order list.
   const [tab, setTab] = useState(() => {
@@ -85,16 +91,16 @@ export const MobileActivities = () => {
     cancelled: orders.filter((o) => o.status === "cancelled").length,
   }), [orders]);
 
-  if (!customer) return <GuestSignInPrompt title="Sign in to view your activities" message="See your orders, deliveries, and requests across every BAKĒD service." testid="m-activities-signin" />;
+  if (!customer) return <GuestSignInPrompt title={t("activities.signin_title")} message={t("activities.signin_body")} testid="m-activities-signin" />;
 
   const ccy = country?.currency_symbol || country?.currency;
 
   return (
     <div className="pb-24">
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
-        <button data-testid="m-act-back" onClick={() => nav("/profile")} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
-        <div className="flex-1 min-w-0"><div className="text-base font-bold">Activities</div><div className="text-[11px] text-muted-foreground">All your baked activities in one place</div></div>
-        <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label="Search"><Search size={16} /></button>
+        <button data-testid="m-act-back" onClick={() => nav(path("profile"))} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
+        <div className="flex-1 min-w-0"><div className="text-base font-bold">{t("activities.title")}</div><div className="text-[11px] text-muted-foreground">{t("activities.subtitle")}</div></div>
+        <button className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center" aria-label={t("activities.search_aria")}><Search size={16} /></button>
       </div>
 
       {/* Top tabs */}
@@ -112,7 +118,7 @@ export const MobileActivities = () => {
       {tab === "deliveries" && (
         <div className="pt-3">
           <div className="px-4 flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {[["active", "Active", counts.active], ["completed", "Completed", counts.completed], ["cancelled", "Cancelled", counts.cancelled]].map(([code, label, count]) => { const isAct = filter === code; return (
+            {[["active", t("activities.filter_active"), counts.active], ["completed", t("activities.filter_completed"), counts.completed], ["cancelled", t("activities.filter_cancelled"), counts.cancelled]].map(([code, label, count]) => { const isAct = filter === code; return (
               <button key={code} data-testid={`m-act-filter-${code}`} onClick={() => setFilter(code)} className={`shrink-0 baked-chip px-3 py-1.5 text-[11px] font-bold motion-fast ${isAct ? "text-black" : "bg-secondary text-muted-foreground"}`} style={isAct ? { backgroundColor: "#77BC1F" } : {}}>
                 {label} <span className="opacity-70">· {count}</span>
               </button>
@@ -126,10 +132,10 @@ export const MobileActivities = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "#77BC1F", color: "#0a1200" }}><Truck size={19} /></div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold">Real-time tracking</div>
-                    <div className="text-[11px] text-muted-foreground">Follow your active deliveries live</div>
+                    <div className="text-sm font-bold">{t("activities.tracking_title")}</div>
+                    <div className="text-[11px] text-muted-foreground">{t("activities.tracking_body")}</div>
                   </div>
-                  <Button data-testid="m-act-track-now" size="sm" onClick={() => { const first = orders.find((o) => ["confirmed", "preparing", "picked_up", "on_the_way"].includes(o.status)); if (first) nav(`/orders/${first.id}/track`); }} className="baked-btn font-bold text-black h-9" style={{ backgroundColor: "#77BC1F" }}>Track now</Button>
+                  <Button data-testid="m-act-track-now" size="sm" onClick={() => { const first = orders.find((o) => ["confirmed", "preparing", "picked_up", "on_the_way"].includes(o.status)); if (first) nav(path("orderTrack", { id: first.id })); }} className="baked-btn font-bold text-black h-9" style={{ backgroundColor: "#77BC1F" }}>{t("activities.track_now")}</Button>
                 </div>
               </div>
             </div>
@@ -140,11 +146,11 @@ export const MobileActivities = () => {
             {deliveries.length === 0 ? (
               <div className="baked-card bg-card border border-border p-8 text-center">
                 <Package size={30} className="mx-auto text-muted-foreground mb-2" />
-                <div className="text-sm font-semibold">No {filter} deliveries</div>
-                <div className="text-[11px] text-muted-foreground mt-1">Place an order and it will appear here.</div>
+                <div className="text-sm font-semibold">{t("activities.empty_deliveries", { state: filter === "active" ? t("activities.filter_active").toLowerCase() : filter === "completed" ? t("activities.filter_completed").toLowerCase() : t("activities.filter_cancelled").toLowerCase() })}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{t("activities.empty_deliveries_body")}</div>
               </div>
             ) : deliveries.map((o) => (
-              <button key={o.id} data-testid={`m-act-del-${o.id}`} onClick={() => nav(`/orders/${o.id}/track`)} className="w-full baked-card bg-card border border-border p-3.5 text-left motion-fast active:scale-[0.99]">
+              <button key={o.id} data-testid={`m-act-del-${o.id}`} onClick={() => nav(path("orderTrack", { id: o.id }))} className="w-full baked-card bg-card border border-border p-3.5 text-left motion-fast active:scale-[0.99]">
                 <div className="flex items-center justify-between">
                   <div className="baked-chip px-2 py-0.5 text-[9px] font-bold uppercase" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>{o.status.replace(/_/g, " ")}</div>
                   <div className="text-[10px] font-mono text-muted-foreground">{o.number}</div>
@@ -152,8 +158,8 @@ export const MobileActivities = () => {
                 <div className="mt-2 flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${MODULE_TONE[o.module] || "#77BC1F"}22`, color: MODULE_TONE[o.module] || "#77BC1F" }}>{(() => { const M = MODULE_LOGO[o.module] || ShoppingCart; return <M size={16} />; })()}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold truncate">{(o.items || []).length} items · {(o.module || "mart").toUpperCase()}bakēd</div>
-                    <div className="text-[10px] text-muted-foreground truncate">Drop: {o.address?.line1 || "—"}, {o.address?.city || ""}</div>
+                    <div className="text-xs font-semibold truncate">{t("activities.items_label", { count: (o.items || []).length })} · {(o.module || "mart").toUpperCase()}bakēd</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{t("activities.drop_label")} {o.address?.line1 || "—"}, {o.address?.city || ""}</div>
                     <div className="text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
                   </div>
                   <div className="text-sm font-bold">{formatMoney(o.total, o.currency, ccy)}</div>
@@ -183,8 +189,8 @@ export const MobileActivities = () => {
 
           <div className="px-4 mt-3">
             <div className="baked-card overflow-hidden p-4 border" style={{ borderColor: "#77BC1F55", background: "linear-gradient(135deg, #77BC1F22 0%, hsl(var(--card)) 60%)" }}>
-              <div className="text-sm font-bold">All your orders in one place</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">View, track and reorder your Food, Grocery and Shopping orders.</div>
+              <div className="text-sm font-bold">{t("activities.hero_orders_title")}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{t("activities.hero_orders_body")}</div>
             </div>
           </div>
 
@@ -192,11 +198,11 @@ export const MobileActivities = () => {
             {filteredOrders.length === 0 ? (
               <div className="baked-card bg-card border border-border p-8 text-center">
                 <ShoppingBag size={30} className="mx-auto text-muted-foreground mb-2" />
-                <div className="text-sm font-semibold">No orders yet</div>
-                <div className="text-[11px] text-muted-foreground mt-1">Your recent orders across MART, FOOD & SHOP will appear here.</div>
-                <Button onClick={() => nav("/")} className="baked-btn mt-4 h-9 px-4 font-bold text-black text-xs" style={{ backgroundColor: "#77BC1F" }}>Browse Stores</Button>
+                <div className="text-sm font-semibold">{t("activities.empty_orders")}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{t("activities.empty_orders_body")}</div>
+                <Button onClick={() => nav("/")} className="baked-btn mt-4 h-9 px-4 font-bold text-black text-xs" style={{ backgroundColor: "#77BC1F" }}>{t("activities.browse_stores")}</Button>
               </div>
-            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; const orderRoute = o.module === "shop" ? `/shop/order/${o.id}` : `/orders/${o.id}`;
+            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; const orderRoute = o.module === "shop" ? `/shop/order/${o.id}` : path("order", { id: o.id });
               // Green pill for terminal-success states across modules
               // (MART: delivered · SHOP: shipped + delivered). Everything
               // else stays module-tone to signal in-progress.
@@ -214,7 +220,7 @@ export const MobileActivities = () => {
                       {(o.status || "").replace(/_/g, " ")}
                     </span>
                   </div>
-                  <div className="text-[10px] text-muted-foreground truncate">{o.number} · {(o.items || []).length} items</div>
+                  <div className="text-[10px] text-muted-foreground truncate">{o.number} · {t("activities.items_label", { count: (o.items || []).length })}</div>
                   <div className="text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString([], { day: "2-digit", month: "short" })}</div>
                 </div>
                 <div className="text-right">
@@ -234,16 +240,19 @@ export const MobileActivities = () => {
   );
 };
 
-const EmptyModule = ({ module, icon: Icon, tabs, desc }) => (
+const EmptyModule = ({ module, icon: Icon, tabs, desc }) => {
+  const { t } = useTranslation("customer");
+  return (
   <div className="p-4">
     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 opacity-40 pointer-events-none">
-      {tabs.map((t) => <span key={t} className="shrink-0 baked-chip px-3 py-1.5 text-[11px] font-bold bg-secondary text-muted-foreground">{t}</span>)}
+      {tabs.map((tb) => <span key={tb} className="shrink-0 baked-chip px-3 py-1.5 text-[11px] font-bold bg-secondary text-muted-foreground">{tb}</span>)}
     </div>
     <div className="baked-card bg-card border border-border p-8 text-center mt-4">
       <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}><Icon size={26} /></div>
-      <div className="text-base font-bold">{module}bakēd is launching soon</div>
+      <div className="text-base font-bold">{t("activities.coming_soon_module", { module })}</div>
       <div className="text-[11px] text-muted-foreground mt-2 leading-relaxed max-w-xs mx-auto">{desc}</div>
-      <div className="mt-4 inline-flex items-center gap-1.5 baked-chip px-3 py-1 text-[10px] font-bold" style={{ backgroundColor: "#FCC44C", color: "#0a1200" }}><Sparkles size={11} /> COMING SOON</div>
+      <div className="mt-4 inline-flex items-center gap-1.5 baked-chip px-3 py-1 text-[10px] font-bold" style={{ backgroundColor: "#FCC44C", color: "#0a1200" }}><Sparkles size={11} /> {t("activities.coming_soon_badge")}</div>
     </div>
   </div>
-);
+  );
+};

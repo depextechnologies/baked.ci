@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 from core.models import Country, Customer, MartStore, RecentAddressSearch
 from core.serializers import row_to_dict
 
@@ -226,7 +227,7 @@ async def delete_recent(
 ):
     row = await session.get(RecentAddressSearch, search_id)
     if not row or row.customer_id != customer.id:
-        raise HTTPException(404, "Recent search not found")
+        raise HTTPException(404, _t("errors.order.recent_search_not_found", current_lang()))
     await session.delete(row)
     await session.commit()
     return {"ok": True}

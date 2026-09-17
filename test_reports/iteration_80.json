@@ -1,0 +1,28 @@
+{
+  "summary": "QA v15 Workstreams 1A, 1B, 1C, 2 verified end-to-end. Backend pytest 4/4 pass (shop products?category filter, apply/start with module=shop → SHOP tag in admin SHOP filter, default MART for backwards compat, module append on reused draft). Frontend: WK1A /shop/categories container is now width=1280 with symmetric left=320/right=320 on a 1920 viewport (mx-auto max-w-7xl). WK2 SEND rename: /send, /send/services, /send/book/location, /send/movers, /send/movers/wizard, /send/bookings all return 200 and render the correct SENDbakēd UI (SEND tab active). Legacy /express, /express/services, /express/book/location client-redirect (React <Navigate>) to their /send equivalent. Backend API /api/express/* still works (verified /api/express/vehicles → 200). WK1B code path verified: ProductCarouselSection triggers /api/shop/products?country=CI&category=<slug>&limit=12 when config.filter is a real category slug (falls back to shared list for filter=bestsellers|new|empty). Backend test confirmed the endpoint returns category-filtered items. Seeded homepage_sections for module=shop currently has one product_carousel with filter='new' (keyword) — no live category-scoped fetch fired, which is CORRECT per spec.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_qa_v15_workstreams.py",
+    "/app/test_reports/pytest/qa_v15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Legacy /express redirect is client-side (React <Navigate replace>), not a 302 HTTP redirect as the spec text suggests. The SPA server always returns 200 with the shell HTML. Behavior is user-equivalent (address bar updates to /send/*) but SEO crawlers and non-JS clients will not be redirected. If true 302 is required, add server-side rewrite/redirect at the ingress or FastAPI static handler level.",
+    "shared/suppliers/routes.py is now 1463 lines (grew ~80 lines since iteration_79 flagged 1381). Still well beyond the 700-line guideline — recommend the split noted in the last iteration.",
+    "ShopHome.jsx ProductCarouselSection issues a fresh /api/shop/products fetch on every section render when filter is a category slug — with N carousels this becomes N requests. Currently harmless (seed has 1 carousel) but consider batching or dedup via SWR/react-query once more SHOP carousels are curated."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_qa_v15_workstreams.py"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ via POST /api/admin/auth/login",
+  "seed_data_creation": "Three ephemeral supplier drafts created via /apply/start (wk1c-shop-test-*, wk1c-mart-legacy-*, wk1c-append-* — all @test.example, CI). None advanced past step 1; safe to leave.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend restart was required at start of run — hot-reload had not picked up the ApplyStartIn.module field yet (server was returning 422 extra_forbidden). sudo supervisorctl restart backend fixed it. For WK1B live verification (real category filter carousel), the seeded /api/homepage?module=shop has only one product_carousel with filter='new'. To exercise the category-scoped code path live, admin needs to edit a carousel section's config.filter to a real SHOP category slug (e.g. 'smartphones-telephones') — code path in ShopHome.jsx L415-451 is otherwise correct. Workstreams 3 (French route rename) and 4 (India parity) are explicitly out-of-scope per this iteration."
+}

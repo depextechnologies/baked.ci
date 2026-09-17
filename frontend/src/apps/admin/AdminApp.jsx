@@ -116,6 +116,11 @@ export const AdminApp = () => (
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />
         <Route path="drivers" element={<ModuleDrivers />} />
+        {/* SENDbakēd-only: expose the platform-wide Driver Payouts & Driver
+            Applications workspaces inside the module workspace, so admins
+            reach them from the SEND sub-nav without leaving the module. */}
+        <Route path="driver-payouts" element={<AdminDriverPayouts />} />
+        <Route path="driver-applications" element={<AdminDriverApplications />} />
         <Route path="pricing" element={<ModulePricing />} />
         <Route path="bookings" element={<ModuleBookings />} />
         <Route path="inventory" element={<AdminInventoryControlTower />} />

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 from core.models import Country, Customer, CustomerAddress, Order, RewardEntry, SupportTicket, new_id
 from core.serializers import customer_to_dict, row_to_dict
 
@@ -104,7 +105,7 @@ async def delete_address(
         .values(deleted_at=func.now())
     )
     if result.rowcount == 0:
-        raise HTTPException(404, "Address not found")
+        raise HTTPException(404, _t("errors.order.address_not_found", current_lang()))
     await session.commit()
     return {"ok": True}
 
@@ -118,7 +119,7 @@ async def update_address(
 ):
     address = await session.get(CustomerAddress, address_id)
     if not address or address.customer_id != customer.id or address.deleted_at is not None:
-        raise HTTPException(404, "Address not found")
+        raise HTTPException(404, _t("errors.order.address_not_found", current_lang()))
     if payload.is_default:
         await session.execute(
             update(CustomerAddress).where(CustomerAddress.customer_id == customer.id).values(is_default=False)
@@ -275,7 +276,8 @@ async def create_ticket(
     session: AsyncSession = Depends(get_session),
 ):
     if payload.category not in TICKET_CATEGORIES:
-        raise HTTPException(400, f"Invalid category; expected one of {sorted(TICKET_CATEGORIES)}")
+        raise HTTPException(400, _t("errors.customer.invalid_ticket_category", current_lang(),
+                                    allowed=", ".join(sorted(TICKET_CATEGORIES))))
     ticket = SupportTicket(
         **payload.model_dump(),
         number="TK" + new_id("").upper().replace("_", "")[:8],
@@ -295,7 +297,7 @@ async def get_ticket(
 ):
     ticket = await session.get(SupportTicket, ticket_id)
     if not ticket or ticket.customer_id != customer.id or ticket.deleted_at is not None:
-        raise HTTPException(404, "Ticket not found")
+        raise HTTPException(404, _t("errors.customer.ticket_not_found", current_lang()))
     return row_to_dict(ticket)
 
 

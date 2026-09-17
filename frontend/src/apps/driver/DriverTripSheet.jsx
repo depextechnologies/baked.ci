@@ -310,6 +310,413 @@ const ContactActions = ({ name, phone, onChat, testidPrefix }) => (
 /*  Public DriverTripSheet                                                     */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/*  Multi-Stop trip sheet — mirrors booking.stops[] one leg at a time         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Delivery-PIN capture modal. Shown before the driver can confirm a drop
+ * checkpoint — the receiver must share the 4-digit code they received by SMS.
+ */
+const DeliveryPinModal = ({ open, sequence, onClose, onSubmit }) => {
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setPin(""); }, [open]);
+  if (!open) return null;
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    if (pin.length < 4) return;
+    try {
+      setBusy(true);
+      await onSubmit(pin);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-end sm:place-items-center"
+      data-testid="driver-multi-stop-pin-modal"
+    >
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-card border border-border p-6 shadow-2xl"
+      >
+        <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">
+          Livraison {sequence} · Delivery {sequence}
+        </div>
+        <h3 className="text-lg font-bold mt-2">
+          Code de livraison / Delivery PIN
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Demandez au destinataire le code à 4 chiffres reçu par SMS.
+          <br />
+          Ask the receiver for the 4-digit code they received by SMS.
+        </p>
+        <input
+          type="tel"
+          inputMode="numeric"
+          maxLength={6}
+          autoFocus
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          data-testid="driver-multi-stop-pin-input"
+          className="mt-4 w-full h-14 px-4 rounded-xl border border-border bg-secondary text-foreground text-center text-2xl font-bold tracking-[0.4em]"
+          placeholder="••••"
+        />
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            data-testid="driver-multi-stop-pin-cancel"
+            className="flex-1 h-11 rounded-xl bg-secondary text-foreground border border-border font-semibold"
+          >
+            Annuler / Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={pin.length < 4 || busy}
+            data-testid="driver-multi-stop-pin-submit"
+            className="flex-1 h-11 rounded-xl font-semibold text-black disabled:opacity-50"
+            style={{ background: GREEN }}
+          >
+            {busy ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Valider / Confirm"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+/** Ordered checkpoint (pickup+drop pair) rendered inside the sheet. */
+const CheckpointRow = ({ stop, currentSeq, currentLeg, onNavigate }) => {
+  const legState = (leg) => {
+    const s = stop[leg]?.status;
+    if (s === "completed") return "done";
+    if (stop.sequence === currentSeq && currentLeg === leg) return "current";
+    return "upcoming";
+  };
+  const bullet = (state, tone) => {
+    if (state === "done") {
+      return (
+        <span className="w-5 h-5 rounded-full grid place-items-center shrink-0"
+              style={{ background: GREEN, color: "#000" }}>
+          <CheckCircle2 size={12} strokeWidth={3} />
+        </span>
+      );
+    }
+    if (state === "current") {
+      return (
+        <span className="w-5 h-5 rounded-full ring-2 shrink-0"
+              style={{ background: tone, boxShadow: `0 0 0 4px ${tone}22` }} />
+      );
+    }
+    return <span className="w-5 h-5 rounded-full border border-border shrink-0" />;
+  };
+  const renderLeg = (leg, tone, labelFr, labelEn) => {
+    const state = legState(leg);
+    const isCurrent = state === "current";
+    return (
+      <div className="flex items-start gap-3">
+        {bullet(state, tone)}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ color: state === "done" ? GREEN : tone }}>
+              {labelFr} {stop.sequence} · {labelEn} {stop.sequence}
+            </span>
+            {state === "done" && (
+              <span className="text-[10px] text-muted-foreground">— Terminé</span>
+            )}
+          </div>
+          <div className={`text-sm font-semibold truncate ${state === "upcoming" ? "text-muted-foreground" : "text-foreground"}`}>
+            {stop[leg]?.building || stop[leg]?.address || "—"}
+          </div>
+          {stop[leg]?.address && stop[leg]?.building && (
+            <div className="text-xs text-muted-foreground truncate">
+              {stop[leg].address}
+            </div>
+          )}
+          {leg === "drop" && stop.drop?.receiver_name && (
+            <div className="text-xs text-muted-foreground truncate">
+              → {stop.drop.receiver_name}
+            </div>
+          )}
+        </div>
+        {isCurrent && (
+          <button
+            type="button"
+            onClick={() => onNavigate(stop[leg])}
+            data-testid={`driver-multi-stop-navigate-${leg}-${stop.sequence}`}
+            className="shrink-0 h-9 px-3 rounded-lg border border-border bg-secondary text-foreground flex items-center gap-1.5 text-xs font-semibold hover:bg-accent"
+          >
+            <NavIcon size={12} /> Navigate
+          </button>
+        )}
+      </div>
+    );
+  };
+  return (
+    <div className="space-y-3">
+      {renderLeg("pickup", ORANGE, "Ramassage", "Pickup")}
+      {renderLeg("drop", GREEN, "Livraison", "Delivery")}
+    </div>
+  );
+};
+
+/**
+ * MultiStopTripSheet — rendered when booking.stops[] is present.
+ *
+ *  • Reads the SAME `booking.stops` payload as the customer.
+ *  • Drives a single Slide-to-Confirm bound to the CURRENT leg.
+ *  • Requires PIN entry for every drop leg.
+ *  • POSTs `/express/bookings/{id}/stop-advance`.
+ *  • Never allows the driver to skip a checkpoint.
+ */
+export const MultiStopTripSheet = ({
+  booking,
+  driverLoc,
+  apiBase,
+  token,
+  onAdvanced,
+  onDelivered,
+}) => {
+  const stops = booking?.stops || [];
+  const progress = booking?.stops_progress || null;
+  const [pinPromptFor, setPinPromptFor] = useState(null); // sequence number
+  const [expanded, setExpanded] = useState(true);
+
+  const current = useMemo(() => {
+    if (progress?.current) return progress.current;
+    // Fallback: derive locally
+    for (const s of stops) {
+      for (const leg of ["pickup", "drop"]) {
+        if (s?.[leg]?.status !== "completed") return { sequence: s.sequence, leg };
+      }
+    }
+    return null;
+  }, [stops, progress]);
+
+  const currentStop = useMemo(
+    () => stops.find((s) => s.sequence === current?.sequence) || null,
+    [stops, current],
+  );
+  const currentLegEntry = currentStop && current ? currentStop[current.leg] : null;
+
+  const dest = useMemo(() => {
+    if (!currentLegEntry) return null;
+    const lat = Number(currentLegEntry.lat);
+    const lng = Number(currentLegEntry.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  }, [currentLegEntry]);
+
+  const nav = useTurnByTurn({ origin: driverLoc, destination: dest });
+
+  const submit = useCallback(async (pin) => {
+    if (!current) return;
+    try {
+      const body = {
+        sequence: current.sequence,
+        leg: current.leg,
+        ...(pin ? { delivery_pin: pin } : {}),
+        ...(driverLoc ? { lat: driverLoc.lat, lng: driverLoc.lng } : {}),
+      };
+      const { data } = await axios.post(
+        `${apiBase}/express/bookings/${booking.id}/stop-advance`,
+        body,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setPinPromptFor(null);
+      const isFinal = data?.status === "delivered";
+      if (isFinal) {
+        toast.success("Livraison finale — Booking completed! 🎉");
+        onDelivered?.();
+      } else {
+        const labelFr = current.leg === "pickup" ? "Ramassage" : "Livraison";
+        toast.success(`${labelFr} ${current.sequence} confirmé`);
+        onAdvanced?.(data);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.response?.data?.detail?.message ||
+                  err?.response?.data?.detail || err?.message || "Failed to confirm checkpoint";
+      toast.error(String(msg));
+    }
+  }, [apiBase, booking?.id, current, driverLoc, onAdvanced, onDelivered, token]);
+
+  const onSlide = useCallback(async () => {
+    if (!current) return;
+    if (current.leg === "drop") {
+      setPinPromptFor(current.sequence);
+      return;
+    }
+    await submit(null);
+  }, [current, submit]);
+
+  if (!current || !currentStop) {
+    return (
+      <div className="absolute inset-x-0 bottom-24 mx-3 pointer-events-auto rounded-2xl bg-card border border-border p-4 z-30 text-center"
+           data-testid="driver-multi-stop-complete">
+        <div className="text-sm font-semibold text-foreground">
+          Tous les arrêts confirmés · All stops confirmed
+        </div>
+      </div>
+    );
+  }
+
+  const completed = progress?.completed ?? 0;
+  const total = progress?.total ?? (stops.length * 2);
+  const legLabelFr = current.leg === "pickup" ? "Ramassage" : "Livraison";
+  const legLabelEn = current.leg === "pickup" ? "Pickup" : "Delivery";
+  const slideLabelBase = current.leg === "pickup"
+    ? `Confirmer le ramassage ${current.sequence} · Confirm Pickup ${current.sequence}`
+    : `Confirmer la livraison ${current.sequence} · Confirm Delivery ${current.sequence}`;
+  const slideColor = current.leg === "pickup" ? ORANGE : GREEN;
+  const distanceLabel = nav?.totalKm != null ? `${nav.totalKm.toFixed(1)} km` : "—";
+  const etaLabel = nav?.totalMin != null ? `${nav.totalMin} min` : "—";
+  const focusName = currentLegEntry?.building
+    || currentLegEntry?.address
+    || (current.leg === "drop" ? currentStop.drop?.receiver_name : "");
+
+  return (
+    <>
+      <DeliveryPinModal
+        open={pinPromptFor != null}
+        sequence={pinPromptFor}
+        onClose={() => setPinPromptFor(null)}
+        onSubmit={submit}
+      />
+
+      {/* Top pill */}
+      <div className="absolute top-0 left-0 right-0 pointer-events-none z-30"
+           style={{ paddingTop: "max(env(safe-area-inset-top), 12px)" }}>
+        <div className="px-4 flex items-center justify-center pointer-events-none">
+          <div
+            data-testid="driver-multi-stop-progress-pill"
+            className="pointer-events-auto flex items-center gap-2 h-10 px-4 rounded-full bg-card/95 border border-border backdrop-blur-md text-sm font-medium"
+          >
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: GREEN }} />
+            <span className="text-foreground">
+              Livraison multi-arrêts · {completed}/{total}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Current-stop hero card */}
+      <div className="absolute left-0 right-0 pointer-events-none z-30 px-3"
+           style={{ top: "calc(max(env(safe-area-inset-top), 12px) + 56px)" }}>
+        <div
+          className="pointer-events-auto rounded-2xl bg-card border border-border p-4 shadow-lg backdrop-blur-md"
+          data-testid="driver-multi-stop-current-card"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full grid place-items-center shrink-0"
+                 style={{ background: `${slideColor}22`, color: slideColor }}>
+              {current.leg === "pickup" ? <PackageCheck size={22} /> : <Flag size={22} />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.2em] font-semibold"
+                   style={{ color: slideColor }}>
+                Arrêt actuel · Current Stop
+              </div>
+              <div className="text-base font-bold text-foreground truncate">
+                {legLabelFr} {current.sequence} · {legLabelEn} {current.sequence}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {focusName || "—"}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-bold" style={{ color: GREEN }}>{distanceLabel}</div>
+              <div className="text-[10px] text-muted-foreground">{etaLabel}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => openNativeNavigation({ ...dest, label: focusName, origin: driverLoc })}
+              data-testid="driver-multi-stop-navigate-btn"
+              className="shrink-0 h-10 px-3 rounded-xl border border-border bg-secondary text-foreground flex items-center gap-1.5 text-xs font-semibold hover:bg-accent"
+            >
+              <NavIcon size={14} /> Navigate
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom sheet with ordered checkpoints */}
+      <div className="absolute left-0 right-0 pointer-events-none z-30" style={{ bottom: 88 }}>
+        <div
+          className="pointer-events-auto mx-3 rounded-t-[28px] rounded-b-2xl bg-card border border-border shadow-2xl backdrop-blur-md p-4 max-h-[62vh] overflow-y-auto"
+          data-testid="driver-multi-stop-bottom-sheet"
+        >
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            data-testid="driver-multi-stop-toggle"
+            className="w-full flex items-center justify-center -mt-1 mb-2"
+            aria-label={expanded ? "Collapse trip details" : "Expand trip details"}
+          >
+            <span className="block w-12 h-1.5 rounded-full bg-border" />
+          </button>
+
+          {/* Progress + shipment count */}
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">
+                {stops.length} colis · {stops.length} Shipment{stops.length > 1 ? "s" : ""}
+              </div>
+              <div className="text-sm font-bold text-foreground mt-1">
+                {completed}/{total} points confirmés · checkpoints
+              </div>
+            </div>
+            <div className="w-24 h-2 rounded-full bg-secondary overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${total ? (completed / total) * 100 : 0}%`, background: GREEN }}
+                data-testid="driver-multi-stop-progress-bar"
+              />
+            </div>
+          </div>
+
+          {expanded && (
+            <div className="space-y-4">
+              {stops.map((s, i) => (
+                <div key={s.sequence || i}
+                     className="pt-3 border-t border-border first:pt-0 first:border-t-0"
+                     data-testid={`driver-multi-stop-row-${s.sequence}`}>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
+                    Colis {s.sequence} · Shipment {s.sequence}
+                  </div>
+                  <CheckpointRow
+                    stop={s}
+                    currentSeq={current.sequence}
+                    currentLeg={current.leg}
+                    onNavigate={(entry) => openNativeNavigation({
+                      lat: Number(entry?.lat),
+                      lng: Number(entry?.lng),
+                      label: entry?.building || entry?.address,
+                      origin: driverLoc,
+                    })}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4">
+            <SlideToConfirm
+              key={`ms-${current.sequence}-${current.leg}`}
+              label={slideLabelBase}
+              onConfirm={onSlide}
+              color={slideColor}
+              testid={`driver-multi-stop-slide-${current.leg}-${current.sequence}`}
+            />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 const STAGE_CONFIG = {
   driver_assigned: {
     nextStatus:   "arriving",
@@ -371,7 +778,20 @@ const STAGE_CONFIG = {
  *   • onDelivered:   () → dismiss the sheet after delivery
  *   • onOpenChat:    open the JobChat modal for the given peer
  */
-export const DriverTripSheet = ({
+export const DriverTripSheet = (props) => {
+  // Multi-stop bookings mirror the customer's stops[] payload as an ordered
+  // list of pickup/drop checkpoints. Single-stop bookings continue on the
+  // legacy STAGE_CONFIG state machine (backward-compatible). Split into two
+  // subcomponents so React hooks stay unconditional in each render tree.
+  const b = props.booking;
+  const isMultiStop = Array.isArray(b?.stops) && b.stops.length >= 1
+    && b?.service_type === "multiple_shipments";
+  return isMultiStop
+    ? <MultiStopTripSheet {...props} />
+    : <SingleStopTripSheet {...props} />;
+};
+
+const SingleStopTripSheet = ({
   booking,
   driverLoc,
   apiBase,

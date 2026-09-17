@@ -102,6 +102,9 @@ class ShopProduct(Base, AuditMixin):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("shpprd"))
     title: Mapped[str] = mapped_column(String(400), nullable=False)
+    # Optional French override — when set, French customers see this value
+    # instead of `title`. Empty/None → fall back to the English `title`.
+    title_fr: Mapped[Optional[str]] = mapped_column(String(400), nullable=True)
     slug: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     module: Mapped[str] = mapped_column(String(16), nullable=False, default="shop", server_default="shop")
@@ -110,6 +113,8 @@ class ShopProduct(Base, AuditMixin):
     category_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("shop_categories.id"), nullable=True)
     subcategory_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("shop_subcategories.id"), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Optional French description override (same rules as `title_fr`).
+    description_fr: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     images: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     # Dynamic attribute snapshot at parent-level (shared across variants).
     attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

@@ -1,0 +1,31 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "orders": "Commandes",
+    "products": "Produits",
+    "suppliers": "Fournisseurs",
+    "drivers": "Livreurs",
+    "customers": "Clients",
+    "homepage": "Page d'accueil",
+    "categories": "Catégories",
+    "attributes": "Attributs",
+    "modules": "Modules",
+    "analytics": "Analyses",
+    "settings": "Paramètres"
+  },
+  "actions": {
+    "approve": "Approuver",
+    "reject": "Rejeter",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "suspend": "Suspendre",
+    "unsuspend": "Réactiver",
+    "export": "Exporter",
+    "import": "Importer"
+  },
+  "table": {
+    "no_results": "Aucun résultat",
+    "loading": "Chargement…",
+    "showing": "Affichage de {{from}}-{{to}} sur {{total}}"
+  }
+}

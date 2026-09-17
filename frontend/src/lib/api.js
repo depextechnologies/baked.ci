@@ -15,6 +15,16 @@ api.interceptors.request.use((config) => {
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Workstream 3 Phase D — send the user's current UI language on every
+  // API call so the backend can render error messages, transactional
+  // emails, SMS bodies and push notifications in the same language.
+  // Falls back silently if localStorage is unavailable (SSR / private mode).
+  try {
+    const lang = localStorage.getItem("baked_language") || "fr";
+    if (!config.headers["X-BAKED-Language"]) {
+      config.headers["X-BAKED-Language"] = lang;
+    }
+  } catch (_) { /* no-op */ }
   return config;
 });
 

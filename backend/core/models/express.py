@@ -43,6 +43,13 @@ class ExpressBooking(Base, TimestampMixin):
     customer_id: Mapped[str] = mapped_column(String, ForeignKey("customers.id"), nullable=False)
     module: Mapped[str] = mapped_column(String, nullable=False, default="express")
     booking_type: Mapped[str] = mapped_column(String, nullable=False)
+    # Phase C — SEND service tile the customer originated from. Nullable
+    # because legacy bookings pre-date the six-tile home.
+    service_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    # Phase E — multi-stop payload for `service_type = multiple_shipments`.
+    # Ordered list of `{pickup, drop}` pairs (each with lat/lng + address).
+    # NULL for standard single-shipment bookings.
+    stops: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     payment_method: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -166,6 +173,10 @@ class ModuleDriver(Base, AuditMixin):
     rating: Mapped[float] = mapped_column(Numeric(2, 1), nullable=False, default=4.8)
     photo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Phase B — quick refrigerated dispatch filter (mirrors the driver's active
+    # vehicle capability). Kept as a column on module_drivers so the dispatch
+    # query stays index-only and doesn't need to join capabilities.
+    is_refrigerated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # Bridge back to the SENDbakēd Driver record (0032). NULL for legacy seed
     # rows; set for real drivers going through /driver/me/online.
     linked_driver_id: Mapped[Optional[str]] = mapped_column(
@@ -191,6 +202,7 @@ class ExpressVehicle(Base, AuditMixin):
     code: Mapped[str] = mapped_column(String, nullable=False)
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    name_fr: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     max_weight_kg: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
     eta_min_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -198,6 +210,7 @@ class ExpressVehicle(Base, AuditMixin):
     base_price: Mapped[Optional[float]] = mapped_column(Numeric(14, 2), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_refrigerated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     icon: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     image: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
@@ -366,3 +379,56 @@ class ExpressTimeSlot(Base, AuditMixin):
     badge: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+
+# ---------------------------------------------------------------------------
+# Phase C (SEND redesign) — service_type → eligible vehicle catalogue
+# ---------------------------------------------------------------------------
+
+
+SEND_SERVICE_TYPES = ("moto", "cargo", "fresh_products", "between_cities", "multiple_shipments")
+
+
+class SendServiceVehicle(Base):
+    """Config table: which vehicle codes may serve which SEND service tile.
+
+    Source of truth for the vehicle-picker filter inside the existing SEND
+    booking wizard. Editable by ops (row-level) and by Super Admin (future
+    UI) — the *frontend never hard-codes eligibility*.
+    """
+    __tablename__ = "send_service_vehicles"
+    __table_args__ = (
+        Index("ix_ssv_vehicle_code", "vehicle_code"),
+    )
+
+    service_type: Mapped[str]  = mapped_column(String(32), primary_key=True)
+    vehicle_code: Mapped[str]  = mapped_column(String(64), primary_key=True)
+    active:       Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    sort_order:   Mapped[int]  = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at:   Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Multiple Shipments — configurable product-type catalogue (2026-02)
+# ---------------------------------------------------------------------------
+
+
+class SendProductType(Base):
+    """Lightweight, admin-editable catalogue used by the Multiple Shipments
+    Step-1 optional "Product Type" dropdown. FR-first, EN-second. Exactly
+    one row can be flagged `is_default=True` (partial unique index) — that
+    row is what the frontend selects when the customer never touches the
+    field. Legs may still store `product_type=null` (backend fills in the
+    default at persistence time)."""
+    __tablename__ = "send_product_types"
+
+    id:         Mapped[str]  = mapped_column(String, primary_key=True, default=lambda: new_id("spt"))
+    code:       Mapped[str]  = mapped_column(String(64), unique=True, nullable=False)
+    name_fr:    Mapped[str]  = mapped_column(String(128), nullable=False)
+    name_en:    Mapped[str]  = mapped_column(String(128), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    sort_order: Mapped[int]  = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    active:     Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

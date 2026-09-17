@@ -18,7 +18,8 @@
 
   color: var(--ph-fg);
   background: var(--ph-bg);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Inherit the platform-global font stack (see index.css `--font-family-sans`) */
+  font-family: var(--font-family-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -481,36 +481,28 @@ async def invite_staff(
     # Try SMTP; fall back gracefully — the API response ALWAYS includes the
     # invite URL so the inviter can copy-paste it into WhatsApp / SMS
     # if their SMTP is not configured yet.
+    #
+    # Workstream 3 Phase D — bilingual delivery. Prefer the invitee's
+    # locale header (falls back to French for CI, English for India).
     email_sent = False
     try:
-        from core.mailer import send_email_async, is_configured
+        from core.mailer import is_configured  # noqa: F401
+        from core.emails import send_localised_email
         if is_configured():
-            subject = f"You're invited to join {actor.partner.business_name} on BAKĒD"
-            html = f"""
-              <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
-                <h2 style="margin:0 0 8px">You're invited to join <strong>{actor.partner.business_name}</strong></h2>
-                <p style="color:#555;margin:0 0 16px">
-                  {actor.actor_email} has invited you to join their MARTbakēd store as a <b>{payload.role}</b>.
-                </p>
-                <a href="{invite_url}"
-                   style="display:inline-block;background:#DC7F1E;color:#0a0a0f;text-decoration:none;
-                          padding:12px 24px;border-radius:8px;font-weight:600">
-                  Accept invitation
-                </a>
-                <p style="color:#888;font-size:12px;margin-top:24px">
-                  Or copy this link: <br>
-                  <code style="word-break:break-all">{invite_url}</code>
-                </p>
-                <p style="color:#888;font-size:12px;margin-top:16px">
-                  This invitation expires in 14 days.
-                </p>
-              </div>"""
-            text = (
-                f"You're invited to join {actor.partner.business_name} on BAKĒD as a {payload.role}.\n\n"
-                f"Accept: {invite_url}\n\n"
-                f"This invitation expires in 14 days."
+            lang = "en" if (actor.partner.country or "").upper() == "IN" else "fr"
+            email_sent = await send_localised_email(
+                to=payload.email,
+                template="staff_invite",
+                lang=lang,
+                params={
+                    "business_name": actor.partner.business_name,
+                    "inviter": actor.actor_email,
+                    "role": payload.role,
+                    "hours": 24 * 14,
+                },
+                cta_label_key="cta",
+                cta_href=invite_url,
             )
-            email_sent = await send_email_async(to=payload.email, subject=subject, html_body=html, text_body=text)
     except Exception:
         email_sent = False
 

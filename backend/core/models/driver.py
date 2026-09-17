@@ -16,7 +16,13 @@ from core.models.base import Base, new_id, TimestampMixin
 
 DRIVER_STATUSES  = ("onboarding", "pending_review", "approved", "suspended", "rejected")
 KYC_STEPS        = ("personal", "id", "licence", "selfie", "vehicle", "bank", "emergency", "submitted")
-VEHICLE_TYPES    = ("bike", "scooter", "tricycle", "mini_truck", "big_truck")
+VEHICLE_TYPES    = (
+    # Legacy KYC codes — kept for existing driver rows.
+    "bike", "scooter", "tricycle", "mini_truck", "big_truck",
+    # Phase B/F — SEND vehicle codes so the primary capability written by
+    # `sync_capabilities()` also passes the KYC allow-list check.
+    "three_wheeler", "truck", "ref_tricycle", "ref_utility", "ref_truck",
+)
 JOB_STATUSES     = ("offered", "declined", "accepted", "arriving_pickup", "picked_up",
                     "arriving_dropoff", "delivered", "cancelled", "expired")
 
@@ -219,3 +225,33 @@ class DriverJobMessage(Base):
     preset_key:  Mapped[Optional[str]] = mapped_column(String(48))
     text:        Mapped[str] = mapped_column(Text, nullable=False)
     created_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+
+# ---------------------------------------------------------------------------
+# Phase B (SEND redesign) — Driver multi-vehicle capabilities
+# ---------------------------------------------------------------------------
+
+
+class DriverVehicleCapability(Base):
+    """Many-to-many association between a driver and the vehicle codes they
+    are authorised to operate.
+
+    Every row means "this driver owns/drives this vehicle type". Dispatch
+    can now match a Fresh Products booking against a driver who advertises
+    both `truck` and `ref_truck`, without duplicating the driver row.
+
+    `vehicle_code` is intentionally a plain string (not FK) because
+    `express_vehicles` is per-country while capabilities are country-agnostic
+    — a driver in CI who has a `ref_truck` capability should still match
+    seamlessly if they cross into a supported neighbouring country later.
+    """
+    __tablename__ = "driver_vehicle_capabilities"
+    __table_args__ = (
+        Index("ix_dvc_vehicle_code", "vehicle_code"),
+    )
+
+    driver_id:    Mapped[str]  = mapped_column(String, ForeignKey("drivers.id", ondelete="CASCADE"), primary_key=True)
+    vehicle_code: Mapped[str]  = mapped_column(String(64), primary_key=True)
+    is_primary:   Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    created_at:   Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

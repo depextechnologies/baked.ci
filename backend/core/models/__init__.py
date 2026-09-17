@@ -35,6 +35,9 @@ from core.models.express import (
     ExpressPromo,
     ExpressTimeSlot,
     ExpressVehicle,
+    SendServiceVehicle,
+    SendProductType,
+    SEND_SERVICE_TYPES,
     ExpressWeightTier,
     ModuleDriver,
 )
@@ -73,6 +76,7 @@ from core.models.driver import (
     DRIVER_STATUSES, KYC_STEPS, VEHICLE_TYPES, JOB_STATUSES,
     EARNING_KINDS, WITHDRAWAL_STATUSES, MESSAGE_SENDERS,
     Driver, DriverJob, DriverOtp, DriverEarning, DriverWithdrawal, DriverJobMessage,
+    DriverVehicleCapability,
 )
 from core.models.suppliers import (
     SUPPLIER_STATUSES, SUPPLIER_APPLICATION_STATUSES, SUPPLIER_BUSINESS_TYPES,
@@ -138,6 +142,9 @@ __all__ = [
     "ExpressPromo",
     "ExpressTimeSlot",
     "ExpressVehicle",
+    "SendServiceVehicle",
+    "SendProductType",
+    "SEND_SERVICE_TYPES",
     "ExpressWeightTier",
     "ModuleDriver",
     "ModuleVendor",
@@ -201,6 +208,7 @@ __all__ = [
     "SUPPLIER_BUSINESS_TYPES", "SUPPLIER_CONTACT_RELATIONS",
     "SUPPLIER_DOCUMENT_TYPES",
     "Driver", "DriverJob", "DriverOtp", "DriverEarning", "DriverWithdrawal", "DriverJobMessage",
+    "DriverVehicleCapability",
     "EARNING_KINDS", "WITHDRAWAL_STATUSES", "MESSAGE_SENDERS",
     "DRIVER_STATUSES", "KYC_STEPS", "VEHICLE_TYPES", "JOB_STATUSES",
 ]

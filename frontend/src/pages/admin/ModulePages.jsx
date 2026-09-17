@@ -1177,7 +1177,7 @@ export const ModuleBookings = () => {
                 <td className="p-3 text-right">
                   <button
                     data-testid={`bookings-open-${b.id}`}
-                    onClick={() => navigate(`/express/booking/${b.id}/track`)}
+                    onClick={() => navigate(`/send/booking/${b.id}/track`)}
                     className="text-xs font-semibold text-primary hover:underline"
                   >
                     View

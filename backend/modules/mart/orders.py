@@ -13,13 +13,14 @@ Events: OrderCreated → PaymentCompleted / PaymentFailed → OrderUpdated
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang, resolve_lang
 from core.models import (
     AuditLog,
     Cart,
@@ -250,7 +251,7 @@ async def create_order(
     # any exception raised before that final commit leaves zero partial writes.
     cart, lines, master_subtotal = await _snapshot_cart(session, customer.id)
     if not lines:
-        raise HTTPException(400, "Cart is empty")
+        raise HTTPException(400, _t("errors.order.cart_empty", current_lang()))
 
     country = await get_country_config(session, customer.country or "CI") or {}
 
@@ -271,7 +272,7 @@ async def create_order(
         address_snapshot = row_to_dict(addr_row)
         source_address_id = addr_row.id
     if not address_snapshot:
-        raise HTTPException(400, "Address is required (provide address_id or inline address)")
+        raise HTTPException(400, _t("errors.order.address_or_inline_required", current_lang()))
 
     # ---- Inventory Allocation ----
     # Route each cart line to a partner that has stock + is closest to the
@@ -294,8 +295,7 @@ async def create_order(
         if msg.startswith("insufficient_stock:"):
             raise HTTPException(status_code=409, detail={
                 "code": "insufficient_stock",
-                "message": ("Out of stock — the last units were just claimed. "
-                            "Please refresh and try again."),
+                "message": _t("errors.order.insufficient_stock_msg", current_lang()),
             }) from ve
         raise
     except HTTPException:
@@ -310,8 +310,7 @@ async def create_order(
         )
         raise HTTPException(status_code=409, detail={
             "code": "allocation_failed",
-            "message": ("We couldn't reserve stock right now. Please refresh "
-                        "your cart and try again in a moment."),
+            "message": _t("errors.order.allocation_failed_msg", current_lang()),
         }) from exc
     if not plan.fulfillable:
         # Enrich unfulfillable rows with human-friendly names for the UI.
@@ -324,8 +323,7 @@ async def create_order(
                     break
         raise HTTPException(status_code=400, detail={
             "code": "not_available_in_area",
-            "message": ("Some items in your cart aren't available in your area yet. "
-                        "MARTbakēd is coming soon to more stores."),
+            "message": _t("errors.order.not_available_in_area_msg", current_lang()),
             "gaps": gaps,
         })
 
@@ -339,7 +337,12 @@ async def create_order(
         min_order=country.get("min_order", 0),
     )
     if not elig["eligible"]:
-        raise HTTPException(400, f"Minimum order is {country.get('min_order', 0)} {country.get('currency','')}. Add {elig['shortfall']:g} {country.get('currency','')} more to your basket.")
+        raise HTTPException(400, _t(
+            "errors.order.min_order_details", current_lang(),
+            min=country.get("min_order", 0),
+            currency=country.get("currency", ""),
+            shortfall=f"{elig['shortfall']:g}",
+        ))
 
     delivery_fee = elig["delivery_fee"]
     subtotal_after_delivery = elig["total"]
@@ -525,7 +528,7 @@ async def list_my_orders(
 async def _get_owned_order(session: AsyncSession, order_id: str, customer_id: str) -> Order:
     order = await session.get(Order, order_id)
     if not order or order.customer_id != customer_id:
-        raise HTTPException(404, "Order not found")
+        raise HTTPException(404, _t("errors.order.not_found", current_lang()))
     return order
 
 
@@ -543,7 +546,7 @@ async def cancel_order(
 ):
     order = await _get_owned_order(session, order_id, customer.id)
     if order.status not in ("pending", "confirmed"):
-        raise HTTPException(400, f"Cannot cancel order in status {order.status}")
+        raise HTTPException(400, _t("errors.order.cannot_cancel_in_status", current_lang(), status=order.status))
     order.status = "cancelled"
     await session.commit()
     await event_bus.publish(Events.ORDER_UPDATED, {"order_id": order_id, "status": "cancelled"})

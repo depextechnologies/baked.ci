@@ -24,11 +24,14 @@ import {
   fetchAutocompleteSuggestions, fetchPlaceDetails, reverseGeocode, normalizePlace,
 } from "@/lib/googleMaps";
 
-// Supported countries — mirrors backend SUPPORTED_COUNTRIES (defaults to CI).
-const SUPPORTED = ["CI"];
+// Supported countries — mirrors backend SUPPORTED_COUNTRIES. IN was added
+// alongside CI for the Delhi NCR pilot (Fixing_Prompt v14 §2 — Noida /
+// Greater Noida pincodes now valid via the address serviceability
+// allowlist in shared/addresses/routes.py).
+const SUPPORTED = ["CI", "IN"];
 const COUNTRY_CENTER = {
   CI: { lat: 5.345317, lng: -4.024429 }, // Abidjan
-  IN: { lat: 28.6139,  lng: 77.2090   }, // New Delhi
+  IN: { lat: 28.5355,  lng: 77.3910   }, // Noida (NCR pilot centre)
 };
 
 
@@ -234,19 +237,27 @@ export const WarehouseLocationPicker = ({ value, onChange, country = "CI" }) => 
             data-testid="apply-location-search"
           />
           {openList && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-30 mt-1 rounded-xl overflow-hidden max-h-72 overflow-y-auto"
-                 style={{ background: "var(--ph-card)", border: "1px solid var(--ph-border-strong)" }}
+            // QA — Fixing_Prompt v14 §1: explicit background + text colours
+            // so the autocomplete stays readable regardless of parent theme
+            // (Partner Hub, SHOP seller wizard, MART, ...). Fixes the
+            // white-on-white bug observed on the SHOP seller Step-3 map.
+            <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden max-h-72 overflow-y-auto shadow-2xl"
+                 style={{
+                   background: "#FFFFFF",
+                   border: "1px solid #D1D5DB",
+                   zIndex: 60,
+                 }}
                  data-testid="apply-location-suggestions">
               {suggestions.map((s) => (
                 <button key={s.placeId} type="button"
                         onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 flex items-start gap-2"
-                        style={{ color: "var(--ph-fg)", borderBottom: "1px solid var(--ph-border)" }}
+                        className="w-full text-left px-4 py-3 text-sm flex items-start gap-2 hover:bg-gray-100 focus:bg-gray-100"
+                        style={{ color: "#111827", borderBottom: "1px solid #F3F4F6" }}
                         data-testid={`apply-location-suggestion-${s.placeId}`}>
-                  <MapPin size={12} className="mt-0.5 flex-shrink-0" style={{ color: "var(--ph-fg-subtle)" }} />
+                  <MapPin size={12} className="mt-0.5 flex-shrink-0" style={{ color: "#6B7280" }} />
                   <div className="min-w-0">
-                    <div className="truncate">{s.mainText || s.description}</div>
-                    <div className="text-[11px] truncate" style={{ color: "var(--ph-fg-subtle)" }}>{s.secondaryText}</div>
+                    <div className="truncate" style={{ color: "#111827", fontWeight: 500 }}>{s.mainText || s.description}</div>
+                    <div className="text-[11px] truncate" style={{ color: "#6B7280" }}>{s.secondaryText}</div>
                   </div>
                 </button>
               ))}

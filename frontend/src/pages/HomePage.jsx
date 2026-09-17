@@ -6,6 +6,7 @@ import { ProductCard } from "../components/mart/ProductCard";
 import { MartLogoImage } from "../components/layout/BakedLogo";
 import { HOME, CATEGORY, AI } from "../constants/testIds";
 import { formatMoney, t } from "../lib/i18n";
+import { useLocalePath } from "../i18n/routes";
 import { Bike, Truck, ShoppingBasket, Wallet2, Sparkles, ArrowRight, Zap, Package, Tag, RotateCcw } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ const POPULAR_ZONES = {
 export const HomePage = () => {
   const { country, uiLocale, language } = useApp();
   const navigate = useNavigate();
+  const path = useLocalePath();
   const locale = uiLocale;
   const [categories, setCategories] = useState([]);
   const [deals, setDeals] = useState([]);
@@ -49,7 +51,7 @@ export const HomePage = () => {
       const { data } = await api.post("/ai/search", { query: aiQuery, country: country.code, module: "mart" });
       setAiSummary(data.filters?.summary);
       if (data.products?.length) {
-        navigate(`/products?search=${encodeURIComponent(aiQuery)}`);
+        navigate(`${path("products")}?search=${encodeURIComponent(aiQuery)}`);
       } else {
         toast("No matches — try broader terms");
       }
@@ -83,7 +85,7 @@ export const HomePage = () => {
               <p className="mt-3 text-sm md:text-base text-white/80 max-w-md">{t(locale, "hero.mart.subtitle")}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button data-testid={HOME.shopNowBtn} onClick={() => navigate("/products")} className="baked-btn h-11 px-6 font-semibold text-black shadow-xl" style={{ backgroundColor: "#77BC1F" }}>
+              <Button data-testid={HOME.shopNowBtn} onClick={() => navigate(path("products"))} className="baked-btn h-11 px-6 font-semibold text-black shadow-xl" style={{ backgroundColor: "#77BC1F" }}>
                 {t(locale, "hero.shop_now")}
               </Button>
               <Button data-testid={HOME.browseCategoriesBtn} onClick={() => navigate("/categories")} variant="outline" className="baked-btn h-11 px-6 font-semibold border-white/40 bg-black/30 backdrop-blur-sm text-white hover:bg-white/10 hover:text-white">
@@ -221,7 +223,7 @@ export const HomePage = () => {
           {/* Best deals */}
           <div className="flex items-center justify-between mt-8 mb-3">
             <h2 className="text-lg font-semibold">{t(locale, "sec.best_deals")}</h2>
-            <button onClick={() => navigate("/products?sort=price_asc")} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>{t(locale, "sec.view_all")}</button>
+            <button onClick={() => navigate(`${path("products")}?sort=price_asc`)} className="text-xs font-semibold" style={{ color: "#77BC1F" }}>{t(locale, "sec.view_all")}</button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {deals.slice(0, 12).map((p) => <ProductCard key={p.id} product={p} />)}

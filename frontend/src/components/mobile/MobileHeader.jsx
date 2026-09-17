@@ -10,6 +10,7 @@ import { BakedLogo } from "../layout/BakedLogo";
 import { t } from "../../lib/i18n";
 import { AddressPill } from "../address/AddressPill";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/sheet";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 
 // t() returns the raw key when missing — helper to gracefully fall back.
 const tOr = (locale, key, fallback) => {
@@ -165,18 +166,8 @@ export const MobileHeader = ({ variant = "home", title }) => {
             <div className="p-4 border-t border-border">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Language / Theme</div>
               <div className="flex items-center gap-3">
-                <div className="baked-btn overflow-hidden border border-border flex items-stretch text-xs font-semibold flex-1" role="group" aria-label="Language Selector">
-                  <button
-                    data-testid="m-drawer-language-fr"
-                    onClick={() => setLanguage("fr")}
-                    className={`flex-1 px-3 py-2 motion-fast ${language === "fr" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
-                  >FR</button>
-                  <div className="w-px bg-border" />
-                  <button
-                    data-testid="m-drawer-language-en"
-                    onClick={() => setLanguage("en")}
-                    className={`flex-1 px-3 py-2 motion-fast ${language === "en" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"}`}
-                  >EN</button>
+                <div className="flex-1">
+                  <LanguageSwitcher variant="compact" className="w-full [&>button]:flex-1" />
                 </div>
                 <button
                   data-testid="m-drawer-theme-toggle"

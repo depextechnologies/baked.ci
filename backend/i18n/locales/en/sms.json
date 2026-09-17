@@ -1,0 +1,10 @@
+{
+  "otp": "BAKĒD: your verification code is {code}. It expires in {minutes} minutes. Don't share it with anyone.",
+  "order_confirmed": "BAKĒD: order {order_code} confirmed, estimated delivery {eta}. Track: {tracking_url}",
+  "order_on_the_way": "BAKĒD: your driver {driver_name} is on the way! Live tracking: {tracking_url}",
+  "order_delivered": "BAKĒD: order {order_code} delivered. Thanks! Rate your experience: {rate_url}",
+  "driver_assigned": "BAKĒD: new trip #{trip_id}. {pickup} → {dropoff}. Open the app to accept.",
+  "driver_reminder": "BAKĒD: you have a pending trip #{trip_id}. Please open the app.",
+  "password_reset": "BAKĒD: reset code {code}. Valid for {minutes} minutes.",
+  "supplier_approved": "BAKĒD: welcome! Your supplier application has been approved. Sign in to your dashboard."
+}

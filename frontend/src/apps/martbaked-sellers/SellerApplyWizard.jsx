@@ -13,11 +13,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, CheckCircle2, Phone, Building2, User2, MapPin,
-  Tags, Truck, Landmark, FileText, ClipboardCheck, Plus, Trash2, Info,
+  Tags, Truck, Landmark, FileText, ClipboardCheck, Plus, Trash2, Info, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { sellerApi } from "./SellerApp";
+import { sellerApi, useSellerModule } from "./SellerApp";
 import { WarehouseLocationPicker } from "@/apps/partner-hub/WarehouseLocationPicker";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
 
 const STEPS = [
   { n: 1, label: "Phone",       icon: Phone },
@@ -75,17 +76,33 @@ const errMsg = (e) => {
 
 export const SellerApplyWizard = () => {
   const [params] = useSearchParams();
+  // Module-aware — labels + back links flip when this wizard is mounted
+  // under the SHOP seller portal (Fixing_Prompt v13 QA sweep).
+  const modProfile = useSellerModule?.() || { code: "mart" };
+  const isShop = modProfile.code === "shop";
+  const MOD_LABEL = isShop ? "SHOPbakēd" : "MARTbakēd";
+  const SELLERS_HOME = isShop ? "/shopbaked/sellers" : "/martbaked/sellers";
   // Resume via ?app=<id> or start-fresh flow
   const [appId, setAppId] = useState(params.get("app") || null);
-  const [current, setCurrent] = useState(1);
+  // ?step=<n> deep-link for regression tests + admin-assisted resume. Only
+  // honoured when `?app=<id>` is also present (safety: no bare step jump).
+  const _initialStep = (() => {
+    const raw = params.get("step");
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return params.get("app") && Number.isFinite(n) && n >= 1 && n <= 9 ? n : 1;
+  })();
+  const [current, setCurrent] = useState(_initialStep);
   const [supplier, setSupplier] = useState(null);
   const [appCode, setAppCode] = useState(null);
   const [full, setFull] = useState({ contacts: [], documents: [], supply_locations: [], categories: [], bank_info: null });
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Load existing application state (for step navigation / resume)
-  const refresh = async (id) => {
+  // Load existing application state (for step navigation / resume).
+  // `keepCurrent=true` skips overriding `current` — used on the initial
+  // mount when the URL requested a specific step (?app=&step=), so the
+  // deep-link isn't clobbered by the server's `current_step` value.
+  const refresh = async (id, { keepCurrent = false } = {}) => {
     const target = id || appId;
     if (!target) return;
     try {
@@ -99,11 +116,19 @@ export const SellerApplyWizard = () => {
         categories: data.categories || [],
         bank_info: data.bank_info,
       });
-      setCurrent(Math.min(9, data.application.current_step || 1));
+      if (!keepCurrent) {
+        setCurrent(Math.min(9, data.application.current_step || 1));
+      }
     } catch (e) { toast.error(errMsg(e)); }
   };
 
-  useEffect(() => { if (appId) refresh(appId); }, []);
+  useEffect(() => {
+    if (!appId) return;
+    // Preserve the URL-requested step on first load. Subsequent refresh()
+    // calls (post-save) reset current per the server's canonical step.
+    const requestedStep = params.get("step");
+    refresh(appId, { keepCurrent: !!requestedStep });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (submitted) {
     return (
@@ -122,7 +147,7 @@ export const SellerApplyWizard = () => {
             <Link to={`/martbaked/sellers/application-status?code=${appCode}`} className="pl-btn pl-btn-primary" data-testid="wizard-goto-status">
               Track application <ArrowRight size={16} />
             </Link>
-            <Link to="/martbaked/sellers" className="pl-btn pl-btn-secondary" data-testid="wizard-back-home">Back to home</Link>
+            <Link to={SELLERS_HOME} className="pl-btn pl-btn-secondary" data-testid="wizard-back-home">Back to home</Link>
           </div>
         </div>
       </section>
@@ -132,15 +157,18 @@ export const SellerApplyWizard = () => {
   return (
     <section className="pl-section">
       <div className="pl-container max-w-4xl">
-        <div className="mb-8">
-          <div className="pl-eyebrow mb-2">MARTbakēd supplier onboarding</div>
-          <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Apply as a supplier</h1>
-          {appCode && (
-            <div className="mt-3 text-xs" style={{ color: "var(--pl-fg-muted)" }}>
-              Application <span className="font-mono">{appCode}</span>
-              {supplier && <> · {supplier.business_name}</>}
-            </div>
-          )}
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <div className="pl-eyebrow mb-2">{MOD_LABEL} supplier onboarding</div>
+            <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Apply as a supplier</h1>
+            {appCode && (
+              <div className="mt-3 text-xs" style={{ color: "var(--pl-fg-muted)" }}>
+                Application <span className="font-mono">{appCode}</span>
+                {supplier && <> · {supplier.business_name}</>}
+              </div>
+            )}
+          </div>
+          <LanguageSwitcher variant="compact" />
         </div>
 
         {/* Progress rail */}
@@ -172,7 +200,7 @@ export const SellerApplyWizard = () => {
         </div>
 
         <div className="pl-card p-8">
-          {current === 1 && <StepPhone appId={appId} setAppId={setAppId} setSupplier={setSupplier} setAppCode={setAppCode} onNext={() => { setCurrent(2); refresh(); }} supplier={supplier} />}
+          {current === 1 && <StepPhone appId={appId} setAppId={setAppId} setSupplier={setSupplier} setAppCode={setAppCode} onNext={() => { setCurrent(2); refresh(); }} supplier={supplier} isShop={isShop} />}
           {current === 2 && <StepBusiness appId={appId} supplier={supplier} onNext={() => setCurrent(3)} onPrev={() => setCurrent(1)} refresh={refresh} />}
           {current === 3 && <StepOwner appId={appId} contact={full.contacts.find((c) => c.is_primary)} onNext={() => setCurrent(4)} onPrev={() => setCurrent(2)} refresh={refresh} />}
           {current === 4 && <StepLocation appId={appId} loc={full.supply_locations.find((l) => l.is_business_location)} supplier={supplier} onNext={() => setCurrent(5)} onPrev={() => setCurrent(3)} refresh={refresh} />}
@@ -232,7 +260,7 @@ const NavRow = ({ onPrev, onNext, nextLabel = "Continue", busy, nextTestId, disa
 /*                              Step 1 — Phone                                 */
 /* -------------------------------------------------------------------------- */
 
-const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier }) => {
+const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier, isShop = false }) => {
   // Sub-phases: A) new applicant form B) OTP entry
   const [phase, setPhase] = useState(appId && supplier?.phone_verified ? "done" : (appId ? "otp" : "form"));
   const [busy, setBusy] = useState(false);
@@ -248,7 +276,10 @@ const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier 
   const startApp = async (e) => {
     e.preventDefault(); setBusy(true);
     try {
-      const { data } = await sellerApi.post("/martbaked/sellers/apply/start", form);
+      // QA v15 §1C — Tag the application with the seller portal's module
+      // so /admin/modules/shop/suppliers surfaces SHOP applicants.
+      const payload = { ...form, module: isShop ? "shop" : "mart" };
+      const { data } = await sellerApi.post("/martbaked/sellers/apply/start", payload);
       setAppId(data.application.id);
       setAppCode(data.application.application_code);
       setSupplier(data.supplier);
@@ -324,7 +355,7 @@ const StepPhone = ({ appId, setAppId, setSupplier, setAppCode, onNext, supplier 
           <Field label="Country code" testId="wizard-field-cc">
             <Select value={cc} onChange={(e) => setCc(e.target.value)} data-testid="wizard-input-cc">
               <option value="+225">+225 (CI)</option>
-              <option value="+231">+231 (LR)</option>
+              <option value="+91">+91 (IN)</option>
             </Select>
           </Field>
           <Field label="Business phone" testId="wizard-field-phone">
@@ -474,7 +505,7 @@ const StepOwner = ({ appId, contact, onNext, onPrev, refresh }) => {
         </Field>
         <Field label="ID type"><Input value={c.id_type} onChange={(e) => setC({ ...c, id_type: e.target.value })} placeholder="National ID / Passport" data-testid="wizard-input-owner-id-type" /></Field>
         <Field label="ID number"><Input value={c.id_number} onChange={(e) => setC({ ...c, id_number: e.target.value })} data-testid="wizard-input-owner-id-number" /></Field>
-        <Field label="ID document URL" hint="Upload separately and paste a link — full upload coming in Phase 2B."><Input value={c.id_document_url} onChange={(e) => setC({ ...c, id_document_url: e.target.value })} placeholder="https://…" data-testid="wizard-input-owner-id-url" /></Field>
+        <Field label="ID document" hint="Upload a photo or PDF of a national ID / passport (max 8 MB)."><ApplyFileUpload appId={appId} value={c.id_document_url} onChange={(url) => setC({ ...c, id_document_url: url })} testId="wizard-input-owner-id" /></Field>
       </div>
       <NavRow onPrev={onPrev} onNext={save} busy={busy} nextTestId="wizard-step3-next" />
     </form>
@@ -535,6 +566,11 @@ const StepLocation = ({ appId, loc, supplier, onNext, onPrev, refresh }) => {
 /* -------------------------------------------------------------------------- */
 
 const StepCategories = ({ appId, existing, supplier, onNext, onPrev, refresh }) => {
+  // QA — Fixing_Prompt "Seller Apply #7": pick the categories endpoint by
+  // the current seller module so SHOP applicants see SHOP categories, not
+  // MART ones. Falls back to MART when the context is missing.
+  const modProfile = useSellerModule?.() || { code: "mart" };
+  const isShop = modProfile.code === "shop";
   const [available, setAvailable] = useState([]);
   const [selected, setSelected] = useState(new Set((existing || []).filter((c) => c.category_id).map((c) => c.category_id)));
   const [customs, setCustoms] = useState((existing || []).filter((c) => !c.category_id).map((c) => ({ requested_name: c.requested_name, reason: c.reason || "" })));
@@ -544,12 +580,22 @@ const StepCategories = ({ appId, existing, supplier, onNext, onPrev, refresh }) 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await sellerApi.get(`/mart/categories?country=${supplier?.country || "CI"}`);
-        const cats = Array.isArray(data) ? data : (data.items || []);
-        setAvailable(cats);
+        const country = supplier?.country || "CI";
+        if (isShop) {
+          // SHOP uses `/shop/catalogue` — returns a nested category tree with
+          // localised names (name_en / name_fr / slug) so we normalise to
+          // the shape used by the button list below.
+          const { data } = await sellerApi.get(`/shop/catalogue?country=${country}`);
+          const tree = Array.isArray(data) ? data : (data.items || []);
+          setAvailable(tree.map((c) => ({ id: c.id, name: c.name_en || c.name_fr || c.slug })));
+        } else {
+          const { data } = await sellerApi.get(`/mart/categories?country=${country}`);
+          const cats = Array.isArray(data) ? data : (data.items || []);
+          setAvailable(cats);
+        }
       } catch (e) { /* silent — page still usable via custom */ }
     })();
-  }, [supplier?.country]);
+  }, [supplier?.country, isShop]);
 
   const toggle = (id) => {
     const next = new Set(selected);
@@ -560,9 +606,12 @@ const StepCategories = ({ appId, existing, supplier, onNext, onPrev, refresh }) 
   const save = async () => {
     setBusy(true);
     try {
+      // Tag each row with the seller's module so the backend routes it to
+      // the correct catalogue table (Fixing_Prompt "Seller Apply #7").
+      const module = isShop ? "shop" : "mart";
       const categories = [
-        ...Array.from(selected).map((id) => ({ category_id: id })),
-        ...customs.map((c) => ({ requested_name: c.requested_name, reason: c.reason || null })),
+        ...Array.from(selected).map((id) => ({ category_id: id, module })),
+        ...customs.map((c) => ({ requested_name: c.requested_name, reason: c.reason || null, module })),
       ];
       await sellerApi.patch(`/martbaked/sellers/apply/${appId}/step`, { step: 5, categories });
       await refresh(); onNext();
@@ -765,7 +814,7 @@ const StepDocuments = ({ appId, existing, onNext, onPrev, refresh }) => {
 
   return (
     <div className="space-y-5" data-testid="wizard-step8-form">
-      <StepHeader icon={FileText} title="Supporting documents" subtitle="Upload your certificates and paste the links here. Full file upload arrives in Phase 2B." />
+      <StepHeader icon={FileText} title="Supporting documents" subtitle="Upload registration certificates, tax IDs and any relevant proofs. PDFs and images (PNG / JPEG) accepted, max 8 MB per file." />
       {existing && existing.length > 0 && (
         <Field label="Already uploaded">
           <div className="space-y-2" data-testid="wizard-docs-existing">
@@ -791,12 +840,80 @@ const StepDocuments = ({ appId, existing, onNext, onPrev, refresh }) => {
               </Select>
             </Field>
             <Field label="Title"><Input value={r.title} onChange={(e) => upd(i, { title: e.target.value })} placeholder="RCCM Certificate" data-testid={`wizard-doc-title-${i}`} /></Field>
-            <Field label="File URL"><Input value={r.file_url} onChange={(e) => upd(i, { file_url: e.target.value })} placeholder="https://drive.example/..." data-testid={`wizard-doc-url-${i}`} /></Field>
+            <Field label="File">
+              <ApplyFileUpload appId={appId} value={r.file_url} onChange={(url) => upd(i, { file_url: url })} testId={`wizard-doc-file-${i}`} />
+            </Field>
           </div>
         ))}
       </div>
       <button type="button" onClick={() => setRows([...rows, { document_type: "other", title: "", file_url: "" }])} className="pl-btn pl-btn-secondary" data-testid="wizard-docs-add"><Plus size={14} /> Add another</button>
       <NavRow onPrev={onPrev} onNext={save} busy={busy} nextTestId="wizard-step8-next" />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// ApplyFileUpload — public multipart upload scoped to the draft application.
+// Fixes Fixing_Prompt "Seller Apply #8": no more paste-a-URL fields for
+// documents / IDs. Applies to Step 3 (owner ID) and Step 8 (docs). Backend:
+// POST /api/martbaked/sellers/apply/{appId}/uploads
+// ---------------------------------------------------------------------------
+const ApplyFileUpload = ({ appId, value, onChange, testId = "apply-file-upload", kind = "document" }) => {
+  const [busy, setBusy] = useState(false);
+  const inputRef = React.useRef(null);
+  const upload = async (file) => {
+    if (!file || !appId) return;
+    if (file.size > 8 * 1024 * 1024) {
+      return toast.error("Max file size is 8 MB.");
+    }
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      form.append("kind", kind);
+      const { data } = await sellerApi.post(
+        `/martbaked/sellers/apply/${appId}/uploads`, form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      onChange(data.file_url);
+      toast.success("Uploaded");
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+  const fileName = value ? value.split("/").pop() : "";
+  const previewUrl = value && value.startsWith("/") ? `${process.env.REACT_APP_BACKEND_URL}${value}` : value;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2 items-center">
+        <label className="pl-btn pl-btn-secondary cursor-pointer whitespace-nowrap" data-testid={`${testId}-btn`}>
+          {busy ? <Loader2 className="animate-spin" size={12} /> : <FileText size={12} />}
+          <span className="ml-1">{busy ? "Uploading…" : (value ? "Replace" : "Choose file")}</span>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            hidden
+            onChange={(e) => upload(e.target.files?.[0])}
+            data-testid={`${testId}-input`}
+          />
+        </label>
+        {value && (
+          <a href={previewUrl} target="_blank" rel="noreferrer"
+             className="text-xs underline truncate" style={{ color: "var(--pl-fg-muted)" }}
+             data-testid={`${testId}-view`}>
+            {fileName || "View"}
+          </a>
+        )}
+        {value && (
+          <button type="button" onClick={() => onChange("")}
+                  className="text-xs" style={{ color: "var(--pl-fg-subtle)" }}
+                  data-testid={`${testId}-clear`}>×</button>
+        )}
+      </div>
     </div>
   );
 };

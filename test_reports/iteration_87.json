@@ -1,0 +1,48 @@
+{
+  "summary": "Frontend-only regression testing of the new BAKĒD Global Cart Drawer at 1440x900. Executed 12 of the requested scenarios via localStorage-seeded guest carts against the live preview (REACT_APP_BACKEND_URL). All shared-state contract tests pass: drawer opens on top-nav click, /cart & /panier redirect to / and auto-open drawer, ESC + backdrop close, quantity incr/decr work, decrement-from-1 removes the row, MART+SHOP coexist (no disappearance), the §32 order-of-operations regression with 4 alternating rows all coexist, subtotal/total/delivery-fee math is correct, refresh persistence via localStorage works. One clear business-logic bug found: FOOD-module guest rows are downgraded to MART by CartProvider.hydrateGuest, so the red FOOD chip never renders (Tests 3/5/6/7 fail on chip color even though the row itself renders). Also a batch of missing i18n keys (French) fall back to English defaults. OTP login/merge flow (Test 11) was not exercised end-to-end; drawer surfaces the correct 'Sign in to checkout' CTA for guests.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CartProvider.hydrateGuest (BakedContexts.jsx line 336-339)",
+        "issue": "Non-SHOP guest rows are hard-coded to module:'mart' during hydration. A guest cart row with module:'food' is rendered as MART (green chip + MART label) instead of FOOD (red chip). Confirmed: seeded {module:'food'} row shows badge text 'MART'. This breaks Tests 3, 5, 6, 7 for the FOOD chip check even though the row body renders. Fix: preserve `module: it.module || 'mart'` in both the snapshot branch (line 338) and the fallback fetch branch (line 345).",
+        "selector": "[data-testid^=cart-drawer-module-badge-]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "CartDrawer i18n",
+        "issue": "Missing French translation keys: cart.close, cart.items_count, cart.calculated_by_seller, cart.min_order_warning, cart.min_order_more. Defaults render in English (e.g. '1 items', 'Calculated by seller') on a French locale page. Also 'items' is not pluralized (should be '1 item' / '2 items').",
+        "selector": "[data-testid=cart-drawer-count]",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "CartDrawer row image",
+        "issue": "When snapshot.image is an empty string, <img src=''> is rendered, triggering React's 'empty string was passed to the src attribute' console error and re-fetching the page URL. Guard: only render <img> when p.image is truthy, otherwise render a placeholder div.",
+        "selector": ".cart-drawer li img",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix hydrateGuest to preserve the row's module for non-SHOP items (FOOD currently coerced to MART). Change `module: 'mart'` on lines 338 and 345 of /app/frontend/src/contexts/BakedContexts.jsx to `module: it.module || 'mart'`.",
+    "Add missing FR i18n keys in customer namespace: cart.close, cart.items_count (with plural form), cart.calculated_by_seller, cart.min_order_warning, cart.min_order_more.",
+    "Guard the drawer row <img> against empty src to silence React console error."
+  ],
+  "critical_code_review_comments": [
+    "CartProvider.hydrateGuest silently coerces module → 'mart' for anything not 'shop'; this is the root cause of the FOOD chip regression and would also break any future FOOD-guest checkout branching.",
+    "CartDrawer uses `it.quantity <= 1 ? removeItem : updateItem(qty-1)` which matches CartPage behavior — good. But for a SHOP row the removeItem call is async and the drawer's derived subtotal briefly shows the pre-remove value until reload completes; consider optimistic update.",
+    "delivery fee is only added when hasMart — correct. But when martSubtotal<minOrder and there are shop items, the checkout button is enabled (customer && !minOrderOk disables it) yet minOrder warning still shows; verify intended UX with product owner.",
+    "CartDrawer computes martSubtotal from `i.product?.price` — for MART rows added pre-snapshot upgrade this may be undefined; fine due to `|| 0` but worth logging."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a", "frontend": "88%" },
+  "test_credentials": "Guest flow only. OTP dev flow available at POST /api/auth/otp/request with country_code=CI + any 10-digit phone; not exercised end-to-end in this run.",
+  "seed_data_creation": "Multiple guest cart shapes seeded via localStorage.setItem('baked_guest_cart', ...): (a) MART+SHOP, (b) 4-item alternating SHOP/MART/SHOP/MART for §32 regression, (c) FOOD-only row.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Drawer skeleton, shared state, /cart redirect, quantity/remove, ESC/backdrop close, refresh persistence, and MART+SHOP coexistence (regression §32) all work at 1440x900. The remaining gap is (1) FOOD module fidelity — currently a hydrateGuest coercion bug and (2) OTP-based guest→customer merge (Test 11) which needs a real login round-trip; can be tested by hitting /api/auth/otp/request then /verify and asserting drawer still shows the previously-seeded MART+SHOP rows post-login.",
+  "rca of the issue": "FOOD chip regression RCA: In /app/frontend/src/contexts/BakedContexts.jsx hydrateGuest (line ~326-346), the else branch (non-shop) always pushes `module: 'mart'` regardless of the source item's module. So a guest row {module:'food',...} rehydrates as a MART row and the CartDrawer's ModuleChip receives 'mart' → green chip labelled 'MART'. Reproduction: localStorage.setItem('baked_guest_cart', JSON.stringify({items:[{id:'g_f1',product_id:'f1',quantity:1,module:'food',snapshot:{name:'Pizza',price:8000,currency:'XOF'}}]})); reload; open drawer; badge reads 'MART'. Fix: replace the two hard-coded `module: 'mart'` occurrences with `module: it.module || 'mart'`."
+}

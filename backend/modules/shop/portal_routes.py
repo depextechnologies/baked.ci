@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
+from core.i18n import t as _t, current_lang
 from core.models import (
     ShopCategory, ShopOrder, ShopOrderItem, ShopProduct, ShopSubcategory,
     ShopVariant, Supplier, new_id,
@@ -49,7 +50,7 @@ async def get_shop_supplier(supplier: Supplier = Depends(get_current_supplier)) 
             status_code=403,
             detail={
                 "code": "shop_not_enabled",
-                "message": "Your account does not have SHOP access yet. Ask Super Admin to enable the SHOP module.",
+                "message": _t("errors.shop.shop_not_enabled", current_lang()),
             },
         )
     return supplier
@@ -75,11 +76,12 @@ def _variant_dict(v: ShopVariant) -> dict:
 
 def _product_dict(p: ShopProduct, variants: List[ShopVariant] | None = None) -> dict:
     d = {
-        "id": p.id, "title": p.title, "slug": p.slug,
+        "id": p.id, "title": p.title, "title_fr": p.title_fr, "slug": p.slug,
         "country": p.country, "module": p.module,
         "supplier_id": p.supplier_id, "brand_id": p.brand_id,
         "category_id": p.category_id, "subcategory_id": p.subcategory_id,
-        "description": p.description, "images": p.images or [],
+        "description": p.description, "description_fr": p.description_fr,
+        "images": p.images or [],
         "attributes": p.attributes or {}, "status": p.status,
         "published_at": p.published_at.isoformat() if p.published_at else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
@@ -97,23 +99,24 @@ def _product_dict(p: ShopProduct, variants: List[ShopVariant] | None = None) -> 
 class ProductIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(..., min_length=2, max_length=400)
+    title_fr: Optional[str] = Field(None, max_length=400)
     category_id: str = Field(..., min_length=2)
     subcategory_id: Optional[str] = None
     brand_id: Optional[str] = None
     description: Optional[str] = None
+    description_fr: Optional[str] = None
     images: Optional[List[str]] = None
-    # Parent-level attribute snapshot ({key: value|list}) — validated against
-    # the resolver in Slice 4 shallowly (structure only). Deep validation
-    # lives in Slice 5 admin approval.
     attributes: Optional[dict] = None
 
 
 class ProductPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: Optional[str] = Field(None, min_length=2, max_length=400)
+    title_fr: Optional[str] = Field(None, max_length=400)
     subcategory_id: Optional[str] = None
     brand_id: Optional[str] = None
     description: Optional[str] = None
+    description_fr: Optional[str] = None
     images: Optional[List[str]] = None
     attributes: Optional[dict] = None
 
@@ -170,7 +173,7 @@ async def list_my_products(
 async def _load_category(session: AsyncSession, category_id: str) -> ShopCategory:
     cat = await session.get(ShopCategory, category_id)
     if not cat or cat.deleted_at is not None:
-        raise HTTPException(404, "SHOP category not found")
+        raise HTTPException(404, _t("errors.shop.category_not_found", current_lang()))
     return cat
 
 
@@ -178,9 +181,9 @@ async def _load_subcategory(session: AsyncSession, subcategory_id: str,
                             expected_category_id: str) -> ShopSubcategory:
     sub = await session.get(ShopSubcategory, subcategory_id)
     if not sub:
-        raise HTTPException(404, "SHOP subcategory not found")
+        raise HTTPException(404, _t("errors.shop.subcategory_not_found", current_lang()))
     if sub.category_id != expected_category_id:
-        raise HTTPException(400, "Subcategory does not belong to the selected category")
+        raise HTTPException(400, _t("errors.shop.subcategory_not_in_category", current_lang()))
     return sub
 
 
@@ -192,13 +195,14 @@ async def create_product(
 ):
     cat = await _load_category(session, payload.category_id)
     if cat.country != supplier.country:
-        raise HTTPException(400, "Category country does not match your supplier country")
+        raise HTTPException(400, _t("errors.shop.category_country_mismatch", current_lang()))
     if payload.subcategory_id:
         await _load_subcategory(session, payload.subcategory_id, cat.id)
 
     prod = ShopProduct(
         id=new_id("shpprd"),
         title=payload.title,
+        title_fr=payload.title_fr,
         country=supplier.country,
         module="shop",
         supplier_id=supplier.id,
@@ -206,6 +210,7 @@ async def create_product(
         category_id=payload.category_id,
         subcategory_id=payload.subcategory_id,
         description=payload.description,
+        description_fr=payload.description_fr,
         images=payload.images or [],
         attributes=payload.attributes or {},
         status="pending_review",
@@ -220,9 +225,9 @@ async def _load_owned_product(session: AsyncSession, product_id: str,
                               supplier: Supplier) -> ShopProduct:
     prod = await session.get(ShopProduct, product_id)
     if not prod or prod.deleted_at is not None:
-        raise HTTPException(404, "Product not found")
+        raise HTTPException(404, _t("errors.shop.product_not_found", current_lang()))
     if prod.supplier_id != supplier.id:
-        raise HTTPException(403, "You do not own this product")
+        raise HTTPException(403, _t("errors.shop.not_owner_of_product", current_lang()))
     return prod
 
 
@@ -290,7 +295,7 @@ async def create_variant(
         )
     ).scalar_one_or_none()
     if dup:
-        raise HTTPException(409, {"code": "sku_taken", "message": "SKU already exists on this product"})
+        raise HTTPException(409, {"code": "sku_taken", "message": _t("errors.shop.sku_taken", current_lang())})
     v = ShopVariant(
         id=new_id("shpvar"),
         product_id=prod.id,
@@ -316,7 +321,7 @@ async def create_variant(
 async def _load_variant(session: AsyncSession, vid: str, product_id: str) -> ShopVariant:
     v = await session.get(ShopVariant, vid)
     if not v or v.product_id != product_id:
-        raise HTTPException(404, "Variant not found")
+        raise HTTPException(404, _t("errors.shop.variant_not_found", current_lang()))
     return v
 
 
@@ -442,7 +447,7 @@ async def seller_get_shop_order(
 ):
     o = await _order_owned_by(session, order_id, supplier.id)
     if not o:
-        raise HTTPException(404, "Order not found")
+        raise HTTPException(404, _t("errors.shop.order_not_found", current_lang()))
     items = (
         await session.execute(
             select(ShopOrderItem).where(ShopOrderItem.order_id == o.id)
@@ -479,12 +484,12 @@ async def seller_update_shop_order_status(
     """Seller portal — `paid → packing → shipped`. `delivered` is PIN-gated."""
     o = await _order_owned_by(session, order_id, supplier.id)
     if not o:
-        raise HTTPException(404, "Order not found")
+        raise HTTPException(404, _t("errors.shop.order_not_found", current_lang()))
     allowed = _SELLER_TRANSITIONS.get(o.status, set())
     if payload.status not in allowed:
         raise HTTPException(409, {
             "code": "invalid_transition",
-            "message": f"Cannot move {o.status} → {payload.status}",
+            "message": _t("errors.shop.invalid_transition", current_lang(), current=o.status, target=payload.status),
             "allowed": sorted(allowed),
         })
     o.status = payload.status
@@ -512,18 +517,18 @@ async def seller_deliver_shop_order(
     """
     o = await _order_owned_by(session, order_id, supplier.id)
     if not o:
-        raise HTTPException(404, "Order not found")
+        raise HTTPException(404, _t("errors.shop.order_not_found", current_lang()))
     if o.status == "delivered":
         return _seller_order_dict(o)
     if o.status != "shipped":
         raise HTTPException(409, {
             "code": "invalid_transition",
-            "message": f"Order is {o.status}; mark it shipped before delivering",
+            "message": _t("errors.shop.mark_shipped_first", current_lang(), current=o.status),
         })
     if (o.delivery_pin_attempts or 0) >= 5:
         raise HTTPException(429, {
             "code": "pin_locked",
-            "message": "Too many wrong PIN attempts. Ask Super Admin to unlock.",
+            "message": _t("errors.shop.pin_locked", current_lang()),
         })
     if not o.delivery_pin or not secrets.compare_digest(payload.pin, o.delivery_pin):
         o.delivery_pin_attempts = (o.delivery_pin_attempts or 0) + 1
@@ -531,7 +536,7 @@ async def seller_deliver_shop_order(
         remaining = max(0, 5 - o.delivery_pin_attempts)
         raise HTTPException(400, {
             "code": "wrong_pin",
-            "message": "Incorrect delivery PIN",
+            "message": _t("errors.shop.wrong_pin", current_lang()),
             "attempts_remaining": remaining,
         })
     o.status = "delivered"

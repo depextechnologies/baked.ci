@@ -1,18 +1,26 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
+import { useLocalePath } from "../../i18n/routes";
 import { checkOrderEligibility } from "../../lib/checkout";
+import { getCartTheme, lineAccent } from "../../lib/cartTheme";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCart, AlertCircle } from "lucide-react";
 
 export const MobileCart = () => {
+  const { t } = useTranslation("customer");
   const nav = useNavigate();
+  const path = useLocalePath();
   const { country } = useApp();
   const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
   const { customer, openLogin } = useAuth() || {};
   const [note, setNote] = useState("");
+  // Mobile cart follows the same three-mode branding as CartPage
+  // (Fixing_Prompt v14 §4/§7). SHOP-only basket → gold, mixed → neutral.
+  const theme = getCartTheme(cart);
   const ccy = country?.currency_symbol || country?.currency;
 
   // Split by module: min-order + delivery fee are MART-only.
@@ -38,10 +46,10 @@ export const MobileCart = () => {
     // Guest → open the existing sign-in modal with /checkout as the return
     // destination. `openLogin` persists it to sessionStorage so the customer
     // lands directly on checkout after login with the (merged) cart intact.
-    if (!customer) { openLogin?.("/checkout"); return; }
+    if (!customer) { openLogin?.(path("checkout")); return; }
     // Always route to the unified /checkout (MobileCheckout) — it handles
     // MART, SHOP and mixed carts internally.
-    nav("/checkout");
+    nav(path("checkout"));
   };
 
   if (!cart.items?.length) {
@@ -51,10 +59,10 @@ export const MobileCart = () => {
         <div className="w-24 h-24 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#77BC1F22", color: "#77BC1F" }}>
           <ShoppingBag size={40} />
         </div>
-        <div className="text-lg font-bold">Your cart is empty</div>
-        <div className="text-xs text-muted-foreground mt-1">Browse the aisles to start filling it up.</div>
+        <div className="text-lg font-bold">{t("cart.empty_title")}</div>
+        <div className="text-xs text-muted-foreground mt-1">{t("cart.empty_subtitle")}</div>
         <Button data-testid="m-cart-shop" onClick={() => nav("/")} className="baked-btn mt-6 h-11 px-6 font-bold text-black" style={{ backgroundColor: "#77BC1F" }}>
-          Start shopping
+          {t("cart.empty_cta")}
         </Button>
       </div>
     );
@@ -66,7 +74,7 @@ export const MobileCart = () => {
       <div className="px-4 pt-2 pb-3 flex items-center gap-2">
         <button data-testid="m-cart-back" onClick={() => nav(-1)} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center"><ArrowLeft size={16} /></button>
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold">My Cart <span className="text-xs text-muted-foreground font-normal">({cart.item_count} items)</span></div>
+          <div className="text-base font-bold">{t("cart.title")} <span className="text-xs text-muted-foreground font-normal">({t("cart.item_count", { count: cart.item_count || 0 })})</span></div>
           {savings > 0 && <div className="text-[11px]" style={{ color: "#77BC1F" }}>You&apos;re saving {formatMoney(savings, country?.currency, ccy)} on this order</div>}
         </div>
       </div>
@@ -134,7 +142,7 @@ export const MobileCart = () => {
                     {strike && strike > p.price && <span className="text-[11px] text-muted-foreground line-through">{formatMoney(strike * i.quantity, p.currency, ccy)}</span>}
                     {off > 0 && <span className="text-[10px] font-bold" style={{ color: "#77BC1F" }}>{off}%</span>}
                   </div>
-                  <QuantityStepper value={i.quantity} onDecrement={() => i.quantity <= 1 ? removeItem(i.id) : updateItem(i.id, i.quantity - 1)} onIncrement={() => updateItem(i.id, i.quantity + 1)} size="sm" testid={`m-cart-qty-${i.id}`} />
+                  <QuantityStepper value={i.quantity} onDecrement={() => i.quantity <= 1 ? removeItem(i.id) : updateItem(i.id, i.quantity - 1)} onIncrement={() => updateItem(i.id, i.quantity + 1)} size="sm" testid={`m-cart-qty-${i.id}`} accent={lineAccent(i)} />
                 </div>
               </div>
             </div>
@@ -151,25 +159,25 @@ export const MobileCart = () => {
       {/* Order summary */}
       <div className="px-4 mt-4">
         <div className="baked-card bg-card border border-border p-4">
-          <div className="text-sm font-bold mb-3">Order summary</div>
+          <div className="text-sm font-bold mb-3">{t("checkout.order_summary")}</div>
           <div className="space-y-2 text-xs">
             {hasMart && (
-              <Row label={<span>MART subtotal <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)} items)</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
+              <Row label={<span>MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
             )}
             {hasShop && (
-              <Row label={<span>SHOP subtotal <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)} items)</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
+              <Row label={<span>SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
             )}
-            <Row label="Subtotal" value={formatMoney(subtotal, country?.currency, ccy)} />
+            <Row label={t("cart.subtotal")} value={formatMoney(subtotal, country?.currency, ccy)} />
             {hasMart && (
-              <Row label="Delivery (MART)" value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>FREE</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
+              <Row label={`${t("cart.delivery_fee")} (MART)`} value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
             )}
             {hasShop && (
-              <Row label="Shipping (SHOP)" value={<span className="text-[10px] text-muted-foreground">By seller</span>} />
+              <Row label={`${t("cart.delivery_fee")} (SHOP)`} value={<span className="text-[10px] text-muted-foreground">{t("cart.delivery_shop_note")}</span>} />
             )}
             {savings > 0 && <Row label="Discount" value={<span style={{ color: "#77BC1F" }}>- {formatMoney(savings, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
-              <span>Total (Incl. VAT)</span><span data-testid="m-cart-total">{formatMoney(total, country?.currency, ccy)}</span>
+              <span>{t("cart.total")}</span><span data-testid="m-cart-total">{formatMoney(total, country?.currency, ccy)}</span>
             </div>
           </div>
         </div>
@@ -200,9 +208,9 @@ export const MobileCart = () => {
             <div className="text-[10px] text-muted-foreground">Total (Incl. VAT)</div>
             <div className="text-lg font-bold leading-none">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
-          <Button data-testid="m-cart-checkout" disabled={customer && !minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold text-black disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: "#77BC1F" }}>
+          <Button data-testid="m-cart-checkout" disabled={customer && !minOrderOk} onClick={goCheckout} className="baked-btn h-12 px-6 font-bold disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             <ShoppingCart size={16} className="mr-1.5" />
-            {!customer ? "Login to Proceed" : (minOrderOk ? "Checkout" : "Add more")}
+            {!customer ? t("cart.sign_in_to_checkout") : (minOrderOk ? t("cart.checkout_cta") : t("cart.empty_cta"))}
           </Button>
         </div>
       </div>

@@ -1,5 +1,663 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-05 — Phase C: Phase-A Dispatch Pytest Suite — COMPLETE
+
+**Coverage**: 22 direct-DB pytests over `modules.express.dispatch` — the algorithmic core of Phase A real-driver dispatch.
+
+**File**: `backend/tests/test_express_dispatch_phase_a.py` (all 22 tests pass, 2.74s runtime).
+
+**Contracts locked in**
+- `find_nearest_driver` — nearest-first ranking, freshness gate (`last_seen_at ≥ now − STALE_AFTER_SECONDS`), `linked_driver_id IS NOT NULL` guard (excludes legacy seed rows), `is_available=True`, MATCH_RADIUS_KM cap, `exclude_ids` skip, country isolation.
+- Vehicle fallback chain — bike→scooter, three_wheeler→mini_truck→truck, own-family scanned first.
+- Cold-chain guarantee — `ref_tricycle` NEVER dispatches to a non-refrigerated driver (even in-family), and `REFRIGERATED_CODES = {ref_tricycle, ref_utility, ref_truck}`.
+- `dispatch_next_offer` — sets `status='offering' + offered_to_driver_id + offer_expires_at`; on exhausted pool reverts to `status='searching'` and nulls the offer fields.
+- `accept_offer_atomic` — winning driver flips row + reserves `module_driver.active_booking_id`; expired offer → `expired`; wrong driver → `offer_gone`; second attempt after success → `already_taken`.
+- **Race semantics** — two `asyncio.gather()` accepts against isolated sessions produce exactly one winner (single `UPDATE .. WHERE`).
+- `decline_offer` — appends to `declined_driver_ids`, immediately re-dispatches to the next eligible driver, falls back to `searching` when pool exhausts.
+
+**Fix — MultiShipmentsWizard vehicle card HTML nesting**: outer `<button>` → `<div role="button" tabIndex + onKeyDown>` so the inner Info button no longer produces the "button descendant of button" React hydration warning flagged in iteration_86.json.
+
+
+
+## 2026-03-10 — Global Inter Typography Migration — COMPLETE
+
+**Previous typography**: Poppins imported in `src/index.css` line 1 and applied to `body`. Partner-landing + partner-hub each shipped their own Inter fallback stack. Driver + SendTrack had 3 inline `fontFamily: "Inter, system-ui, sans-serif"` overrides. Three sources of truth, one legacy default.
+
+**New typography**: Inter as the single global font, driven by one CSS variable exposed on `:root`.
+
+**Files touched (10 total)**
+- `src/index.css` — Google Font `@import` swapped from Poppins → Inter (weights 400/500/600/700/800). Added `:root { --font-family-sans: "Inter", "SF Pro Display", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }`. `body`, `html`, `.baked-logo-text` now use `var(--font-family-sans)`. New global `input, textarea, select, button, optgroup, option { font-family: inherit; }` rule so typed text follows Inter.
+- `tailwind.config.js` — `theme.extend.fontFamily = { sans: ["var(--font-family-sans)"], inter: ["var(--font-family-sans)"] }` so `font-sans` / `font-inter` utilities inherit the global stack.
+- `apps/partner-landing/partner-landing.css` — inlined Inter stack replaced with `var(--font-family-sans)`.
+- `apps/partner-hub/partner-hub.css` — same.
+- `apps/send-track/SendTrackApp.jsx`, `apps/driver/DriverApp.jsx` — 3 inline `fontFamily: "Inter, system-ui, sans-serif"` swapped to `"var(--font-family-sans)"`.
+- Email templates now prepend `'Inter'` with `Arial` fallback: `core/emails.py`, `shared/purchase_orders/notifications.py`, `modules/mart_partner/notifications.py`, `modules/mart_partner/routes.py`, `modules/driver/routes.py`. Generated-code + temp-password rows keep their intentional `ui-monospace` stack.
+
+**Legacy declarations audited & removed**
+- `Poppins` → 0 references remain (grepped across `frontend/src`, `backend`, `public/`)
+- Google Fonts `@import` → single source (`Inter` only)
+- Inline `fontFamily` in JSX → 3 files, all point to the CSS var now
+
+**Visual regression check** (computed `font-family` on rendered elements via Playwright)
+- `/` (customer home) → `Inter, "SF Pro Display", …` ✅
+- `/shop` (SHOP home) → same ✅
+- `/driver` (driver portal) → same ✅
+- `/admin/login` (super admin) → same ✅
+- 200-element sample scan: **0 Poppins leaks** ✅
+- French characters (é, à, ê, œ) render correctly on `/` (FR default) ✅
+
+**Branding preserved** — the migration touched typography tokens only; MART green, SHOP amber, AUTO red, IMMO purple, SEND yellow untouched.
+
+
+## 2026-03-10 — SHOP Admin Approval Bilingual View — COMPLETE
+
+Admin reviewers can now catch broken French copy **before** a product goes live.
+
+**Backend**
+- `modules/shop/routes.py` — `_admin_product_dict` now returns `title_fr` + `description_fr` (used by both `GET /product-requests` list and `GET /product-requests/{id}` detail endpoints).
+- Verified via curl: `GET /api/admin/modules/shop/product-requests?country=CI&bucket=pending` returns each row with `title_fr` and `description_fr`.
+
+**Frontend** — `pages/admin/AdminShopProductApprovals.jsx`
+- **List row**: prefers French title with an EN sub-line when both are set (`{p.title_fr || p.title}` + `EN · {p.title}`). Products lacking a French title render a red `FR MISSING` badge next to the product id (data-testid `shop-approval-missing-fr-{id}`).
+- **Drawer header**: title bar now shows the French title first with a fallback to English, plus a top-of-drawer warning ("⚠ French title missing — customer will see the English fallback") when `title_fr` is empty (`data-testid="shop-approval-drawer-fr-missing"`).
+- **Drawer body**: new bilingual panels — `TITRE · FR` next to `TITLE · EN`, and `DESCRIPTION · FR` next to `DESCRIPTION · EN`, both with `MISSING` chips + italicised placeholder text ("Non fourni — retombe sur l'anglais") when the FR value is empty. Every panel has a `data-testid` (`shop-approval-title-fr`, `shop-approval-title-en`, `shop-approval-description-fr`, `shop-approval-description-en`, `shop-approval-titles-panel`, `shop-approval-descriptions-panel`).
+
+**Verified end-to-end** with two forced pending products (one bilingual, one FR-null):
+- List: bilingual row shows "Premium Accessoires de mode femme / EN · Premium Women's Fashion Accessories"; missing-FR row shows "Everyday Women's Streetwear / FR MISSING badge".
+- Drawer for the bilingual product: shows both TITRE · FR and TITLE · EN side by side, plus both descriptions side by side.
+
+
+## 2026-03-10 — SHOP Product Bilingual Columns — COMPLETE
+
+**Schema**:
+- `migrations/versions/0047_shop_bilingual_product.py` — adds `shop_products.title_fr` (VARCHAR 400, nullable) + `shop_products.description_fr` (TEXT, nullable). English canonical column stays unchanged.
+- `core/models/shop.py` — `ShopProduct.title_fr` + `ShopProduct.description_fr` mapped columns with docstring calling out the fallback rule (FR falls back to `title` when empty).
+
+**Backend endpoints round-tripping the new fields**:
+- `POST /api/shop/portal/products` — accepts `title_fr` + `description_fr`
+- `PATCH /api/shop/portal/products/{id}` — accepts `title_fr` + `description_fr`
+- `GET /api/shop/portal/products/{id}` — returns both
+- `GET /api/shop/portal/products` — returns both (list view)
+- `GET /api/shop/products/{id}` (public PDP) — returns both
+- `GET /api/shop/products` (public list) — returns both
+- `GET /api/shop/cart/me` — `items[].product.title_fr` for cart-line rendering
+
+**Seller portal UI** (`apps/martbaked-sellers/portal/PortalShop.jsx`):
+- Grid form now shows Title(EN) alongside Titre(FR), and Description(EN) alongside Description(FR)
+- Helper text distinguishes canonical vs override
+- Left-hand product list prefers FR title with "FR + EN" badge when both are set
+
+**Frontend consumers** (`apps/shopbaked/lib/i18nCms.js`):
+- New `pickProductTitle(product, lang)` + `pickProductDescription(product, lang)` — pick FR when lang=fr, English otherwise, always safe for null/undefined
+- Wired into `ShopHome.jsx` ProductCard, `ShopProduct.jsx` PDP heading + image alt + description, `ShopCheckout.jsx` cart-line label
+
+**Demo seed** (`modules/shop/demo_products_seed.py`):
+- `_title_for` now returns `(english_title, french_title)` tuple
+- `_description_for` now returns `(english_desc, french_desc)` tuple
+- Seed writes BOTH into every demo product; 362 demo rows across CI + IN reseeded
+
+**Live verified**:
+- API: `/api/shop/products?country=CI&limit=2` returns `title=Premium Motorcycle Parts & Accessories` and `title_fr=Premium Pièces & accessoires moto` ✅
+- `/shop/c/mode-femme` FR default → French titles ("Premium Accessoires de mode femme")
+- Click "EN" toggle → titles instantly swap to English ("Premium Women's Fashion Accessories")
+- Category title also swaps ("Mode Femme" ↔ "Women's Fashion")
+
+
+## 2026-03-10 — SHOPbakēd Full French Localisation — COMPLETE
+
+Root-cause audit: SHOP frontend was **never** wired to i18next — components used hardcoded English + raw CMS values. CMS seed and product/attribute seeds were English-only. This slice fixes the root cause across all three layers.
+
+**Frontend files rewired to `useTranslation` + bilingual CMS picker:**
+- `apps/shopbaked/pages/ShopHome.jsx` (hero, USP, category grid, carousels, promo banners, brand rail, CTA strip, ProductCard) — 45+ strings
+- `apps/shopbaked/pages/ShopCategoriesIndex.jsx` — 8 strings
+- `apps/shopbaked/pages/ShopCategory.jsx` (search, filters, empty state, fresh-drops strip) — 15 strings
+- `apps/shopbaked/pages/ShopProduct.jsx` (stock, SKU, condition, colour swatches, CTA states) — 13 strings
+- `apps/shopbaked/pages/ShopCheckout.jsx` + order confirmation + PIN card — 24 strings
+- `components/address/AddressPill.jsx` (top-nav "CHOOSE DELIVERY / Set address") — 4 strings
+- `apps/shopbaked/ShopbakedApp.jsx` — wired FR/EN toggle to global i18n
+
+**CMS layer**: `modules/shop/homepage_seed.py` now injects `_fr` siblings on every hero slide, right-column promo, USP tile, category grid tile, product carousel, promotional banner and brand carousel. 40+ new bilingual JSON keys. Existing SHOP rows deleted & re-seeded (10 rows across CI + IN).
+
+**Product layer**: `modules/shop/demo_products_seed.py`
+- `_title_for` picks French labels (`Signature / Essentiel / Weekend / Premium`) for CI markets and uses `sub.name_fr` for the noun.
+- New `_description_for` returns French demo description for CI.
+- 362 demo products across CI + IN nuked & re-seeded with French titles/descriptions.
+
+**Attribute layer**: `customer:shop.attr_name.*` (Size → Taille, Colour → Couleur, Storage → Stockage, Condition → État, Warranty → Garantie) and `customer:shop.colour_label.*` (black → noir, silver → argent, oak → chêne, space-grey → gris sidéral, etc.) map the English DB keys/values to French on the fly — no schema migration.
+
+**Verified end-to-end** on the live preview (screenshots kept for record):
+- `/shop` FR — zero English leaks ✅
+- `/shop/categories` FR — "Toutes les catégories / X sous-cat." ✅
+- `/shop/c/mode-femme` FR — French product titles + "Taille S · noir · +1 options" ✅
+- `/shop/p/shpprd_demo_accessoires-mode-femme` FR — "COULEUR / TAILLE / Choisir les options / EN STOCK / État: neuf" ✅
+- EN toggle in header instantly restores English across all pages ✅
+
+
+## 2026-03-09 — Order Tracking i18n — COMPLETE
+
+Localised the delivery-tracking surfaces so customers see their live updates in their language:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `pages/mobile/MobileOrderTracking.jsx` | 11 | 0 | −11 |
+| `pages/express/ExpressLiveTracking.jsx` | 7 | 0 | −7 |
+| `components/mobile/OrderTimeline.jsx` | (in progress + pending) | 0 | −2 (via code→key mapping) |
+
+Global coverage: **159 → 141 hardcoded strings (−11%)**. Cumulative Phase C onwards: **445 → 141 = −68%**.
+
+**Keys added** — ~60 new keys under `customer:orders.tracking.*` + `customer:orders.live.*`:
+- `tracking.*` (MART polling tracker) — `title`, `status_label`, `arriving_in`, `minutes_short`, `delivered_short`, `order_prefix`, `share_status_aria`, `share_title` / `share_text` (with `{{number}}`), `link_copied`, `your_delivery_partner`, `call_driver_aria`, `chat_driver_aria`, `order_progress`, `in_progress`, `pending`, `delivering_to`, `items_count` (with `{{count}}`), `need_help`, `contact_support`, `all_orders`, `continue_shopping`, `loading`, + 6 stage keys (`stage_placed/preparing/picked_up/on_the_way/delivered/cancelled`) + 5 timeline label keys (`timeline_placed/preparing/picked_up/on_the_way/delivered`).
+- `live.*` (SEND WebSocket tracker) — `back_aria`, `live_badge`, `offline_badge`, `tracking_title`, `live_sub`, `loading`, `map_unavailable`, 6 stage keys (`stage_searching/driver_assigned/arriving/picked_up/in_transit/delivered`), `awaiting_driver`, `delivery_completed`, `eta_minutes` (with `{{n}}`), `locking_in_driver`, `finding_nearest`, `see_details_on_accept`, `pickup`, `dropoff`, `distance`, `trip_est`, `vehicle`, `total`, `cod_short`, `book_another`.
+
+**Backend contract preserved**: the `/api/orders/{id}/tracking` endpoint continues to send timeline items with an English `label` and a stable `code`. `OrderTimeline` now reads `code` and maps to `orders.tracking.timeline_*` keys client-side — zero backend change, historical orders keep rendering, and admins can add new stages by extending the map without touching the API.
+
+**Live verified**:
+- `/send/booking/xxx/track` FR → "Chargement du suivi en direct…"
+- Toggling EN swaps to "Loading live tracking…"
+
+
+## 2026-03-09 — SEND Wizard i18n — COMPLETE
+
+Localised the SENDbakēd booking funnel — the top offender identified in `I18N_COVERAGE_REPORT.md`:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `pages/express/ExpressWizard.jsx` | 62 | 0 | −62 |
+| `pages/express/MoversWizard.jsx` | 49 | 0 | −49 |
+| `components/express/ExpressLayout.jsx` | 3 | 0 | −3 |
+| **Total** | **114** | **0** | **−114** |
+
+Global coverage: **290 → 159 hardcoded strings (−45%)**. Cumulative Phase C onwards: **445 → 159 = −64%**.
+
+**Keys added** — ~160 new keys under `customer:send.wizard.*` (mirror in `en/` and `fr/` customer.json):
+- Step labels (10) — `step_type`, `step_location`, `step_items`, `step_quote`, `step_timeslot`, `step_review`, `step_receiver`, `step_vehicle`, `step_package`, `step_estimate`
+- Screen headers (6) — `header_movers`, `header_pickup_drop`, `header_receiver`, `header_vehicle`, `header_package`, `header_estimate`, `header_confirmed`
+- Movers flow (~50) — `pickup_drop_details`, `building_access`, `service_lift`, `stairs_only`, `floor_label`, `parking_available`, `add_items`, `items_hint`, `items_count`, `custom_item_soon`, `estimated_charges`, `transportation`, `packing`, `labour`, `floor_fees`, `stair_fees`, `toll_permits`, `insurance_transit`, `total_estimated_cost`, `labour_movers`, `trust_movers`, `select_moving_date`, `select_time_slot`, `timings_include`, `review_confirm`, `terms_agree_prefix`, `terms_link`, `booking_safe`, `book_now`, `sign_in_to_book`, `accept_terms_first`, `booking_failed` — with `{{count}}` / `{{km}}` interpolation.
+- Parcel flow (~55) — `who_delivering_to`, `receiver_name`, `phone_number`, `alt_number`, `building_apt`, `landmark`, `delivery_notes`, `delivery_preferences`, `choose_vehicle`, `prices_vary_demand`, `up_to_kg`, `eta_range`, `best_badge`, `all_deliveries_insured`, `safe_with_send`, `package_helps`, `package_type`, `package_weight`, `package_dimensions`, `additional_info`, `dim_length/width/height`, `booking_incomplete`, `restart_booking`, `selected_vehicle`, `change`, `price_breakdown`, `base_fare`, `distance`, `time`, `surcharge`, `service_fee`, `insurance`, `taxes`, `promo_line`, `estimated_total`, `insurance_included`, `goods_covered_up_to`, `have_promo`, `promo_ph`, `apply`, `final_price_note`, `payment`, `cash_on_delivery`, `pay_to_driver`, `baked_wallet`, `book_now_with_price`, `promo_applied` — with `{{price}}` / `{{code}}` interpolation.
+- Booking confirmation (~15) — `booking_successful`, `booking_ref_note`, `your_move`, `your_delivery`, `load_label`, `slot_label`, `distance_label`, `est_eta_label`, `vehicle_label`, `total_to_pay`, `cod_short`, `move_confirmed`, `move_call_note`, `searching_driver`, `tracking_opens`, `track_order`, `book_another`.
+- Shared UI (2) — `continue` (footer default), `step_x_of_y` (header counter).
+
+**Extras**:
+- `TimeSlotStep` date labels now use `i18n.language`-aware `toLocaleDateString("fr-FR" | "en-US")` so short-format dates (Lun 09 mars vs Mon 09 Mar) match the active language.
+- `MoversWizard`'s local `useSteps()` hook + `useSteps()` in `ExpressWizard` re-render the step names when the language toggles — no page reload required.
+
+**Live verified**:
+- `/send/movers` FR → "DÉMÉNAGEURS PROFESSIONNELS / Type de déménagement / Déménagement clé en main"
+- `/send/book/location` FR → "Étape 1 sur 5 / Lieu de ramassage & livraison / Ramassage & livraison / Destinataire / Véhicule / Colis / Estimation / Continuer"
+- `/send/book/location?lang=en` (localStorage) → "Step 1 of 5 / Pick-up & Drop Location / Pickup & Drop / Receiver / Vehicle / Package / Estimate / Continue"
+
+
+## 2026-03-08 — Account Screens i18n — COMPLETE
+
+Rewired the 6 account/profile mobile screens through `useTranslation("customer")`:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `MobileWallet.jsx` | 15 | 0 | −15 |
+| `MobileSettings.jsx` | 17 | 0 | −17 |
+| `MobileHelpSupport.jsx` | 18 | 0 | −18 |
+| `MobileRefer.jsx` | 12 | 0 | −12 |
+| `MobileRewards.jsx` | 11 | 0 | −11 |
+| `MobileActivities.jsx` | 11 | 0 | −11 |
+| **Total** | **84** | **0** | **−84** |
+
+Global coverage: **374 → 290 hardcoded strings (−22%)**. Cumulative (Phase C onwards): **445 → 290 = −35%**.
+
+**Bonus fix** — `DesktopProfileShell.jsx`: the desktop-only guest state ("Sign in to view your profile") + sidebar nav labels + Log-out button were still hardcoded English. Now routed through `t("profile.*")` with locale-aware URLs via `useLocalePath()`.
+
+**Keys added** — 6 new namespaces to `customer.json`:
+- `wallet_extra.*` — 22 keys (hero card, action grid, auto-topup, transaction rows, ecosystem strip, trust)
+- `settings.*` — 32 keys (profile editor, notifications toggles, language/currency/region, appearance, privacy, delete flow)
+- `help.*` — 34 keys (quick actions, 8 category cards with descriptions, ticket form, 4 statuses, empty state, contact strip)
+- `refer.*` — 22 keys (hero card, code/link copy, 4 share channels, stats, 3-step how-it-works)
+- `rewards_page.*` — 15 keys (points card, conversion strip, recent list, use-your-points tiers)
+- `activities.*` — 21 keys (tabs, filters, tracking hero, empty states, coming-soon module cards)
+
+**Live proof**: `/portefeuille` guest view now renders "Connectez-vous pour accéder à votre profil / Votre identité BAKĒD fonctionne sur tous les services..." — zero English leaks.
+
+
+## 2026-03-08 — Checkout String i18n — COMPLETE
+
+Localised the 4 launch-blocker files identified in `I18N_COVERAGE_REPORT.md`:
+
+| File | Before | After | Δ |
+|---|---:|---:|---:|
+| `pages/mobile/MobileCheckout.jsx` | 13 | 0 | −13 |
+| `pages/mobile/MobileAddresses.jsx` | 23 | 0 | −23 |
+| `components/address/AddressSelector.jsx` | 22 | 0 | −22 |
+| `pages/mobile/MobileOrderDelivered.jsx` | 14 | 0 | −14 |
+| **Total** | **72** | **0** | **−72** |
+
+Global coverage: **445 → 374 hardcoded strings (−16%)**. All 4 target files removed from the top-15 offender list. Every string customers see during the money-moment now switches between FR and EN via `useTranslation("customer")`.
+
+**Keys added** (mirror in `/app/frontend/src/i18n/locales/{fr,en}/customer.json`):
+- `checkout.*` — 30 new keys (delivery slots, payment methods, points redemption, min-order banner, toast strings, order-placed flow, total payable, trust strip)
+- `address.*` — 25 new keys (form labels, placeholders, toast copy, empty state, ecosystem strip, sign-in prompt, saved-count with i18next `_one`/`_other` plurals)
+- `address_selector.*` — 25 new keys (modal title, detect button, saved/recent sections, serviceability states, confirmation flow, all toast strings)
+- `orders.*` — 15 new keys (rating card, freshness guarantee, delivery summary, order summary, sticky footer)
+
+**Live verified**:
+- `/produits`, `/`, `/panier`, `/paiement` all render in French
+- Zero English leaks on `/paiement` login prompt or `/compte/adresses` guest prompt
+- Homepage delivery panel, category strip, footer all French
+
+
+## 2026-03-08 — Launch route audit + i18n coverage sweep — COMPLETE
+
+**Batch route migration**:
+- `/confidentialite` ⇄ `/privacy` — PrivacyPolicy route + `ROUTE_MAP.privacy` + Footer link
+- `/conditions` ⇄ `/terms` — TermsOfService route + `ROUTE_MAP.terms` + Footer link
+
+Both aliases registered in `DesktopCustomerShell` + `MobileCustomerShell`. `LocaleRouteSync` swaps them on the fly. Live verified with headless browser: `/confidentialite` → toggle EN → `/privacy`, `/terms` → toggle FR → `/conditions`, footer terms link href respects language.
+
+**Ordered launch-critical route list** (22 pairs total):
+1. `/` (same both langs)
+2. `/categories`, `/categories/:slug` (same both langs)
+3–4. `/produits` ⇄ `/products` [+/`:id`]
+5. `/panier` ⇄ `/cart`
+6. `/paiement` ⇄ `/checkout`
+7–10. `/commandes` ⇄ `/orders` [+/`:id`, `/suivi`, `/confirmation`, `/livree`]
+11. `/portefeuille` ⇄ `/wallet`
+12. `/compte` ⇄ `/profile`
+13–18. `/compte/{adresses,parametres,aide,activites,recompenses,parrainage}` ⇄ `/profile/{addresses,settings,help,activities,rewards,refer}`
+19. `/confidentialite` ⇄ `/privacy`
+20. `/conditions` ⇄ `/terms`
+
+Deferred (branded English paths, out of launch scope): `/send/*` (SENDbakēd deep booking flows), `/shop/*` (SHOPbakēd storefront).
+
+**Coverage sweep** — script at `/app/scripts/i18n_coverage_sweep.py`, full report at `/app/memory/I18N_COVERAGE_REPORT.md`.
+
+| Metric | Value |
+|---|---|
+| Files scanned | 58 |
+| Files with `useTranslation()` | 14 (24%) |
+| Live `t()` call sites | 128 |
+| **Hardcoded English strings** | **445** across 43 files |
+| Top offender | `pages/express/ExpressWizard.jsx` (62) — deferred |
+| Launch-blockers | **87 strings across 4 files** (MobileAddresses, AddressSelector, MobileCheckout, MobileOrderDelivered) |
+| Backend errors i18n | 26/26 tests green (previous iteration) |
+
+Recommended follow-up ordered by impact:
+1. Sprint 1 (pre-launch): 4 checkout files, 87 strings
+2. Sprint 2 (post-launch nice-to-have): 6 mobile profile files, ~88 strings
+3. Sprint 3 (SEND funnel + legal): 5 files, ~167 strings
+
+
+## 2026-03-08 — Phase C+ · URL Auto-Sync (LocaleRouteSync) — COMPLETE
+
+Added `i18n/LocaleRouteSync.jsx` — a side-effect-only observer mounted inside both `DesktopCustomerShell` and `MobileCustomerShell` in `apps/customer/CustomerApp.jsx`. It watches `location.pathname` and `i18n.language`; when they disagree, it reverse-matches the current URL against `ROUTE_MAP` (both static aliases and `:param` patterns via `matchPath`) and rewrites the URL bar with `navigate(newPath, { replace: true })`.
+
+**Verified with browser automation** (7/7 scenarios):
+- Land on `/produits` in FR → stays `/produits`
+- Toggle EN → URL auto-swaps to `/products`
+- Toggle FR back → URL becomes `/produits`
+- Query strings preserved: `/produits?search=milk` → `/products?search=milk`
+- Toggle EN on `/panier` → becomes `/cart`
+- Home `/` (same path both langs) — no swap
+- Unknown routes (`/admin`, `/shop`, `/send`) — left alone (no false rewrites)
+
+**Implementation notes**:
+- Exact-string matches are tried before `:param` patterns so `/panier` never gets falsely matched by `/produits/:id`.
+- `useRef` guard prevents any infinite loop when we ourselves navigate.
+- Hash + search preserved.
+- Zero DOM output (`return null`).
+
+
+## 2026-03-08 — Phase C · French Route Renaming — COMPLETE
+
+Localised customer-facing URLs so French users see native French paths in the URL bar. English aliases stay live so external bookmarks and share URLs keep working.
+
+**Route mapping** (`i18n/routes.js`):
+- `/products` ⇄ `/produits`
+- `/cart` ⇄ `/panier`
+- `/checkout` ⇄ `/paiement`
+- `/orders` ⇄ `/commandes`
+- `/orders/:id/track` ⇄ `/commandes/:id/suivi`
+- `/orders/:id/delivered` ⇄ `/commandes/:id/livree`
+- `/wallet` ⇄ `/portefeuille`
+- `/profile` ⇄ `/compte`
+- `/profile/addresses|settings|help|activities|rewards|refer` ⇄ `/compte/adresses|parametres|aide|activites|recompenses|parrainage`
+
+**Public API**:
+- `useLocalePath()` hook returns `path(key, params?)` bound to current i18next language.
+- `resolvePath(key, lang, params?)` for tests / non-hook code.
+
+**Files updated**:
+- `apps/customer/CustomerApp.jsx` — dual FR+EN route registration for both DesktopCustomerShell and MobileCustomerShell.
+- Navigation: `TopNav`, `MobileBottomNav`, `MobileShell` (path detection matches both prefixes).
+- Pages: `HomePage`, `MobileHome`, `CartPage`, `MobileCart`, `CheckoutPage`, `MobileCheckout`, `ProductDetailPage`, `MobileProductDetail`, `ProductCard`, `ConfigHomepage` (Hero + BannerTrio + CtaStrip).
+- `ConfigHomepage` gets a `cmsToLocale()` helper that remaps CMS-supplied URLs (`/products?category=…`) to the current language while preserving query strings and hash fragments — Super Admin can still type raw URLs.
+
+**Testing** — `test_reports/iteration_83.json` (frontend testing agent, ~92% pass on 10+ scenarios):
+- All 12 FR routes + 8 EN aliases return HTTP 200 and render their proper shells.
+- LanguageSwitcher persists `localStorage.baked_language` + syncs `<html lang>`.
+- TopNav cart button → `/panier` in FR, `/cart` in EN. Account button → `/compte` in FR, `/profile` in EN.
+- Mobile bottom-nav active-state matches both `/panier` and `/cart`.
+- MobileShell header variant detection works on FR aliases (`isCart`, `isCheckout`, `isProfile`).
+- Post-agent fix: ConfigHomepage hero CTAs + banner row + CTA strip all correctly emit FR URLs with query strings preserved.
+
+**Deferred (P2)**: Deep pages that navigate back with `nav("/profile")` etc. still work because both aliases resolve. Migrating those Back buttons to `useLocalePath` is cosmetic-only and can happen incrementally.
+
+
+## 2026-03-08 — Phase D · Backend HTTPException i18n sweep — COMPLETE
+
+Localised the customer + supplier + driver error surfaces (~140 `raise HTTPException` sites across 11 files) so every 4xx/5xx body now renders in the caller's language.
+
+**Middleware**: added ASGI-level `_BakedLanguageMiddleware` in `server.py` that stashes `resolve_lang(request)` into a request-scoped ContextVar (`core.i18n._current_lang`). Endpoint code now calls `t(key, current_lang(), **params)` with **zero** signature churn — no need to inject `Request` into every handler. `BaseHTTPMiddleware` was intentionally avoided (it spawns the endpoint on a fresh task whose context copy doesn't see mid-request `.set()` calls).
+
+**Files fully swept:**
+- `modules/mart/orders.py` — cart empty, address missing, allocation failure, min-order, out-of-stock, order not-found, cancel-status, payment intent
+- `modules/mart/routes.py` — product not found, item not found
+- `modules/express/routes.py` — booking not-found, cancel gate, driver-status transition + auth
+- `modules/driver/routes.py` — all OTP flows, KYC step gate, upload validation, submit, online gate, geo push, offer accept/decline, job lifecycle (accept/decline/arrive/verify pickup+delivery), earnings/withdrawal gates, in-ride chat, tracking token, admin approve/reject
+- `modules/shop/routes.py` + `storefront_routes.py` + `portal_routes.py` — category/subcategory/product/variant/order + assignment CRUD, checkout empty/insufficient-stock, seller order lifecycle (invalid_transition, pin_locked, wrong_pin), shop_not_enabled
+- `shared/auth/routes.py` — OTP challenge invalid/expired/incorrect, Google config/exchange/id_token/credential/email verification
+- `shared/customer/routes.py` — address not-found, ticket category/not-found
+- `shared/addresses/routes.py` — recent-search delete
+- `shared/suppliers/portal_routes.py` — bearer/token/role/supplier gates, document CRUD, supply-location, catalogue upsert, product-request submit/resubmit, uploads (kind/size/mime/storage), file-proxy auth, admin approve/reject
+
+**Locale dictionaries** (`i18n/locales/{fr,en}/errors.json`) — extended with 100+ new keys grouped under `generic / auth / supplier / order / customer / driver / shop / upload`. All keys ship with FR + EN and support `{param}` interpolation.
+
+**Tests** — new `tests/test_i18n_errors_e2e.py` (11/11 green) covering:
+- Middleware picks up `X-BAKED-Language`, `?lang=`, `Accept-Language` (FR default).
+- Header precedence (`X-BAKED-Language` beats `?lang` beats `Accept-Language`).
+- Structured `{code, message}` errors keep `code` untouched while `message` gets translated.
+- Sequential requests in the same event loop don't bleed language across (ContextVar isolation verified).
+
+Combined with existing `test_i18n_backend.py` (15/15), **26/26 i18n tests pass**.
+
+**Live curl proof** (external preview URL):
+```
+GET /api/mart/products/nope-xyz  X-BAKED-Language: fr → "Produit introuvable."
+GET /api/mart/products/nope-xyz  X-BAKED-Language: en → "Product not found."
+GET /api/shop/products/nope-xyz  X-BAKED-Language: fr → "Produit SHOP introuvable."
+```
+
+**Known deferred (P2)**: `shared/admin/*` (super-admin dashboards — French-only for the launch team, low visibility), `modules/mart_partner/*`, `shared/purchase_orders/*`. Also 1 pass-through in `modules/mart/orders.py:437` that forwards the payment provider's own error message verbatim.
+
+
+## 2026-03-07 (part 2) — Phase D roll-out · All email call sites migrated — COMPLETE
+
+Every `send_email_async` call site has been re-wired through the localised email pipeline (`core.emails.send_localised_email` + `core.i18n.t`). Emails now arrive in the recipient's language — French for CI + African cohorts, English for IN + explicit `X-BAKED-Language: en` requests.
+
+**Sites migrated (5 total):**
+
+| Site | File | Template | Language source |
+|---|---|---|---|
+| Driver password reset | `modules/driver/routes.py` | `driver_password_reset` | Driver `preferred_language` → `resolve_lang(request)` → FR |
+| MART store approval | `modules/mart_partner/routes.py` | `mart_store_approved` | Partner `preferred_language` → country default (IN → EN, else FR) |
+| MART partner staff invite | `modules/mart_partner/staff_routes.py` | `staff_invite` | Partner country default |
+| Purchase-order submitted / acknowledged / shipped | `shared/purchase_orders/notifications.py` | `po_submitted` / `po_acknowledged` / `po_shipped` | Partner country default |
+| Partner new-order alert | `modules/mart_partner/notifications.py` | *(kept as-is — pure French, in-line doc-comment points to `partner_new_order` slot in Phase D.2)* | — |
+
+**New locale keys (FR + EN):**
+- `emails.driver_password_reset` — subject / greeting / body / warning / signoff.
+- `emails.mart_store_approved` — subject / greeting / intro / `cta_dashboard` / signoff (interpolates `name`, `business_name`, `store_code`).
+- `emails.po_submitted` — subject / greeting / intro / `cta_view` / signoff (interpolates `po_code`, `line_count`).
+- `emails.po_acknowledged` — subject / greeting / body / signoff (interpolates `po_code`).
+- `emails.po_shipped` — subject / greeting / body / signoff (interpolates `po_code`, `supplier_name`, `warehouse_name`).
+
+Every new template pair was regression-checked with a live `python -c` script that renders both FR and EN with representative params and asserts they differ.
+
+**Language selection rules baked in:**
+1. Model-level `preferred_language` wins when present (driver, partner).
+2. Falls back to country default — French for CI + African markets, English for IN.
+3. Request-scoped `X-BAKED-Language` from the frontend axios interceptor overrides both for endpoints where the caller can pick (e.g. driver forgot-password from the mobile app).
+
+**Test coverage:**
+- 15/15 pytest suite still green (`tests/test_i18n_backend.py`).
+- Live-endpoint smoke: `POST /api/driver/auth/forgot-password` with FR + EN headers both return 200 with no backend errors.
+
+**Backend still emits English (backlog):**
+- `mart_partner/notifications.py` new-order alert — French-only by design (partners are CI-only today); English variant to ship once IN partner cohort lands.
+- ~30 non-email `HTTPException` sites outside `apply/start` still emit raw English `detail`. Tracked as Phase D.2 in `/app/memory/I18N_PLAN.md`.
+
+---
+
+
+## 2026-03-07 — Workstream 3 Phase D · Backend Localisation — COMPLETE
+
+Server-emitted strings (errors, emails, SMS) are now bilingual, driven by the caller's UI language. End-to-end path proven: frontend axios interceptor sets `X-BAKED-Language: fr|en` → backend `resolve_lang(request)` → `t(key, lang)` → localised `HTTPException.detail`.
+
+**New backend module — `core.i18n`:**
+- Loads JSON dictionaries from `/app/backend/i18n/locales/{fr,en}/*.json` once at import (`@lru_cache`).
+- `t(key, lang, **params)` — dot-path lookup with FR → EN → key fallback + `str.format` interpolation.
+- `resolve_lang(request)` — precedence: `X-BAKED-Language` header → `?lang=` query → `Accept-Language` → French.
+
+**Locale bundles shipped:**
+- `errors.json` — 21 keys across generic / auth / supplier / order / upload (FR + EN).
+- `emails.json` — 8 templates (order_confirmed, order_delivered, magic_link, otp, staff_invite, supplier_approved, supplier_rejected, brand) with subject / preheader / greeting / intro / body / cta / warning / footer / signoff slots.
+- `sms.json` — 8 one-liners (otp, order_confirmed, order_on_the_way, order_delivered, driver_assigned, driver_reminder, password_reset, supplier_approved).
+
+**New backend helper — `core.emails.send_localised_email`:**
+- Single HTML shell (brand header + preheader + body + CTA button + signoff + footer) for every transactional email.
+- Text-part auto-derived from the same keys for accessibility / SMS-client fallback.
+- Best-effort semantics (never raises) — mirrors existing `send_email_async` contract.
+- Bonus: `render_sms(template, lang, **params)` returns the localised SMS body for direct hand-off to `SmsProvider.send()`.
+
+**Frontend wiring — `lib/api.js`:**
+- Every axios request now carries `X-BAKED-Language` derived from `localStorage.baked_language`. Toggling the FR/EN switcher immediately affects error toasts, emails and SMS on the next request — no explicit passthrough per call site.
+
+**Live-endpoint proof — `POST /martbaked/sellers/apply/start`:**
+- Migrated three raw English `HTTPException` messages to `t(…)` keys: `errors.supplier.business_type_invalid`, `errors.supplier.already_active`, `errors.supplier.already_submitted`.
+- Verified via curl: `X-BAKED-Language: fr` returns *"Le type d'activité choisi n'est pas valide."*; `X-BAKED-Language: en` returns *"The selected business type is not valid."*.
+
+**Test coverage — `backend/tests/test_i18n_backend.py`:**
+- 15 tests, all passing. Covers `t()` fallback + interpolation + missing-param resilience + EN-fallback-when-FR-missing, `resolve_lang()` header/query/Accept-Language precedence, `send_localised_email()` FR/EN dispatch + CTA rendering + language fallback.
+
+**Not migrated (deferred backlog):**
+- Order confirmation / driver assignment call sites still emit hardcoded strings — the helpers are ready; adopting them across the 40+ existing `send_email_async` sites is a follow-up sweep tracked in `/app/memory/I18N_PLAN.md` Phase D.2.
+- Backend error messages outside `apply/start` still raw English. Convert as sites are touched.
+
+---
+
+
+## 2026-03-06 (part 2) — Partner Landing full-page French — COMPLETE
+
+Every remaining hardcoded string on `/Sell-on-baked` is now bilingual. Section-by-section:
+
+- **TrustBar** — six pill items (Trusted by 5k+, Secure payments, AI-powered marketing, Fast settlement, 24/7 operations, Africa-first infrastructure) → `partner.trust.*`.
+- **Opportunities cards (6)** — MART / FOOD / SHOP / SEND / AUTO / IMMO taglines, descriptions and the "Now onboarding" badge all sourced from `partner.opportunities.items.{key}` + `partner.opportunities.badge_onboarding`. Apply-CTA reused `partner.nav.apply_now`.
+- **StatsSection (Why Partner — 6 tiles)** — value / label / hint per tile: customers, ops, ai, payments, marketing, analytics. All under `partner.stats.*`.
+- **GrowthSection** — eyebrow, two-line title, body, 7 bullets, primary CTA all under `partner.growth.*` (bullet keys `b1`…`b7`).
+- **Testimonials carousel (3 partners)** — Aïcha Konan / Kouassi Traoré / Mariam Diallo quotes, roles and locations under `partner.testimonials.items.{aicha|kouassi|mariam}`.
+- **TimelineSection (5 steps)** — Submit Application → Verification → Training → Business Activation → Start Receiving Orders under `partner.timeline.steps.s1…s5` + section eyebrow + two-line title.
+- **FinalCTASection + PartnerFooter** — already migrated in previous batch, verified consistent.
+
+**Locale footprint added:** `~30 additional keys` on top of the earlier partner namespace, doubling the coverage of the marketing page. Every EN/FR pair round-trips via the shared TopNav / mobile-drawer `LanguageSwitcher`.
+
+**Screenshots captured:**
+- `Sell-on-baked` opportunities section: **OPPORTUNITÉS · Choisissez votre opportunité · Sélectionnez la catégorie…** + 6 cards fully French incl. **RECRUTEMENT OUVERT** badges and **Postuler** CTAs.
+- `Sell-on-baked` stats section: **POURQUOI DEVENIR PARTENAIRE BAKĒD · Conçu pour grandir. Conçu pour l'Afrique.** + 6 tiles (**Clients potentiels · Opérations continues · Assistant business · Paiements rapides & sécurisés · Croissance marketing · Analyses intelligentes**).
+
+**Left English (backlog):** none on `/Sell-on-baked` — the entire page is French-first now. Remaining Phase D–I items (Admin console labels, backend errors + emails, DB bilingual product columns) unchanged.
+
+---
+
+
+## 2026-03-06 — Workstream 3 Phase B follow-up · Visible-first migration — COMPLETE
+
+Delivered the user's called-out gaps (homepage "Shop by category" / "Delivery in", full footer, all inside pages like "Sell on Baked" / "Partnership" / careers / help / contact) plus the ComingSoonLanding placeholder used by 24 footer routes.
+
+**Files migrated:**
+- `Footer.jsx` — rewritten to consume `common:footer.*` keys. Columns Liens utiles / Opportunités / Support fully bilingual; store badges + copyright translated.
+- `ConfigHomepage.jsx` — Hero delivery panel (LIVRAISON EN, Livraison gratuite dès X, Frais de livraison, Commande minimum, Populaire près de chez vous); CategoryGrid eyebrow/title/link ("ACHETEZ PAR CATÉGORIE / Catégories / VOIR TOUT"); TrustStrip (Livraison ultra-rapide, Large gamme de produits, Meilleurs prix & offres, Retours faciles); ProductCarousel view-all link.
+- `ComingSoonLanding.jsx` — refactored to i18n. `landing.json` FR/EN covers 25 slugs (careers, help, contact, blog, news, terms, privacy, partner, invest, franchise, delivery-partner, driver-registration, merchant-registration, shop/seller, food/partner, mart/seller/partner, auto/seller/partner, immo/agent/broker/partner, baked-delivery, about, investors).
+- `PartnerLandingApp.jsx` (Sell-on-BAKĒD marketing page) — Navbar, Hero, Opportunities section, Why Partner section, Final CTA, and Footer all consume the new `partner` namespace. Card body copy for six opportunities and stats grid still English-only (backlog).
+
+**New locale namespaces:**
+- `landing` — 25 slug keys × FR/EN (footer landings + coming-soon placeholders).
+- `partner` — nav, hero, opportunities, why, final_cta, footer × FR/EN (Sell-on-BAKĒD marketing page).
+- `common.footer.*` — 20 keys covering site footer nav, sections and delivery panel labels.
+- `common.trust.*` — TrustStrip icons on customer homepage.
+
+**Fixes rolled up:**
+- `i18n/index.js` — dropped `htmlTag` from detector chain so a pre-set `<html lang="en">` no longer pins the app to English. `caches: ["localStorage"]` only (no cookie caching) so stale cookies from previous sessions can't override French-first behaviour.
+- `public/index.html` — root `<html lang="fr">`.
+- `BakedContexts.jsx` — mount-time effect forces `i18n.changeLanguage(language)` so context + i18next stay in lock-step across the initial paint.
+- `TopNav.jsx` — replaced fragile Popover-based FR/EN switcher (Radix portal was racing with i18n re-render, failing to reopen) with the shared inline `<LanguageSwitcher />`. `top-nav-language-switcher` testid preserved on wrapper for backward-compat with existing tests.
+
+**Visible outcome (screenshots captured):**
+- `/` — hero, delivery panel, category grid eyebrow/title/link, TrustStrip, and full footer all in FR.
+- `/Sell-on-baked` — nav (Solutions / Devenir partenaire / Pourquoi BAKĒD / Ressources / Support / Se connecter / Postuler), hero ("Développez votre activité avec BAKĒD.", "Rejoignez des milliers d'entreprises..."), section headers, final CTA, footer all in FR.
+- `/careers`, `/help`, `/contact`, `/blog`, `/terms`, `/privacy` — placeholder cards fully FR.
+
+**Still English (backlog, tracked in `/app/memory/I18N_PLAN.md` Phase D–I):**
+- PartnerLandingApp opportunity CARDs body copy, stats grid, testimonials, timeline (visible when scrolling below the fold on `/Sell-on-baked`).
+- Admin console labels beyond nav (Phase G).
+- Backend error messages + transactional emails (Phase D).
+- Dynamic product `name` / `description` DB columns (Phase H).
+
+---
+
+
+## 2026-03-05 (evening) — QA v15 Workstream 3 Phase A · i18n Foundation — COMPLETE
+
+**User-approved plan:** `/app/memory/I18N_PLAN.md` — Phase A + language-switcher polish across all 6 shells. Vendor: Emergent LLM key / Claude for future backfill. Admin path segments stay English (labels translate). Machine translation deferred; hand-written French for top ~50 critical strings shipped.
+
+- **`i18next` + `react-i18next` + `i18next-browser-languagedetector` installed via yarn.**
+- **`/app/frontend/src/i18n/index.js` (new)** — bundles 5 namespace files per locale (`common`, `customer`, `admin`, `seller`, `driver`), fallbackLng = `fr`, `saveMissing` warns in dev. Detector order deliberately drops `navigator` so every fresh visitor lands in French regardless of browser locale — English is only reached via the header toggle (persists to localStorage) or `?lang=en` deep-link.
+- **`/app/frontend/src/i18n/LanguageSwitcher.jsx` (new)** — shared React component with three variants (`compact` two-pill, `menu` labelled row, `inline` text link). Every node carries `data-testid=lang-switcher` / `lang-switcher-fr` / `lang-switcher-en` so the testing agent can locate the toggle in any shell with a single selector.
+- **10 locale JSON files** — hand-written French for cart, checkout, product, orders, home, auth, admin nav, seller apply wizard, driver dashboard/trip; parallel English strings for the QA team.
+- **`AppProvider.setLanguage`** now calls `i18n.changeLanguage()` in the same effect that writes to `localStorage`, so `useTranslation` hooks re-render in lock-step with the context. `detectInitialLanguage` simplified to `saved → ?lang → 'fr'` (no navigator sniff) — French-first per client brief.
+- **CartPage pilot** — `pages/CartPage.jsx` migrated to `useTranslation("customer")`. Live toggle: FR shows "Votre panier est vide / Ajoutez des articles pour commencer votre commande. / Découvrir les produits"; EN shows English equivalents. Order Summary heading, subtotal, delivery fee, total, mixed-cart note, sign-in CTA all keyed.
+- **Language switcher wired across all 6 shells:**
+  1. Desktop TopNav — existing popover (kept, already syncs)
+  2. Mobile drawer footer — replaced ad-hoc FR/EN buttons with the shared `<LanguageSwitcher variant="compact" />`
+  3. `MobileSettings` row — existing "Language" nav row (kept)
+  4. Admin sidebar footer — new switcher below Sign out
+  5. Seller portal sidebar footer — new switcher below Back to Sellers Home
+  6. Driver Profile page — new "Language" row below Sign out button
+  Plus: `SellerApplyWizard` header (public seller /apply flow) gets its own switcher so applicants can toggle FR/EN before login.
+- **Testing agent iteration_81**: Cart FR/EN toggle round-trips correctly, deep-link `?lang=fr|en` overrides, no regressions to Workstreams 1/2/4 (SHOP + SEND + India parity all green). Two gap items surfaced (mobile home top-bar switcher missing, public seller /apply switcher missing) — both fixed in-session before finish. Remaining LOW items (unauth admin/driver login page switchers) parked in backlog.
+
+**What is NOT translated yet (Phase B → I in the plan):** every page other than Cart. Categories, product detail, checkout, orders, wallet, profile, admin console labels, seller portal steps beyond header, driver ride sheets — all still show hardcoded English/French mix. That work is scoped and sequenced in `/app/memory/I18N_PLAN.md`.
+
+---
+
+## 2026-03-05 — QA v15 Workstreams 1 + 2 + 4 (SHOP QA · SEND rename · India parity) — COMPLETE
+
+**Testing case.xlsx** priority order 1 → 2 → 4 → 3. Workstream 3 (French-first i18n) is planned in `/app/memory/I18N_PLAN.md`, awaiting user approval before code changes.
+
+### Workstream 1 — SHOP Storefront QA
+- **Item A** — `/shop/categories` uses `mx-auto max-w-7xl px-4 sm:px-6` for balanced left/right margins across breakpoints (no more edge-to-edge grid).
+- **Item B** — `ShopHome.jsx / ProductCarouselSection` now fetches its own list scoped to the section's configured `filter` (category slug) + optional `subcategory`. Blank / `bestsellers` / `new` keep the shared homepage list so older seeds still work.
+- **Item C** — `POST /martbaked/sellers/apply/start` accepts an optional `module: "shop" | "mart"`. When set to `shop`, the created supplier is tagged `modules=["SHOP"]` and shows up under `/admin/modules/shop/suppliers` Submitted tab. Existing draft applications gain `SHOP` appended (not overwritten) on re-apply. Frontend `SellerApplyWizard` sends the module flag automatically when mounted under `/shopbaked/sellers/apply`.
+
+### Workstream 2 — SEND URL rename
+- `/express/*` → `/send/*` for every customer-facing route.
+- `/express` and `/express/*` legacy paths **soft-redirect** via a new `<ExpressLegacyRedirect>` bridge that preserves query + hash + trailing segments. Bookmarks, QR codes and shared links continue to work.
+- Bottom nav, module tabs, mobile shell, `modules.js` route, express bottom nav, config homepage — all point to `/send`.
+- **Module code, database enums, backend API prefix `/api/express/*` unchanged** — internal identifiers preserved as per the "URL rename only" contract.
+- Testing agent iteration_80 verified all `/send/*` routes render, `/express/*` correctly redirects, backend API untouched.
+
+### Workstream 4 — India data parity
+- `SHOP_COUNTRIES = ("CI", "IN")` — full 19-category tree seeded for India.
+- `SHOP_HOMEPAGE_COUNTRIES = ("CI", "IN")` — 5 CMS sections seeded for IN with India-specific hero copy ("Shipped across India", "Delhi NCR same-day"). CI copy untouched.
+- `seed_shop_demo_products(session, country="IN")` — 181 IN products + 362 variants, one per subcategory, currency `INR`, prices scaled `× 0.14` from XOF and rounded so IN gets natural ₹ pricing (e.g. iPhone accessory tier ~₹500-3 500 instead of raw XOF numbers).
+- MART `_seed_products` extended: both `PRODUCTS_CI` and `EXTRA_PRODUCTS_CI` are mirrored into IN with INR pricing + "Delhi NCR 20-30 min" descriptions. `country="IN"` products now populate `/api/mart/products?country=IN`.
+- `ShopHome`, `ShopCategoriesIndex`, `ShopCategory` read `useApp().country?.code` and fire APIs with the active country instead of hard-coded `CI`. IN customers now land on `/shop` and see IN inventory + hero copy natively.
+- Verified: `curl /api/shop/products?country=IN&limit=100` → 100 items in INR; `curl /api/shop/catalogue?country=IN` → 19 categories with subcategories; `curl /api/mart/products?country=IN&limit=100` → 100 IN MART products in INR.
+
+### Workstream 3 — French-first i18n (PLANNING ONLY)
+- `/app/memory/I18N_PLAN.md` — full 9-phase implementation plan spanning customer, admin, seller, driver + backend errors/emails. Library choice: **react-i18next**. Route strategy: dual-path with French canonical. Ready for user sign-off.
+- No code touched.
+
+Test coverage: iteration_80 → 4/4 backend suites + 4/4 frontend suites pass. Zero regressions on the Playwright SHOP wizard suite from 2026-03-04.
+
+---
+
+
+## 2026-03-04 — Playwright regression for SHOP seller Step-4 location picker — COMPLETE
+Belt-and-braces coverage for the white-on-white autocomplete + India-PIN fixes shipped earlier today.
+
+- **`backend/tests/test_shop_seller_location_picker.py` (new)** — 3 tests × 15 s total, all deterministic:
+  * `test_location_autocomplete_visible_and_pickable[desktop]` — 1440×900 viewport. Types "Greater Noida 201310", asserts dropdown `background-color === rgb(255,255,255)`, first row luminance `< 128` (dark text), positive `z-index`, click resolves the address into `[data-testid="apply-location-formatted-address"]`, and the resolved value survives a scroll-induced re-render.
+  * `test_location_autocomplete_visible_and_pickable[mobile]` — same journey at 390×844 so the responsive layout gets equal protection.
+  * `test_ci_supported_country_still_accepted` — belt-and-braces: adding IN to `SUPPORTED` did not break CI. Confirms the picker mounts, is enabled, and preserves the same white-bg invariant when a suggestion happens to render.
+- Uses the **real Google Places API** (dev key already in `frontend/.env`); the test `pytest.skip`s gracefully when Places is unreachable / rate-limited so upstream flake never turns CI red on a bug that isn't ours. The CSS + DOM assertions are the deterministic core.
+- **Wizard change enabling the test** — `SellerApplyWizard.jsx` now honours `?step=<n>` in the URL when combined with `?app=<id>`, and `refresh()` learned a `keepCurrent` flag so the initial deep-link isn't clobbered by the server's `current_step` value. Non-invasive, in-place: the wizard still resets `current` after each `save → refresh` cycle so the resume-from-draft UX is unchanged.
+
+Run: `cd /app/backend && python3 -m pytest tests/test_shop_seller_location_picker.py -q -n0` → **3 passed in ~15 s**. Ran three times in a row without flake.
+
+
+
+
+## 2026-03-04 — Module-aware cart theming + India PIN + location dropdown — COMPLETE
+Fixing_Prompt v14 shipped end-to-end.
+
+- **`lib/cartTheme.js` (new)** — shared `detectCartMode(cart)` returns one of `MART_ONLY / SHOP_ONLY / MIXED / EMPTY`; `getCartTheme(cart)` maps to `{ accent, accent_soft, text_on, label }`. Tokens: MART green `#77BC1F`, SHOP gold `#FCC44C`, MIXED neutral `#E5E7EB`. `lineAccent(item)` returns per-item accent for badge/stepper colours regardless of the aggregate mode. Designed to scale — adding FOOD/AUTO/SEND later just adds more theme entries.
+- **`pages/CartPage.jsx` + `pages/mobile/MobileCart.jsx`** — replaced hard-coded `#77BC1F` on CTAs, empty-state buttons and quantity steppers with `theme.accent`/`lineAccent(it)`. MIXED cart shows a small "This cart has products from multiple BAKĒD modules." note next to the CTA.
+- **`components/mobile/QuantityStepper.jsx`** — accepts an `accent` prop (default MART green for existing callers). Mobile cart passes `lineAccent(item)` so each row's + button matches its module.
+- **`pages/CheckoutPage.jsx` + `pages/mobile/MobileCheckout.jsx`** — place-order CTA now module-aware; SHOP-only checkout renders in gold, MIXED in neutral, MART green stays for MART-only carts.
+- **`apps/partner-hub/WarehouseLocationPicker.jsx`** — India (`IN`) added to `SUPPORTED` list; NCR pilot centre (Noida) added to `COUNTRY_CENTER`. Places-autocomplete no longer rejects Indian addresses. Autocomplete dropdown swapped from theme-variable colours to explicit `#FFFFFF` background + `#111827` text + `zIndex 60` + `shadow-2xl`, so suggestions stay legible regardless of the parent theme context (fixes the white-on-white bug seen in the SHOP seller wizard).
+- **Backend** — `shared/addresses/routes.py::_matches_country_pincode_allowlist` already allowed Noida + Greater Noida pincodes (201301–201318); verified `GET /api/addresses/serviceability?country=IN&postal_code=201310` returns `{serviceable: true, match: "pincode_allowlist"}`. No backend change needed for India PIN.
+
+Verified visually:
+  * SHOP-only cart: entire CTA + steppers gold.
+  * MART-only cart: green (unchanged).
+  * MIXED cart: neutral CTA, per-line green/gold steppers, mixed-module note visible.
+  * India PIN 201310 serviceability returns `true` end-to-end.
+
+
+
+
+## 2026-03-04 — Apply-uploads security hardening (rate limit + signed URLs) — COMPLETE
+Follow-up to the 2026-03-03 QA #8 fix — the public seller-apply upload endpoint is now guarded against abuse and PII leakage.
+
+- **`core/utils/rate_limit.py` (new)** — in-memory per-IP sliding-window limiter. `check_rate_limit(request, bucket, limit, per_seconds)` raises `HTTPException(429, {code: "rate_limited", retry_after_seconds})` with a `Retry-After` header. XFF-aware (left-most token wins) so the source IP survives the k8s ingress hop. Note: state is per uvicorn worker → effective per-IP ceiling ≈ `workers × limit` (documented; move to Redis for exact enforcement).
+- **`core/utils/signed_url.py` (new)** — HMAC-SHA256 signer. `sign_url(base, path, ttl_seconds=…)` returns `<base>?exp=…&sig=…`. `verify_signature(path, exp, sig)` constant-time compares. Secret resolution: `SIGNED_URL_SECRET` → `JWT_SECRET` → `SECRET_KEY` → dev fallback, so rotating the app-wide JWT secret globally revokes every previously-issued signed URL.
+- **`shared/suppliers/routes.py::apply_upload`** — now:
+  * Rate-limits at 20/min and 200/hour per IP before touching object storage (cheap reject path).
+  * Returns `{storage_path, file_url}` — `file_url` is a 24 h-signed URL. `storage_path` is the canonical key persisted to `supplier_documents.storage_path` for later re-signing.
+- **`shared/suppliers/routes.py::apply_file_serve`** — mandatory HMAC signature check on every request. Unsigned / expired / tampered URLs → 403 `bad_signature`. Ruled out the previous "opaque path is enough" behaviour so leaked links stop working after 24 h.
+- **`shared/suppliers/routes.py::apply_save_step` (step=8)** — extracts `storage_path` from the incoming signed URL (or accepts an explicit `storage_path` field) so the DB always has the canonical, re-signable key.
+- **`_load_full_snapshot`** — re-mints fresh signed URLs from `storage_path` at every read (admin queue + seller portal). Legacy rows without `storage_path` fall back to their stored `file_url` for compatibility with pre-hardening data.
+- **Wizard label parity** — `SellerApplyWizard.jsx` now reads `useSellerModule()` at the top and uses `MOD_LABEL` (`MARTbakēd` / `SHOPbakēd`) for the eyebrow, and `SELLERS_HOME` for the "Back to home" link. Fixes the stale "MARTBAKĒD SUPPLIER ONBOARDING" copy on the SHOP wizard.
+- **Regression tests** — `/app/backend/tests/test_apply_upload_hardening.py` (6 tests, all pass, stable across runs): unsigned rejected, tampered rejected, expired rejected, signed 200, rate-limit trips within a 120-request burst, and the upload response shape (`storage_path` + signed `file_url`).
+
+
+
+
+## 2026-03-03 — Testing case.xlsx QA (8 defects) — COMPLETE
+Root-cause fixes across DB → API → frontend for every defect the user filed in Testing case.xlsx.
+
+**Bug #1 — SHOP category page margin**  
+`apps/shopbaked/pages/ShopCategory.jsx` — wrapped the whole page in `mx-auto max-w-7xl px-4 sm:px-6` so it aligns with the header and rest of the storefront (was stretching edge-to-edge). Stripped duplicated `px-4` on inner rows.
+
+**Bug #2 — Home Product Carousel "View all" always went to /categories**  
+`apps/shopbaked/pages/ShopHome.jsx::ProductCarouselSection` + `pages/ConfigHomepage.jsx::ProductCarousel` — new deep-link priority chain: (1) explicit `view_all_link` / `link`, (2) auto-derived from `filter` (category slug) → `/shop/c/<slug>` (SHOP) or `/products?category=<slug>` (MART), (3) fallback `/categories`. Applies to every CMS-driven carousel automatically.
+
+**Bug #3 — Home category tile lands on all-products page**  
+Both `ShopHome.jsx::CategoryGridSection` and `ConfigHomepage.jsx::CategoryGrid` now prefer an explicit `c.link` when the admin has set one, otherwise deep-link to the slug-based category page. Explicit link normalisation (`/shopbaked` → runtime `basePath`) keeps CMS content portable.
+
+**Bug #4 — Banner Trio image upload → HTTP 413**  
+`pages/admin/AdminHomepageManagement.jsx` — added a canvas-based `compressImageIfNeeded` pass that resizes to ≤2200 px longest side and re-encodes as JPEG at progressive quality (0.85 → 0.75 → 0.65 → 0.55) until the payload is ≤900 KiB — comfortably under nginx-ingress's default 1 MiB body limit and our app-level 8 MiB cap. Skips SVG/GIF. Non-blocking toast informs the admin when an auto-optimisation kicked in.
+
+**Bug #5 — Category Grid tile edit missing link field**  
+Same file — added `F.url("link", "Target link (blank ⇒ /shop/c/{slug})")` to the `category_grid` schema; renderer respects it via the fix from Bug #3. The tile form is now full: Slug / Display name / Icon URL / Target link.
+
+**Bug #6 — Seller Apply Step 2 country picker shows CI + LR**  
+`apps/martbaked-sellers/SellerApplyWizard.jsx` — replaced `+231 (LR)` with `+91 (IN)`. Backend `core/utils/phone.py` already supported IN dial code — no backend change needed.
+
+**Bug #7 — SHOP Step 5 shows MART categories**  
+Root cause was two-fold and required a schema change:
+  1. `SellerApplyWizard.jsx::StepCategories` was hard-coded to `/mart/categories`. Now uses `useSellerModule()` and calls `/shop/catalogue` when the seller portal is SHOP, normalising the tree to a list of `{id, name}` cards.
+  2. Backend `supplier_category_interests.category_id` had a hard FK on `mart_categories` that rejected SHOP category IDs. Alembic migration `0046_sci_module` drops the FK and adds a `module` VARCHAR(8) discriminator + `ix_sci_supplier_module` index. The step-5 handler in `shared/suppliers/routes.py` now accepts `module` per item and looks up in the right table (MartCategory vs ShopCategory).
+
+**Bug #8 — Seller Apply document upload asks for a URL**  
+New public upload endpoints in `shared/suppliers/routes.py`:
+  * `POST /api/martbaked/sellers/apply/{app_id}/uploads` (multipart, kind=document|image, max 8 MiB, PDF+image only, only draft/action_required apps).
+  * `GET  /api/martbaked/sellers/apply/{app_id}/files/{path:path}` (public preview by opaque timestamped path).
+New reusable `ApplyFileUpload` component in `SellerApplyWizard.jsx` renders "Choose file" + preview link + Replace + clear. Wired into Step 8 (Documents) *and* Step 3 (Owner ID document) — both now accept real files instead of paste-a-URL.
+
+**Testing** — `testing_agent iter79`: 10/10 backend pytests + 8/8 UI bug verifications + 3/3 regression checks (MART home, SHOP admin, guest cart) all PASS.
+
+**Deferred security follow-ups** (raised by testing agent — worth tracking): (a) rate-limit the public `/apply/{id}/uploads` endpoint per-IP; (b) switch to signed URLs for submitted apps' file-serve so post-submit PII stops being retrievable from an opaque path alone.
+
+
+
+
 ## 2026-03-03 — SHOP Admin Surface Phase 2 (Catalog + Attributes + Approvals + Products) — COMPLETE
 Four SHOP-native admin pages plus the backend endpoints that back them.
 

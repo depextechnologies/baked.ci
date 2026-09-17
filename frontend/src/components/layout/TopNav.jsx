@@ -8,6 +8,8 @@ import { Search, Tag, Package, User, ShoppingCart, Sun, Moon, MapPin, Loader2, M
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/sheet";
 import { AddressPill } from "../address/AddressPill";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
+import { useLocalePath } from "../../i18n/routes";
 import { MODULES } from "../../lib/modules";
 import { toast } from "sonner";
 
@@ -24,9 +26,10 @@ const DETECT_REASON_COPY = {
 export const TopNav = () => {
   const { customer, logout, openLogin } = useAuth();
   const { country, countries, setCountryCode, detectCountryByLocation, theme, toggleTheme, language, setLanguage, activeModule } = useApp();
-  const { cart } = useCart();
+  const { cart, openCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const path = useLocalePath();
   const [detecting, setDetecting] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
@@ -123,7 +126,7 @@ export const TopNav = () => {
                 className="baked-input w-full pl-11 pr-4 py-3 bg-secondary text-sm outline-none focus:ring-2 focus:ring-primary/40 motion-fast"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                    navigate(`/products?search=${encodeURIComponent(e.currentTarget.value.trim())}`);
+                    navigate(`${path("products")}?search=${encodeURIComponent(e.currentTarget.value.trim())}`);
                   }
                 }}
               />
@@ -132,7 +135,7 @@ export const TopNav = () => {
           {/* Mobile: search chevron that jumps to /products */}
           <button
             data-testid={`${NAV.searchInput}-mobile`}
-            onClick={() => navigate("/products")}
+            onClick={() => navigate(path("products"))}
             className="md:hidden ml-auto w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast"
             aria-label={t(locale, "nav.search_placeholder")}
           >
@@ -148,7 +151,7 @@ export const TopNav = () => {
           </button>
 
           {customer ? (
-            <button data-testid={NAV.account} onClick={() => navigate("/profile")}
+            <button data-testid={NAV.account} onClick={() => navigate(path("profile"))}
                     className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
                     title={customer.name || customer.phone || t(locale, "nav.account")}
                     aria-label={t(locale, "nav.account")}>
@@ -159,7 +162,7 @@ export const TopNav = () => {
           ) : (
             <button
               data-testid="auth-open-login-btn"
-              onClick={() => openLogin("/profile")}
+              onClick={() => openLogin(path("profile"))}
               className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 motion-fast shrink-0"
               title={t(locale, "nav.login")} aria-label={t(locale, "nav.login")}
             >
@@ -167,10 +170,24 @@ export const TopNav = () => {
             </button>
           )}
 
-          {/* Cart — always visible. Icon + badge follow the active module accent. */}
+          {/* Cart — desktop opens the right-side drawer (Fixing_Prompt v4).
+              Mobile bottom-nav keeps navigating to the full /cart page
+              because on small viewports we still use the full-page cart.
+              The button itself remains keyboard-accessible; drawer manages
+              its own focus trap once open. */}
           <button
             data-testid={NAV.cartButton}
-            onClick={() => navigate("/cart")}
+            onClick={() => {
+              // < md: mobile bottom-nav is the primary cart entrypoint, but
+              // if someone reaches this top-nav button on a small viewport
+              // we still send them to the full page to match the mobile
+              // shopping model. Tailwind `md` breakpoint = 768px.
+              if (typeof window !== "undefined" && window.innerWidth < 768) {
+                navigate(path("cart"));
+              } else {
+                openCart();
+              }
+            }}
             className="relative baked-btn px-2 md:px-3 py-2 bg-secondary hover:bg-secondary/80 motion-fast flex items-center gap-2 shrink-0"
           >
             <ShoppingCart size={18} style={{ color: moduleAccent }} />
@@ -184,34 +201,17 @@ export const TopNav = () => {
             </span>
           </button>
 
-          {/* Language switcher — dropdown, desktop only */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                data-testid="top-nav-language-switcher"
-                className="hidden lg:flex items-center gap-1 h-10 px-3 rounded-full border border-border text-xs font-semibold hover:bg-secondary motion-fast shrink-0"
-                aria-label="Language"
-              >
-                {language === "fr" ? "FR" : "EN"} <ChevronDown size={12} />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-40 p-1">
-              <button
-                data-testid="top-nav-language-fr"
-                onClick={() => setLanguage("fr")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "fr" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
-              >
-                FR — Français
-              </button>
-              <button
-                data-testid="top-nav-language-en"
-                onClick={() => setLanguage("en")}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm ${language === "en" ? "bg-secondary font-semibold" : "hover:bg-secondary"}`}
-              >
-                EN — English
-              </button>
-            </PopoverContent>
-          </Popover>
+          {/* Language switcher — desktop only.
+              Uses the shared LanguageSwitcher (inline pills) instead of a
+              Popover — the Popover portal was racing with i18n's language
+              change re-render and failing to re-mount on second open.
+              Legacy `top-nav-language-switcher` testid kept as wrapper so
+              existing tests keep passing; inner pills expose
+              `lang-switcher-fr` / `lang-switcher-en`. */}
+          <div data-testid="top-nav-language-switcher"
+               className="hidden lg:inline-flex items-center shrink-0">
+            <LanguageSwitcher variant="compact" />
+          </div>
 
           {/* Theme toggle — desktop only */}
           <button
@@ -249,7 +249,7 @@ export const TopNav = () => {
                   {customer ? (
                     <button
                       data-testid="drawer-profile"
-                      onClick={() => navigate("/profile")}
+                      onClick={() => navigate(path("profile"))}
                       className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-secondary motion-fast"
                     >
                       {customer.picture ? (
@@ -265,7 +265,7 @@ export const TopNav = () => {
                   ) : (
                     <button
                       data-testid="drawer-login"
-                      onClick={() => openLogin("/profile")}
+                      onClick={() => openLogin(path("profile"))}
                       className="w-full h-11 baked-btn font-semibold bg-primary text-primary-foreground"
                     >
                       {t(locale, "nav.login")}

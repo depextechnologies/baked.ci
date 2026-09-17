@@ -98,6 +98,11 @@ async def booking_to_dict(session: AsyncSession, booking: ExpressBooking) -> dic
     data["package"] = _package(booking)
     data["driver_location"] = _driver_location(booking)
     data["timeline"] = [{"code": t.code, "label": t.label, "at": t.at.isoformat()} for t in timeline_rows]
+    # Phase E — surface the multi-stop payload verbatim for the driver + admin,
+    # BUT never leak the per-drop delivery PIN (customer receives it via SMS).
+    from modules.express.multi_stop import strip_pins, summarise_progress
+    data["stops"] = strip_pins(booking.stops) if booking.stops else None
+    data["stops_progress"] = summarise_progress(booking.stops) if booking.stops else None
     if booking.booking_type == "movers":
         item_rows = (
             (await session.execute(select(ExpressBookingItem).where(ExpressBookingItem.booking_id == booking.id)))
@@ -114,6 +119,7 @@ async def booking_to_dict(session: AsyncSession, booking: ExpressBooking) -> dic
 def public_booking_fields(data: dict) -> dict:
     keep = {
         "id", "ref", "status", "booking_type", "vehicle_code", "country",
+        "service_type", "stops", "stops_progress",
         "pickup", "drop", "receiver", "distance_km", "duration_min",
         "currency", "currency_symbol", "total", "payment_method",
         "payment_status", "driver_id", "driver_snapshot",

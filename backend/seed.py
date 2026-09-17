@@ -589,6 +589,27 @@ async def _seed_products(session: AsyncSession):
         )
         await _upsert(session, MartProduct, ["name", "country", "module"], values)
 
+    # QA v15 §4 — India (IN) MART mirror in ₹. 1 XOF ≈ 0.14 INR; scaled per
+    # SKU so pricing feels natively "Indian" (₹99 dals, ₹499 rice bag, etc.).
+    # Both PRODUCTS_CI and EXTRA_PRODUCTS_CI seed for IN so the India dark
+    # store has the same 130+ SKU count as CI.
+    for name, brand, cat_slug, unit, price_xof, was_xof, image, pop, badge in PRODUCTS_CI:
+        inr = max(1, int(round(price_xof * 0.14)))
+        was_inr = max(1, int(round(was_xof * 0.14))) if was_xof else None
+        values = _product_values(
+            name, brand, cat_slug, PRODUCT_SUBCATEGORY.get(name), unit, inr, was_inr, "INR", "₹", image, pop, badge,
+            "IN", f"{name} - {brand}. Delivered in 20-30 min across Delhi NCR.",
+        )
+        await _upsert(session, MartProduct, ["name", "country", "module"], values)
+    for name, brand, cat_slug, sub_slug, unit, price_xof, was_xof, image, pop, badge in EXTRA_PRODUCTS_CI:
+        inr = max(1, int(round(price_xof * 0.14)))
+        was_inr = max(1, int(round(was_xof * 0.14))) if was_xof else None
+        values = _product_values(
+            name, brand, cat_slug, sub_slug, unit, inr, was_inr, "INR", "₹", image, pop, badge,
+            "IN", f"{name} - {brand}. Delivered in 20-30 min across Delhi NCR.",
+        )
+        await _upsert(session, MartProduct, ["name", "country", "module"], values)
+
 
 async def _seed_offers(session: AsyncSession):
     for o in OFFERS_CI:
@@ -946,8 +967,10 @@ async def run_seed():
         await seed_shop_homepage(session)
         # SHOPbakēd demo products — one placeholder per subcategory so
         # /shop and /shop/c/{slug} render populated tiles out-of-the-box.
+        # QA v15 §4 — seed both launch markets (CI/XOF, IN/INR).
         from modules.shop.demo_products_seed import seed_shop_demo_products
-        await seed_shop_demo_products(session)
+        await seed_shop_demo_products(session, country="CI")
+        await seed_shop_demo_products(session, country="IN")
         await session.commit()
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars

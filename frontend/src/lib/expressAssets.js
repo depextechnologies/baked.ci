@@ -14,11 +14,43 @@ export const EXPRESS_ASSETS = {
 };
 
 /**
- * Map a vehicle code to its brand image. Fallback to truck for larger types
- * (mini_truck, truck) until dedicated renders are supplied.
+ * Phase A — six SEND service tiles.
+ * Motorcycle keeps the existing Bike_baked asset (per user brief).
+ * The other five images are shipped in /public/send-tiles/*.png so they
+ * render offline and can be swapped by ops without a code change.
  */
-export const vehicleImage = (code) => {
-  if (code === "bike" || code === "scooter") return EXPRESS_ASSETS.bike;
-  if (code === "three_wheeler") return EXPRESS_ASSETS.threeW;
-  return EXPRESS_ASSETS.truck;
+export const SEND_TILE_ASSETS = {
+  moto:          EXPRESS_ASSETS.bike,
+  cargo:         "/send-tiles/send_by_cargo.png",
+  fresh:         "/send-tiles/fresh_products.png",
+  between_cities: "/send-tiles/between_cities.png",
+  movers:        "/send-tiles/packers_movers.png",
+  multi:         "/send-tiles/multiple_shipments.png",
 };
+
+/**
+ * Phase C — vehicle catalogue images (per SEND vehicle code).
+ * Files live in /public/send-tiles/vehicles/ so ops can hot-swap without a
+ * code change. Refrigerated variants reuse the same silhouettes — the
+ * "frigorifique" label + refrigerated badge is enough context on the card.
+ */
+export const VEHICLE_IMAGES = {
+  bike:          EXPRESS_ASSETS.bike,
+  scooter:       EXPRESS_ASSETS.bike,
+  three_wheeler: "/send-tiles/vehicles/tricycle.png",
+  mini_truck:    "/send-tiles/vehicles/mini_truck.png",
+  truck:         "/send-tiles/vehicles/truck.png",
+  // Fresh Products / cold-chain fleet — dedicated refrigerated renders
+  // (SENDbakēd-branded reefer bodies) so the card immediately reads as
+  // cold chain and cannot be visually confused with the non-refrigerated
+  // silhouettes above.
+  ref_tricycle:  "/send-tiles/vehicles/ref_tricycle.png",
+  ref_utility:   "/send-tiles/vehicles/ref_utility.png",
+  ref_truck:     "/send-tiles/vehicles/ref_truck.png",
+};
+
+/**
+ * Map a vehicle code to its brand image. Falls back to the truck silhouette
+ * for any future unlisted variant so a missing image never breaks the card.
+ */
+export const vehicleImage = (code) => VEHICLE_IMAGES[code] || VEHICLE_IMAGES.truck;

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 from core.models import (
     Cart, Customer, ShopCartItem, ShopProduct, ShopVariant, new_id,
 )
@@ -63,7 +64,7 @@ async def public_product_detail(
     """
     p = await session.get(ShopProduct, pid)
     if not p or p.deleted_at is not None or p.status != "active":
-        raise HTTPException(404, "SHOP product not found")
+        raise HTTPException(404, _t("errors.shop.product_not_found", current_lang()))
 
     variants = (
         await session.execute(
@@ -84,10 +85,12 @@ async def public_product_detail(
     price_max = max((float(v.price) for v in variants), default=None)
 
     return {
-        "id": p.id, "title": p.title, "slug": p.slug, "country": p.country,
+        "id": p.id, "title": p.title, "title_fr": p.title_fr,
+        "slug": p.slug, "country": p.country,
         "brand_id": p.brand_id, "category_id": p.category_id,
         "subcategory_id": p.subcategory_id,
-        "description": p.description, "images": p.images or [],
+        "description": p.description, "description_fr": p.description_fr,
+        "images": p.images or [],
         "attributes": p.attributes or {}, "status": p.status,
         "price_min": price_min, "price_max": price_max,
         "variants": [_variant_public(v) for v in variants],
@@ -163,7 +166,7 @@ async def _hydrate_shop_cart(session: AsyncSession, cart: Cart) -> dict:
             "added_at": it.added_at.isoformat() if it.added_at else None,
             "variant": _variant_public(v),
             "product": None if not p else {
-                "id": p.id, "title": p.title, "slug": p.slug,
+                "id": p.id, "title": p.title, "title_fr": p.title_fr, "slug": p.slug,
                 "images": p.images or [], "status": p.status,
             },
             "line_total": line_total,
@@ -193,11 +196,11 @@ async def add_shop_cart_item(
 ):
     v = await session.get(ShopVariant, payload.variant_id)
     if not v or not v.is_active:
-        raise HTTPException(404, "Variant not found or inactive")
+        raise HTTPException(404, _t("errors.shop.variant_inactive", current_lang()))
     # Ownership check: variant must belong to an active SHOP product.
     p = await session.get(ShopProduct, v.product_id)
     if not p or p.status != "active" or p.deleted_at is not None:
-        raise HTTPException(400, "Variant's parent product is not published")
+        raise HTTPException(400, _t("errors.shop.product_not_published", current_lang()))
 
     cart = await _active_cart(session, customer.id)
 
@@ -232,7 +235,7 @@ async def patch_shop_cart_item(
     cart = await _active_cart(session, customer.id)
     it = await session.get(ShopCartItem, item_id)
     if not it or it.cart_id != cart.id:
-        raise HTTPException(404, "Cart item not found")
+        raise HTTPException(404, _t("errors.shop.cart_item_not_found", current_lang()))
     it.quantity = payload.quantity
     await session.commit()
     return await _hydrate_shop_cart(session, cart)
@@ -247,7 +250,7 @@ async def delete_shop_cart_item(
     cart = await _active_cart(session, customer.id)
     it = await session.get(ShopCartItem, item_id)
     if not it or it.cart_id != cart.id:
-        raise HTTPException(404, "Cart item not found")
+        raise HTTPException(404, _t("errors.shop.cart_item_not_found", current_lang()))
     await session.delete(it)
     await session.commit()
     return
@@ -267,7 +270,7 @@ async def shop_checkout_snapshot(
     cart = await _active_cart(session, customer.id)
     hydrated = await _hydrate_shop_cart(session, cart)
     if not hydrated["items"]:
-        raise HTTPException(400, {"code": "empty_cart", "message": "Cart is empty"})
+        raise HTTPException(400, {"code": "empty_cart", "message": _t("errors.shop.cart_empty", current_lang())})
     # Aggregate line details for the snapshot — everything downstream needs
     # is baked in here so no extra lookups are required to render a receipt.
     lines = [
@@ -346,7 +349,7 @@ async def shop_checkout(
     cart = await _active_cart(session, customer.id)
     hydrated = await _hydrate_shop_cart(session, cart)
     if not hydrated["items"]:
-        raise HTTPException(400, {"code": "empty_cart", "message": "Cart is empty"})
+        raise HTTPException(400, {"code": "empty_cart", "message": _t("errors.shop.cart_empty", current_lang())})
 
     # Stock check + reservation.
     variant_rows = (
@@ -362,12 +365,12 @@ async def shop_checkout(
         if not v or not v.is_active:
             raise HTTPException(409, {
                 "code": "variant_unavailable",
-                "message": f"Variant {it['variant']['sku']} is no longer available",
+                "message": _t("errors.shop.variant_unavailable", current_lang(), sku=it['variant']['sku']),
             })
         if v.stock_qty < it["quantity"]:
             raise HTTPException(409, {
                 "code": "insufficient_stock",
-                "message": f"Only {v.stock_qty} of {v.sku} remain in stock",
+                "message": _t("errors.shop.only_left_in_stock", current_lang(), n=v.stock_qty, sku=v.sku),
             })
 
     # Build order + items.
@@ -517,7 +520,7 @@ async def get_my_shop_order(
 ):
     o = await session.get(ShopOrder, order_id)
     if not o or o.customer_id != customer.id:
-        raise HTTPException(404, "Order not found")
+        raise HTTPException(404, _t("errors.shop.order_not_found", current_lang()))
     items = (
         await session.execute(
             select(ShopOrderItem).where(ShopOrderItem.order_id == o.id)

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, Grid3x3, ShoppingCart, User, Layers } from "lucide-react";
 import { useApp, useCart } from "../../contexts/BakedContexts";
 import { MODULES } from "../../lib/modules";
+import { useLocalePath } from "../../i18n/routes";
 
 /**
  * MobileBottomNav — 4 tabs + a raised center FAB.
@@ -23,6 +24,7 @@ export const MobileBottomNav = ({ onOpenAppSelector }) => {
   const loc = useLocation();
   const { cart } = useCart();
   const { activeModule } = useApp();
+  const path = useLocalePath();
 
   // Module accent (Fixing_Prompt v5 §7). Falls back to MART green when the
   // active module isn't in the registry so the UI never blanks.
@@ -32,8 +34,8 @@ export const MobileBottomNav = ({ onOpenAppSelector }) => {
   );
 
   // Per-module route table. Add new marketplaces here in one place.
-  const HOME = { mart: "/", shop: "/shop", food: "/food", express: "/express" };
-  const CATS = { mart: "/categories", shop: "/shop/categories", food: "/food", express: "/express" };
+  const HOME = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
+  const CATS = { mart: "/categories", shop: "/shop/categories", food: "/food", express: "/send" };
   const homePath = HOME[activeModule] || "/";
   const categoriesPath = CATS[activeModule] || "/categories";
 
@@ -107,8 +109,8 @@ export const MobileBottomNav = ({ onOpenAppSelector }) => {
           />
           {/* Spacer for FAB */}
           <div className="w-14 shrink-0" aria-hidden />
-          <Item icon={ShoppingCart} label="Cart" paths={["/cart"]} badge={cart.item_count} testid="m-bnav-cart" tint="#77BC1F" />
-          <Item icon={User} label="Profile" paths={["/profile", "/orders"]} testid="m-bnav-profile" tint="#77BC1F" />
+          <Item icon={ShoppingCart} label="Cart" paths={[path("cart"), "/cart", "/panier"]} badge={cart.item_count} testid="m-bnav-cart" tint="#77BC1F" />
+          <Item icon={User} label="Profile" paths={[path("profile"), "/profile", "/compte", path("orders"), "/orders", "/commandes"]} testid="m-bnav-profile" tint="#77BC1F" />
         </div>
       </nav>
     </>

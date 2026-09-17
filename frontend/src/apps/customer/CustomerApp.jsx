@@ -7,7 +7,7 @@
  * only the router boundary has moved. This unblocks Phase 2 (per-partner
  * apps) without a risky mass file move.
  */
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, AppProvider, CartProvider } from "@/contexts/BakedContexts";
 import { TopNav } from "@/components/layout/TopNav";
 import { ModuleTabs } from "@/components/layout/ModuleTabs";
@@ -18,6 +18,8 @@ import { CategoriesIndexPage, CategoryDetailPage } from "@/pages/CategoryPage";
 import { ProductListPage } from "@/pages/ProductListPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
 import { CartPage } from "@/pages/CartPage";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { CartRouteDrawerRedirect } from "@/components/cart/CartRouteDrawerRedirect";
 import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
@@ -45,13 +47,15 @@ import { MobileSettings } from "@/pages/mobile/MobileSettings";
 import { MobileHelpSupport } from "@/pages/mobile/MobileHelpSupport";
 import { GlobalLoginDialog } from "@/components/auth/GlobalLoginDialog";
 import { AddressSelector } from "@/components/address/AddressSelector";
+import { LocaleRouteSync } from "@/i18n/LocaleRouteSync";
 import { ExpressBookingProvider, MoversBookingProvider } from "@/contexts/ExpressContext";
 import { ExpressHome } from "@/pages/express/ExpressHome";
 import {
   ExpressStepLocation, ExpressStepReceiver, ExpressStepVehicle,
-  ExpressStepPackage, ExpressStepEstimate, ExpressBookingConfirmation,
+  ExpressStepPackage, ExpressStepEstimate, ExpressStepDetails, ExpressStepBook, ExpressBookingConfirmation,
 } from "@/pages/express/ExpressWizard";
 import { MoversLanding, MoversWizard } from "@/pages/express/MoversWizard";
+import { MultiShipmentsStep1, MultiShipmentsStep2 } from "@/pages/express/MultiShipmentsWizard";
 import { ExpressBookings } from "@/pages/express/ExpressBookings";
 import { ExpressServices } from "@/pages/express/ExpressServices";
 import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
@@ -82,21 +86,62 @@ const FooterLandingRoutes = () =>
     <Route key={p} path={p} element={<ComingSoonLanding />} />
   ));
 
+// QA v15 §2 — legacy `/express/*` URLs continue to work by 301-redirecting
+// to `/send/*` (module rename). Prefix stays "/express" in API + DB.
+const ExpressLegacyRedirect = () => {
+  const loc = useLocation();
+  const rest = loc.pathname.replace(/^\/express/, "") || "";
+  return <Navigate to={`/send${rest}${loc.search || ""}`} replace />;
+};
+
+// Routes where the checkout experience should feel global and NOT be
+// coloured by any single module tab (MARTbakēd was highlighted by default
+// because activeModule falls back to 'mart' when the URL isn't module-
+// scoped). Hiding the tabs on the checkout screen is the cleanest fix.
+const ROUTES_WITHOUT_MODULE_TABS = ["/checkout", "/paiement"];
+
+const ConditionalModuleTabs = () => {
+  const { pathname } = useLocation();
+  if (ROUTES_WITHOUT_MODULE_TABS.some((p) => pathname.startsWith(p))) return null;
+  return <ModuleTabs />;
+};
+
 const DesktopCustomerShell = () => (
   <div className="App min-h-screen bg-background text-foreground">
+    <LocaleRouteSync />
     <TopNav />
-    <ModuleTabs />
+    {/* Global right-side cart drawer — mounted once at the shell level so
+        any add-to-cart / cart-icon click on desktop opens the same drawer
+        without prop-drilling. Renders nothing on < md viewports (Fixing_Prompt v4 §1b). */}
+    <CartDrawer />
+    <ConditionalModuleTabs />
     <Routes>
       <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<CategoriesIndexPage />} />
       <Route path="/categories/:slug" element={<CategoryDetailPage />} />
+      {/* Workstream 3 Phase C — French routes (primary) + English aliases (both resolve) */}
+      <Route path="/produits" element={<ProductListPage />} />
+      <Route path="/produits/:id" element={<ProductDetailPage />} />
       <Route path="/products" element={<ProductListPage />} />
       <Route path="/products/:id" element={<ProductDetailPage />} />
-      <Route path="/cart" element={<CartPage />} />
+      {/* Desktop /cart routes open the drawer + redirect home (choice §2b). */}
+      <Route path="/panier" element={<CartRouteDrawerRedirect fallback="/" />} />
+      <Route path="/cart" element={<CartRouteDrawerRedirect fallback="/" />} />
+      <Route path="/paiement" element={<CheckoutPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
+      <Route path="/commandes" element={<OrdersListPage />} />
+      <Route path="/commandes/:id" element={<OrderDetailPage />} />
       <Route path="/orders" element={<OrdersListPage />} />
       <Route path="/orders/:id" element={<OrderDetailPage />} />
+      <Route path="/portefeuille" element={<DesktopProfileShell><MobileWallet /></DesktopProfileShell>} />
       <Route path="/wallet" element={<DesktopProfileShell><MobileWallet /></DesktopProfileShell>} />
+      <Route path="/compte" element={<DesktopProfileShell><MobileProfile /></DesktopProfileShell>} />
+      <Route path="/compte/adresses" element={<DesktopProfileShell><MobileAddresses /></DesktopProfileShell>} />
+      <Route path="/compte/parametres" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
+      <Route path="/compte/aide" element={<DesktopProfileShell><MobileHelpSupport /></DesktopProfileShell>} />
+      <Route path="/compte/activites" element={<DesktopProfileShell><MobileActivities /></DesktopProfileShell>} />
+      <Route path="/compte/recompenses" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
+      <Route path="/compte/parrainage" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/profile" element={<DesktopProfileShell><MobileProfile /></DesktopProfileShell>} />
       <Route path="/profile/addresses" element={<DesktopProfileShell><MobileAddresses /></DesktopProfileShell>} />
       <Route path="/profile/settings" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
@@ -111,24 +156,31 @@ const DesktopCustomerShell = () => (
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
       <Route path="/shop/order/:orderId" element={<ShopOrderConfirmation basePath="/shop" />} />
-      <Route path="/express" element={<ExpressHome />} />
-      <Route path="/express/book/location" element={<ExpressStepLocation />} />
-      <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
-      <Route path="/express/book/vehicle" element={<ExpressStepVehicle />} />
-      <Route path="/express/book/package" element={<ExpressStepPackage />} />
-      <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
-      <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
-      <Route path="/express/booking/:id/track" element={<ExpressLiveTracking />} />
-      <Route path="/express/bookings" element={<ExpressBookings />} />
-      <Route path="/express/services" element={<ExpressServices />} />
-      <Route path="/express/parcel" element={<ExpressStepLocation />} />
-      <Route path="/express/home-shifting" element={<MoversLanding />} />
-      <Route path="/express/movers" element={<MoversLanding />} />
-      <Route path="/express/movers/wizard" element={<MoversWizard />} />
+      <Route path="/express" element={<Navigate to="/send" replace />} />
+      <Route path="/express/*" element={<ExpressLegacyRedirect />} />
+      <Route path="/send" element={<ExpressHome />} />
+      <Route path="/send/book/location" element={<ExpressStepLocation />} />
+      <Route path="/send/book/receiver" element={<ExpressStepReceiver />} />
+      <Route path="/send/book/details" element={<ExpressStepDetails />} />
+      <Route path="/send/book/vehicle" element={<ExpressStepBook />} />
+      <Route path="/send/book/package" element={<ExpressStepDetails />} />
+      <Route path="/send/book/estimate" element={<ExpressStepBook />} />
+      <Route path="/send/booking/:id" element={<ExpressBookingConfirmation />} />
+      <Route path="/send/booking/:id/track" element={<ExpressLiveTracking />} />
+      <Route path="/send/bookings" element={<ExpressBookings />} />
+      <Route path="/send/services" element={<ExpressServices />} />
+      <Route path="/send/parcel" element={<ExpressStepLocation />} />
+      <Route path="/send/home-shifting" element={<MoversLanding />} />
+      <Route path="/send/movers" element={<MoversLanding />} />
+      <Route path="/send/movers/wizard" element={<MoversWizard />} />
+      <Route path="/send/multi-shipments" element={<MultiShipmentsStep1 />} />
+      <Route path="/send/multi-shipments/vehicle" element={<MultiShipmentsStep2 />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/confidentialite" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/conditions" element={<TermsOfService />} />
       {FooterLandingRoutes()}
       <Route path="*" element={<HomePage />} />
     </Routes>
@@ -140,20 +192,39 @@ const DesktopCustomerShell = () => (
 
 const MobileCustomerShell = () => (
   <MobileShell>
+    <LocaleRouteSync />
     <Routes>
       <Route path="/" element={<ConfigHomepage />} />
       <Route path="/categories" element={<MobileCategoryPage />} />
       <Route path="/categories/:slug" element={<MobileCategoryPage />} />
+      {/* Workstream 3 Phase C — French primary routes + English aliases */}
+      <Route path="/produits" element={<MobileCategoryPage />} />
+      <Route path="/produits/:id" element={<MobileProductDetail />} />
       <Route path="/products" element={<MobileCategoryPage />} />
       <Route path="/products/:id" element={<MobileProductDetail />} />
+      <Route path="/panier" element={<MobileCart />} />
       <Route path="/cart" element={<MobileCart />} />
+      <Route path="/paiement" element={<MobileCheckout />} />
       <Route path="/checkout" element={<MobileCheckout />} />
+      <Route path="/commandes" element={<OrdersListPage />} />
+      <Route path="/commandes/:id/confirmation" element={<MobileOrderConfirmation />} />
+      <Route path="/commandes/:id/suivi" element={<MobileOrderTracking />} />
+      <Route path="/commandes/:id/livree" element={<MobileOrderDelivered />} />
+      <Route path="/commandes/:id" element={<MobileOrderTracking />} />
       <Route path="/orders" element={<OrdersListPage />} />
       <Route path="/orders/:id/confirmation" element={<MobileOrderConfirmation />} />
       <Route path="/orders/:id/track" element={<MobileOrderTracking />} />
       <Route path="/orders/:id/delivered" element={<MobileOrderDelivered />} />
       <Route path="/orders/:id" element={<MobileOrderTracking />} />
+      <Route path="/portefeuille" element={<MobileWallet />} />
       <Route path="/wallet" element={<MobileWallet />} />
+      <Route path="/compte" element={<MobileProfile />} />
+      <Route path="/compte/adresses" element={<MobileAddresses />} />
+      <Route path="/compte/parametres" element={<MobileSettings />} />
+      <Route path="/compte/aide" element={<MobileHelpSupport />} />
+      <Route path="/compte/activites" element={<MobileActivities />} />
+      <Route path="/compte/recompenses" element={<MobileRewards />} />
+      <Route path="/compte/parrainage" element={<MobileRefer />} />
       <Route path="/profile" element={<MobileProfile />} />
       <Route path="/profile/addresses" element={<MobileAddresses />} />
       <Route path="/profile/settings" element={<MobileSettings />} />
@@ -168,24 +239,31 @@ const MobileCustomerShell = () => (
       <Route path="/shop/p/:productId" element={<ShopProduct basePath="/shop" />} />
       <Route path="/shop/checkout" element={<ShopCheckout basePath="/shop" />} />
       <Route path="/shop/order/:orderId" element={<ShopOrderConfirmation basePath="/shop" />} />
-      <Route path="/express" element={<ExpressHome />} />
-      <Route path="/express/book/location" element={<ExpressStepLocation />} />
-      <Route path="/express/book/receiver" element={<ExpressStepReceiver />} />
-      <Route path="/express/book/vehicle" element={<ExpressStepVehicle />} />
-      <Route path="/express/book/package" element={<ExpressStepPackage />} />
-      <Route path="/express/book/estimate" element={<ExpressStepEstimate />} />
-      <Route path="/express/booking/:id" element={<ExpressBookingConfirmation />} />
-      <Route path="/express/booking/:id/track" element={<ExpressLiveTracking />} />
-      <Route path="/express/bookings" element={<ExpressBookings />} />
-      <Route path="/express/services" element={<ExpressServices />} />
-      <Route path="/express/parcel" element={<ExpressStepLocation />} />
-      <Route path="/express/home-shifting" element={<MoversLanding />} />
-      <Route path="/express/movers" element={<MoversLanding />} />
-      <Route path="/express/movers/wizard" element={<MoversWizard />} />
+      <Route path="/express" element={<Navigate to="/send" replace />} />
+      <Route path="/express/*" element={<ExpressLegacyRedirect />} />
+      <Route path="/send" element={<ExpressHome />} />
+      <Route path="/send/book/location" element={<ExpressStepLocation />} />
+      <Route path="/send/book/receiver" element={<ExpressStepReceiver />} />
+      <Route path="/send/book/details" element={<ExpressStepDetails />} />
+      <Route path="/send/book/vehicle" element={<ExpressStepBook />} />
+      <Route path="/send/book/package" element={<ExpressStepDetails />} />
+      <Route path="/send/book/estimate" element={<ExpressStepBook />} />
+      <Route path="/send/booking/:id" element={<ExpressBookingConfirmation />} />
+      <Route path="/send/booking/:id/track" element={<ExpressLiveTracking />} />
+      <Route path="/send/bookings" element={<ExpressBookings />} />
+      <Route path="/send/services" element={<ExpressServices />} />
+      <Route path="/send/parcel" element={<ExpressStepLocation />} />
+      <Route path="/send/home-shifting" element={<MoversLanding />} />
+      <Route path="/send/movers" element={<MoversLanding />} />
+      <Route path="/send/movers/wizard" element={<MoversWizard />} />
+      <Route path="/send/multi-shipments" element={<MultiShipmentsStep1 />} />
+      <Route path="/send/multi-shipments/vehicle" element={<MultiShipmentsStep2 />} />
       <Route path="/auto" element={<ComingSoonPage />} />
       <Route path="/immo" element={<ComingSoonPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/confidentialite" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/conditions" element={<TermsOfService />} />
       {FooterLandingRoutes()}
       <Route path="*" element={<MobileHome />} />
     </Routes>

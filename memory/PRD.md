@@ -1,5 +1,318 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-15) — SENDbakēd · Multiple Shipments 2-Step Booking Flow — COMPLETE
+- ✅ **Migration `0051_send_product_types`** — new `send_product_types` catalogue table (code · name_fr · name_en · is_default · sort_order · active · timestamps) with a partial unique index enforcing at most one default row. Seeded with the 8 canonical rows from the redesign prompt (`general_product` (default) → Documents → Aliments → Électronique → Vêtements → Meubles → Produits frais → Autre).
+- ✅ **New endpoint `GET /api/express/product-types`** — returns active rows ordered by sort_order with FR + EN labels + `is_default`. Frontend hydrates the Multiple-Shipments product-type dropdown dynamically; no hard-coded list.
+- ✅ **`enrich_stops()` extended** — preserves per-leg optional metadata (`landmark`, `contact_name`, `contact_phone`, `product_type`) inside `stops[]`. `product_type` defaults to `general_product` (looked up from the catalogue at booking time so ops changes propagate without a redeploy). PIN scrubbing + strict ordering + all Phase-E behaviour unchanged.
+- ✅ **`ParcelBookingIn.receiver` now optional** — Multi-Shipments captures per-leg contacts on each drop; the top-level receiver falls back to the first drop's contact via a new `_receiver_field()` helper so SMS + driver snapshots keep receiving a valid name/phone.
+- ✅ **New dedicated wizard** `/app/frontend/src/pages/express/MultiShipmentsWizard.jsx`:
+  - **Route `/send/multi-shipments`** (Step 1) — shipment builder. Each shipment card renders a Pickup + a Drop AddressRow, each with a collapsible "Informations supplémentaires (optionnel)" panel exposing Landmark, Contact name/phone, and Product-type dropdown (defaults to General Product, options loaded from the catalogue). `+ Ajouter une expédition` up to 8. Persistent desktop map with the existing `WizardMap` (P1/D1 · P2/D2 ordered polyline). Compact map on mobile. `Continuer` CTA disabled until every shipment has both endpoints.
+  - **Route `/send/multi-shipments/vehicle`** (Step 2) — four fixed vehicle cards (Moto · Tricycle · Mini Camion · Camion), live multi_stop quote per vehicle, cheapest tagged "MEILLEUR PRIX", ⓘ icon opens the `PriceBreakdownModal` (base fare · distance · time · extra stops · service fee · insurance · taxes · promo). `Réserver maintenant` posts to `POST /api/express/bookings/parcel` with the enriched stops[] and a null top-level receiver.
+  - Renders `WizardProgress` "1 · Arrêts / 2 · Véhicule" — NO 4-step SEND progress bar.
+  - FR-first / EN-second via 45 new customer-namespace i18n keys.
+- ✅ **Tile routing** — `SendServiceTiles.handleClick("multi")` now navigates to `/send/multi-shipments` (skips the unified 4-step wizard for this service only; the other 5 services untouched).
+- ✅ **Tests** — `/app/backend/tests/test_send_multi_shipments_2step.py` (5/5 pass): catalogue endpoint returns 8 rows with `general_product` as unique default; per-leg optional metadata persisted verbatim; product_type defaults to `general_product` when omitted; receiver-optional fallback; explicit receiver wins over stop contact. **Full SEND regression: 53/53** (Multi-Shipments 5 + Driver Multi-Stop 14 + Phase B 5 + Phase C 8 + Phase D 2 + Phase E 7 + Phase F 12).
+- ✅ **Live smoke** — desktop (1920×900) + mobile (430×900) — Étape 1 sur 2 · Expéditions multiples · shipment card + optional panel + 8-option product-type dropdown · persistent map · Continuer button. Rendered cleanly on both viewports.
+
+
+
+## Latest (2026-02-15) — SENDbakēd · Customer Multi-Stop Tracking Column — COMPLETE
+- ✅ **New MultiStopProgress component** in `/app/frontend/src/pages/express/ExpressLiveTracking.jsx` — renders a live per-shipment column between the driver card and the route summary whenever `state.stops` is populated.
+  - Header + progress bar `{done} sur {total} points confirmés · N of M checkpoints`.
+  - One card per shipment with ✓ Terminé / ● En cours / ○ À venir dots on each pickup + drop leg.
+  - Badges: `EN COURS · In progress` on the active shipment, `PROCHAINE LIVRAISON · Out for delivery next` on the next pending shipment, `LIVRÉ · Delivered` on completed, `EN ATTENTE · Waiting` on later.
+  - Reads live from the same WebSocket snapshots the tracking screen already consumes — every driver `stop-advance` immediately updates the customer column with zero extra plumbing (broadcast covers it via `public_booking_fields`).
+- ✅ **Map markers extended** — `P1/D1 · P2/D2 · P3/D3 …` pin dots for every stop coord in `stops[]`, on top of the existing `A/B` primary anchors.
+- ✅ **i18n** — 8 new keys (`multi_stop_title`, `multi_stop_progress`, `shipment_label`, `shipment_next`, `shipment_active`, `shipment_done`, `shipment_upcoming`, `checkpoint_pickup`, `checkpoint_drop`) in FR + EN customer namespace.
+- ✅ **Live smoke** (430×900) — booked a real 2-shipment multi-stop trip end-to-end; tracking screen renders the panel with **Colis 1 · EN COURS** (active pickup 1) and **Colis 2 · PROCHAINE LIVRAISON** exactly as spec'd. Map shows P1/D1/P2/D2 pins.
+- ✅ **Tests** — new `TestCustomerTracking` class in `test_send_driver_multi_stop_ux.py` verifies `GET /bookings/{id}` returns `stops_progress={completed:0, total:4, current:{sequence:1, leg:"pickup"}}` and continues scrubbing per-drop PINs. Full driver-multi-stop suite: **14/14**; Phase E regression: **7/7**.
+
+
+
+
+## Latest (2026-02-15) — SENDbakēd · Driver Multi-Stop UX (mirrors customer stops[]) — COMPLETE
+- ✅ **New helper module** `/app/backend/modules/express/multi_stop.py` owns the entire multi-stop lifecycle:
+  - `enrich_stops()` — normalises the raw customer stops payload and adds `sequence`, per-leg `status`/`completed_at`, and a **4-digit `delivery_pin` per drop leg**.
+  - `advance_stop_leg()` — advances a single (pickup|drop) leg with strict ordering (cannot skip), PIN verification for drop legs, and cascades the overall booking status (`picked_up` on first pickup → `in_transit` between → `delivered` only after the final drop). Errors raised as `MultiStopError(code, message)`.
+  - `summarise_progress()` — returns `{total, completed, current:{sequence,leg}}` for the driver UI.
+  - `strip_pins()` — scrubs `drop.delivery_pin` from every customer-facing serializer response. PINs stay in the DB for validation; SMS is the sole channel that reaches the receiver.
+  - `dispatch_delivery_pins()` — best-effort per-drop SMS to each stop's `receiver_phone` (French-first / English-second) via the shared `core.providers.sms_provider.send_sms()`. Fire-and-forget: never fails the booking response.
+- ✅ **Booking creation** (`routes.create_parcel_booking`) now runs `enrich_stops()` on the raw wizard payload before persisting, and fires `dispatch_delivery_pins()` after commit. Existing single-stop bookings (`service_type ≠ multiple_shipments`) are untouched.
+- ✅ **New endpoint** `POST /api/express/bookings/{booking_id}/stop-advance` `{sequence, leg, delivery_pin?, lat?, lng?}` — driver-JWT-gated (reuses the shared `_authorise_driver_for_booking()` helper extracted from `/driver-status`). Validates ordering + PIN + assignment, persists the mutated JSONB with `flag_modified`, appends a `stop_{leg}_{sequence}_completed` timeline row, cascades the overall booking status via the existing `transition_status()` + WebSocket broadcast pipeline, and releases the driver on final delivery.
+- ✅ **Serializers** — `booking_to_dict` returns `stops` (PIN scrubbed) + `stops_progress`; `public_booking_fields` exposes both. Single-shipment bookings keep `stops=null, stops_progress=null`.
+- ✅ **Driver PWA** (`/app/frontend/src/apps/driver/DriverTripSheet.jsx`):
+  - New `MultiStopTripSheet` component renders the driver's ordered checkpoint list with ✓ Terminé / ● En cours / ○ À venir bullets, French-first labels, per-stop shipment header, and a progress bar (`N/M points confirmés`).
+  - Dynamic Slide-to-Confirm label per current leg: `Confirmer le ramassage N · Confirm Pickup N` / `Confirmer la livraison N · Confirm Delivery N`.
+  - `DeliveryPinModal` prompts the receiver's SMS PIN before every drop leg (French + English microcopy).
+  - Single-stop bookings continue rendering the legacy `SingleStopTripSheet` (backward-compatible split refactor keeps React hooks unconditional in both trees).
+- ✅ **Driver map** (`DriverApp.navJob`) auto-targets the current pickup/drop coords for multi-stop trips so `NAVIGATE` always points at the right anchor.
+- ✅ **Tests** — `/app/backend/tests/test_send_driver_multi_stop_ux.py` (13/13 pass): stops enrichment, PIN scrubbing, `stops_progress` shape, backward-compat null for single-stop, auth guards (401 anon + 401 customer JWT), plus unit coverage for strict ordering / wrong PIN / no leg replay / happy-path cascade to `delivered`. Full SEND regression: **47/47** (Phases B+C+D+E+F + new Driver Multi-Stop UX).
+
+
+## Latest (2026-03-11) — SENDbakēd Phase F · Driver Multi-Vehicle Signup UI — COMPLETE
+- ✅ **KYC vehicle step redesigned** (`/app/frontend/src/apps/driver/DriverApp.jsx` — `StepVehicle`). Two grouped sections — **Standard fleet** (bike · scooter · tricycle · mini truck · truck) and **Refrigerated fleet · cold chain** (refrigerated tricycle · utility · truck). Each row is a checkbox + a "Set primary" toggle; the currently selected primary shows a **PRIMARY** pill in SEND-orange.
+- ✅ **Dual-write on Continue**: the button calls `PUT /api/driver/me/capabilities` first (persists the tick set + primary, mirrors primary into `Driver.vehicle_type`, refreshes `ModuleDriver.is_refrigerated`), then the standard `PATCH /me/kyc` for the same step (plate + advance). Both writes agree on the primary code so downstream KYC review + dispatch stay consistent.
+- ✅ **KYC allow-list widened** (`core/models/driver.VEHICLE_TYPES`) to include the SEND codes (`three_wheeler`, `truck`, `ref_tricycle`, `ref_utility`, `ref_truck`) so a driver picking a refrigerated primary no longer 400s on the vehicle KYC step.
+- ✅ **Never-empty invariant**: unticking the current primary is silently no-op'd. Ticking "Set primary" on an unticked row also auto-ticks it. The set can never be empty, so dispatch always has at least one capability to match against.
+- ✅ **Test IDs** added on every checkbox (`kyc-cap-check-<code>`), primary button (`kyc-cap-primary-<code>`), and row wrapper (`kyc-cap-row-<code>`) so QA + E2E tests can drive any capability combination.
+- ✅ **Live smoke** (430×900): fresh driver → advance through personal/id/licence/selfie → land on `/driver/kyc/vehicle` with all 8 codes visible; tick bike + tricycle + ref_truck, promote ref_truck to primary, plate `CI 1234 ABC`, hit Continue → automatically advances to Bank step. `GET /me/capabilities` returns the 3 rows with `ref_truck` as `is_primary=true`; `GET /me` shows `vehicle_type=ref_truck` + `vehicle_plate=CI 1234 ABC`.
+- ✅ **Tests**: `tests/test_send_phase_f_driver_signup.py` — 6/6 green:
+  - `test_kyc_vehicle_accepts_send_primary_codes[three_wheeler|truck|ref_tricycle|ref_utility|ref_truck]` — each new SEND primary code passes the widened KYC allow-list.
+  - `test_capabilities_and_kyc_stay_consistent` — after the dual write, `Driver.vehicle_type` == primary + capability set stays intact + only one row has `is_primary=true`.
+  - **Full SEND phase suite (B + C + D + E + F): 34/34 pass.**
+
+## Latest (2026-03-11) — SENDbakēd Phase D · Between-Cities City-Only UX — COMPLETE
+- ✅ **Eligibility tightened**: `send_service_vehicles` for `between_cities` reduced to `mini_truck` (sort 1) + `truck` (sort 2). Seed now **reconciles** stale rows (drops `three_wheeler` automatically) so ops never need a manual DB fix when we tighten a service.
+- ✅ **CityAutocomplete component** (`/app/frontend/src/components/express/CityAutocomplete.jsx`) — inline city-only Google Places autocomplete restricted via `includedPrimaryTypes: ["locality", "administrative_area_level_3"]`. Emits the same address shape as the global selector so downstream (draft, booking POST, map) works unchanged. Shows an inline dropdown of city suggestions with a clear (×) affordance once one is chosen.
+- ✅ **Google Maps helper**: `fetchAutocompleteSuggestions()` gained a `types` parameter that maps to Places New `includedPrimaryTypes` — reusable if any other module needs a filtered search.
+- ✅ **ExpressStepLocation** now branches on `service_type === "between_cities"`:
+  - Renders the "Livraison inter-villes / toll-paid-at-booth" info card + the two `CityAutocomplete` inputs (VILLE DE DÉPART, VILLE DE DESTINATION).
+  - Once both cities are picked, a **BetweenCitiesRouteStrip** appears on Step 1 with the driving distance (km) and ETA (min) computed via `google.maps.importLibrary("routes") → DirectionsService`, with a haversine fallback if routes fail to load.
+- ✅ **importLibrary guard**: `DirectionsService` isn't always ready at first render (Places-New loader is async). The strip now `await`s `google.maps.importLibrary("routes")` before instantiating the service — fixes the `is not a constructor` crash seen on early mounts.
+- ✅ **i18n**: 8 new keys (`origin_city`, `destination_city`, `between_city_placeholder`, `trip_summary`, `searching`, plus reused `between_note_*`) — French primary + English secondary.
+- ✅ **Live smoke** (1440×900):
+  - Step 1 with pickup=Abidjan, drop=Yamoussoukro → strip renders "TRAJET · Abidjan → Yamoussoukro · 238 km · 182 min"; map draws the inter-city polyline with A/B markers.
+  - Step 4 → 4-step progress bar; header "Envoyer entre villes"; only **Mini camion (299 062 CFA · MEILLEUR)** and **Camion (563 504 CFA)** cards — no Tricycle.
+- ✅ **Tests**: `tests/test_send_phase_d_between_cities.py` — 2/2 green (catalogue is exactly `{mini_truck, truck}`; vehicle-filter endpoint returns them in the seeded order; explicit safety asserts `three_wheeler` and `bike` are absent). Combined Phase B/C/D/E: **28/28 pass**.
+
+## Latest (2026-03-11) — SENDbakēd Phase E · Multi-Stop Trip Builder — COMPLETE
+- ✅ **DB**: migration `0050_send_multi_stop` adds `express_bookings.stops JSONB` (nullable). Legacy single-shipment bookings keep the JSON payload NULL.
+- ✅ **Pricing**: new `pricing.quote_multi_stop()` sums haversine distance across every consecutive waypoint of the trip (pickup1 → drop1 → pickup2 → drop2 → …). Extra shipments beyond the first add a fixed surcharge (`500 XOF` / `200 LRD` per extra stop) exposed as a top-level `extra_stop_surcharge` line so nothing about pricing is hidden.
+- ✅ **API**:
+  - `POST /api/express/quote/multi_stop` — accepts `{country, vehicle_code, stops:[{pickup:{lat,lng}, drop:{lat,lng}}], promo_code?}`. Pydantic-enforced `1 ≤ stops ≤ 8`. Returns the full breakdown + `shipments`, `extra_stops`, `extra_stop_surcharge`.
+  - `POST /api/express/bookings/parcel` now accepts an optional `stops[]` payload. When `service_type == "multiple_shipments"` and stops are provided the endpoint prices via `quote_multi_stop`, persists the full stops payload on `express_bookings.stops`, and validates that the first stop matches the top-level `pickup`/`drop` pair (Step-1 seed) — mismatch → 400 `multi_stop_head_mismatch`.
+  - Booking serializer + `public_booking_fields()` surface `stops` + `service_type` end-to-end.
+- ✅ **Frontend**:
+  - `ExpressBookingContext` gains `draft.stops`. `resetDraft` clears it.
+  - New `MultiStopBuilder` component in `ExpressWizard.jsx`. Renders inside `ExpressStepDetails` when `service_type = multiple_shipments`.
+    - Shipment #1 is a live mirror of Step-1 pickup/drop (locked read-only, arrow + trash disabled, hint "Défini à l'étape 1").
+    - Shipments 2-N support inline pickup + drop editing via the global `openAddressSelector`, up/down reorder, and a trash remove button.
+    - `+ Ajouter une expédition` button opens the address selector twice (pickup then drop) and appends a new shipment; counter chip `n/8` visible; disabled at max.
+  - `WizardMap` gained `MultiStopPolyline` — a single `DirectionsService` call with N-1 waypoints so the polyline updates atomically as shipments are added/removed/reordered. Markers auto-labeled `1P/1D · 2P/2D · …`; `FitBounds` includes every waypoint.
+  - `ExpressStepBook.fetchQuotes` auto-switches to `/quote/multi_stop` when the draft holds a multi-shipment trip so every vehicle card reflects the full-trip price side-by-side.
+  - Breakdown Row now includes `extra_stop_surcharge` when > 0 with i18n label `"Arrêts supplémentaires (n)"` / `"Extra stops (n)"`.
+  - Booking POST auto-attaches `stops` (with `{lat, lng, formatted_address, line1}` per entry) when the service is multi-shipment.
+- ✅ **Live smoke**: 3-shipment CI trip renders 6 numbered markers (1P/1D · 2P/2D · 3P/3D) on the map, 17.9 km · 62 min chip auto-updates, Tricycle price surfaces at **11 909 CFA** (matches backend curl exactly: base 5 000 + distance 3 304 + time 1 800 + extra-stop surcharge 1 000 + service fee 555 + insurance 250 = 11 909 CFA).
+- ✅ **Tests**: `tests/test_send_phase_e_multi_stop.py` — 7/7 green (surcharge math, single-shipment no surcharge, empty/too-many-stops rejected, booking persistence, head-mismatch rejection, single-shipment leaves `stops` NULL). Combined Phase B/C/E suite: **26/26 pass**. Frontend E2E validated by the testing agent — no regressions.
+
+## Latest (2026-03-11) — SENDbakēd Phase D · 5-Step → 4-Step Wizard Consolidation — COMPLETE
+- ✅ **New booking journey** (matches user spec exactly):
+  1. **Étape 1 · Ramassage & livraison** — unchanged.
+  2. **Étape 2 · Destinataire (skippable)** — new `data-testid="exp-receiver-skip"` button next to Continue; footer replaced with a two-button layout, receiver fields no longer block progression.
+  3. **Étape 3 · Article / Service** — new `ExpressStepDetails` at `/send/book/details` (route `send/book/package` kept as a compat alias to the same component). Adaptive to `service_type`:
+      - Fresh Products → produce chips (Poisson · Viande · Légumes · Autre) + quantity input + kg/tonnes unit toggle.
+      - Between Cities → info card ("frais de péage éventuels payés directement par le client au poste de péage") + standard package chips.
+      - Multiple Shipments → info card ("adding several stops is coming soon") + standard package chips.
+      - Motorcycle / CARGO → existing 6 package types + weight tiers + optional dimensions + notes.
+  4. **Étape 4 · Véhicule & réservation** — new `ExpressStepBook` at `/send/book/vehicle` (route `/send/book/estimate` kept as compat alias). Renders all eligible vehicles from `GET /api/express/vehicles?service_type=…` with:
+      - Live per-vehicle price (`POST /express/quote/parcel` in parallel).
+      - Compact ⓘ info icon per card → opens an inline price breakdown (Prix de base · Distance · Durée · Surcharge · Frais de service · Assurance · Taxes · Promo · Total estimé). Breakdown is hidden by default.
+      - Promo code strip + Insurance included card. **No** duplicated payment page, **no** separate estimation step.
+      - CTA: `Réserver · <price>` for signed-in customers, `Se connecter pour réserver` otherwise.
+- ✅ **Motorcycle cross-sell exception** honoured — `send_service_vehicles` seed for `moto` now includes `bike + three_wheeler + mini_truck + truck`. `ExpressStepBook` renders `bike` under the **RECOMMANDÉ POUR VOTRE ENVOI** heading and the 3 CARGO alternatives under **AUTRES OPTIONS DE VÉHICULE**. No other service exhibits this cross-sell.
+- ✅ **`useSteps` refactored** to 4 codes (`location · receiver · details · book`) — the progress bar auto-updates across the whole wizard. `ExpressHeader` default `totalSteps` bumped from 5 → 4 so every screen reads *"Étape n sur 4"*.
+- ✅ **Back-compat exports**: `ExpressStepPackage = ExpressStepDetails`, `ExpressStepEstimate = ExpressStepVehicle = ExpressStepBook` — the CustomerApp still imports the old names, and lingering deep-links (`/send/book/package`, `/send/book/estimate`) render the new steps instead of 404-ing.
+- ✅ **Fresh Products payload** compresses produce type + quantity + unit into `[FRESH] fish · 2 kg` prefix of `package_notes` on the booking POST, so nothing about the backend contract changes and the driver/admin still see the payload.
+- ✅ **Existing wizard chrome preserved**: same header, same map/split layout, same `ExpressWizardShell`, same footer CTA component, same booking POST + tracking flow.
+- ✅ **Regression**: `test_send_phase_b_capabilities.py` + `test_send_phase_c_service_types.py` — **19/19 green** (Phase C `moto` eligibility expected-set updated to `{bike, three_wheeler, mini_truck, truck}` to match the new cross-sell).
+- ✅ **Live smoke**: mobile (390×844) CARGO + desktop (1440×900) Moto — Recommandé + Autres options rendered with live prices, `2 132 CFA / 6 632 CFA / 15 629 CFA / 32 042 CFA`, breakdown expands correctly on ⓘ tap.
+
+## Latest (2026-03-11) — SENDbakēd Phase C · Service-Type Routing (No Duplicate Picker) — COMPLETE
+- ✅ **Core UX principle honoured** (per user directive 2026-03-11): SEND service tiles are now **service-type selectors, not additional booking steps**. Every tile funnels the customer straight into the existing wizard (`/send/book/location`) — no separate `/send/cargo`, `/send/fresh`, `/send/between-cities`, `/send/multi-stop` pages. The old placeholder file has been deleted.
+- ✅ **Migration `0049_send_service_types`** adds:
+  - `express_bookings.service_type` (nullable, CHECK-constrained to 5 values) + composite index `(service_type, status)`.
+  - New `send_service_vehicles` config table (composite PK `service_type, vehicle_code` + `active` + `sort_order`) — single source of truth for which vehicles qualify for which SEND service. Editable by ops row-level; future Super Admin UI-ready.
+- ✅ **Seed** (`modules/express/seed.py`) populates the eligibility catalogue:
+  - `moto` → `bike`
+  - `cargo` → `three_wheeler`, `mini_truck`, `truck`
+  - `fresh_products` → `ref_tricycle`, `ref_utility`, `ref_truck` (refrigerated-only; also enforced by the Phase B dispatch guarantee).
+  - `between_cities` → `three_wheeler`, `mini_truck`, `truck`
+  - `multiple_shipments` → `bike`, `three_wheeler`, `mini_truck`, `truck`
+- ✅ **Backend API**:
+  - `GET /api/express/vehicles?service_type=<s>` — filters via the config table + honours per-service sort order. Empty result set returns `[]` (not an error). Unknown types → 400 with the allow-list echoed back.
+  - `GET /api/express/services` — full catalogue endpoint the frontend uses when it needs the map without a customer flow.
+  - `POST /api/express/bookings/parcel` accepts `service_type` and validates it against `send_service_vehicles` before persisting — a compromised client cannot submit `service_type=fresh_products` + `vehicle_code=bike` (rejected with `vehicle_not_eligible` + `eligible_vehicle_codes`).
+  - Booking rows now persist `service_type` so every downstream flow (analytics, admin, dispatch replay) can filter/segment by SEND service without joining new tables.
+- ✅ **Frontend**:
+  - `ExpressBookingContext.draft` gained `service_type`. `resetDraft` clears it.
+  - `SendServiceTiles.handleClick` sets `service_type` on the draft and always navigates to `/send/book/location` (Movers keeps its own wizard). No client-side eligibility logic.
+  - `ExpressStepVehicle` refetches `/express/vehicles?service_type=<from-draft>` and shows a **service-context header** ("SERVICE · Envoyer par CARGO / Envoyer des produits frais / …") — the customer sees the current service without an extra screen. Uses `name_fr` when locale is French. Auto-clears `vehicle_code` when the customer switches services.
+  - The booking POST payload includes `service_type` end-to-end.
+  - `expressAssets.js`: new `VEHICLE_IMAGES` map + shared `/public/send-tiles/vehicles/{tricycle|mini_truck|truck}.png` renders (user-supplied SEND-branded artwork). `vehicleImage(code)` falls back to the truck silhouette for unknown variants.
+- ✅ **Live smoke test**: CARGO tile → wizard → vehicle step shows **Tricycle · Mini camion · Camion** with the service-context header; Fresh Products tile → **Tricycle frigorifique · Utilitaire frigorifique · Camion frigorifique**. Existing wizard chrome (steps · map · footer) unchanged.
+- ✅ **Tests**: `tests/test_send_phase_c_service_types.py` — 11/11 green covering the services endpoint, the vehicle filter for every service_type, allow-list on invalid `service_type`, and booking-endpoint enforcement of the service→vehicle mapping. Combined Phase B + C suite: **19/19 pass**.
+
+## Latest (2026-03-11) — SENDbakēd Phase B · Central Vehicle Catalogue + Driver Capabilities — COMPLETE
+- ✅ **Migration `0048_send_vehicle_capabilities`** adds:
+  - `express_vehicles.name_fr` (nullable) — French display name per vehicle.
+  - `express_vehicles.is_refrigerated` (default `false`) — cold-chain marker.
+  - `module_drivers.is_refrigerated` (default `false`) + composite index `ix_module_drivers_refrigerated` — enables an index-only dispatch filter without a JOIN into capabilities.
+  - New `driver_vehicle_capabilities` table — composite PK `(driver_id, vehicle_code)` + `is_primary` + `created_at` + `ix_dvc_vehicle_code`. FK `driver_id → drivers(id) ON DELETE CASCADE`. `vehicle_code` is intentionally a plain string (country-agnostic).
+- ✅ **Models updated** (`core/models/express.py` + `core/models/driver.py` + `core/models/__init__.py`):
+  - `ExpressVehicle` gains `name_fr` + `is_refrigerated`.
+  - `ModuleDriver` gains `is_refrigerated`.
+  - New `DriverVehicleCapability` many-to-many model exported from `core.models`.
+- ✅ **Seed** (`modules/express/seed.py`) now emits **8 SEND vehicles per country** (up from 5), including the 3 refrigerated fleet members with idiomatic French labels:
+  - `bike` · Moto · non-fridge
+  - `scooter` · Scooter · non-fridge
+  - `three_wheeler` · Tricycle · non-fridge
+  - `mini_truck` · Mini camion · non-fridge
+  - `truck` · Camion · non-fridge
+  - `ref_tricycle` · **Tricycle frigorifique** · fridge · base CI 8 000 XOF / LR 2 500 LRD
+  - `ref_utility` · **Utilitaire frigorifique** · fridge · base CI 18 000 XOF / LR 6 000 LRD
+  - `ref_truck` · **Camion frigorifique** · fridge · base CI 32 000 XOF / LR 11 000 LRD
+  - `ExpressPricingRule` rows auto-created for the 3 new codes with cold-chain-adjusted `per_km`/`per_min` values.
+- ✅ **Dispatch guarantee** (`modules/express/dispatch.py`):
+  - New `REFRIGERATED_CODES = {ref_tricycle, ref_utility, ref_truck}`.
+  - `FALLBACK_CHAIN` extended with 3 strict refrigerated chains — a `ref_tricycle` job may only walk down to `ref_utility` or `ref_truck`, **never** to plain `truck`.
+  - `find_nearest_driver()` adds a `ModuleDriver.is_refrigerated == True` filter whenever the requested code is in `REFRIGERATED_CODES` — Fresh-Products bookings CANNOT be offered to a non-cold-chain driver.
+- ✅ **Driver capability endpoints** (in `modules/driver/routes.py`):
+  - `GET  /api/driver/me/capabilities` → `{ allowed:[…8 codes…], capabilities:[{vehicle_code, is_primary}] }`.
+  - `PUT  /api/driver/me/capabilities` → replaces the driver's capability set; validates against `SEND_CAPABILITY_CODES`, promotes the requested primary (auto-adds it to `codes` if missing), mirrors the primary into `Driver.vehicle_type`, and refreshes the linked `ModuleDriver.is_refrigerated` so an already-online driver becomes eligible for cold-chain bookings on the next dispatch tick — zero downtime.
+  - Unknown codes → 400 with the allow-list echoed back for the client.
+- ✅ **Bridge helper `sync_capabilities()`** in `modules/driver/dispatch_bridge.py` — idempotent replace-set semantics; `get_or_create_module_driver()` now derives `vehicle_type` + `is_refrigerated` from the capability rows, falling back to the legacy `Driver.vehicle_type` field when a driver hasn't opted in yet.
+- ✅ **Tests**: `tests/test_send_phase_b_capabilities.py` — 8/8 green covering the 8-vehicle catalogue, French labels, empty→populated capability flow, primary auto-add, idempotent replace, unknown-code rejection, `Driver.vehicle_type` mirror, and 401 auth guards.
+
+## Latest (2026-03-11) — SENDbakēd Phase A · 6-Tile Service Home — COMPLETE
+- ✅ **Six-service SEND home shipped**. `SendServiceTiles.jsx` (new, `/app/frontend/src/components/express/SendServiceTiles.jsx`) renders a responsive 3×2 grid (`grid-cols-2` mobile / `sm:grid-cols-2 lg:grid-cols-3` desktop) with French-first + English-second labels and the user-supplied hero images:
+  1. Envoyer par moto / Send by Motorcycle → `/send/book/location` (existing bike wizard, pre-selects `vehicle_code="bike"`).
+  2. Envoyer par CARGO / Send by CARGO → `/send/cargo` (Phase C placeholder — reuses `SendComingSoon`).
+  3. Envoyer des produits frais / Send Fresh Products → `/send/fresh` (Phase C placeholder).
+  4. Envoyer entre villes / Send Between Cities → `/send/between-cities` (Phase D placeholder).
+  5. Déménagement & Transport / Packers & Movers → `/send/movers` (existing MoversLanding).
+  6. Expéditions multiples / Multiple Shipments → `/send/multi-stop` (Phase E placeholder).
+- ✅ **Assets**: `Bike_baked.png` (existing) reused for Motorcycle. 5 new hero renders stored at `/app/frontend/public/send-tiles/*.png` (send_by_cargo · fresh_products · between_cities · packers_movers · multiple_shipments). Central catalogue in `SEND_TILE_ASSETS` (`/app/frontend/src/lib/expressAssets.js`).
+- ✅ **ExpressHome rewired** (mobile + desktop). Removed the "Send Now" vehicle carousel, the Parcel + Home Shifting cards, and the "Explore All Services" strip + `BOOK NOW` CTA from both layouts. Kept the header, map hero, pickup+add-stop bar, trust banner. Desktop 45/55 split preserved.
+- ✅ **Coming-soon shell**: `SendComingSoon.jsx` (new, `/app/frontend/src/pages/express/`). Renders the hero image + FR/EN title + description + friendly "Bientôt disponible / Coming soon" callout. Exports `SendCargoPlaceholder`, `SendFreshPlaceholder`, `SendBetweenPlaceholder`, `SendMultiStopPlaceholder`. Every element `data-testid`'d for future QA.
+- ✅ **Routes registered** in both `DesktopCustomerShell` and `MobileCustomerShell` (`/app/frontend/src/apps/customer/CustomerApp.jsx`) — `/send/cargo`, `/send/fresh`, `/send/between-cities`, `/send/multi-stop`.
+- ✅ **i18n**: 24 new keys under `customer.send.tile.*` + `send.services_heading` + `send.services_sub` + `send.coming_soon_title` + `send.coming_soon_sub` + `send.back_to_send` (both `fr/customer.json` and `en/customer.json`).
+- ✅ **Phase D change (per user directive 2026-03-11)**: **Toll backend is DROPPED**. Between-Cities pricing will NOT compute or store tolls. Customers pay toll booths directly out-of-pocket. Roadmap items `send_toll_locations`, `send_toll_vehicle_pricing`, `send_toll_overrides` are removed from the plan.
+- ✅ **Live smoke test** at 1440×900 desktop, 390×844 mobile, and `/send/cargo` placeholder — all 6 tiles render with the correct hero image and full French title (line-clamped to 2 lines to prevent truncation). Map + address selector + module tabs untouched.
+
+## Previous (2026-03-10) — Global Inter Typography Migration — COMPLETE
+- ✅ **Previous font**: Poppins (imported in `src/index.css` line 1, applied via `body {}` + `.baked-logo-text`). Partner-landing/hub CSS shipped their own Inter fallback stacks (three sources of truth).
+- ✅ **Single source of truth**: `src/index.css` now exposes `--font-family-sans: "Inter", "SF Pro Display", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;` on `:root`. `html`, `body`, form controls and `.baked-logo-text` all use `var(--font-family-sans)`.
+- ✅ **Google font**: `@import` in `index.css` now loads Inter weights 400/500/600/700/800 with `display=swap` (was Poppins 300/400/500/600/700/800). One controlled load; no duplicates.
+- ✅ **Tailwind theme**: `tailwind.config.js` extends `fontFamily.sans` and `fontFamily.inter` to `[var(--font-family-sans)]` so every `font-sans` utility inherits the platform font.
+- ✅ **Form controls**: added a global `input, textarea, select, button, optgroup, option { font-family: inherit; }` rule so typed text also renders in Inter across every browser (browsers otherwise fall back to system UI fonts).
+- ✅ **Legacy declarations removed**:
+  - `partner-landing.css` `font-family: "Inter", -apple-system, ...` → `font-family: var(--font-family-sans);`
+  - `partner-hub.css` same
+  - `SendTrackApp.jsx`, `DriverApp.jsx` (3 inline `fontFamily: "Inter, system-ui, ..."`) → `fontFamily: "var(--font-family-sans)"`
+- ✅ **Email templates**: prepended `'Inter'` (with Arial fallback for email clients that block web fonts) in `core/emails.py`, `shared/purchase_orders/notifications.py`, `mart_partner/notifications.py`, `mart_partner/routes.py`, `driver/routes.py`. Generated-code and temp-password rows keep their intentional `ui-monospace` stack.
+- ✅ **Visual QA** (computed `font-family` on rendered elements): `/` (customer home) → Inter · `/shop` → Inter · `/driver` → Inter · `/admin/login` → Inter. 0 Poppins leaks detected across a 200-element sample.
+- ✅ **Branding preserved**: MART green, SHOP amber/gold, AUTO red, IMMO purple, SEND yellow all intact — the migration touched typography tokens only, never colour or module accent variables.
+
+## Previous (2026-03-10) — SHOP Admin Approval Bilingual View — COMPLETE
+- ✅ **Admin API** (`GET /api/admin/modules/shop/product-requests` + `.../product-requests/{id}`) now returns `title_fr` + `description_fr` on every row via the updated `_admin_product_dict`.
+- ✅ **Admin list** (`AdminShopProductApprovals.jsx`) shows the FR title first when present, with a compact `EN · …` sub-line so admins can spot copy mismatches at a glance. Products missing a French title get a red `FR MISSING` badge next to the product id.
+- ✅ **Approval drawer** exposes side-by-side `TITRE · FR` / `TITLE · EN` and `DESCRIPTION · FR` / `DESCRIPTION · EN` panels + a top-of-drawer warning "⚠ French title missing — customer will see the English fallback" when `title_fr` is empty. Every panel has a `data-testid` for QA.
+- ✅ Live verified with two forced pending products — one bilingual (Premium Accessoires de mode femme / Premium Women's Fashion Accessories) rendered both panels; the other (Everyday Women's Streetwear with FR nulled) rendered the red MISSING badge in the list.
+
+## Previous (2026-03-10) — SHOP Product Bilingual Columns — COMPLETE
+- ✅ **Schema migration `0047_shop_bilingual_product`**: added `title_fr` and `description_fr` columns on `shop_products` (both nullable — English stays canonical, French is an optional per-SKU override).
+- ✅ **Backend contract** now round-trips both fields through: seller-portal create (`POST /api/shop/portal/products`), seller-portal patch (`PATCH …`), seller-portal get, storefront PDP (`GET /api/shop/products/{id}`), storefront list (`GET /api/shop/products`), cart hydrate (`GET /api/shop/cart/me`).
+- ✅ **Seller portal UI** (`PortalShop.jsx`) exposes side-by-side "Title (English)" + "Titre (Français)" and "Description (English)" + "Description (Français)" fields; left-hand product list shows the French title if present with an "FR + EN" badge.
+- ✅ **Storefront rendering** — new `pickProductTitle(product, lang)` / `pickProductDescription(product, lang)` helpers used in ProductCard, PDP heading, PDP image alt, PDP description block, and cart-line label. French is preferred when `i18n.language === "fr"`, falls back to English when the French value is empty.
+- ✅ **Demo seed** now writes both `title` (English) and `title_fr` (French) for every demo product (362 rows across CI + IN reseeded).
+- ✅ Live verified: `/shop/c/mode-femme` FR → "Premium Accessoires de mode femme" · "Weekender Chaussettes & Collants femme"; EN toggle → "Premium Women's Fashion Accessories" · "Weekender Women's Socks & Tights". No cross-language leaks.
+
+## Previous (2026-03-10) — SHOPbakēd Full French Localisation — COMPLETE
+
+**Root cause**: SHOP frontend components (`ShopHome.jsx`, `ShopCategory.jsx`, `ShopCategoriesIndex.jsx`, `ShopProduct.jsx`, `ShopCheckout.jsx`, `AddressPill.jsx`, `ShopbakedApp.jsx`) had never called `useTranslation` — they rendered raw English strings AND read CMS content (`section.title`, `config.slides[].headline`, etc.) directly from an English-only database seed. Product demo seed and MartAttribute names were also English-only.
+
+**Fixes applied**:
+1. **CMS content** — SHOP homepage seed (`modules/shop/homepage_seed.py`) rewritten so every user-visible string in hero slides, right-column promos, USP tiles, category grid, product carousel, promotional banner, and brand carousel carries a `_fr` sibling (`title_fr`, `subtitle_fr`, `headline_fr`, `description_fr`, `cta_label_fr`, `eyebrow_fr`, `heading_fr`, `label_fr`, `badge_fr`, `secondary_cta_label_fr`) — 40+ new bilingual fields. Existing English keys are preserved so admin/API contracts stay unchanged. Existing English-only rows deleted & re-seeded for both CI and IN.
+2. **Frontend picker** — new `apps/shopbaked/lib/i18nCms.js` exposes `pickBilingual(obj, key, lang)` and `pickCatalogueName(row, lang)`. Every SHOP component now reads through the picker.
+3. **All SHOP pages localised** — `ShopHome.jsx` (hero, USP, category grid, product carousel, promo banner, banner trio, brand carousel, CTA strip, ProductCard) + `ShopCategoriesIndex.jsx` + `ShopCategory.jsx` (search placeholder, subcategory rail, filter drawer, empty state, fresh-drops strip) + `ShopProduct.jsx` (back link, stock/condition/SKU/description labels, attribute picker names, colour swatch labels, CTA states) + `ShopCheckout.jsx` (address form, payment methods, order summary, order confirmation + PIN card) + `AddressPill.jsx` (header pill "CHOOSE DELIVERY / Set address").
+4. **Product titles** — `demo_products_seed.py` `_title_for` now emits French labels ("Signature / Essentiel / Weekend / Premium") for CI and picks `sub.name_fr` first; description function returns French copy. Old English demo rows deleted & re-seeded (181 CI + 181 IN products, 362 variants each).
+5. **Attribute schema** — colour codes (`black`, `silver`, `oak`, `space-grey`) and attribute names (`Size`, `Colour`, `Storage`, `Condition`) now translated on the frontend via `customer:shop.colour_label.*` and `customer:shop.attr_name.*` keys, so no schema migration was required.
+6. **Language switcher** — `ShopbakedApp` now reads/writes to the global `i18n` instance so switching FR ↔ EN in the header propagates to every SHOP page immediately.
+
+**Coverage**:
+- SHOP home: **~50 hardcoded strings + ~40 CMS English fields → 0** English leaks in FR mode.
+- SHOP categories index: fully localised (headline + sub-count + empty state).
+- SHOP category detail: fully localised (search, filters, empty, fresh-drops strip, all attributes).
+- SHOP PDP: fully localised (stock, condition, SKU labels, colour swatches, CTA states, description).
+- SHOP checkout + order confirmation: fully localised (address form, payment methods, summary, PIN card).
+
+**Live verified** (screenshots captured):
+- `/shop` FR default → "Mode, tech & maison — chez des vendeurs BAKĒD vérifiés / Parcourir les catégories / Nouveautés / Vendeurs vérifiés / Livraison le jour même / Acheter par catégorie / Voir tout / sous-catégories".
+- `/shop/categories` FR → "Toutes les catégories / Mode, électronique et lifestyle — expédiés par des vendeurs BAKĒD vérifiés".
+- `/shop/c/mode-femme` FR → French product titles "Premium Accessoires de mode femme / Weekend Chaussettes & Collants femme / Signature Ensembles & Combinaisons femme" + attribute "Taille S · noir · +1 options".
+- `/shop/p/shpprd_demo_accessoires-mode-femme` FR → "Retour au marketplace / COULEUR (noir · ivory) / TAILLE / Choisir les options / EN STOCK / État: neuf / Survolez pour zoomer".
+- EN toggle instantly restores English on all pages.
+
+## Previous (2026-03-09) — Order Tracking i18n — COMPLETE
+- ✅ **18 strings localised** across `MobileOrderTracking.jsx` (11), `ExpressLiveTracking.jsx` (7) and `components/mobile/OrderTimeline.jsx` (stage code → localised label). Every hero, ETA line, stepper label, timeline label, driver card and CTA now switches FR↔EN.
+- ✅ **~60 new keys** under `customer:orders.tracking.*` (MART live-tracking) and `customer:orders.live.*` (SEND WebSocket tracking) with `{{n}}` / `{{count}}` / `{{number}}` interpolation.
+- ✅ `OrderTimeline` component now reads the timeline `code` (from the backend payload) and maps to `orders.tracking.timeline_*` keys — the backend keeps sending stable English codes; the frontend picks the locale-correct label so no backend change was required.
+- ✅ Global coverage: **159 → 141 hardcoded strings (−11%)**. Cumulative Phase C onwards: **445 → 141 = −68%**.
+- ✅ Live proof: `/send/booking/xxx/track` renders "Chargement du suivi en direct…" (FR) and swaps to "Loading live tracking…" on the EN toggle.
+
+## Previous (2026-03-09) — SEND Wizard i18n — COMPLETE
+- ✅ **~150 strings localised** across `ExpressWizard.jsx` (parcel booking funnel — 5 steps + booking confirmation), `MoversWizard.jsx` (movers booking funnel — 6 steps + landing) and shared `ExpressLayout.jsx` (header "Step X of Y" + footer "Continue" + Back aria-label). Zero remaining hardcoded English in the SEND funnel.
+- ✅ **~160 new keys** under `customer:send.wizard.*` covering both wizards' every step, header, footer, confirmation, toasts, and empty states with `{{count}}` / `{{km}}` / `{{price}}` / `{{ref}}` interpolation.
+- ✅ Date labels in `TimeSlotStep` now use `i18n.language`-aware `toLocaleDateString` (fr-FR vs en-US).
+- ✅ Global coverage: **290 → 159 hardcoded strings (−45%)**. Cumulative Phase C onwards: **445 → 159 = −64%**.
+- ✅ Live proof: `/send/movers` renders "DÉMÉNAGEURS PROFESSIONNELS / Type de déménagement", `/send/book/location` renders "Étape 1 sur 5 / Lieu de ramassage / Continuer"; EN toggle flips everything to "Step 1 of 5 / Pick-up & Drop Location / Continue".
+
+## Previous (2026-03-08) — Account Screens i18n — COMPLETE
+- ✅ **84 strings localised** across MobileWallet, MobileSettings, MobileHelpSupport, MobileRefer, MobileRewards, MobileActivities. **146 new i18n keys** under 6 new namespaces (`wallet_extra`, `settings`, `help`, `refer`, `rewards_page`, `activities`).
+- ✅ **Bonus**: `DesktopProfileShell` guest state + sidebar nav + Log-out button now localised through `t()` and `useLocalePath()`.
+- ✅ Global coverage: **374 → 290 hardcoded strings (−22%)**. Cumulative Phase C onwards: **445 → 290 = −35%**.
+- ✅ Live proof: `/portefeuille` guest view fully French — zero English leaks.
+
+
+## Previous (2026-03-08) — Checkout String i18n — COMPLETE
+- ✅ **72 launch-blocker strings localised** across the 4 checkout files (MobileCheckout, MobileAddresses, AddressSelector, MobileOrderDelivered). Every string a customer sees at the money moment now switches FR↔EN.
+- ✅ **95 new i18n keys** added to `customer.json` (checkout, address, address_selector, orders namespaces) with `{{param}}` interpolation and pluralised counts.
+- ✅ Global coverage: **445 → 374 hardcoded strings (−16%)**. Remaining top offenders are all in the SENDbakēd wizard funnel (English-branded module, deferred).
+- ✅ Live smoke-tested: FR homepage, `/paiement`, `/compte/adresses` all render 100% French, zero English leaks.
+
+## Previous (2026-03-08) — Launch route audit + i18n coverage sweep — COMPLETE
+- ✅ **Legal routes added**: `/confidentialite` ⇄ `/privacy`, `/conditions` ⇄ `/terms`. Registered in both `DesktopCustomerShell` + `MobileCustomerShell`. Footer legal links now emit locale-aware paths via `useLocalePath()`. `LocaleRouteSync` verified rewriting URL bar on FR/EN toggle.
+- ✅ **Coverage sweep** (`/app/scripts/i18n_coverage_sweep.py`) — full report saved to `/app/memory/I18N_COVERAGE_REPORT.md`:
+  - 58 customer-facing JSX files scanned
+  - **14 (24%)** wire `useTranslation()`; **128 live `t()` call sites**
+  - **445 hardcoded English strings** across 43 files
+  - Top hotspot: `SEND` module (ExpressWizard 62 + MoversWizard 49 + ExpressHome 19 = 130 strings, ~30% — English brand, deferred)
+  - **Launch-blocker residuals** (checkout journey): `MobileAddresses` (23) + `AddressSelector` (22) + `MobileCheckout` (13) + `MobileOrderDelivered` (14) = **87 strings across 4 files**
+- ✅ **Launch route matrix**: 22/22 customer storefront routes French-first + English-aliased. `/send/*` and `/shop/*` kept as English brand paths per user's Workstream 2 rename.
+
+## Previous (2026-03-08) — Phase C+ · URL Auto-Sync — COMPLETE
+- ✅ `i18n/LocaleRouteSync.jsx` — mounted inside both customer shells; watches `location.pathname` + `i18n.language`, reverse-matches against `ROUTE_MAP` (both static aliases and `:param` patterns via `matchPath`), and rewrites the URL bar with `navigate(newPath, { replace: true })`. Zero-DOM observer.
+- ✅ **Live proof**: Toggling FR/EN on `/produits`, `/panier`, `/paiement`, `/commandes` etc. swaps the URL bar to `/products`, `/cart`, `/checkout`, `/orders` on the fly. Query strings + hash preserved. Unknown routes (`/admin`, `/shop`) untouched. 7/7 browser scenarios pass.
+
+## Previous (2026-03-08) — Phase C · French Route Renaming — COMPLETE
+- ✅ **Route map** (`i18n/routes.js`) — `ROUTE_MAP` + `useLocalePath()` hook: 18 route keys with FR/EN paths + param interpolation. `resolvePath()` exposed for tests / non-hook code.
+- ✅ **Customer app** now registers both FR and EN paths for every localised route in `apps/customer/CustomerApp.jsx` (Desktop + Mobile shells). `/produits`, `/panier`, `/paiement`, `/commandes`, `/portefeuille`, `/compte(/adresses|/parametres|/aide|/activites|/recompenses|/parrainage)` all resolve alongside their English aliases so external bookmarks keep working.
+- ✅ **Internal navigation** migrated to `useLocalePath()` across TopNav, MobileBottomNav, MobileShell (path detection now recognises both prefixes), MobileHome, MobileCart, MobileCheckout, MobileProductDetail, HomePage, CartPage, CheckoutPage, ProductDetailPage, ProductCard, ConfigHomepage (hero CTA + banner links + CTA-strip — with CMS→locale normaliser that preserves query strings).
+- ✅ **Live proof**: with `localStorage.baked_language='fr'`, hero primary CTA → `/produits`, banner row hrefs → `/produits?category=…`, cta-strip → `/produits`. Toggle EN → same links become `/products?…`.
+- ✅ **Testing agent** report: `test_reports/iteration_83.json`, ~92% pass. Only bug found (ConfigHomepage hero CTA using hardcoded fallback) fixed with `cmsToLocale()`.
+
+## Previous (2026-03-08) — Phase D · Backend Error i18n Sweep — COMPLETE
+- ✅ **ASGI language middleware** in `server.py` stashes `resolve_lang(request)` into a request-scoped ContextVar (`core.i18n._current_lang`). Endpoints call `t(key, current_lang())` with **zero signature churn**.
+- ✅ **~140 `raise HTTPException` sites localised** across 11 files: `modules/mart/orders.py`, `modules/mart/routes.py`, `modules/express/routes.py`, `modules/driver/routes.py`, `modules/shop/{routes,storefront_routes,portal_routes}.py`, `shared/auth/routes.py`, `shared/customer/routes.py`, `shared/addresses/routes.py`, `shared/suppliers/portal_routes.py`.
+- ✅ **`i18n/locales/{fr,en}/errors.json`** extended with 100+ keys (grouped `generic/auth/supplier/order/customer/driver/shop/upload`), all with `{param}` interpolation.
+- ✅ **Tests**: `test_i18n_errors_e2e.py` (11/11) + `test_i18n_backend.py` (15/15) — **26/26 green**. Covers header precedence, structured `{code, message}` translation, ContextVar isolation across sequential requests.
+- ✅ **Live proof**: `curl GET /api/mart/products/xx  X-BAKED-Language: fr` → `"Produit introuvable."`, `en` → `"Product not found."`
+- 🔜 **Deferred (P2)**: `shared/admin/*`, `modules/mart_partner/*`, `shared/purchase_orders/*` admin surfaces (French-only for launch team).
+
+## Latest (2026-03-05 evening) — Workstream 3 Phase A · i18n Foundation
+- ✅ **react-i18next** installed (v17) + `i18next-browser-languagedetector`. Central init at `/app/frontend/src/i18n/index.js` with 5 namespaces (common/customer/admin/seller/driver) × 2 locales (fr/en). FallbackLng=`fr`. Detector order drops `navigator` → **French-first for every fresh visitor** regardless of browser locale.
+- ✅ **`LanguageSwitcher.jsx`** shared component with `compact`/`menu`/`inline` variants. Wired across all 6 shells (desktop TopNav popover kept, mobile drawer footer replaced, MobileSettings row kept, Admin sidebar footer new, Seller portal sidebar footer new, Driver Profile page new). Public seller `/apply` also has one so applicants can toggle before login.
+- ✅ **`CartPage`** pilot fully i18n'd. FR default → "Votre panier est vide" / "Découvrir les produits". Live toggle re-renders without page reload. Deep-link `?lang=en|fr` overrides.
+- ✅ **`AppProvider.setLanguage`** synchronises with `i18n.changeLanguage` in one effect so `useTranslation` hooks flip in the same tick as context state.
+- ⏳ **Phase B → I in `/app/memory/I18N_PLAN.md`**: extend to product/checkout/orders/wallet/profile/admin/seller-portal/driver, backend errors + email templates, DB bilingual product columns, admin i18n editor deferred to backlog.
+- **Test coverage**: iteration_81 confirms Phase A works end-to-end; workstreams 1/2/4 unchanged.
+
+## Latest (2026-03-05) — Workstreams 1 + 2 + 4 (SHOP QA · SEND rename · India parity) — COMPLETE
+- ✅ **WS 1** — `/shop/categories` margin fix; ProductCarouselSection filters by configured category slug; SHOP supplier apps tagged `module=SHOP` and now surface in Admin Submitted tab (`POST /apply/start` accepts optional `module`, auto-appends `SHOP` to reused drafts).
+- ✅ **WS 2** — `/express/*` → `/send/*` for every customer-facing route with soft `/express/*` redirects. Backend API prefix `/api/express/*` and DB `module=express` untouched. Nav, module tabs, mobile shell, `modules.js`, ConfigHomepage all point to `/send`.
+- ✅ **WS 4** — India (`IN`) parity: 19 SHOP categories + 181 SHOP products (₹ INR) + 100+ MART products (₹ INR) seeded. Homepage sections seeded for IN with India-specific hero copy. `ShopHome / Categories / Category` now read `useApp().country?.code`.
+- **Test coverage**: iteration_80 — 4/4 backend + 4/4 frontend passing.
+
 ## Original Problem Statement
 Multi-business digital commerce ecosystem for Africa (launch: Côte d'Ivoire) with 6 business apps — MART, FOOD, SHOP, EXPRESS, AUTO, IMMO — plus Super Admin, AI Command Center, Shared Wallet, Shared Auth, Shared Notifications, Shared Analytics. Configuration-Driven Modular Monolith. Original request specified NestJS + Postgres + Prisma + Redis + RabbitMQ + Next.js — after discussion the user chose to proceed on Emergent's supported stack (React + FastAPI + MongoDB) with the same architecture pattern replicated faithfully.
 

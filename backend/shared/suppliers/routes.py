@@ -27,12 +27,15 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
+from core.providers import object_storage
+from core.utils.rate_limit import check_rate_limit
+from core.utils.signed_url import sign_url, verify_signature
 from core.models import (
     AdminUser, MartCategory, OtpChallenge,
     Supplier, SupplierApplication, SupplierBankInfo,
@@ -44,6 +47,7 @@ from core.models import (
 )
 from core.providers.otp_provider import generate_code, get_otp_provider
 from core.security import create_access_token, hash_password, verify_password
+from core.i18n import t as _t, resolve_lang
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +108,11 @@ def _application_dict(a: SupplierApplication) -> dict:
 
 
 async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict:
-    """Return the full supplier snapshot for review / status views."""
+    """Return the full supplier snapshot for review / status views.
+
+    Document `file_url`s are freshly HMAC-signed here (24h TTL on every
+    render) — the raw storage_path stays in the DB. Rotating
+    SIGNED_URL_SECRET therefore revokes every previously-issued URL."""
     contacts = (await session.execute(
         select(SupplierContact).where(SupplierContact.supplier_id == supplier.id)
     )).scalars().all()
@@ -120,6 +128,20 @@ async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict
     bank = (await session.execute(
         select(SupplierBankInfo).where(SupplierBankInfo.supplier_id == supplier.id)
     )).scalar_one_or_none()
+
+    # Find the active application id so we can mint URLs against it.
+    app_id = (await session.execute(
+        select(SupplierApplication.id).where(SupplierApplication.supplier_id == supplier.id)
+        .order_by(SupplierApplication.created_at.desc()).limit(1)
+    )).scalar_one_or_none()
+
+    def _doc_url(d: SupplierDocument) -> str:
+        # Prefer re-signing storage_path (canonical). Fall back to the
+        # stored URL for legacy rows that pre-dated the storage_path column.
+        if d.storage_path and app_id:
+            return _signed_apply_url(app_id, d.storage_path)
+        return d.file_url
+
     return {
         "supplier": _supplier_dict(supplier),
         "contacts": [{
@@ -131,7 +153,7 @@ async def _load_full_snapshot(session: AsyncSession, supplier: Supplier) -> dict
         } for c in contacts],
         "documents": [{
             "id": d.id, "document_type": d.document_type, "title": d.title,
-            "file_url": d.file_url,
+            "file_url": _doc_url(d),
             "issued_on": d.issued_on.isoformat() if d.issued_on else None,
             "expires_on": d.expires_on.isoformat() if d.expires_on else None,
             "verification_status": d.verification_status,
@@ -176,16 +198,25 @@ class ApplyStartIn(BaseModel):
     business_name: str = Field(..., min_length=2, max_length=300)
     business_type: str = Field(..., description="manufacturer|distributor|wholesaler|…")
     country: str = Field(..., min_length=2, max_length=2)
+    # QA v15 §1C — Module tag so admin's Submitted tab can surface SHOP
+    # applications alongside MART. Accepts "mart" | "shop"; falls back to
+    # "mart" for backwards compatibility with older callers.
+    module: Optional[str] = Field("mart", description="mart|shop")
 
 
 @public_router.post("/apply/start", status_code=201)
-async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get_session)):
+async def apply_start(payload: ApplyStartIn, request: Request, session: AsyncSession = Depends(get_session)):
     """Create a draft supplier + application row and return the application id.
     Idempotent-ish: if a draft/action_required application already exists for
     the same email + country, reuse it so refreshes don't spawn dupes."""
+    lang = resolve_lang(request)
     if payload.business_type not in SUPPLIER_BUSINESS_TYPES:
-        raise HTTPException(400, f"business_type must be one of {SUPPLIER_BUSINESS_TYPES}")
+        raise HTTPException(400, _t("errors.supplier.business_type_invalid", lang))
     country = payload.country.upper()
+    module = (payload.module or "mart").lower()
+    if module not in ("mart", "shop"):
+        raise HTTPException(400, _t("errors.generic.bad_request", lang))
+    module_code = module.upper()
 
     existing = (await session.execute(
         select(Supplier).where(
@@ -197,18 +228,27 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
         if existing.status in ("approved", "suspended"):
             raise HTTPException(409, {
                 "code": "already_active",
-                "message": "A supplier with this email already exists. Please log in.",
+                "message": _t("errors.supplier.already_active", lang),
             })
         app = (await session.execute(
             select(SupplierApplication).where(SupplierApplication.supplier_id == existing.id)
             .order_by(SupplierApplication.created_at.desc())
         )).scalars().first()
         if app and app.status in ("draft", "action_required"):
+            # Ensure the reused draft is tagged for the current module so the
+            # SHOP admin surface can find it. Merge, don't overwrite — a
+            # supplier can span both marketplaces.
+            mods = list(existing.modules or [])
+            if module_code not in mods:
+                mods.append(module_code)
+                existing.modules = mods
+                await session.commit()
+                await session.refresh(existing)
             return {"application": _application_dict(app), "supplier": _supplier_dict(existing)}
         if app and app.status in ("submitted", "under_review"):
             raise HTTPException(409, {
                 "code": "already_submitted",
-                "message": "Application already submitted. Use /application-status to check.",
+                "message": _t("errors.supplier.already_submitted", lang),
                 "application_code": app.application_code,
             })
 
@@ -218,6 +258,8 @@ async def apply_start(payload: ApplyStartIn, session: AsyncSession = Depends(get
         business_email=payload.business_email,
         country=country,
         status="draft",
+        module=module,
+        modules=[module_code],
     )
     session.add(supplier)
     await session.flush()
@@ -416,18 +458,28 @@ async def apply_save_step(app_id: str, payload: StepIn, session: AsyncSession = 
         )
         for item in payload.categories:
             cat_id = item.get("category_id")
+            item_module = (item.get("module") or "mart").lower()
             if cat_id:
-                exists = await session.get(MartCategory, cat_id)
+                # QA — Fixing_Prompt "Seller Apply #7": SHOP applicants pass
+                # SHOP categoy ids which live in a different table. Resolve
+                # against the module-appropriate model.
+                if item_module == "shop":
+                    from core.models import ShopCategory
+                    exists = await session.get(ShopCategory, cat_id)
+                else:
+                    exists = await session.get(MartCategory, cat_id)
                 if not exists:
-                    raise HTTPException(400, f"Category not found: {cat_id}")
+                    raise HTTPException(400, f"Category not found: {cat_id} (module={item_module})")
                 session.add(SupplierCategoryInterest(
-                    supplier_id=supplier.id, category_id=cat_id, status="approved",
+                    supplier_id=supplier.id, category_id=cat_id,
+                    module=item_module, status="approved",
                 ))
             elif item.get("requested_name"):
                 session.add(SupplierCategoryInterest(
                     supplier_id=supplier.id,
                     requested_name=item["requested_name"],
                     reason=item.get("reason"),
+                    module=item_module,
                     status="pending",
                 ))
 
@@ -486,9 +538,18 @@ async def apply_save_step(app_id: str, payload: StepIn, session: AsyncSession = 
                 raise HTTPException(400, f"Invalid document_type: {dtype}")
             if not d.get("file_url"):
                 raise HTTPException(400, "file_url is required for each document")
+            # Extract canonical storage_path from the URL so we can re-sign at
+            # read time (signed URLs expire in 24h). URL shape:
+            #   /api/martbaked/sellers/apply/{app_id}/files/{path}?exp=…&sig=…
+            file_url = d["file_url"]
+            storage_path = d.get("storage_path")
+            if not storage_path and f"/apply/{app.id}/files/" in file_url:
+                after = file_url.split(f"/apply/{app.id}/files/", 1)[1]
+                storage_path = after.split("?", 1)[0]
             session.add(SupplierDocument(
                 supplier_id=supplier.id, document_type=dtype,
-                title=d.get("title"), file_url=d["file_url"],
+                title=d.get("title"), file_url=file_url,
+                storage_path=storage_path,
                 issued_on=d.get("issued_on"), expires_on=d.get("expires_on"),
             ))
 
@@ -533,6 +594,113 @@ async def apply_get(app_id: str, session: AsyncSession = Depends(get_session)):
     supplier = await session.get(Supplier, app.supplier_id)
     snapshot = await _load_full_snapshot(session, supplier)
     return {"application": _application_dict(app), **snapshot}
+
+
+# ---------------------------------------------------------------------------
+# Public file upload — scoped to a draft application id (Fixing_Prompt v13
+# — Seller Apply #8). Sellers can upload IDs / registration certificates /
+# tax docs during the wizard *before* they're an authenticated supplier.
+# Only drafts (not-yet-submitted apps) can upload; submitted/approved apps
+# use the auth-gated /api/supplier/uploads instead.
+#
+# Hardening (2026-03 QA follow-up):
+#   * Per-IP sliding-window rate limit — 20/min · 200/hour per source IP.
+#   * Response returns a short-lived HMAC-signed serve URL. The canonical
+#     `storage_path` is stored in `supplier_documents.storage_path`; we
+#     re-mint fresh URLs at read time (see `_signed_apply_url`).
+# ---------------------------------------------------------------------------
+_APPLY_UPLOAD_MAX = 8 * 1024 * 1024  # 8 MiB
+_APPLY_UPLOAD_MIME = ("image/", "application/pdf")
+_APPLY_SERVE_TTL_S = 24 * 3600       # 24h — enough for the wizard session
+_APPLY_ADMIN_TTL_S = 15 * 60         # 15 min — admin views after submit
+
+
+def _signed_apply_url(app_id: str, storage_path: str, ttl_seconds: int = _APPLY_SERVE_TTL_S) -> str:
+    """Return the HMAC-signed URL a client should use to fetch `storage_path`
+    from the public apply-file-serve endpoint. Always call this instead of
+    building the URL manually — this is the single source of truth for the
+    URL shape."""
+    base = f"/api/martbaked/sellers/apply/{app_id}/files/{storage_path}"
+    return sign_url(base, storage_path, ttl_seconds=ttl_seconds)
+
+
+@public_router.post("/apply/{app_id}/uploads")
+async def apply_upload(
+    app_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    kind: str = Form("document"),
+    session: AsyncSession = Depends(get_session),
+):
+    # Rate-limit per client IP first — cheapest reject path.
+    check_rate_limit(request, bucket="apply_uploads", limit=20, per_seconds=60)
+    check_rate_limit(request, bucket="apply_uploads_hourly", limit=200, per_seconds=3600)
+
+    if kind not in ("document", "image"):
+        raise HTTPException(400, "kind must be 'document' or 'image'")
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.status not in ("draft", "action_required"):
+        raise HTTPException(409, {"code": "app_frozen",
+                                  "message": "Uploads are only allowed on draft applications."})
+
+    ct = (file.content_type or "application/octet-stream").lower()
+    if not any(ct.startswith(p) for p in _APPLY_UPLOAD_MIME):
+        raise HTTPException(415, f"Unsupported content type: {ct} — use PDF or an image.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "Empty file")
+    if len(data) > _APPLY_UPLOAD_MAX:
+        raise HTTPException(413, f"Max file size is {_APPLY_UPLOAD_MAX // (1024 * 1024)} MB")
+
+    ext = "bin"
+    if file.filename and "." in file.filename:
+        ext = file.filename.rsplit(".", 1)[-1].lower()[:8]
+    path = f"{object_storage.APP_NAME}/apply/{app_id}/{kind}s/{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}.{ext}"
+    try:
+        result = object_storage.put_object(path, data, ct)
+    except Exception as exc:
+        raise HTTPException(502, {"code": "storage_upload_failed", "message": str(exc)}) from exc
+
+    return {
+        "storage_path": result["path"],
+        "file_url": _signed_apply_url(app_id, result["path"]),
+        "size_bytes": result.get("size", len(data)),
+        "content_type": ct,
+        "original_filename": file.filename,
+    }
+
+
+@public_router.get("/apply/{app_id}/files/{path:path}")
+async def apply_file_serve(
+    app_id: str,
+    path: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Serve an uploaded application doc — requires a valid HMAC signature
+    on the URL (`?exp=…&sig=…`). Signatures are minted per-request by
+    `_signed_apply_url` so we can revoke access globally by rotating
+    `SIGNED_URL_SECRET`."""
+    app = await session.get(SupplierApplication, app_id)
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if f"/apply/{app_id}/" not in f"/{path}":
+        raise HTTPException(403, "Forbidden path")
+
+    exp = request.query_params.get("exp")
+    sig = request.query_params.get("sig")
+    if not verify_signature(path, exp, sig):
+        raise HTTPException(403, {"code": "bad_signature",
+                                  "message": "Signature missing / invalid / expired."})
+
+    try:
+        content, ct = object_storage.get_object(path)
+    except Exception:
+        raise HTTPException(404, "File not found")
+    from fastapi import Response
+    return Response(content=content, media_type=ct)
 
 
 @public_router.get("/application-status/{application_code}")

@@ -1,0 +1,39 @@
+{
+  "summary": "SENDbakēd Phase E — Multi-stop trip builder tested end-to-end. Backend regression: all 26 pytests pass (test_send_phase_b/c/e). Curl POST /api/express/quote/multi_stop confirms extra_stop_surcharge = 500 XOF × extra shipments. Frontend: MultiStopBuilder renders on Step 3 with first shipment locked, add/remove/reorder + counter chip 1/8→3/8 all work, address selector opens on '+ Ajouter une expédition'. Step 4 renders 4 eligible vehicles (bike/three_wheeler/mini_truck/truck) with LIVE prices sourced from POST /api/express/quote/multi_stop. Step counter reads 'Étape n sur 4' throughout. CARGO tile correctly shows package chips (no MultiStopBuilder). ONE BUG FOUND: the ⓘ price breakdown on Step 4 does NOT render an `extra_stop_surcharge` line even though the API payload contains it — review requirement violation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ExpressWizard.jsx :: ExpressStepBook :: renderCard breakdown block (lines 715-731)",
+        "issue": "Multi-stop quote payload returns `extra_stop_surcharge` (verified 500 XOF/extra stop) but the vehicle breakdown JSX only renders base_fare, distance_fare, time_fare, surcharge (>0), service_fee, insurance, taxes, promo_discount. The `extra_stop_surcharge` field is silently absorbed into the total. Review requirement: 'The ⓘ info icon per card expands an inline breakdown that includes extra_stop_surcharge when 2+ shipments.' Fix: add `{q.extra_stop_surcharge > 0 && <Row label={t(\"send.wizard.extra_stop_surcharge\", { n: q.extra_stops })} value={money(q.extra_stop_surcharge)} />}` after the surcharge row (~line 722), and add the FR/EN i18n key `send.wizard.extra_stop_surcharge` (e.g. 'Arrêts supplémentaires ({{n}})').",
+        "selector": "[data-testid=exp-veh-breakdown-bike]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_send_phase_b_capabilities.py",
+    "/app/backend/tests/test_send_phase_c_service_types.py",
+    "/app/backend/tests/test_send_phase_e_multi_stop.py",
+    "/app/test_reports/pytest/phase_e_results.xml"
+  ],
+  "action_items": [
+    "Render an `extra_stop_surcharge` line in the inline vehicle breakdown on Step 4 whenever `q.extra_stop_surcharge > 0` (multi-stop only). Add corresponding i18n string in fr/en customer.json.",
+    "Update review-request/documentation: actual vehicle test-ids are `exp-veh-bike`, `exp-veh-three_wheeler`, `exp-veh-mini_truck`, `exp-veh-truck` (not moto/tricycle/mini_camion/camion — those are display labels). This is a doc-only fix; behaviour is correct."
+  ],
+  "critical_code_review_comments": [
+    "ExpressWizard.jsx MultiStopBuilder auto-syncs first stop from draft.pickup/drop via useEffect keyed on `place_id` — solid pattern for the 'first shipment locked to Step 1' requirement.",
+    "Backend /quote/multi_stop returns `extra_stop_surcharge` and `extra_stops` correctly, but frontend does not surface it — small UX regression already flagged as UI bug.",
+    "Vehicle codes exposed via /api/express/vehicles are `bike/three_wheeler/mini_truck/truck`; the SendServiceTiles SERVICE_TYPE_MAP correctly uses `multiple_shipments` for the multi tile."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "~93% (1 UI bug: missing surcharge line)"},
+  "test_credentials": "Not needed — customer OTP not required to reach /send/book/details or /send/book/vehicle. sessionStorage draft seeding used to jump straight into Step 3/4.",
+  "seed_data_creation": "In-memory: seeded sessionStorage key `baked_express_draft` with service_type=multiple_shipments, 1-3 stops using Abidjan coords (5.29-5.36 lat, -3.98..-4.08 lng).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) Backend Phase B/C/E all green (26/26). 2) Multi-stop tile→wizard flow works; first shipment locked; add/remove/reorder + counter chip verified. 3) /api/express/quote/multi_stop is invoked correctly on Step 4 with live prices for 4 vehicles. 4) Only bug is the missing `extra_stop_surcharge` row in the ⓘ breakdown component (ExpressWizard.jsx renderCard lines 715-731). 5) CARGO sanity confirmed. 6) Actual vehicle codes: bike, three_wheeler, mini_truck, truck.",
+  "rca of the issue": "ExpressWizard.jsx renderCard breakdown (lines 715-731) enumerates known Row lines from the quote payload but forgets to include the multi-stop-only field `extra_stop_surcharge`. The field is returned by /api/express/quote/multi_stop (confirmed via curl: 500 XOF per extra shipment) and is included in `q.total`, but it is invisible to the customer in the price breakdown. Repro: seed sessionStorage with service_type=multiple_shipments and stops.length >= 2, navigate to /send/book/vehicle, click ⓘ on any vehicle card — the breakdown lacks the surcharge line. Mitigation: insert `{q.extra_stop_surcharge > 0 && <Row label={t('send.wizard.extra_stop_surcharge', { n: q.extra_stops })} value={money(q.extra_stop_surcharge)} />}` right after the existing `surcharge` row and add the i18n key in fr/en customer.json."
+}

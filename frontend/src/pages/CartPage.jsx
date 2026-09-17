@@ -1,19 +1,28 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useApp, useCart, useAuth } from "../contexts/BakedContexts";
 import { formatMoney } from "../lib/i18n";
+import { useLocalePath } from "../i18n/routes";
 import { checkOrderEligibility } from "../lib/checkout";
+import { getCartTheme, lineAccent, CART_MODE } from "../lib/cartTheme";
 import { CART } from "../constants/testIds";
 import { Button } from "../components/ui/button";
 import { Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 export const CartPage = () => {
+  const { t } = useTranslation("customer");
   const { country } = useApp();
   const { cart, updateItem, removeItem, clear } = useCart();
   const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
+  const path = useLocalePath();
   const items = cart.items || [];
+  // QA — Fixing_Prompt v14: theme adapts to cart composition
+  // (MART_ONLY / SHOP_ONLY / MIXED) so a SHOP-only basket no longer wears
+  // MART green. See lib/cartTheme.js for the token table.
+  const theme = getCartTheme(cart);
   const unavailable = cart.unavailable_items || [];
   const hasUnavailable = unavailable.length > 0;
   // Split by module: min-order + delivery fee are MART-only concerns.
@@ -36,12 +45,12 @@ export const CartPage = () => {
     // checkout step (Fixing_Prompt §7). `openLogin('/checkout')` stashes the
     // return path in sessionStorage so the customer lands on /checkout with
     // their (now merged) cart intact.
-    if (!customer) { openLogin?.("/checkout"); return; }
+    if (!customer) { openLogin?.(path("checkout")); return; }
     if (hasUnavailable) { toast.error("Remove items marked 'Coming soon' before checking out"); return; }
     if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
     // Always route to the global /checkout — it now handles mixed and
     // SHOP-only carts internally (per Fixing_Prompt.docx §2).
-    navigate("/checkout");
+    navigate(path("checkout"));
   };
 
   if (items.length === 0) {
@@ -50,10 +59,10 @@ export const CartPage = () => {
         <div className="w-24 h-24 rounded-full bg-secondary/60 mx-auto flex items-center justify-center mb-4">
           <ShoppingCart size={36} className="text-muted-foreground" />
         </div>
-        <h2 className="text-2xl font-bold">Your cart is empty</h2>
-        <p className="text-sm text-muted-foreground mt-2">Browse products and add your favourites.</p>
-        <Button onClick={() => navigate("/")} className="mt-6 baked-btn h-11 px-6 font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
-          Start shopping
+        <h2 className="text-2xl font-bold">{t("cart.empty_title")}</h2>
+        <p className="text-sm text-muted-foreground mt-2">{t("cart.empty_subtitle")}</p>
+        <Button onClick={() => navigate("/")} className="mt-6 baked-btn h-11 px-6 font-semibold text-black" style={{ backgroundColor: theme.accent }}>
+          {t("cart.empty_cta")}
         </Button>
       </div>
     );
@@ -62,7 +71,7 @@ export const CartPage = () => {
   return (
     <div className="baked-container my-8 grid gap-6 lg:grid-cols-[1fr_360px]">
       <div>
-        <h1 className="text-3xl font-bold mb-6">Your Cart <span className="text-muted-foreground text-lg font-normal">({cart.item_count} items)</span></h1>
+        <h1 className="text-3xl font-bold mb-6">{t("cart.title")} <span className="text-muted-foreground text-lg font-normal">({t("cart.item_count", { count: cart.item_count || 0 })})</span></h1>
         <div className="baked-card bg-card border border-border divide-y divide-border">
           {items.map((it) => {
             const isShop = it.module === "shop";
@@ -118,7 +127,7 @@ export const CartPage = () => {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: "#77BC1F" }}>
+              <div className="flex items-center gap-1 baked-btn overflow-hidden" style={{ backgroundColor: lineAccent(it) }}>
                 <button onClick={() => (it.quantity <= 1 ? removeItem(it.id) : updateItem(it.id, it.quantity - 1))} className="px-2 py-1.5 text-[#0a1200] hover:bg-black/10"><Minus size={14} /></button>
                 <span className="text-xs font-bold text-[#0a1200] min-w-[20px] text-center">{it.quantity}</span>
                 <button onClick={() => updateItem(it.id, it.quantity + 1)} className="px-2 py-1.5 text-[#0a1200] hover:bg-black/10"><Plus size={14} /></button>
@@ -134,23 +143,23 @@ export const CartPage = () => {
 
       <aside>
         <div className="baked-card bg-card border border-border p-5 sticky top-24">
-          <div className="text-sm font-semibold mb-4">Order Summary</div>
+          <div className="text-sm font-semibold mb-4">{t("checkout.order_summary")}</div>
           <div className="grid gap-2 text-sm">
             {hasMart && (
-              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-mart-subtotal">MART subtotal <span className="text-[10px] text-muted-foreground">({martCount} items)</span></span><span className="font-medium">{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-mart-subtotal">MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({martCount})</span></span><span className="font-medium">{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
             )}
             {hasShop && (
-              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-shop-subtotal">SHOP subtotal <span className="text-[10px] text-muted-foreground">({shopCount} items)</span></span><span className="font-medium">{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-shop-subtotal">SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({shopCount})</span></span><span className="font-medium">{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
             )}
-            <div className="flex justify-between"><span className="text-muted-foreground" data-testid={CART.subtotal}>Subtotal</span><span className="font-medium">{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground" data-testid={CART.subtotal}>{t("cart.subtotal")}</span><span className="font-medium">{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
             {hasMart && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Delivery (MART)</span><span className="font-medium">{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("cart.delivery_fee")} (MART)</span><span className="font-medium">{deliveryFee === 0 ? t("cart.delivery_free") : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
             )}
             {hasShop && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Shipping (SHOP)</span><span className="text-[11px] text-muted-foreground">Calculated by seller</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("cart.delivery_fee")} (SHOP)</span><span className="text-[11px] text-muted-foreground">Calculated by seller</span></div>
             )}
             <div className="h-px bg-border my-2" />
-            <div className="flex justify-between text-base"><span className="font-semibold">Total</span><span className="font-bold">{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
+            <div className="flex justify-between text-base"><span className="font-semibold">{t("cart.total")}</span><span className="font-bold">{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           </div>
           {hasUnavailable && (
             <div data-testid="cart-unavailable-warning" className="text-[12px] mt-3 p-3 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
@@ -162,9 +171,14 @@ export const CartPage = () => {
               Add <b>{formatMoney(shortfall, country.currency, country.currency_symbol)}</b> more to reach the {formatMoney(minOrder, country.currency, country.currency_symbol)} minimum.
             </div>
           )}
-          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold text-black disabled:opacity-60" style={{ backgroundColor: "#77BC1F" }}>
-            {customer ? "Checkout" : "Login to Proceed"}
+          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold disabled:opacity-60" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
+            {customer ? t("cart.checkout_cta") : t("cart.sign_in_to_checkout")}
           </Button>
+          {theme.mode === "MIXED" && (
+            <div data-testid="cart-mixed-note" className="text-[10px] text-muted-foreground mt-2 text-center">
+              {t("cart.mixed_note")}
+            </div>
+          )}
         </div>
       </aside>
     </div>

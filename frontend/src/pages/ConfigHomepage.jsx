@@ -18,6 +18,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Loader2, Smartphone, Store,
@@ -28,6 +29,7 @@ import { api } from "../lib/api";
 import { useApp } from "../contexts/BakedContexts";
 import { ProductCard } from "../components/mart/ProductCard";
 import { formatMoney } from "../lib/i18n";
+import { useLocalePath, ROUTE_MAP } from "../i18n/routes";
 
 // Resolve `/api/homepage/uploads/…` relative URLs against the backend origin.
 const abs = (u) => (u && u.startsWith("/") ? `${process.env.REACT_APP_BACKEND_URL}${u}` : u);
@@ -106,7 +108,9 @@ const SectionRenderer = ({ section, index, country }) => {
  * SHARED HEADER
  * ============================================================================ */
 
-const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) => (
+const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) => {
+  const { t } = useTranslation("customer");
+  return (
   <div className="baked-container flex items-end justify-between mb-5" data-testid={testid}>
     <div className="min-w-0">
       {eyebrow && (
@@ -130,11 +134,12 @@ const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) 
         to={linkTo}
         className="hidden md:inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] hover:text-[#77BC1F]/80 font-semibold whitespace-nowrap ml-4"
       >
-        {linkLabel || "View all"} <ArrowRight size={12} />
+        {linkLabel || t("home.shop_all")} <ArrowRight size={12} />
       </Link>
     )}
   </div>
-);
+  );
+};
 
 
 /* ============================================================================
@@ -142,7 +147,9 @@ const SectionHeader = ({ title, subtitle, linkLabel, linkTo, eyebrow, testid }) 
  * ============================================================================ */
 
 const Hero = ({ section, country }) => {
+  const { t } = useTranslation("common");
   const nav = useNavigate();
+  const path = useLocalePath();
   const cfg = section.config || {};
   const bg = abs(cfg.background_image) ||
     "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1600&auto=format&fit=crop&q=70";
@@ -152,6 +159,26 @@ const Hero = ({ section, country }) => {
   const currency = country?.currency_symbol || country?.currency || "";
   const etaText = country?.delivery_eta_min || "10-15 min";
   const etaMatch = etaText.match(/(\d+\s*-\s*\d+|\d+)/);
+
+  /**
+   * The homepage CMS lets Super Admin type raw URLs like "/products" or
+   * "/cart" — but Phase C wants French-first URLs. If the CMS value points
+   * to a known English customer route, remap it to the FR/EN equivalent
+   * based on the current language. Absolute URLs and unknown paths are
+   * passed through untouched so the editor still keeps full control.
+   * Query strings and hash fragments are preserved.
+   */
+  const cmsToLocale = (raw, fallbackKey) => {
+    if (!raw) return path(fallbackKey);
+    // Split path from ?query#hash so /products?category=x still gets remapped.
+    const idx = raw.search(/[?#]/);
+    const pathname = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? "" : raw.slice(idx);
+    for (const [key, m] of Object.entries(ROUTE_MAP)) {
+      if (pathname === m.en || pathname === m.fr) return path(key) + tail;
+    }
+    return raw;
+  };
   const etaValue = etaMatch ? etaMatch[1].replace(/\s+/g, "") : "10-15";
 
   return (
@@ -178,7 +205,7 @@ const Hero = ({ section, country }) => {
             <div className="mt-6 flex flex-wrap gap-3">
               {cfg.cta_label && (
                 <button
-                  onClick={() => nav(cfg.cta_link || "/products")}
+                  onClick={() => nav(cmsToLocale(cfg.cta_link, "products"))}
                   className="h-12 px-6 rounded-xl text-sm font-bold bg-[#77BC1F] hover:bg-[#68a319] text-white transition-colors flex items-center gap-2"
                   data-testid="hp-hero-cta"
                 >
@@ -187,7 +214,7 @@ const Hero = ({ section, country }) => {
               )}
               {cfg.secondary_cta_label && (
                 <button
-                  onClick={() => nav(cfg.secondary_cta_link || "/products")}
+                  onClick={() => nav(cmsToLocale(cfg.secondary_cta_link, "products"))}
                   className="h-12 px-6 rounded-xl text-sm font-bold bg-white/10 hover:bg-white/20 backdrop-blur border border-white/25 text-white flex items-center gap-2"
                   data-testid="hp-hero-cta-secondary"
                 >
@@ -203,7 +230,7 @@ const Hero = ({ section, country }) => {
              style={{ background: "linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%)" }}
              data-testid="hp-hero-delivery-panel">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Delivery in</div>
+            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{t("footer.delivery_in")}</div>
             <div className="flex items-baseline gap-2 mt-1">
               <div className="text-4xl md:text-5xl font-bold tracking-tight">{etaValue}</div>
               <div className="text-base font-semibold text-muted-foreground">min</div>
@@ -211,17 +238,17 @@ const Hero = ({ section, country }) => {
                 <Bike size={26} className="text-[#77BC1F]" />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">Free delivery on orders over <span className="text-foreground font-semibold">{compactMoney(freeOver, currency)}</span></p>
+            <p className="text-xs text-muted-foreground mt-3">{t("footer.free_delivery_over", { amount: compactMoney(freeOver, currency) })}</p>
           </div>
           <div className="border-t border-border/60 pt-4 grid grid-cols-2 gap-3 text-xs">
             <div>
-              <div className="text-muted-foreground">Delivery fee</div>
+              <div className="text-muted-foreground">{t("footer.delivery_fee")}</div>
               <div className="text-sm font-bold mt-0.5">
                 {compactMoney(deliveryFee, currency)}
               </div>
             </div>
             <div>
-              <div className="text-muted-foreground">Min. order</div>
+              <div className="text-muted-foreground">{t("footer.min_order")}</div>
               <div className="text-sm font-bold mt-0.5">
                 {compactMoney(minOrder, currency)}
               </div>
@@ -231,7 +258,7 @@ const Hero = ({ section, country }) => {
             <div className="flex items-start gap-2">
               <MapPin size={14} className="mt-0.5 text-[#77BC1F] shrink-0" />
               <div className="text-xs">
-                <div className="text-muted-foreground">Popular near you</div>
+                <div className="text-muted-foreground">{t("footer.popular_near_you")}</div>
                 <div className="text-sm font-semibold mt-0.5 truncate">{country?.name || "Your city"}</div>
               </div>
             </div>
@@ -250,7 +277,7 @@ const Hero = ({ section, country }) => {
  * ============================================================================ */
 
 const MODULE_ROUTES = {
-  mart: "/", food: "/food", shop: "/shop", express: "/express", auto: "/auto", immo: "/immo",
+  mart: "/", food: "/food", shop: "/shop", express: "/send", auto: "/auto", immo: "/immo",
 };
 void MODULE_ROUTES;
 
@@ -260,6 +287,7 @@ void MODULE_ROUTES;
  * ============================================================================ */
 
 const CategoryGrid = ({ section }) => {
+  const { t } = useTranslation("common");
   const cats = section.config?.categories || [];
   const cols = section.config?.columns || 6;
   const colClass = cols >= 6
@@ -268,19 +296,22 @@ const CategoryGrid = ({ section }) => {
   return (
     <div className="baked-container">
       <SectionHeader
-        eyebrow="Shop by category"
-        title={section.title || "Categories"}
+        eyebrow={t("footer.shop_by_category")}
+        title={(!section.title || section.title === "Categories") ? t("nav.categories") : section.title}
         subtitle={section.subtitle}
         linkTo="/categories"
-        linkLabel="View all"
       />
       <div className={`grid ${colClass} gap-3 md:gap-4`}>
-        {cats.map((c) => (
+        {cats.map((c) => {
+          // QA — Fixing_Prompt "Home #3": prefer explicit `link` when the
+          // admin has set one; otherwise deep-link to the category filter.
+          const target = c.link || `/products?category=${c.slug}`;
+          return (
           <Link
-            key={c.slug}
-            to={`/products?category=${c.slug}`}
+            key={c.slug || c.name}
+            to={target}
             className="group rounded-2xl bg-card border border-border p-3 md:p-4 flex flex-col items-center gap-3 hover:border-[#77BC1F]/60 hover:-translate-y-0.5 transition-all"
-            data-testid={`hp-cat-${c.slug}`}
+            data-testid={`hp-cat-${c.slug || c.name}`}
           >
             <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-[#77BC1F]/10 overflow-hidden flex items-center justify-center relative">
               {c.image ? (
@@ -296,7 +327,8 @@ const CategoryGrid = ({ section }) => {
             </div>
             <div className="text-xs md:text-sm font-semibold text-center leading-tight">{c.name}</div>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -353,6 +385,17 @@ const PromoBanner = ({ section }) => {
 
 const BannerTrio = ({ section }) => {
   const banners = section.config?.banners || [];
+  const path = useLocalePath();
+  const cmsToLocale = (raw, key) => {
+    if (!raw) return path(key);
+    const idx = raw.search(/[?#]/);
+    const pathname = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? "" : raw.slice(idx);
+    for (const [k, m] of Object.entries(ROUTE_MAP)) {
+      if (pathname === m.en || pathname === m.fr) return path(k) + tail;
+    }
+    return raw;
+  };
   return (
     <div className="baked-container">
       {(section.title || section.subtitle) && (
@@ -366,7 +409,7 @@ const BannerTrio = ({ section }) => {
         {banners.map((b, i) => (
           <Link
             key={i}
-            to={b.link || "/products"}
+            to={cmsToLocale(b.link, "products")}
             className="group relative rounded-2xl overflow-hidden flex items-end p-5 hover:-translate-y-0.5 transition-transform shrink-0"
             style={{
               width: 320,
@@ -401,6 +444,7 @@ const BannerTrio = ({ section }) => {
  * ============================================================================ */
 
 const ProductCarousel = ({ section, country }) => {
+  const { t } = useTranslation("customer");
   const cfg = section.config || {};
   const limit = Number(cfg.limit) || 12;
   const scrollRef = React.useRef(null);
@@ -490,11 +534,22 @@ const ProductCarousel = ({ section, country }) => {
           <button onClick={() => scroll(1)} className="w-10 h-10 rounded-full border border-border bg-card hover:bg-muted transition flex items-center justify-center" data-testid={`hp-carousel-next-${section.id}`}>
             <ChevronRight size={18} />
           </button>
-          {cfg.link && (
-            <Link to={cfg.link} className="ml-2 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] font-semibold">
-              View all <ArrowRight size={12} />
-            </Link>
-          )}
+          {(() => {
+            // QA — Fixing_Prompt "Home #2": derive "View all" from the
+            // carousel's category filter when the admin hasn't set an
+            // explicit link. Only shows when there's a real target.
+            const explicit = cfg.link;
+            const derived = categorySlug
+              ? `/products?category=${categorySlug}${subcategorySlug ? `&subcategory=${subcategorySlug}` : ""}`
+              : null;
+            const href = explicit || derived;
+            return href && (
+              <Link to={href} data-testid={`hp-carousel-viewall-${section.id}`}
+                    className="ml-2 inline-flex items-center gap-1 text-xs uppercase tracking-widest text-[#77BC1F] font-semibold">
+                {t("home.shop_all")} <ArrowRight size={12} />
+              </Link>
+            );
+          })()}
         </div>
       </div>
       <div className="baked-container">
@@ -629,6 +684,17 @@ const AppPromotion = ({ section }) => {
 
 const CtaStrip = ({ section }) => {
   const cfg = section.config || {};
+  const path = useLocalePath();
+  const cmsToLocale = (raw, key) => {
+    if (!raw) return path(key);
+    const idx = raw.search(/[?#]/);
+    const pathname = idx === -1 ? raw : raw.slice(0, idx);
+    const tail = idx === -1 ? "" : raw.slice(idx);
+    for (const [k, m] of Object.entries(ROUTE_MAP)) {
+      if (pathname === m.en || pathname === m.fr) return path(k) + tail;
+    }
+    return raw;
+  };
   return (
     <div className="baked-container">
       <div className="relative overflow-hidden rounded-3xl p-8 md:p-14 text-center"
@@ -639,7 +705,7 @@ const CtaStrip = ({ section }) => {
           {section.subtitle && <p className="text-sm md:text-base mt-2 opacity-90 max-w-2xl mx-auto">{section.subtitle}</p>}
           {cfg.cta_label && (
             <Link
-              to={cfg.cta_link || "/products"}
+              to={cmsToLocale(cfg.cta_link, "products")}
               className="mt-6 inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-black text-white text-sm font-bold hover:bg-black/85 transition"
               data-testid="hp-cta-strip-link"
             >
@@ -657,33 +723,36 @@ const CtaStrip = ({ section }) => {
  * TRUST STRIP — always-on footer badges
  * ============================================================================ */
 
-const TRUST = [
-  { icon: Bike,    color: "#77BC1F", title: "Super fast delivery",  desc: "10-15 min average" },
-  { icon: Package, color: "#F97316", title: "Wide range of products", desc: "Everything you need" },
-  { icon: Tag,     color: "#06B6D4", title: "Best prices & offers",  desc: "Save more every day" },
-  { icon: RotateCcw, color: "#A855F7", title: "Easy returns", desc: "Hassle-free refunds" },
-];
-const TrustStrip = () => (
+const TrustStrip = () => {
+  const { t } = useTranslation("common");
+  const TRUST = [
+    { icon: Bike,    color: "#77BC1F", key: "fast" },
+    { icon: Package, color: "#F97316", key: "range" },
+    { icon: Tag,     color: "#06B6D4", key: "prices" },
+    { icon: RotateCcw, color: "#A855F7", key: "returns" },
+  ];
+  return (
   <div className="baked-container mt-14 md:mt-16">
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 rounded-2xl bg-card border border-border p-5 md:p-6" data-testid="hp-trust-strip">
-      {TRUST.map((t, i) => {
-        const Icon = t.icon;
+      {TRUST.map((row, i) => {
+        const Icon = row.icon;
         return (
           <div key={i} className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                 style={{ background: `${t.color}22`, color: t.color }}>
+                 style={{ background: `${row.color}22`, color: row.color }}>
               <Icon size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold leading-tight">{t.title}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{t.desc}</div>
+              <div className="text-sm font-bold leading-tight">{t(`trust.${row.key}.title`)}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{t(`trust.${row.key}.desc`)}</div>
             </div>
           </div>
         );
       })}
     </div>
   </div>
-);
+  );
+};
 
 
 // Suppress lint — used inline in Hero panel

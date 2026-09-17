@@ -38,6 +38,7 @@ import { DriverNavMap } from "./DriverNavMap";
 import { DriverOnlineMap } from "./DriverOnlineMap";
 import { JobChat } from "./JobChat";
 import { useJobSocket } from "./useJobSocket";
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import { useSendbakedDispatch } from "./useSendbakedDispatch";
 import { DriverTripSheet } from "./DriverTripSheet";
 import { useDriverTheme } from "./useDriverTheme";
@@ -101,7 +102,7 @@ const Phone = ({ children }) => (
   // Mobile-first phone frame — everything under /driver renders in this shell.
   // Uses semantic tokens so the shell automatically flips between the
   // pure-black dark theme and a clean white light theme via useDriverTheme.
-  <div className="min-h-screen w-full flex justify-center bg-background text-foreground" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+  <div className="min-h-screen w-full flex justify-center bg-background text-foreground" style={{ fontFamily: "var(--font-family-sans)" }}>
     <div className="w-full max-w-[440px] min-h-screen bg-background relative overflow-x-hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
       {children}
     </div>
@@ -322,7 +323,7 @@ const LoginPage = () => {
   return (
     <div
       className="min-h-screen w-full flex justify-center bg-black text-white relative overflow-hidden"
-      style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+      style={{ fontFamily: "var(--font-family-sans)" }}
     >
       <div className="w-full max-w-[440px] min-h-screen relative flex flex-col" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}>
         {/* ---- Backdrop art (biker illustration) — right-aligned on wider phones */}
@@ -1026,42 +1027,118 @@ const StepSelfie = () => {
   );
 };
 
-const VEHICLES = [
-  { v: "bike",       l: "Bike",         icon: Bike },
-  { v: "scooter",    l: "Scooter",      icon: Bike },
-  { v: "tricycle",   l: "Tricycle",     icon: Truck },
-  { v: "mini_truck", l: "Mini truck",   icon: Truck },
-  { v: "big_truck",  l: "Big truck",    icon: Truck },
+// Phase F — SEND vehicle capabilities. Grouped so the driver instantly sees
+// which vehicles are cold-chain-ready (Fresh Products dispatch). Codes MUST
+// match `SEND_CAPABILITY_CODES` on the backend (modules/driver/routes.py).
+const CAPABILITY_GROUPS = [
+  { key: "standard", label: "Standard fleet", items: [
+    { v: "bike",          l: "Bike",                   icon: Bike  },
+    { v: "scooter",       l: "Scooter",                icon: Bike  },
+    { v: "three_wheeler", l: "Tricycle",               icon: Truck },
+    { v: "mini_truck",    l: "Mini truck",             icon: Truck },
+    { v: "truck",         l: "Truck",                  icon: Truck },
+  ]},
+  { key: "refrigerated", label: "Refrigerated fleet · cold chain", items: [
+    { v: "ref_tricycle",  l: "Refrigerated tricycle",  icon: Truck },
+    { v: "ref_utility",   l: "Refrigerated Mini Truck",  icon: Truck },
+    { v: "ref_truck",     l: "Refrigerated truck",     icon: Truck },
+  ]},
 ];
 
 const StepVehicle = () => {
   const { driver } = useDriver();
-  const [type,  setType]  = useState(driver?.vehicle_type || "bike");
-  const [plate, setPlate] = useState("");
+  // Multi-select: `codes` = Set<vehicle_code>, `primary` = the code the
+  // driver will drive by default (radio button per row).
+  const [codes,   setCodes]   = useState(() => new Set(driver?.vehicle_type ? [driver.vehicle_type] : ["bike"]));
+  const [primary, setPrimary] = useState(driver?.vehicle_type || "bike");
+  const [plate,   setPlate]   = useState("");
   const [save, busy] = useSaveStep("vehicle");
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (v) => {
+    setCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(v)) {
+        // Never leave the set empty; keep at least the current primary.
+        if (v === primary) return prev;
+        next.delete(v);
+      } else {
+        next.add(v);
+      }
+      return next;
+    });
+  };
+
+  const submit = async () => {
+    if (!plate.trim())   { toast.error("Enter your plate"); return; }
+    if (codes.size === 0) { toast.error("Pick at least one vehicle"); return; }
+    setSaving(true);
+    try {
+      // 1️⃣ Persist the capability set. This also mirrors `primary` into
+      //     Driver.vehicle_type + refreshes ModuleDriver.is_refrigerated
+      //     so an already-online driver becomes eligible for cold-chain
+      //     bookings on the next dispatch tick.
+      await driverApi.put("/driver/me/capabilities", {
+        codes: Array.from(codes),
+        primary,
+      });
+      // 2️⃣ Persist the KYC row (plate + step advance). The KYC endpoint
+      //     also stores `vehicle_type` — we send `primary` so both stores
+      //     agree.
+      await save({ vehicle_type: primary, vehicle_plate: plate.trim() });
+    } catch (err) { toast.error(errMsg(err)); }
+    finally { setSaving(false); }
+  };
+
   return (
     <Phone>
       <Header title="Vehicle" />
       <KycProgress step="vehicle" />
-      <div className="px-6 pt-8 space-y-4" data-testid="driver-kyc-vehicle">
-        <h1 className="text-2xl font-bold">Your ride</h1>
-        <div>
-          <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">Vehicle type</div>
-          <div className="grid grid-cols-2 gap-3">
-            {VEHICLES.map(({ v, l, icon: Icon }) => (
-              <button key={v} onClick={() => setType(v)} data-testid={`kyc-vehicle-${v}`}
-                className={`h-16 rounded-2xl border flex items-center gap-3 px-4 ${type === v ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/5"}`}>
-                <Icon size={20} />
-                <span className="text-sm">{l}</span>
-              </button>
-            ))}
+      <div className="px-6 pt-8 space-y-5" data-testid="driver-kyc-vehicle">
+        <h1 className="text-2xl font-bold">Your fleet</h1>
+        <div className="text-[12px] text-white/60 -mt-3">Tick every vehicle you can drive. Pick one as your primary — that's the vehicle new job pings default to. You'll only receive cold-chain jobs if you tick a refrigerated vehicle.</div>
+
+        {CAPABILITY_GROUPS.map((group) => (
+          <div key={group.key}>
+            <div className="text-[11px] uppercase tracking-widest text-white/50 mb-2">{group.label}</div>
+            <div className="space-y-2">
+              {group.items.map(({ v, l, icon: Icon }) => {
+                const checked = codes.has(v);
+                const isPrimary = primary === v;
+                return (
+                  <div
+                    key={v}
+                    data-testid={`kyc-cap-row-${v}`}
+                    className={`rounded-2xl border flex items-center gap-3 px-4 py-3 motion-fast ${checked ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/5"}`}
+                  >
+                    <button
+                      onClick={() => toggle(v)}
+                      data-testid={`kyc-cap-check-${v}`}
+                      className={`w-6 h-6 rounded-md border flex items-center justify-center ${checked ? "border-orange-500 bg-orange-500" : "border-white/20 bg-transparent"}`}
+                      aria-label={`Toggle ${l}`}
+                    >
+                      {checked && <Check size={13} className="text-black" strokeWidth={3} />}
+                    </button>
+                    <Icon size={18} className="opacity-80" />
+                    <div className="flex-1 min-w-0 text-sm">{l}</div>
+                    <button
+                      onClick={() => { setPrimary(v); if (!codes.has(v)) toggle(v); }}
+                      data-testid={`kyc-cap-primary-${v}`}
+                      className={`text-[10px] font-bold px-2 py-1 rounded-full border motion-fast ${isPrimary ? "border-orange-500 text-orange-500 bg-orange-500/15" : "border-white/15 text-white/60 hover:text-white/90"}`}
+                    >
+                      {isPrimary ? "PRIMARY" : "Set primary"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ))}
+
         <TextField label="Registration number" testid="kyc-vehicle-plate" placeholder="e.g. DL 8C AB 1234"
                    value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} />
-        <div className="pt-4">
-          <PrimaryButton onClick={() => plate.trim() ? save({ vehicle_type: type, vehicle_plate: plate.trim() }) : toast.error("Enter your plate")}
-                         busy={busy} data-testid="kyc-vehicle-next">Continue</PrimaryButton>
+        <div className="pt-2">
+          <PrimaryButton onClick={submit} busy={busy || saving} data-testid="kyc-vehicle-next">Continue</PrimaryButton>
         </div>
       </div>
     </Phone>
@@ -1371,6 +1448,11 @@ const DriverProfilePage = () => {
         >
           <LogOut size={14} className="inline mr-2" /> Sign out
         </button>
+
+        <div className="mt-6 flex items-center justify-between rounded-2xl px-4 py-3 border border-border bg-card">
+          <span className="text-xs text-muted-foreground">Language</span>
+          <LanguageSwitcher variant="compact" />
+        </div>
       </div>
     </Phone>
   );
@@ -1537,9 +1619,33 @@ const DashboardPage = () => {
 
   // Adapt an ExpressBooking → the shape DriverNavMap needs.
   // Uses booking.status to decide whether the route heads to pickup or dropoff.
+  // For multi-stop bookings (stops[] populated), always aim the map at the
+  // *current* leg the driver still needs to reach.
   const navJob = useMemo(() => {
     if (!activeExpressJob) return null;
     const st = activeExpressJob.status;
+    const stops = Array.isArray(activeExpressJob.stops) ? activeExpressJob.stops : null;
+
+    if (stops && stops.length && activeExpressJob.service_type === "multiple_shipments") {
+      // First still-pending pickup+drop informs the map anchors.
+      let currentStop = null;
+      let currentLeg = "pickup";
+      for (const s of stops) {
+        if (s?.pickup?.status !== "completed") { currentStop = s; currentLeg = "pickup"; break; }
+        if (s?.drop?.status !== "completed")   { currentStop = s; currentLeg = "drop";   break; }
+      }
+      if (currentStop) {
+        const p = currentStop.pickup || {};
+        const d = currentStop.drop || {};
+        return {
+          id: activeExpressJob.id,
+          status: currentLeg === "drop" ? "picked_up" : "arriving_pickup",
+          pickup:  { lat: Number(p.lat), lng: Number(p.lng) },
+          dropoff: { lat: Number(d.lat), lng: Number(d.lng) },
+        };
+      }
+    }
+
     const isDropoffPhase = st === "picked_up" || st === "in_transit";
     return {
       id: activeExpressJob.id,

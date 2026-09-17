@@ -184,8 +184,20 @@ export const AdminShopProductApprovals = () => {
                   </td>
                 )}
                 <td className="px-4 py-3">
-                  <div className="text-sm font-semibold">{p.title}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">{p.id}</div>
+                  <div className="text-sm font-semibold">{p.title_fr || p.title}</div>
+                  {p.title_fr && p.title && p.title_fr !== p.title && (
+                    <div className="text-[11px] text-muted-foreground truncate">EN · {p.title}</div>
+                  )}
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    {p.id}
+                    {!p.title_fr && (
+                      <span className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded"
+                            style={{ background: "#FF4C5222", color: "#FF4C52" }}
+                            data-testid={`shop-approval-missing-fr-${p.id}`}>
+                        FR MISSING
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{p.supplier_id || "—"}</td>
                 <td className="px-4 py-3 text-xs">{p.variant_count}</td>
@@ -207,9 +219,20 @@ export const AdminShopProductApprovals = () => {
           <div className="flex-1 bg-black/60" />
           <div className="w-full max-w-2xl bg-card border-l border-border h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
-              <div>
+              <div className="min-w-0 flex-1 pr-3">
                 <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>SHOP Product</div>
-                <div className="text-lg font-bold">{active.title}</div>
+                <div className="text-lg font-bold truncate" data-testid="shop-approval-drawer-title">
+                  {active.title_fr || active.title}
+                </div>
+                {active.title_fr && active.title && active.title_fr !== active.title && (
+                  <div className="text-[11px] text-muted-foreground truncate">EN · {active.title}</div>
+                )}
+                {!active.title_fr && (
+                  <div className="text-[11px] font-semibold mt-0.5" style={{ color: "#FF4C52" }}
+                       data-testid="shop-approval-drawer-fr-missing">
+                    ⚠ French title missing — customer will see the English fallback
+                  </div>
+                )}
               </div>
               <button onClick={closeDrawer} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-secondary">
                 <X size={16} />
@@ -230,6 +253,30 @@ export const AdminShopProductApprovals = () => {
                   </div>
                 )}
 
+                {/* Titles (FR + EN side-by-side) — lets admins catch broken French copy */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="shop-approval-titles-panel">
+                  <div className="rounded-lg border border-border p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 flex items-center gap-1.5">
+                      <span>Titre · FR</span>
+                      {!detail.title_fr && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: "#FF4C5222", color: "#FF4C52" }}>
+                          MISSING
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-semibold whitespace-pre-wrap" data-testid="shop-approval-title-fr">
+                      {detail.title_fr || <span className="text-muted-foreground italic">Non fourni — retombe sur l'anglais</span>}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Title · EN</div>
+                    <div className="text-sm font-semibold whitespace-pre-wrap" data-testid="shop-approval-title-en">
+                      {detail.title}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Meta grid */}
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <MetaRow icon={Building2} label="Supplier" value={detail.supplier_id || "—"} mono />
@@ -238,11 +285,29 @@ export const AdminShopProductApprovals = () => {
                   <MetaRow label="Status" value={detail.status} />
                 </div>
 
-                {/* Description */}
-                {detail.description && (
-                  <div>
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Description</div>
-                    <div className="text-sm whitespace-pre-wrap">{detail.description}</div>
+                {/* Descriptions (FR + EN side-by-side) */}
+                {(detail.description || detail.description_fr) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="shop-approval-descriptions-panel">
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 flex items-center gap-1.5">
+                        <span>Description · FR</span>
+                        {!detail.description_fr && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                                style={{ background: "#FF4C5222", color: "#FF4C52" }}>
+                            MISSING
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap" data-testid="shop-approval-description-fr">
+                        {detail.description_fr || <span className="text-muted-foreground italic">Non fournie — retombe sur l'anglaise</span>}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Description · EN</div>
+                      <div className="text-sm whitespace-pre-wrap" data-testid="shop-approval-description-en">
+                        {detail.description || <span className="text-muted-foreground italic">Not provided</span>}
+                      </div>
+                    </div>
                   </div>
                 )}
 

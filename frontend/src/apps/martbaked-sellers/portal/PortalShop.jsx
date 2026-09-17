@@ -96,8 +96,8 @@ export const PortalShop = () => {
   const startNew = () => {
     setSelectedId(null);
     setDetail({
-      _draft: true, title: "", category_id: "", subcategory_id: null,
-      description: "", images: [], attributes: {}, variants: [],
+      _draft: true, title: "", title_fr: "", category_id: "", subcategory_id: null,
+      description: "", description_fr: "", images: [], attributes: {}, variants: [],
       attribute_schema: [], status: "draft",
     });
   };
@@ -144,9 +144,9 @@ export const PortalShop = () => {
                 background: selectedId === p.id ? "var(--pl-accent-soft)" : "transparent",
                 color: selectedId === p.id ? "var(--pl-accent)" : "var(--pl-fg)",
               }}>
-              <div className="font-medium truncate">{p.title}</div>
+              <div className="font-medium truncate">{p.title_fr || p.title}</div>
               <div className="text-[11px] mt-0.5" style={{ color: "var(--pl-fg-muted)" }}>
-                {p.status}
+                {p.status}{p.title_fr && p.title && p.title_fr !== p.title ? " · FR + EN" : ""}
               </div>
             </button>
           ))}
@@ -215,19 +215,21 @@ const ProductForm = ({ detail, setDetail, onSaved, saving, setSaving, supplier }
     try {
       if (isNew) {
         const payload = {
-          title: detail.title, category_id: detail.category_id,
+          title: detail.title, title_fr: detail.title_fr || null,
+          category_id: detail.category_id,
           subcategory_id: detail.subcategory_id || null,
-          description: detail.description, images: detail.images,
-          attributes: detail.attributes,
+          description: detail.description, description_fr: detail.description_fr || null,
+          images: detail.images, attributes: detail.attributes,
         };
         const { data } = await portalApi.post("/shop/portal/products", payload);
         toast.success("Product created — pending admin review");
         onSaved(data);
       } else {
         const payload = {
-          title: detail.title, subcategory_id: detail.subcategory_id || null,
-          description: detail.description, images: detail.images,
-          attributes: detail.attributes,
+          title: detail.title, title_fr: detail.title_fr || null,
+          subcategory_id: detail.subcategory_id || null,
+          description: detail.description, description_fr: detail.description_fr || null,
+          images: detail.images, attributes: detail.attributes,
         };
         await portalApi.patch(`/shop/portal/products/${detail.id}`, payload);
         toast.success("Product updated");
@@ -241,16 +243,30 @@ const ProductForm = ({ detail, setDetail, onSaved, saving, setSaving, supplier }
     <div className="pl-card p-6 space-y-6" data-testid="portal-shop-form">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="pl-label">Title *</label>
+          <label className="pl-label">Title (English) *</label>
           <input className="pl-input" value={detail.title || ""}
                  onChange={(e) => set("title", e.target.value)}
+                 placeholder="Signature Women's Fashion Accessories"
                  data-testid="portal-shop-title" />
+          <p className="text-[11px] text-neutral-500 mt-1">Canonical, English-only fallback.</p>
         </div>
+        <div>
+          <label className="pl-label">Titre (Français)</label>
+          <input className="pl-input" value={detail.title_fr || ""}
+                 onChange={(e) => set("title_fr", e.target.value)}
+                 placeholder="Accessoires de mode femme Signature"
+                 data-testid="portal-shop-title-fr" />
+          <p className="text-[11px] text-neutral-500 mt-1">Affiché aux clients français. Laissez vide pour retomber sur l'anglais.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="pl-label">Status</label>
           <input className="pl-input" value={detail.status || "draft"} disabled
                  data-testid="portal-shop-status" />
         </div>
+        <div />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -277,11 +293,21 @@ const ProductForm = ({ detail, setDetail, onSaved, saving, setSaving, supplier }
         </div>
       </div>
 
-      <div>
-        <label className="pl-label">Description</label>
-        <textarea className="pl-input" rows={3} value={detail.description || ""}
-                  onChange={(e) => set("description", e.target.value)}
-                  data-testid="portal-shop-description" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="pl-label">Description (English)</label>
+          <textarea className="pl-input" rows={3} value={detail.description || ""}
+                    onChange={(e) => set("description", e.target.value)}
+                    placeholder="Product description shown to English shoppers"
+                    data-testid="portal-shop-description" />
+        </div>
+        <div>
+          <label className="pl-label">Description (Français)</label>
+          <textarea className="pl-input" rows={3} value={detail.description_fr || ""}
+                    onChange={(e) => set("description_fr", e.target.value)}
+                    placeholder="Description affichée aux clients francophones"
+                    data-testid="portal-shop-description-fr" />
+        </div>
       </div>
 
       {schema.length > 0 && (

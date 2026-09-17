@@ -1,0 +1,31 @@
+{
+  "_default": {
+    "desc": "Cette page arrive bientôt.",
+    "back_home": "Retour à l'accueil BAKĒD"
+  },
+  "shop_seller":            { "title": "Vendeur SHOPbakēd",  "desc": "Vendez vos produits à travers l'Afrique sur SHOPbakēd." },
+  "food_partner":           { "title": "Partenaire FOODbakēd", "desc": "Rejoignez FOODbakēd avec votre restaurant, cuisine ou boulangerie." },
+  "mart_partner":           { "title": "Partenaire MARTbakēd", "desc": "Partenariat pour épicerie, retail et services aux magasins." },
+  "mart_seller":            { "title": "Vendeur MARTbakēd",  "desc": "Référencez et vendez votre stock sur MARTbakēd." },
+  "auto_partner":           { "title": "Partenaire AUTObakēd", "desc": "Intégrez votre concession ou garage comme partenaire AUTObakēd." },
+  "auto_seller":            { "title": "Vendeur AUTObakēd",  "desc": "Vendez votre véhicule ou votre flotte sur AUTObakēd." },
+  "immo_partner":           { "title": "Partenaire IMMObakēd", "desc": "Les partenaires immobiliers alimentent le réseau IMMObakēd." },
+  "immo_agent":             { "title": "Agent IMMObakēd",    "desc": "Rejoignez IMMObakēd en tant qu'agent immobilier certifié." },
+  "immo_broker":            { "title": "Courtier IMMObakēd", "desc": "Gérez vos annonces et concluez plus rapidement sur IMMObakēd." },
+  "blog":                   { "title": "Blog",               "desc": "Analyses approfondies, notes produit et histoires de l'équipe BAKĒD." },
+  "news":                   { "title": "Actualités",         "desc": "Communiqués de presse et annonces de la plateforme." },
+  "careers":                { "title": "Carrières",          "desc": "Construisez avec nous l'avenir du commerce africain." },
+  "help":                   { "title": "Centre d'aide",      "desc": "Réponses, guides et support pour chaque utilisateur BAKĒD." },
+  "contact":                { "title": "Nous contacter",     "desc": "Nous serions ravis d'avoir de vos nouvelles." },
+  "terms":                  { "title": "Conditions d'utilisation", "desc": "Les conditions légales qui régissent votre utilisation de BAKĒD." },
+  "privacy":                { "title": "Politique de confidentialité", "desc": "Comment BAKĒD collecte, utilise et protège vos données." },
+  "investors":              { "title": "Relations investisseurs",  "desc": "Chiffres clés, jalons et comment investir dans BAKĒD." },
+  "franchise":              { "title": "Franchise",         "desc": "Amenez le réseau BAKĒD dans votre ville ou votre pays." },
+  "delivery-partner":       { "title": "Partenaire de livraison", "desc": "Vous avez une flotte ? Devenez partenaire de livraison BAKĒD." },
+  "driver-registration":    { "title": "Inscription livreur", "desc": "Gagnez avec SENDbakēd — inscrivez-vous comme livreur." },
+  "merchant-registration":  { "title": "Inscription commerçant", "desc": "Un seul formulaire pour rejoindre tous les modules BAKĒD." },
+  "partner":                { "title": "Partenaire BAKĒD",  "desc": "Un Portail Partenaire dédié arrive bientôt — en attendant, découvrez les opportunités sur « Vendre sur bakēd »." },
+  "baked-delivery":         { "title": "bakēd delivery",     "desc": "Livraison le jour même, en ville, propulsée par le réseau BAKĒD. Page produit à venir." },
+  "invest":                 { "title": "Investir dans BAKĒD", "desc": "Découvrez comment investir dans BAKĒD et suivre notre croissance." },
+  "about":                  { "title": "À propos de BAKĒD", "desc": "Notre mission : bâtir la plateforme de commerce préférée d'Afrique." }
+}

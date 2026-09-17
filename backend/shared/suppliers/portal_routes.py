@@ -49,6 +49,7 @@ from core.models import (
 )
 from core.providers import object_storage
 from core.security import decode_token, verify_password
+from core.i18n import t as _t, current_lang
 
 log = logging.getLogger("baked.supplier_portal")
 
@@ -60,19 +61,19 @@ log = logging.getLogger("baked.supplier_portal")
 async def get_current_supplier(request: Request, session: AsyncSession = Depends(get_session)) -> Supplier:
     auth = request.headers.get("authorization") or request.headers.get("Authorization")
     if not auth or not auth.lower().startswith("bearer "):
-        raise HTTPException(401, "Missing bearer token")
+        raise HTTPException(401, _t("errors.generic.missing_bearer", current_lang()))
     token = auth.split(" ", 1)[1].strip()
     try:
         payload = decode_token(token)
     except Exception as exc:
-        raise HTTPException(401, "Invalid token") from exc
+        raise HTTPException(401, _t("errors.generic.invalid_token", current_lang())) from exc
     if payload.get("role") != "supplier":
-        raise HTTPException(403, "Supplier role required")
+        raise HTTPException(403, _t("errors.supplier.supplier_role_required", current_lang()))
     supplier = await session.get(Supplier, payload.get("sub") or payload.get("uid") or payload.get("user_id"))
     if not supplier:
-        raise HTTPException(401, "Supplier not found")
+        raise HTTPException(401, _t("errors.supplier.supplier_not_found", current_lang()))
     if supplier.status not in ("approved", "action_required") or not supplier.supplier_portal_active:
-        raise HTTPException(403, {"code": "not_active", "message": "Supplier portal is not active."})
+        raise HTTPException(403, {"code": "not_active", "message": _t("errors.supplier.not_active", current_lang())})
     return supplier
 
 
@@ -273,9 +274,9 @@ async def add_document(
     session: AsyncSession = Depends(get_session),
 ):
     if payload.document_type not in SUPPLIER_DOCUMENT_TYPES:
-        raise HTTPException(400, f"Invalid document_type: {payload.document_type}")
+        raise HTTPException(400, _t("errors.supplier.invalid_document_type", current_lang(), value=payload.document_type))
     if not payload.file_url:
-        raise HTTPException(400, "file_url is required")
+        raise HTTPException(400, _t("errors.supplier.file_url_required", current_lang()))
     from datetime import date as _date
     doc = SupplierDocument(
         supplier_id=supplier.id, document_type=payload.document_type,
@@ -300,7 +301,7 @@ async def delete_document(
 ):
     doc = await session.get(SupplierDocument, doc_id)
     if not doc or doc.supplier_id != supplier.id or doc.is_deleted:
-        raise HTTPException(404, "Document not found")
+        raise HTTPException(404, _t("errors.supplier.document_not_found", current_lang()))
     doc.is_deleted = True
     await session.commit()
     return {"ok": True}
@@ -337,7 +338,7 @@ async def add_location(
     session: AsyncSession = Depends(get_session),
 ):
     if payload.kind not in ("supply_city", "supply_zone", "supply_country"):
-        raise HTTPException(400, "kind must be supply_city|supply_zone|supply_country")
+        raise HTTPException(400, _t("errors.supplier.location_kind_invalid", current_lang()))
     loc = SupplierSupplyLocation(
         supplier_id=supplier.id, kind=payload.kind,
         label=payload.label or payload.city or payload.zone or payload.country or payload.kind,
@@ -359,7 +360,7 @@ async def delete_location(
 ):
     loc = await session.get(SupplierSupplyLocation, loc_id)
     if not loc or loc.supplier_id != supplier.id or loc.is_business_location:
-        raise HTTPException(404, "Location not found or not editable")
+        raise HTTPException(404, _t("errors.supplier.location_not_editable", current_lang()))
     await session.delete(loc)
     await session.commit()
     return {"ok": True}
@@ -482,7 +483,7 @@ async def add_catalogue(
 ):
     mp = await session.get(MartProduct, payload.master_product_id)
     if not mp or mp.country != supplier.country:
-        raise HTTPException(400, "Master product not found in your country")
+        raise HTTPException(400, _t("errors.supplier.master_product_not_in_country", current_lang()))
     existing = (await session.execute(
         select(SupplierProduct).where(
             SupplierProduct.supplier_id == supplier.id,
@@ -523,7 +524,7 @@ async def patch_catalogue(
 ):
     sp = await session.get(SupplierProduct, sp_id)
     if not sp or sp.supplier_id != supplier.id:
-        raise HTTPException(404, "Catalogue row not found")
+        raise HTTPException(404, _t("errors.supplier.catalogue_row_not_found", current_lang()))
     for k, v in payload.model_dump(exclude_unset=True).items():
         setattr(sp, k, v)
     await session.commit()
@@ -539,7 +540,7 @@ async def delete_catalogue(
 ):
     sp = await session.get(SupplierProduct, sp_id)
     if not sp or sp.supplier_id != supplier.id:
-        raise HTTPException(404, "Catalogue row not found")
+        raise HTTPException(404, _t("errors.supplier.catalogue_row_not_found", current_lang()))
     await session.delete(sp)
     await session.commit()
     return {"ok": True}
@@ -594,7 +595,7 @@ async def _validate_and_snapshot_attributes(
     snapshot, errors = validate_and_snapshot(editable, raw_attrs or {})
     if errors:
         raise HTTPException(422, {"code": "attribute_validation",
-                                  "message": "Attribute validation failed",
+                                  "message": _t("errors.supplier.attribute_validation", current_lang()),
                                   "errors": errors})
     return snapshot
 
@@ -621,12 +622,12 @@ async def create_product_request(
     if payload.proposed_category_id:
         cat = await session.get(MartCategory, payload.proposed_category_id)
         if not cat or cat.country != supplier.country:
-            raise HTTPException(400, "Category not found in your country")
+            raise HTTPException(400, _t("errors.supplier.category_not_in_country", current_lang()))
     if payload.proposed_subcategory_id:
         from core.models import MartSubcategory
         sub = await session.get(MartSubcategory, payload.proposed_subcategory_id)
         if not sub or sub.category_id != payload.proposed_category_id:
-            raise HTTPException(400, "Subcategory does not belong to the chosen category")
+            raise HTTPException(400, _t("errors.supplier.subcategory_not_in_category", current_lang()))
     attrs_snapshot = await _validate_and_snapshot_attributes(
         session,
         category_id=payload.proposed_category_id,
@@ -670,13 +671,13 @@ async def resubmit_product_request(
     """
     r = await session.get(SupplierProductRequest, req_id)
     if not r or r.supplier_id != supplier.id:
-        raise HTTPException(404, "Request not found")
+        raise HTTPException(404, _t("errors.supplier.request_not_found", current_lang()))
     if r.status != "rejected":
-        raise HTTPException(409, f"Only rejected requests can be resubmitted (current: {r.status})")
+        raise HTTPException(409, _t("errors.supplier.only_rejected_can_be_resubmitted", current_lang(), status=r.status))
     if payload.proposed_category_id:
         cat = await session.get(MartCategory, payload.proposed_category_id)
         if not cat or cat.country != supplier.country:
-            raise HTTPException(400, "Category not found in your country")
+            raise HTTPException(400, _t("errors.supplier.category_not_in_country", current_lang()))
     r.proposed_name = payload.proposed_name
     r.proposed_category_id = payload.proposed_category_id
     r.proposed_subcategory_id = payload.proposed_subcategory_id
@@ -724,15 +725,15 @@ async def upload_file(
     supplier to reference in `/me/documents` or `/me/product-requests`.
     """
     if kind not in ("document", "image"):
-        raise HTTPException(400, "kind must be 'document' or 'image'")
+        raise HTTPException(400, _t("errors.supplier.kind_document_or_image", current_lang()))
     data = await file.read()
     if not data:
-        raise HTTPException(400, "Empty file")
+        raise HTTPException(400, _t("errors.supplier.empty_file", current_lang()))
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, f"Max file size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB")
+        raise HTTPException(413, _t("errors.supplier.file_too_large", current_lang(), mb=MAX_UPLOAD_BYTES // (1024 * 1024)))
     ct = (file.content_type or "application/octet-stream").lower()
     if not any(ct.startswith(p) for p in ALLOWED_MIME_PREFIXES):
-        raise HTTPException(415, f"Unsupported content type: {ct}")
+        raise HTTPException(415, _t("errors.supplier.unsupported_content_type", current_lang(), ct=ct))
 
     ext = "bin"
     if file.filename and "." in file.filename:
@@ -742,7 +743,8 @@ async def upload_file(
         result = object_storage.put_object(path, data, ct)
     except Exception as exc:  # noqa: BLE001
         log.exception("supplier.upload_failed", extra={"supplier": supplier.id})
-        raise HTTPException(502, {"code": "storage_upload_failed", "message": str(exc)}) from exc
+        raise HTTPException(502, {"code": "storage_upload_failed",
+                                  "message": _t("errors.supplier.storage_upload_failed", current_lang())}) from exc
 
     # Public serve URL served by our own auth-gated proxy (see below).
     file_url = f"/api/supplier/files/{result['path']}"
@@ -771,24 +773,24 @@ async def download_file(path: str, request: Request, session: AsyncSession = Dep
             if role == "supplier":
                 # Path must start with .../suppliers/{supplier_id}/...
                 if f"/suppliers/{sub}/" not in path:
-                    raise HTTPException(403, "Forbidden")
+                    raise HTTPException(403, _t("errors.supplier.forbidden", current_lang()))
             elif role in ("admin", "super_admin"):
                 admin = await session.get(AdminUser, sub)
                 if not admin:
-                    raise HTTPException(401, "Invalid admin")
+                    raise HTTPException(401, _t("errors.supplier.invalid_admin", current_lang()))
             else:
-                raise HTTPException(403, "Forbidden")
+                raise HTTPException(403, _t("errors.supplier.forbidden", current_lang()))
         except HTTPException:
             raise
         except Exception as exc:
-            raise HTTPException(401, "Invalid token") from exc
+            raise HTTPException(401, _t("errors.generic.invalid_token", current_lang())) from exc
     else:
-        raise HTTPException(401, "Missing token")
+        raise HTTPException(401, _t("errors.generic.missing_token", current_lang()))
 
     try:
         content, ct = object_storage.get_object(path)
     except Exception as exc:
-        raise HTTPException(404, "File not found") from exc
+        raise HTTPException(404, _t("errors.supplier.file_not_found", current_lang())) from exc
     return Response(content=content, media_type=ct)
 
 
@@ -864,19 +866,19 @@ async def admin_approve_request(
 ):
     r = await session.get(SupplierProductRequest, req_id)
     if not r:
-        raise HTTPException(404, "Request not found")
+        raise HTTPException(404, _t("errors.supplier.request_not_found", current_lang()))
     if r.status != "pending":
-        raise HTTPException(409, f"Cannot approve a {r.status} request")
+        raise HTTPException(409, _t("errors.supplier.cannot_approve_status", current_lang(), status=r.status))
     supplier = await session.get(Supplier, r.supplier_id)
 
     # Create master product from proposal (SA overrides win)
     name = payload.name or r.proposed_name
     cat_id = payload.category_id or r.proposed_category_id
     if not cat_id:
-        raise HTTPException(400, "category_id is required to create a master product")
+        raise HTTPException(400, _t("errors.supplier.category_required_for_master_product", current_lang()))
     cat = await session.get(MartCategory, cat_id)
     if not cat or cat.country != supplier.country:
-        raise HTTPException(400, "Category not in supplier's country")
+        raise HTTPException(400, _t("errors.supplier.category_not_in_supplier_country", current_lang()))
 
     # Generate SKU + defaults required by mart_products
     sku = payload.sku or f"MRT-{supplier.country}-{uuid.uuid4().hex[:8].upper()}"
@@ -950,9 +952,9 @@ async def admin_reject_request(
 ):
     r = await session.get(SupplierProductRequest, req_id)
     if not r:
-        raise HTTPException(404, "Request not found")
+        raise HTTPException(404, _t("errors.supplier.request_not_found", current_lang()))
     if r.status != "pending":
-        raise HTTPException(409, f"Cannot reject a {r.status} request")
+        raise HTTPException(409, _t("errors.supplier.cannot_reject_status", current_lang(), status=r.status))
     r.status = "rejected"
     r.review_notes = payload.notes
     r.reviewed_at = datetime.now(timezone.utc)

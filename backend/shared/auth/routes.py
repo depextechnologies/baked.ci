@@ -25,6 +25,7 @@ from core.serializers import customer_to_dict
 from core.providers.otp_provider import get_otp_provider, generate_code
 from core.events import event_bus, Events
 from core.deps import get_current_customer
+from core.i18n import t as _t, current_lang
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -130,14 +131,14 @@ async def request_otp(payload: OtpRequestIn, session: AsyncSession = Depends(get
 async def verify_otp(payload: OtpVerifyIn, session: AsyncSession = Depends(get_session)):
     challenge = await session.get(OtpChallenge, payload.challenge_id)
     if not challenge or challenge.consumed:
-        raise HTTPException(status_code=400, detail="Invalid or used challenge")
+        raise HTTPException(status_code=400, detail=_t("errors.auth.challenge_invalid", current_lang()))
     expires_at = challenge.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Code expired")
+        raise HTTPException(status_code=400, detail=_t("errors.auth.otp_expired", current_lang()))
     if challenge.attempts >= 5:
-        raise HTTPException(status_code=429, detail="Too many attempts")
+        raise HTTPException(status_code=429, detail=_t("errors.auth.otp_max_attempts", current_lang()))
 
     # Persist the attempt on its own, BEFORE checking the code — a wrong-code
     # exception below must not roll this back, or rate-limiting never triggers.
@@ -147,7 +148,7 @@ async def verify_otp(payload: OtpVerifyIn, session: AsyncSession = Depends(get_s
     await session.commit()
 
     if payload.code != challenge.code:
-        raise HTTPException(status_code=400, detail="Incorrect code")
+        raise HTTPException(status_code=400, detail=_t("errors.auth.otp_incorrect", current_lang()))
 
     customer = await _find_or_create_customer_by_phone(session, challenge.phone)
     customer.verified = True
@@ -170,7 +171,7 @@ async def google_verify(
     a customer. Fully white-label — never talks to any Emergent domain.
     """
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(status_code=500, detail="Google Sign-In is not configured")
+        raise HTTPException(status_code=500, detail=_t("errors.auth.google_not_configured", current_lang()))
 
     # Step 1 — Exchange the auth code with Google for tokens.
     # `redirect_uri='postmessage'` matches what @react-oauth/google's popup
@@ -187,11 +188,11 @@ async def google_verify(
             },
         )
     if r.status_code != 200:
-        raise HTTPException(status_code=401, detail=f"Google token exchange failed: {r.text}")
+        raise HTTPException(status_code=401, detail=_t("errors.auth.google_exchange_failed", current_lang(), detail=r.text))
     tokens = r.json()
     id_token_str = tokens.get("id_token")
     if not id_token_str:
-        raise HTTPException(status_code=401, detail="No id_token returned by Google")
+        raise HTTPException(status_code=401, detail=_t("errors.auth.google_no_id_token", current_lang()))
 
     # Step 2 — Verify the ID token signature + audience.
     try:
@@ -199,11 +200,11 @@ async def google_verify(
             id_token_str, google_requests.Request(), GOOGLE_CLIENT_ID,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=f"Invalid Google credential: {exc}") from exc
+        raise HTTPException(status_code=401, detail=_t("errors.auth.google_invalid_credential", current_lang(), detail=str(exc))) from exc
 
     email = info.get("email")
     if not email or not info.get("email_verified"):
-        raise HTTPException(status_code=401, detail="Google account email is not verified")
+        raise HTTPException(status_code=401, detail=_t("errors.auth.google_email_unverified", current_lang()))
 
     # Step 3 — Find or create the customer, issue app JWT.
     customer = await _find_or_create_customer_by_google(

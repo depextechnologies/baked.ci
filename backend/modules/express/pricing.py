@@ -163,6 +163,122 @@ async def quote_parcel(
     return breakdown
 
 
+# Phase E — Multi-stop trip pricing surcharge, charged per EXTRA shipment
+# (i.e. every shipment beyond the first). Kept in code for simplicity; ops
+# can later promote to a `express_pricing_rules` column if needed.
+MULTI_STOP_PER_EXTRA_SHIPMENT = {"XOF": 500, "LRD": 200, "INR": 50}
+
+
+async def quote_multi_stop(
+    session: AsyncSession,
+    *,
+    country: str,
+    vehicle_code: str,
+    stops: list,               # ordered [{pickup:{lat,lng}, drop:{lat,lng}}, …]
+    promo_code: Optional[str] = None,
+    peak: bool = False,
+    night: bool = False,
+) -> Dict[str, Any]:
+    """Price a single-vehicle multi-shipment trip.
+
+    Distance = sum of the drive across every consecutive point of every
+    shipment (pickup1 → drop1 → pickup2 → drop2 → …). Duration is derived
+    from the same distance via the standard `estimate_duration_min` helper
+    so ETAs stay comparable to single-shipment quotes.
+
+    Every extra shipment beyond the first adds a small fixed surcharge —
+    encodes the driver's extra handling work without turning pricing into
+    a per-km black box.
+    """
+    if not stops or len(stops) < 1:
+        raise ValueError("At least one shipment is required")
+
+    rule = await _pricing_rule(session, country, vehicle_code)
+    currency, symbol = await _currency(session, country)
+
+    # Build the ordered path of lat/lng points.
+    path: list[tuple[float, float]] = []
+    for s in stops:
+        p = s.get("pickup") or {}
+        d = s.get("drop") or {}
+        try:
+            path.append((float(p["lat"]), float(p["lng"])))
+            path.append((float(d["lat"]), float(d["lng"])))
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(f"Invalid stop coordinates: {e}")
+
+    distance_km = 0.0
+    for i in range(1, len(path)):
+        distance_km += haversine_km(path[i - 1][0], path[i - 1][1], path[i][0], path[i][1])
+    distance_km = round(distance_km, 2)
+    duration_min = estimate_duration_min(distance_km, vehicle_code)
+
+    base_fare = float(rule.get("base_fare") or 0)
+    distance_fare = distance_km * float(rule.get("price_per_km") or 0)
+    time_fare = duration_min * float(rule.get("price_per_min") or 0)
+
+    # Extra-shipment surcharge (surfaced as a top-level line so the customer
+    # sees exactly what the extra stops cost, no hidden pricing).
+    extra_stops = max(0, len(stops) - 1)
+    per_extra = float(MULTI_STOP_PER_EXTRA_SHIPMENT.get(currency, 0))
+    extra_stop_surcharge = extra_stops * per_extra
+
+    subtotal = base_fare + distance_fare + time_fare + extra_stop_surcharge
+
+    surcharge = 0.0
+    if peak: surcharge += subtotal * (float(rule.get("peak_multiplier") or 1) - 1)
+    if night: surcharge += subtotal * (float(rule.get("night_multiplier") or 1) - 1)
+
+    service_fee = (subtotal + surcharge) * (float(rule.get("service_fee_pct") or 0) / 100.0)
+    insurance = float(rule.get("insurance_min") or 0)
+
+    pre_promo = subtotal + surcharge + service_fee + insurance
+    promo_discount = 0.0
+    promo_meta = None
+    if promo_code:
+        promo = (
+            await session.execute(
+                select(ExpressPromo).where(
+                    ExpressPromo.code == promo_code.upper(),
+                    ExpressPromo.active.is_(True),
+                    ExpressPromo.country == country.upper(),
+                )
+            )
+        ).scalar_one_or_none()
+        if promo:
+            if promo.kind == "percent":
+                promo_discount = pre_promo * (float(promo.value or 0) / 100.0)
+                if promo.max_discount:
+                    promo_discount = min(promo_discount, float(promo.max_discount))
+            elif promo.kind == "flat":
+                promo_discount = float(promo.value or 0)
+            promo_meta = {"code": promo.code, "label": promo.label, "kind": promo.kind}
+
+    taxable = max(0, pre_promo - promo_discount)
+    taxes = taxable * (float(rule.get("taxes_pct") or 0) / 100.0)
+    total = max(float(rule.get("min_fare") or 0), taxable + taxes)
+
+    return {
+        "currency": currency,
+        "currency_symbol": symbol,
+        "distance_km": distance_km,
+        "duration_min": duration_min,
+        "shipments": len(stops),
+        "extra_stops": extra_stops,
+        "base_fare": _round(currency, base_fare),
+        "distance_fare": _round(currency, distance_fare),
+        "time_fare": _round(currency, time_fare),
+        "extra_stop_surcharge": _round(currency, extra_stop_surcharge),
+        "surcharge": _round(currency, surcharge),
+        "service_fee": _round(currency, service_fee),
+        "insurance": _round(currency, insurance),
+        "promo_discount": _round(currency, promo_discount),
+        "promo": promo_meta,
+        "taxes": _round(currency, taxes),
+        "total": _round(currency, total),
+    }
+
+
 async def quote_movers(
     session: AsyncSession,
     *,

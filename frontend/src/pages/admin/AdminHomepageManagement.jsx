@@ -104,9 +104,13 @@ const SECTION_SCHEMAS = {
     config: [
       F.num("columns", "Columns (desktop)"),
       F.list("categories", "Categories", [
-        F.text("slug", "Slug"),
+        F.text("slug", "Category slug (e.g. mode-femme)"),
         F.text("name", "Display name"),
         F.image("image", "Icon / illustration URL"),
+        // QA — Fixing_Prompt "Admin #5": explicit link overrides slug-based
+        // routing so CMS tiles can target /shop/c/<slug>, /shop/categories,
+        // or any promo page. Blank = derive from `slug` (default).
+        F.url("link", "Target link (blank ⇒ /shop/c/{slug})"),
       ]),
     ],
   },
@@ -135,7 +139,9 @@ const SECTION_SCHEMAS = {
       F.text("filter", "Category slug (or keyword: bestsellers / new). Blank = all"),
       F.text("subcategory", "Subcategory slug (optional)"),
       F.num("limit", "Number of products to show"),
-      F.url("link", "See-all link"),
+      // QA — Fixing_Prompt "Home #2": explicit URL wins; otherwise "View
+      // all" auto-derives from `filter` (category slug) → /shop/c/{filter}.
+      F.url("link", "\"View all\" link (blank ⇒ auto from Category slug)"),
     ],
   },
   brand_carousel: {
@@ -562,6 +568,50 @@ const FieldRenderer = ({ field, value, onChange }) => {
   );
 };
 
+/**
+ * QA — Fixing_Prompt "Admin #4": Kubernetes ingress `client_max_body_size`
+ * defaults to 1 MiB in most stacks, which trips a 413 for banner-quality
+ * images long before our 8 MiB app-level check runs. We resize + re-encode
+ * the source on-canvas so uploads always slide comfortably under the
+ * proxy limit while keeping banner-grade sharpness (≤2200 px longest side,
+ * JPEG @ q=0.85). Small files are passed through unchanged.
+ */
+const MAX_UPLOAD_BYTES_TARGET = 900 * 1024;     // ≈0.9 MiB → under typical 1 MiB ingress cap
+const MAX_UPLOAD_DIMENSION    = 2200;            // px, longest side after resize
+
+async function compressImageIfNeeded(file) {
+  if (!file.type.startsWith("image/")) return file;
+  if (file.size <= MAX_UPLOAD_BYTES_TARGET)      return file;
+  // Skip re-encoding for SVG (already tiny) and animated GIFs (canvas would freeze them).
+  if (/svg|gif/i.test(file.type))                return file;
+
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file;
+
+  const ratio = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * ratio);
+  const h = Math.round(bitmap.height * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+
+  // Progressive quality drop until we're safely under the target size —
+  // banner content survives q=0.7 easily.
+  for (const q of [0.85, 0.75, 0.65]) {
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", q));
+    if (blob && blob.size <= MAX_UPLOAD_BYTES_TARGET) {
+      const base = (file.name || "banner").replace(/\.[^.]+$/, "");
+      return new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+    }
+  }
+  // Last-resort attempt at the lowest quality.
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.55));
+  const base = (file.name || "banner").replace(/\.[^.]+$/, "");
+  return new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+}
+
 const ImageField = ({ name, value, onChange }) => {
   const [busy, setBusy] = useState(false);
   const inputRef = React.useRef(null);
@@ -570,14 +620,27 @@ const ImageField = ({ name, value, onChange }) => {
     if (!file.type.startsWith("image/")) return toast.error("Please pick an image file");
     setBusy(true);
     try {
+      const compressed = await compressImageIfNeeded(file);
+      if (compressed !== file) {
+        // Info toast so admin knows a large source was auto-resized. Silent
+        // when the original was already small enough.
+        const kb = Math.round(compressed.size / 1024);
+        toast.message(`Auto-optimised ${kb} KB (originally ${Math.round(file.size / 1024)} KB)`);
+      }
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", compressed, compressed.name);
       const { data } = await adminApi.post("/admin/homepage-sections/uploads", form,
         { headers: { "Content-Type": "multipart/form-data" } });
       onChange(data.file_url);
       toast.success("Uploaded");
     } catch (e) {
-      toast.error(errMsg(e));
+      // 413 can still happen if ingress limit is lower than target. Surface
+      // an actionable message pointing the admin at the tighter cap.
+      if (e?.response?.status === 413) {
+        toast.error("Upload rejected by the server (payload too large). Try a smaller image or JPEG.");
+      } else {
+        toast.error(errMsg(e));
+      }
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";

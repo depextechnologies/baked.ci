@@ -1,0 +1,18 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "orders": "Commandes",
+    "catalog": "Catalogue",
+    "applications": "Candidature",
+    "payouts": "Paiements",
+    "reviews": "Avis"
+  },
+  "apply": {
+    "step_business": "Informations de l'entreprise",
+    "step_location": "Adresse et zone de couverture",
+    "step_documents": "Documents",
+    "step_review": "Vérification",
+    "step_status": "Statut",
+    "submit_cta": "Soumettre ma candidature"
+  }
+}

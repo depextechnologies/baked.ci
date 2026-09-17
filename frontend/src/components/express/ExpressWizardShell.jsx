@@ -81,12 +81,59 @@ const RoutePolyline = ({ pickup, drop, onMeta }) => {
 };
 
 /**
- * Auto-fit bounds to include both markers whenever pickup or drop changes.
+ * Phase E — Multi-stop polyline. Draws a single Directions route through
+ * every consecutive waypoint (pickup1 → drop1 → pickup2 → drop2 → …).
+ * `path` is a flat array of `{lat, lng}` — the caller flattens the
+ * shipment-pair structure so this component stays presentation-only.
  */
-const FitBounds = ({ pickup, drop }) => {
+const MultiStopPolyline = ({ path, onMeta }) => {
   const map = useMap();
+  const onMetaRef = React.useRef(onMeta);
+  React.useEffect(() => { onMetaRef.current = onMeta; }, [onMeta]);
+  const key = React.useMemo(() => (path || []).map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join("|"), [path]);
+  useEffect(() => {
+    if (!map || !path || path.length < 2 || !window.google?.maps) return;
+    const svc = new window.google.maps.DirectionsService();
+    const renderer = new window.google.maps.DirectionsRenderer({
+      map, suppressMarkers: true, preserveViewport: true,
+      polylineOptions: { strokeColor: YELLOW, strokeWeight: 5, strokeOpacity: 0.9 },
+    });
+    const origin = path[0];
+    const destination = path[path.length - 1];
+    const waypoints = path.slice(1, -1).map((p) => ({ location: p, stopover: true }));
+    svc.route(
+      { origin, destination, waypoints, travelMode: window.google.maps.TravelMode.DRIVING },
+      (res, status) => {
+        if (status === "OK" && res) {
+          renderer.setDirections(res);
+          const legs = res.routes?.[0]?.legs || [];
+          const distance_km = legs.reduce((s, l) => s + (l.distance?.value || 0), 0) / 1000;
+          const duration_min = Math.round(legs.reduce((s, l) => s + (l.duration?.value || 0), 0) / 60);
+          if (onMetaRef.current) onMetaRef.current({ distance_km, duration_min });
+        }
+      },
+    );
+    return () => renderer.setMap(null);
+  }, [map, key]); // eslint-disable-line
+  return null;
+};
+
+/**
+ * Auto-fit bounds to include both markers whenever pickup or drop changes.
+ * Phase E — when `path` is supplied (multi-stop trip) every waypoint is
+ * pulled into the bounds so the whole trip is always visible.
+ */
+const FitBounds = ({ pickup, drop, path }) => {
+  const map = useMap();
+  const key = React.useMemo(() => (path || []).map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join("|"), [path]);
   useEffect(() => {
     if (!map || !window.google?.maps) return;
+    if (path && path.length >= 2) {
+      const b = new window.google.maps.LatLngBounds();
+      path.forEach((p) => b.extend(p));
+      map.fitBounds(b, 80);
+      return;
+    }
     if (pickup && drop) {
       const b = new window.google.maps.LatLngBounds();
       b.extend({ lat: pickup.latitude, lng: pickup.longitude });
@@ -96,7 +143,7 @@ const FitBounds = ({ pickup, drop }) => {
       map.setCenter({ lat: pickup.latitude, lng: pickup.longitude });
       map.setZoom(15);
     }
-  }, [map, pickup, drop]);
+  }, [map, pickup, drop, key]); // eslint-disable-line
   return null;
 };
 
@@ -111,6 +158,24 @@ export const WizardMap = ({ compact = false, draft: draftOverride = null }) => {
   const draft = draftOverride || parcelDraft;
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const [meta, setMeta] = useState(null);
+
+  // Phase E — Flatten multi-stop draft into a single ordered path so both
+  // the polyline and the fit-bounds share the same waypoint sequence.
+  const multiPath = useMemo(() => {
+    if (draft?.service_type !== "multiple_shipments") return null;
+    const stops = draft?.stops || [];
+    if (stops.length < 1) return null;
+    const path = [];
+    for (const s of stops) {
+      if (s?.pickup?.latitude != null && s?.pickup?.longitude != null) {
+        path.push({ lat: s.pickup.latitude, lng: s.pickup.longitude });
+      }
+      if (s?.drop?.latitude != null && s?.drop?.longitude != null) {
+        path.push({ lat: s.drop.latitude, lng: s.drop.longitude });
+      }
+    }
+    return path.length >= 2 ? path : null;
+  }, [draft?.service_type, draft?.stops]);
 
   const center = useMemo(() => {
     if (draft?.pickup) return { lat: draft.pickup.latitude, lng: draft.pickup.longitude };
@@ -148,19 +213,41 @@ export const WizardMap = ({ compact = false, draft: draftOverride = null }) => {
           gestureHandling="greedy"
           disableDefaultUI
         >
-          <FitBounds pickup={draft?.pickup} drop={draft?.drop} />
-          {draft?.pickup && draft?.drop && (
-            <RoutePolyline pickup={draft.pickup} drop={draft.drop} onMeta={setMeta} />
-          )}
-          {draft?.pickup && (
-            <AdvancedMarker position={{ lat: draft.pickup.latitude, lng: draft.pickup.longitude }}>
-              <Pin label="A" />
-            </AdvancedMarker>
-          )}
-          {draft?.drop && (
-            <AdvancedMarker position={{ lat: draft.drop.latitude, lng: draft.drop.longitude }}>
-              <Pin label="B" />
-            </AdvancedMarker>
+          <FitBounds pickup={draft?.pickup} drop={draft?.drop} path={multiPath} />
+          {multiPath ? (
+            <>
+              <MultiStopPolyline path={multiPath} onMeta={setMeta} />
+              {(draft?.stops || []).map((s, i) => (
+                <React.Fragment key={s.id || i}>
+                  {s.pickup?.latitude != null && (
+                    <AdvancedMarker position={{ lat: s.pickup.latitude, lng: s.pickup.longitude }}>
+                      <Pin label={`${i + 1}P`} />
+                    </AdvancedMarker>
+                  )}
+                  {s.drop?.latitude != null && (
+                    <AdvancedMarker position={{ lat: s.drop.latitude, lng: s.drop.longitude }}>
+                      <Pin label={`${i + 1}D`} />
+                    </AdvancedMarker>
+                  )}
+                </React.Fragment>
+              ))}
+            </>
+          ) : (
+            <>
+              {draft?.pickup && draft?.drop && (
+                <RoutePolyline pickup={draft.pickup} drop={draft.drop} onMeta={setMeta} />
+              )}
+              {draft?.pickup && (
+                <AdvancedMarker position={{ lat: draft.pickup.latitude, lng: draft.pickup.longitude }}>
+                  <Pin label="A" />
+                </AdvancedMarker>
+              )}
+              {draft?.drop && (
+                <AdvancedMarker position={{ lat: draft.drop.latitude, lng: draft.drop.longitude }}>
+                  <Pin label="B" />
+                </AdvancedMarker>
+              )}
+            </>
           )}
         </Map>
       </APIProvider>

@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "orders": "Trips",
+    "earnings": "Earnings",
+    "history": "History",
+    "profile": "Profile"
+  },
+  "shift": {
+    "go_online": "Go online",
+    "go_offline": "Go offline",
+    "online": "Online",
+    "offline": "Offline"
+  },
+  "trip": {
+    "accept": "Accept",
+    "decline": "Decline",
+    "start": "Start trip",
+    "arrived_pickup": "Arrived at pickup",
+    "picked_up": "Picked up",
+    "arrived_dropoff": "Arrived at drop-off",
+    "complete": "Complete trip"
+  }
+}

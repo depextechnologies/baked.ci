@@ -19,6 +19,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Sun,
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
@@ -137,6 +138,14 @@ const NAV_LINKS = [
 ];
 
 const Navbar = ({ theme, onToggleTheme }) => {
+  const { t } = useTranslation("partner");
+  const NAV_LINKS = [
+    { label: t("nav.solutions"),   href: "#opportunities" },
+    { label: t("nav.become"),      href: "#final-cta" },
+    { label: t("nav.why"),         href: "#why" },
+    { label: t("nav.resources"),   href: "#how-it-works" },
+    { label: t("nav.support"),     href: "#footer" },
+  ];
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -154,10 +163,10 @@ const Navbar = ({ theme, onToggleTheme }) => {
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
             <a
-              key={l.label}
+              key={l.href}
               href={l.href}
               className="pl-nav-link"
-              data-testid={`partner-nav-${l.label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z-]/g, "")}`}
+              data-testid={`partner-nav-${l.href.replace(/[^a-z-]/gi, "")}`}
             >
               {l.label}
             </a>
@@ -172,14 +181,14 @@ const Navbar = ({ theme, onToggleTheme }) => {
             className="pl-btn pl-btn-ghost hidden sm:inline-flex"
             data-testid="partner-nav-login"
           >
-            Login
+            {t("nav.login")}
           </Link>
           <a
             href="#final-cta"
             className="pl-btn pl-btn-primary"
             data-testid="partner-nav-apply-now"
           >
-            Apply Now <ArrowRight size={16} />
+            {t("nav.apply_now")} <ArrowRight size={16} />
           </a>
         </div>
       </div>
@@ -219,7 +228,9 @@ const Reveal = ({ children, delay = 0, as: Tag = "div", className = "", ...rest 
 /*                                    Hero                                    */
 /* -------------------------------------------------------------------------- */
 
-const HeroSection = () => (
+const HeroSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section className="pl-hero">
     <div className="pl-hero-bg" aria-hidden="true" />
     <div className="pl-container relative" style={{ zIndex: 2 }}>
@@ -227,29 +238,27 @@ const HeroSection = () => (
         <div>
           <Reveal>
             <div className="pl-eyebrow mb-6" style={{ color: "var(--pl-accent)" }}>
-              Now onboarding — Côte d&apos;Ivoire & India
+              {t("hero.eyebrow")}
             </div>
           </Reveal>
           <Reveal delay={80}>
             <h1 className="pl-display" style={{ color: "var(--pl-fg)" }}>
-              Grow Your Business<br />
-              with <span style={{ color: "var(--pl-accent)" }}>BAKĒD</span>.
+              {t("hero.headline_prefix")}<br />
+              {t("hero.headline_infix")} <span style={{ color: "var(--pl-accent)" }}>BAKĒD</span>.
             </h1>
           </Reveal>
           <Reveal delay={160}>
             <p className="pl-body-lg mt-6 max-w-xl">
-              Join thousands of businesses across Côte d&apos;Ivoire and become
-              part of Africa&apos;s next commerce revolution — one platform,
-              six businesses, unified logistics, and AI-native tools.
+              {t("hero.description")}
             </p>
           </Reveal>
           <Reveal delay={220}>
             <div className="mt-10 flex flex-wrap gap-4">
               <a href="#final-cta" className="pl-btn pl-btn-primary" data-testid="partner-hero-cta-primary">
-                Become a Partner <ArrowRight size={18} />
+                {t("hero.cta_primary")} <ArrowRight size={18} />
               </a>
               <a href="#opportunities" className="pl-btn pl-btn-secondary" data-testid="partner-hero-cta-secondary">
-                Explore Opportunities
+                {t("hero.cta_secondary")}
               </a>
             </div>
           </Reveal>
@@ -261,7 +270,8 @@ const HeroSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /** Hero illustration — BAKĒD hub with the six modules arranged around it. */
 const HeroEcosystemIllustration = () => {
@@ -334,31 +344,34 @@ const HeroEcosystemIllustration = () => {
 /* -------------------------------------------------------------------------- */
 
 const TRUST_ITEMS = [
-  { label: "Trusted by 5k+ businesses", icon: ShieldCheck },
-  { label: "Secure payments",           icon: Wallet },
-  { label: "AI-powered marketing",      icon: Sparkles },
-  { label: "Fast settlement",           icon: Zap },
-  { label: "24/7 operations",           icon: Clock },
-  { label: "Africa-first infrastructure", icon: Globe2 },
+  { key: "trusted",    icon: ShieldCheck },
+  { key: "secure",     icon: Wallet },
+  { key: "ai",         icon: Sparkles },
+  { key: "settlement", icon: Zap },
+  { key: "ops",        icon: Clock },
+  { key: "infra",      icon: Globe2 },
 ];
 
-const TrustBar = () => (
+const TrustBar = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section className="pl-section-tight" style={{ borderTop: "1px solid var(--pl-border)", borderBottom: "1px solid var(--pl-border)" }}>
     <div className="pl-container">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center">
-        {TRUST_ITEMS.map((t, i) => {
-          const Icon = t.icon;
+        {TRUST_ITEMS.map((row, i) => {
+          const Icon = row.icon;
           return (
-            <Reveal key={t.label} delay={i * 60} className="flex items-center gap-3 justify-center lg:justify-start">
+            <Reveal key={row.key} delay={i * 60} className="flex items-center gap-3 justify-center lg:justify-start">
               <Icon size={18} style={{ color: "var(--pl-accent)" }} />
-              <span className="text-sm" style={{ color: "var(--pl-fg-muted)" }}>{t.label}</span>
+              <span className="text-sm" style={{ color: "var(--pl-fg-muted)" }}>{t(`trust.${row.key}`)}</span>
             </Reveal>
           );
         })}
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                          Opportunities (6 cards)                           */
@@ -367,10 +380,7 @@ const TrustBar = () => (
 const OPPORTUNITIES = [
   {
     code: "MART", label: "MARTbakēd", color: "#77BC1F", icon: ShoppingBasket,
-    tagline: "Groceries & essentials",
-    desc: "List and sell groceries, fresh produce and daily essentials to your neighbourhood — same-day dispatch built in.",
-    // Fixing_Prompt v9 — internal SPA routes so the card and its CTA
-    // go to two different pages within the same app (no target=_blank).
+    key: "mart",
     cardHref: "/martbaked/sellers",
     applyHref: "/martbaked/sellers/apply",
     internal: true,
@@ -378,16 +388,14 @@ const OPPORTUNITIES = [
   },
   {
     code: "FOOD", label: "FOODbakēd", color: "#FF6B6B", icon: Utensils,
-    tagline: "Restaurants & kitchens",
-    desc: "Bring your restaurant, cloud kitchen or bakery online with dine-in tables, delivery and pickup — one dashboard.",
+    key: "food",
     cardHref: "https://food.partner.baked.ci",
     applyHref: "https://food.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FF6B6B55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FF6B6B33, transparent 60%)",
   },
   {
     code: "SHOP", label: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag,
-    tagline: "Marketplace sellers",
-    desc: "List your fashion, electronics and home goods on the BAKĒD marketplace. Vetted sellers, national reach, PIN-gated delivery — you focus on product, we handle discovery.",
+    key: "shop",
     cardHref: "/shopbaked/sellers",
     applyHref: "/shopbaked/sellers/apply",
     internal: true,
@@ -395,10 +403,7 @@ const OPPORTUNITIES = [
   },
   {
     code: "EXPRESS", label: "SENDbakēd", color: "#FCC44C", icon: Truck,
-    tagline: "Logistics network",
-    desc: "Move parcels, freight and home shifts through the BAKĒD dispatch network. Live tracking and pricing engine baked in.",
-    // Apply Now goes to the internal Driver landing (per Fixing_Prompt v9);
-    // card itself takes the user there too since there's no separate module page yet.
+    key: "send",
     cardHref: "/driver",
     applyHref: "/driver",
     internal: true,
@@ -406,16 +411,14 @@ const OPPORTUNITIES = [
   },
   {
     code: "AUTO", label: "AUTObakēd", color: "#9B87F5", icon: Car,
-    tagline: "Vehicles & dealerships",
-    desc: "Sell vehicles, list your dealership or manage a fleet — with financing partners and paperwork handled for you.",
+    key: "auto",
     cardHref: "https://auto.partner.baked.ci",
     applyHref: "https://auto.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #9B87F555, transparent 60%), radial-gradient(500px 300px at 80% 70%, #9B87F533, transparent 60%)",
   },
   {
     code: "IMMO", label: "IMMObakēd", color: "#F97316", icon: HomeIcon,
-    tagline: "Real estate",
-    desc: "Agents and brokers close deals faster with verified listings, digital contracts, and buyer matching powered by AI.",
+    key: "immo",
     cardHref: "https://immo.partner.baked.ci",
     applyHref: "https://immo.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #F9731655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #F9731633, transparent 60%)",
@@ -423,6 +426,7 @@ const OPPORTUNITIES = [
 ];
 
 const OpportunityCard = ({ opp, index }) => {
+  const { t } = useTranslation("partner");
   const Icon = opp.icon;
   const nav = useNavigate();
   const openCard = (e) => {
@@ -430,10 +434,8 @@ const OpportunityCard = ({ opp, index }) => {
       e.preventDefault();
       nav(opp.cardHref);
     }
-    // External href — default anchor behaviour handles it.
   };
   const openApply = (e) => {
-    // Apply CTA MUST win over the parent card link (Fixing_Prompt v9 §7).
     e.preventDefault();
     e.stopPropagation();
     if (opp.internal || opp.applyHref.startsWith("/")) {
@@ -464,14 +466,14 @@ const OpportunityCard = ({ opp, index }) => {
             className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full"
             style={{ background: "var(--pl-bg-elevated)", color: "var(--pl-fg-muted)", border: "1px solid var(--pl-border-strong)" }}
           >
-            Now onboarding
+            {t("opportunities.badge_onboarding")}
           </span>
         </div>
 
         <div className="mt-auto pt-10">
-          <div className="pl-eyebrow" style={{ color: opp.color }}>{opp.tagline}</div>
+          <div className="pl-eyebrow" style={{ color: opp.color }}>{t(`opportunities.items.${opp.key}.tagline`)}</div>
           <h3 className="pl-h2 mt-2" style={{ color: "var(--pl-fg)", fontWeight: 700 }}>{opp.label}</h3>
-          <p className="pl-body mt-3">{opp.desc}</p>
+          <p className="pl-body mt-3">{t(`opportunities.items.${opp.key}.desc`)}</p>
 
           <button
             type="button"
@@ -480,7 +482,7 @@ const OpportunityCard = ({ opp, index }) => {
             style={{ color: opp.color }}
             data-testid={`partner-opportunity-${opp.code.toLowerCase()}-apply`}
           >
-            Apply Now <ArrowUpRight size={16} />
+            {t("nav.apply_now")} <ArrowUpRight size={16} />
           </button>
         </div>
       </a>
@@ -488,18 +490,19 @@ const OpportunityCard = ({ opp, index }) => {
   );
 };
 
-const OpportunitiesSection = () => (
+const OpportunitiesSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="opportunities" className="pl-section">
     <div className="pl-container">
       <div className="text-center max-w-2xl mx-auto mb-16">
-        <Reveal><div className="pl-eyebrow mb-3">Opportunities</div></Reveal>
+        <Reveal><div className="pl-eyebrow mb-3">{t("opportunities.eyebrow")}</div></Reveal>
         <Reveal delay={80}>
-          <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Choose your opportunity</h2>
+          <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>{t("opportunities.title")}</h2>
         </Reveal>
         <Reveal delay={140}>
           <p className="pl-body-lg mt-4">
-            Select the business category that best fits your business. Each
-            module has its own dedicated onboarding flow tailored to it.
+            {t("opportunities.subtitle")}
           </p>
         </Reveal>
       </div>
@@ -511,29 +514,32 @@ const OpportunitiesSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                             Why Partner section                            */
 /* -------------------------------------------------------------------------- */
 
 const STATS = [
-  { icon: Users2,    value: "10M+", label: "Potential customers",       hint: "Across BAKĒD's growing multi-country network." },
-  { icon: Clock,     value: "24/7", label: "Business operations",       hint: "Orders never stop — neither does our platform." },
-  { icon: Sparkles,  value: "AI",   label: "Business assistant",        hint: "Ask BAKĒD AI to draft listings, price stock, forecast demand." },
-  { icon: Wallet,    value: "T+1",  label: "Fast, secure payments",     hint: "Settlements in your local currency, no surprises." },
-  { icon: Megaphone, value: "1st",  label: "Marketing growth support",  hint: "Campaigns, promotions and referrals handled for you." },
-  { icon: LineChart, value: "360°", label: "Smart analytics",           hint: "Cohorts, funnels and revenue — one dashboard." },
+  { icon: Users2,    key: "customers"  },
+  { icon: Clock,     key: "ops"        },
+  { icon: Sparkles,  key: "ai"         },
+  { icon: Wallet,    key: "payments"   },
+  { icon: Megaphone, key: "marketing"  },
+  { icon: LineChart, key: "analytics"  },
 ];
 
-const StatsSection = () => (
+const StatsSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="why" className="pl-section" style={{ background: "var(--pl-bg-elevated)" }}>
     <div className="pl-container">
       <div className="text-center max-w-2xl mx-auto mb-16">
-        <Reveal><div className="pl-eyebrow mb-3">Why Partner With BAKĒD</div></Reveal>
+        <Reveal><div className="pl-eyebrow mb-3">{t("why.eyebrow")}</div></Reveal>
         <Reveal delay={80}>
           <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>
-            Built for scale.<br />Built for Africa.
+            {t("why.title_line1")}<br />{t("why.title_line2")}
           </h2>
         </Reveal>
       </div>
@@ -542,7 +548,7 @@ const StatsSection = () => (
         {STATS.map((s, i) => {
           const Icon = s.icon;
           return (
-            <Reveal key={s.label} delay={i * 60}>
+            <Reveal key={s.key} delay={i * 60}>
               <div className="pl-card p-8 h-full">
                 <div
                   className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
@@ -550,9 +556,9 @@ const StatsSection = () => (
                 >
                   <Icon size={22} />
                 </div>
-                <div className="pl-h1" style={{ color: "var(--pl-fg)", fontSize: "2.5rem" }}>{s.value}</div>
-                <div className="pl-h3 mt-2" style={{ color: "var(--pl-fg)" }}>{s.label}</div>
-                <p className="pl-body mt-3">{s.hint}</p>
+                <div className="pl-h1" style={{ color: "var(--pl-fg)", fontSize: "2.5rem" }}>{t(`stats.${s.key}.value`)}</div>
+                <div className="pl-h3 mt-2" style={{ color: "var(--pl-fg)" }}>{t(`stats.${s.key}.label`)}</div>
+                <p className="pl-body mt-3">{t(`stats.${s.key}.hint`)}</p>
               </div>
             </Reveal>
           );
@@ -560,51 +566,44 @@ const StatsSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                              Growth (50/50)                                */
 /* -------------------------------------------------------------------------- */
 
-const GROWTH_BULLETS = [
-  "More customers, everywhere BAKĒD is live",
-  "AI-native business assistant for listings, pricing & support",
-  "Marketing campaigns and referrals run for you",
-  "Fast, secure settlements in your local currency",
-  "Own logistics network — no third-party dependency",
-  "Smart analytics and business insights — real time",
-  "Dedicated partner success team",
-];
+const GROWTH_BULLETS_KEYS = ["b1", "b2", "b3", "b4", "b5", "b6", "b7"];
 
-const GrowthSection = () => (
+const GrowthSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section className="pl-section">
     <div className="pl-container">
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         <div>
-          <Reveal><div className="pl-eyebrow mb-3">Growth</div></Reveal>
+          <Reveal><div className="pl-eyebrow mb-3">{t("growth.eyebrow")}</div></Reveal>
           <Reveal delay={80}>
             <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>
-              #1 Africa&apos;s app<br />for your growth.
+              {t("growth.title_line1")}<br />{t("growth.title_line2")}
             </h2>
           </Reveal>
           <Reveal delay={140}>
             <p className="pl-body-lg mt-5 max-w-lg">
-              BAKĒD isn&apos;t just a marketplace — it&apos;s the operating
-              system for your business. Everything you need to sell, deliver
-              and scale, in one place.
+              {t("growth.body")}
             </p>
           </Reveal>
           <ul className="mt-8 space-y-3">
-            {GROWTH_BULLETS.map((b, i) => (
-              <Reveal key={b} delay={180 + i * 40} as="li" className="flex items-start gap-3">
+            {GROWTH_BULLETS_KEYS.map((k, i) => (
+              <Reveal key={k} delay={180 + i * 40} as="li" className="flex items-start gap-3">
                 <CheckCircle2 size={20} style={{ color: "var(--pl-accent)", flexShrink: 0, marginTop: 2 }} />
-                <span className="pl-body" style={{ color: "var(--pl-fg)" }}>{b}</span>
+                <span className="pl-body" style={{ color: "var(--pl-fg)" }}>{t(`growth.bullets.${k}`)}</span>
               </Reveal>
             ))}
           </ul>
           <Reveal delay={520}>
             <a href="#final-cta" className="pl-btn pl-btn-primary mt-10" data-testid="partner-growth-cta">
-              Discover the Advantage <ArrowRight size={18} />
+              {t("growth.cta")} <ArrowRight size={18} />
             </a>
           </Reveal>
         </div>
@@ -615,7 +614,8 @@ const GrowthSection = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const GrowthIllustration = () => (
   <div
@@ -676,61 +676,41 @@ const GrowthIllustration = () => (
 /* -------------------------------------------------------------------------- */
 
 const TESTIMONIALS = [
-  {
-    quote:
-      "Since joining BAKĒD, our monthly orders have tripled. The AI assistant handles our menu updates and the dispatch network brings us new customers we couldn't reach before.",
-    name: "Aïcha Konan",
-    role: "Owner, Chez Aïcha",
-    location: "Cocody, Abidjan · FOODbakēd",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces",
-  },
-  {
-    quote:
-      "We migrated our whole grocery store onto MARTbakēd in two weeks. Settlement is on time, every time — and the analytics finally tell us what to restock.",
-    name: "Kouassi Traoré",
-    role: "Founder, MiniMart Marcory",
-    location: "Marcory, Abidjan · MARTbakēd",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=faces",
-  },
-  {
-    quote:
-      "SENDbakēd gave us the routing and live tracking we would never have built ourselves. Our fleet utilisation jumped 40% in the first month.",
-    name: "Mariam Diallo",
-    role: "Ops Lead, DialloTransport",
-    location: "Plateau, Abidjan · SENDbakēd",
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=faces",
-  },
+  { key: "aicha",   avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces" },
+  { key: "kouassi", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=faces" },
+  { key: "mariam",  avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=faces" },
 ];
 
 const TestimonialCarousel = () => {
+  const { t } = useTranslation("partner");
   const [idx, setIdx] = useState(0);
-  const t = TESTIMONIALS[idx];
+  const item = TESTIMONIALS[idx];
   const go = (delta) => setIdx((i) => (i + delta + TESTIMONIALS.length) % TESTIMONIALS.length);
   return (
     <section className="pl-section">
       <div className="pl-container max-w-4xl">
         <div className="text-center mb-12">
-          <Reveal><div className="pl-eyebrow mb-3">Testimonials</div></Reveal>
-          <Reveal delay={80}><h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Trusted by partners.</h2></Reveal>
+          <Reveal><div className="pl-eyebrow mb-3">{t("testimonials.eyebrow")}</div></Reveal>
+          <Reveal delay={80}><h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>{t("testimonials.title")}</h2></Reveal>
         </div>
 
         <Reveal>
           <div className="pl-card p-10 md:p-14 relative">
             <blockquote className="pl-h2 leading-snug" style={{ color: "var(--pl-fg)", fontWeight: 500 }}>
-              “{t.quote}”
+              “{t(`testimonials.items.${item.key}.quote`)}”
             </blockquote>
             <div className="mt-8 flex items-center gap-4">
               <img
-                src={t.avatar}
-                alt={t.name}
+                src={item.avatar}
+                alt={t(`testimonials.items.${item.key}.name`)}
                 className="w-14 h-14 rounded-full object-cover"
                 style={{ border: "1px solid var(--pl-border-strong)" }}
                 loading="lazy"
               />
               <div>
-                <div className="font-semibold" style={{ color: "var(--pl-fg)" }}>{t.name}</div>
-                <div className="text-sm" style={{ color: "var(--pl-fg-muted)" }}>{t.role}</div>
-                <div className="text-xs mt-0.5" style={{ color: "var(--pl-fg-subtle)" }}>{t.location}</div>
+                <div className="font-semibold" style={{ color: "var(--pl-fg)" }}>{t(`testimonials.items.${item.key}.name`)}</div>
+                <div className="text-sm" style={{ color: "var(--pl-fg-muted)" }}>{t(`testimonials.items.${item.key}.role`)}</div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--pl-fg-subtle)" }}>{t(`testimonials.items.${item.key}.location`)}</div>
               </div>
 
               <div className="ml-auto flex items-center gap-2">
@@ -753,96 +733,98 @@ const TestimonialCarousel = () => {
 /*                                How It Works                                */
 /* -------------------------------------------------------------------------- */
 
-const STEPS = [
-  { n: 1, title: "Submit Application",    body: "Tell us about your business and pick the BAKĒD module that fits you."       },
-  { n: 2, title: "Verification",          body: "We verify your documents and business details within 48 hours."             },
-  { n: 3, title: "Training",              body: "A partner success expert walks you through your dashboard and tools."       },
-  { n: 4, title: "Business Activation",   body: "Your store, menu or fleet goes live across the BAKĒD network."              },
-  { n: 5, title: "Start Receiving Orders",body: "Orders, deliveries and settlements begin — with analytics from day one."   },
-];
+const STEPS = [1, 2, 3, 4, 5];
 
-const TimelineSection = () => (
+const TimelineSection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="how-it-works" className="pl-section" style={{ background: "var(--pl-bg-elevated)" }}>
     <div className="pl-container">
       <div className="text-center max-w-2xl mx-auto mb-16">
-        <Reveal><div className="pl-eyebrow mb-3">How It Works</div></Reveal>
+        <Reveal><div className="pl-eyebrow mb-3">{t("timeline.eyebrow")}</div></Reveal>
         <Reveal delay={80}>
-          <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Start your journey<br />in 5 simple steps.</h2>
+          <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>{t("timeline.title_line1")}<br />{t("timeline.title_line2")}</h2>
         </Reveal>
       </div>
 
       <div className="pl-timeline">
-        {STEPS.map((s, i) => (
-          <Reveal key={s.n} delay={i * 90} className="pl-timeline-step text-center">
-            <div className="pl-timeline-node">{s.n}</div>
-            <div className="pl-h3" style={{ color: "var(--pl-fg)" }}>{s.title}</div>
-            <p className="pl-body mt-2 max-w-[220px] mx-auto">{s.body}</p>
+        {STEPS.map((n, i) => (
+          <Reveal key={n} delay={i * 90} className="pl-timeline-step text-center">
+            <div className="pl-timeline-node">{n}</div>
+            <div className="pl-h3" style={{ color: "var(--pl-fg)" }}>{t(`timeline.steps.s${n}.title`)}</div>
+            <p className="pl-body mt-2 max-w-[220px] mx-auto">{t(`timeline.steps.s${n}.body`)}</p>
           </Reveal>
         ))}
       </div>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                 Final CTA                                  */
 /* -------------------------------------------------------------------------- */
 
-const FinalCTASection = () => (
+const FinalCTASection = () => {
+  const { t } = useTranslation("partner");
+  return (
   <section id="final-cta" className="pl-section" style={{ position: "relative", overflow: "hidden" }}>
     <div className="pl-hero-bg" aria-hidden="true" style={{ opacity: 0.9 }} />
     <div className="pl-container relative text-center max-w-3xl" style={{ zIndex: 2 }}>
       <Reveal>
         <h2 className="pl-display" style={{ color: "var(--pl-fg)", fontSize: "clamp(2.4rem, 5vw, 4.5rem)" }}>
-          Ready to grow<br />your business?
+          {t("final_cta.title_line1")}<br />{t("final_cta.title_line2")}
         </h2>
       </Reveal>
       <Reveal delay={120}>
         <p className="pl-body-lg mt-6 max-w-xl mx-auto">
-          Join BAKĒD today — one platform, six businesses, unlimited upside.
+          {t("final_cta.subtitle")}
         </p>
       </Reveal>
       <Reveal delay={200}>
         <div className="mt-10 flex flex-wrap gap-4 justify-center">
           <a href="#opportunities" className="pl-btn pl-btn-primary" data-testid="partner-final-cta-apply">
-            Apply Now <ArrowRight size={18} />
+            {t("nav.apply_now")} <ArrowRight size={18} />
           </a>
           <a href="mailto:partners@baked.ci" className="pl-btn pl-btn-secondary" data-testid="partner-final-cta-sales">
-            Talk to Sales
+            {t("final_cta.talk_to_sales")}
           </a>
         </div>
       </Reveal>
     </div>
   </section>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                   Footer                                   */
 /* -------------------------------------------------------------------------- */
 
-const PartnerFooter = () => (
+const PartnerFooter = () => {
+  const { t } = useTranslation("partner");
+  return (
   <footer id="footer" style={{ borderTop: "1px solid var(--pl-border)", background: "var(--pl-bg)" }}>
     <div className="pl-container py-16 grid gap-12 md:grid-cols-4">
       <div>
         <BakedLogo size="md" />
         <p className="pl-body mt-4 max-w-xs">
-          One platform. Six businesses. Built for Africa, ready for the world.
+          {t("footer.tagline")}
         </p>
       </div>
 
       {[
-        { title: "Partners", items: OPPORTUNITIES.map((o) => ({ label: o.label, href: o.href })) },
-        { title: "Company",  items: [
-            { label: "About BAKĒD",  href: "/" },
-            { label: "Careers",      href: "/careers" },
-            { label: "Blog",         href: "/blog" },
-            { label: "Investors",    href: "/investors" },
+        { title: t("footer.col_partners"), items: OPPORTUNITIES.map((o) => ({ label: o.label, href: o.href })) },
+        { title: t("footer.col_company"),  items: [
+            { label: t("footer.about"),     href: "/" },
+            { label: t("footer.careers"),   href: "/careers" },
+            { label: t("footer.blog"),      href: "/blog" },
+            { label: t("footer.investors"), href: "/investors" },
           ] },
-        { title: "Support",  items: [
-            { label: "Help Center",  href: "/help" },
-            { label: "Contact",      href: "/contact" },
-            { label: "Terms",        href: "/terms" },
-            { label: "Privacy",      href: "/privacy" },
+        { title: t("footer.col_support"),  items: [
+            { label: t("footer.help"),      href: "/help" },
+            { label: t("footer.contact"),   href: "/contact" },
+            { label: t("footer.terms"),     href: "/terms" },
+            { label: t("footer.privacy"),   href: "/privacy" },
           ] },
       ].map((col) => (
         <div key={col.title}>
@@ -869,14 +851,15 @@ const PartnerFooter = () => (
     <div className="pl-container pb-8 pt-6 flex flex-wrap items-center justify-between gap-4"
       style={{ borderTop: "1px solid var(--pl-border)" }}>
       <div className="text-xs" style={{ color: "var(--pl-fg-subtle)" }}>
-        © 2026 BAKĒD Platform · Built for Africa, ready for the world
+        {t("footer.copyright", { year: new Date().getFullYear() })}
       </div>
       <div className="text-xs flex items-center gap-2" style={{ color: "var(--pl-fg-subtle)" }}>
-        <Globe2 size={14} /> Côte d&apos;Ivoire · English
+        <Globe2 size={14} /> {t("footer.locale_hint")}
       </div>
     </div>
   </footer>
-);
+  );
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                Root component                              */

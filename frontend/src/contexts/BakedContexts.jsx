@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { api } from "../lib/api";
+import i18n from "../i18n";
 
 const AuthCtx = createContext(null);
 const AppCtx = createContext(null);
@@ -89,18 +90,21 @@ const DEFAULT_COUNTRY = "CI";
 // run (we only auto-detect on the very first visit).
 const HAD_SAVED_COUNTRY = !!localStorage.getItem("baked_country");
 
-// Auto-detect UI language from the browser (equivalent to Accept-Language on the client).
-// Called only on the very first visit — persisted afterwards.
+// Initial language detector. Per client brief (Workstream 3), BAKĒD is
+// French-first everywhere — we do NOT sniff navigator.language on the
+// very first visit anymore, because the platform launches in Côte d'Ivoire
+// (French-native) and English is only for the internal QA team. Users who
+// prefer English opt in via the header switcher (persists to localStorage)
+// or by appending `?lang=en` to any URL.
 const detectInitialLanguage = () => {
   const saved = localStorage.getItem("baked_language");
   if (saved === "fr" || saved === "en") return saved;
-  const candidates = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""])
-    .map((l) => (l || "").toLowerCase());
-  for (const lang of candidates) {
-    if (lang.startsWith("fr")) return "fr";
-    if (lang.startsWith("en")) return "en";
-  }
-  return "fr"; // fallback for Côte d'Ivoire launch market
+  // Query-string override honours shared deep-links like `?lang=en`.
+  try {
+    const q = new URLSearchParams(window.location.search).get("lang");
+    if (q === "fr" || q === "en") return q;
+  } catch (_) { /* SSR/no-window */ }
+  return "fr";
 };
 
 export const AppProvider = ({ children }) => {
@@ -110,6 +114,17 @@ export const AppProvider = ({ children }) => {
   const [modules, setModules] = useState([]);
   const [theme, setTheme] = useState(localStorage.getItem("baked_theme") || "dark");
   const [language, setLanguageState] = useState(detectInitialLanguage);
+  // Force i18next to the language AppProvider chose on the very first
+  // paint. Without this, i18next-browser-languagedetector may briefly
+  // resolve to a stale cookie / htmlTag value and lock the app into
+  // English before the [language]-effect below writes the fix back to
+  // localStorage.
+  useEffect(() => {
+    if (i18n?.language !== language) {
+      try { i18n.changeLanguage(language); } catch (_) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Active delivery address — the single source of truth across every module.
   // Persisted in localStorage for guests; hydrated from saved addresses for authed users.
   const [activeAddress, _setActiveAddress] = useState(() => {
@@ -121,16 +136,31 @@ export const AppProvider = ({ children }) => {
     else localStorage.removeItem("baked_active_address");
   }, []);
   const [addressSelectorOpen, setAddressSelectorOpen] = useState(false);
+  const [addressSelectorClosing, setAddressSelectorClosing] = useState(false);
   const [addressSelectorMode, setAddressSelectorMode] = useState({ callback: null, title: null });
   const openAddressSelector = useCallback((opts) => {
     // opts.onPick(address) — when provided, invoked with the picked address INSTEAD of updating global activeAddress.
     // opts.title — override modal title (e.g. "Pickup location")
     setAddressSelectorMode({ callback: opts?.onPick || null, title: opts?.title || null });
+    setAddressSelectorClosing(false);
     setAddressSelectorOpen(true);
   }, []);
   const closeAddressSelector = useCallback(() => {
-    setAddressSelectorOpen(false);
-    setAddressSelectorMode({ callback: null, title: null });
+    // Two-step unmount to defuse the "Failed to execute 'removeChild' on
+    // 'Node'" runtime error that fires when the AddressSelector modal
+    // closes while its Google Maps PreviewMap (@vis.gl/react-google-maps
+    // <AdvancedMarker> portal) is still mounted. Flipping `closing=true`
+    // signals AddressSelectorInner to reset its step to "search" (which
+    // unmounts the map cleanly), THEN we tear down the modal on the next
+    // microtask so React finishes committing the map-unmount before the
+    // ancestor is removed. Every close path (X button, backdrop click,
+    // Confirm callback) funnels through here so all three get the fix.
+    setAddressSelectorClosing(true);
+    queueMicrotask(() => {
+      setAddressSelectorOpen(false);
+      setAddressSelectorClosing(false);
+      setAddressSelectorMode({ callback: null, title: null });
+    });
   }, []);
 
   useEffect(() => {
@@ -139,7 +169,16 @@ export const AppProvider = ({ children }) => {
   }, [theme]);
 
   useEffect(() => { localStorage.setItem("baked_country", countryCode); }, [countryCode]);
-  useEffect(() => { localStorage.setItem("baked_language", language); document.documentElement.lang = language; }, [language]);
+  useEffect(() => {
+    localStorage.setItem("baked_language", language);
+    document.documentElement.lang = language;
+    // Keep the i18next runtime in sync with the AppProvider language so
+    // hooks (`useTranslation`) re-render on every toggle without needing
+    // an extra listener at every call site.
+    if (i18n?.language !== language) {
+      i18n.changeLanguage(language);
+    }
+  }, [language]);
 
   /**
    * Geolocation → country detection. Returns a Promise that resolves to
@@ -219,7 +258,7 @@ export const AppProvider = ({ children }) => {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, openAddressSelector, closeAddressSelector, addressSelectorMode]);
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);
@@ -251,6 +290,12 @@ export const CartProvider = ({ children }) => {
   const { customer } = useAuth() || {};
   const [cart, setCart] = useState({ items: [], subtotal: 0, item_count: 0 });
   const [loaded, setLoaded] = useState(false);
+  // Drawer state lives on the cart context so ANY component (top-nav,
+  // add-to-cart callbacks, /cart route redirect, etc.) can open/close
+  // without prop-drilling.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const openCart = useCallback(() => setDrawerOpen(true), []);
+  const closeCart = useCallback(() => setDrawerOpen(false), []);
   // Track auth transitions so we only run merge exactly once per login.
   const prevCustomerId = useRef(null);
 
@@ -279,10 +324,17 @@ export const CartProvider = ({ children }) => {
           images: s.image ? [s.image] : [], unit_price: price,
         });
       } else {
-        // Guest MART row — render from the snapshot captured at add-time
-        // when present. Legacy entries (added before the snapshot was
-        // introduced) fall back to a network fetch so no cart is left
-        // stranded after the upgrade.
+        // Guest non-SHOP row (MART today, FOOD in the future) — render from
+        // the snapshot captured at add-time when present. Legacy entries
+        // (added before the snapshot was introduced) fall back to a
+        // network fetch so no cart is left stranded after the upgrade.
+        //
+        // Preserve `it.module` verbatim (defaulting to 'mart' for legacy
+        // rows that predate the module tag). Coercing to 'mart' here was
+        // the root cause of the FOOD chip regression flagged in
+        // iteration_87 — a guest row {module:'food',…} was rendered with
+        // a MART badge because both branches below hard-coded 'mart'.
+        const mod = it.module || "mart";
         if (it.snapshot) {
           const s = it.snapshot;
           const price = Number(s.price) || 0;
@@ -290,14 +342,14 @@ export const CartProvider = ({ children }) => {
           martSubtotal += line;
           items.push({
             id: it.id, product_id: it.product_id, quantity: it.quantity,
-            module: "mart", product: s, line_total: line,
+            module: mod, product: s, line_total: line,
           });
         } else {
           try {
             const { data: p } = await api.get(`/mart/products/${it.product_id}`);
             const line = (Number(p.price) || 0) * it.quantity;
             martSubtotal += line;
-            items.push({ ...it, product: p, line_total: line, module: "mart" });
+            items.push({ ...it, product: p, line_total: line, module: mod });
           } catch (e) { void e; }
         }
       }
@@ -492,7 +544,7 @@ export const CartProvider = ({ children }) => {
     setCart({ items: [], subtotal: 0, item_count: 0 });
   }, [customer, load]);
 
-  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load]);
+  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load, drawerOpen, openCart, closeCart }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load, drawerOpen, openCart, closeCart]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);

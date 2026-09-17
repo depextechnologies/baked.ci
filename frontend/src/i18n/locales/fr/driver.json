@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "orders": "Courses",
+    "earnings": "Revenus",
+    "history": "Historique",
+    "profile": "Profil"
+  },
+  "shift": {
+    "go_online": "Passer en ligne",
+    "go_offline": "Passer hors ligne",
+    "online": "En ligne",
+    "offline": "Hors ligne"
+  },
+  "trip": {
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "start": "Démarrer la course",
+    "arrived_pickup": "Arrivé au point de collecte",
+    "picked_up": "Colis collecté",
+    "arrived_dropoff": "Arrivé au point de livraison",
+    "complete": "Terminer la course"
+  }
+}
