@@ -5,17 +5,21 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# This project pins transitive dependency versions via the "resolutions"
+# field in package.json (Yarn-only — npm silently ignores it), and declares
+# "packageManager": "yarn@1.22.22" accordingly. Installing with npm instead
+# skips those pins and can resolve incompatible versions (e.g. an ajv build
+# ajv-keywords/schema-utils don't support), breaking the webpack build.
+RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+
 # Copy dependency files first for better Docker cache
-COPY package*.json ./
+COPY package.json yarn.lock* ./
 
 # Install dependencies
-# --legacy-peer-deps: react-scripts@5.0.1 (CRA) caps its optional typescript
-# peer range at ^3.2.1||^4, while i18next requires ^5||^6||^7. Both are
-# peerOptional, so the conflict is safe to bypass.
-RUN if [ -f package-lock.json ]; then \
-      npm ci --legacy-peer-deps; \
+RUN if [ -f yarn.lock ]; then \
+      yarn install --frozen-lockfile; \
     else \
-      npm install --legacy-peer-deps; \
+      yarn install; \
     fi
 
 # Copy application source
@@ -31,7 +35,7 @@ ENV REACT_APP_GOOGLE_MAPS_API_KEY=${REACT_APP_GOOGLE_MAPS_API_KEY}
 ARG REACT_APP_GOOGLE_CLIENT_ID
 ENV REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
 
-RUN npm run build
+RUN yarn build
 
 # ==========================================================
 # Runtime Stage
