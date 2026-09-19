@@ -9,10 +9,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
+# --legacy-peer-deps: react-scripts@5.0.1 (CRA) caps its optional typescript
+# peer range at ^3.2.1||^4, while i18next requires ^5||^6||^7. Both are
+# peerOptional, so the conflict is safe to bypass.
 RUN if [ -f package-lock.json ]; then \
-      npm ci; \
+      npm ci --legacy-peer-deps; \
     else \
-      npm install; \
+      npm install --legacy-peer-deps; \
     fi
 
 # Copy application source
