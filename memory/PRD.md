@@ -1,5 +1,25 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-23) — FOODbakēd · Admin CRUD + Homepage Management + Reusable Image Uploader — COMPLETE
+- ✅ **Full admin CRUD** for `food_restaurants` / `food_categories` / `food_cuisines` (`POST`/`PATCH`/`DELETE` on `/api/admin/food/*`). Restaurant create auto-generates a deterministic `id` (`<slug>_<country>`) and 409s on duplicates.
+- ✅ **Reusable image uploader** — new `POST /api/admin/food/uploads?kind=<asset>` (kinds: restaurant_logo, restaurant_cover, gallery, category, cuisine, menu_item, banner, misc). Backed by the shared `object_storage` provider; validates image mime + ≤ 8 MB; served publicly via `GET /api/food/uploads/{key}`. Frontend widget `/app/frontend/src/apps/foodbaked/components/FoodImageUploader.jsx` provides drop/pick + preview + replace + delete + client-side downscale (max 1600 px, JPEG q=0.85). Used by all 3 admin FOOD workspaces — no more external URLs.
+- ✅ **`/admin/modules/food/homepage-management`** — the shared `AdminHomepageManagement` component now reads the module from the URL (`/admin/modules/<code>/homepage-management`). When scoped:
+  - Module toggle hidden; FOODbakēd badge visible in the header.
+  - "Add section" dropdown filters `SECTION_SCHEMAS` — only FOOD-tagged sections render on the FOOD workspace, only non-FOOD (legacy MART/SHOP) sections render elsewhere. Unscoped `/admin/homepage-management` still shows all 3 modules in the toggle.
+- ✅ **6 new FOOD section types** added to `HOMEPAGE_SECTION_TYPES` + `SECTION_SCHEMAS`: `food_hero`, `food_categories`, `food_cuisines`, `food_featured_restaurants`, `food_promos`, `food_usps`. Every schema is French-first / English-second.
+- ✅ **FoodHome.jsx overlays** — `/food` fetches `/api/homepage?country=X&module=food` in parallel with `/api/food/home` and lets admin-managed sections override the seed:
+  - `food_hero` → hero eyebrow / title / subtitle / background image
+  - `food_featured_restaurants` / `food_cuisines` → section title + subtitle
+  - `food_promos` → replaces the promo strip cards
+  - `food_usps` → replaces the "Why choose FOODbakēd?" tiles
+  When no admin section exists, the page renders the existing i18n defaults with zero visible change (verified by testing agent — deleted the food_hero and `/food` fell back cleanly to i18n defaults).
+- ✅ **French-first admin FOOD screens** — all labels ("Nom · Name", "Pays · Country", "Actif · Active", "Ajouter · Add", "Supprimer · Delete") FR primary, EN secondary; add/edit modals same pattern.
+- ✅ **Tests** — 2 new files, 18 tests, all pass:
+  - `tests/test_food_admin_crud.py` — 10 tests: auth guards on categories/cuisines/restaurants/uploads (401), category / cuisine / restaurant create → patch → delete roundtrips, restaurant duplicate id → 409, image upload + public serve roundtrip, non-image rejected (400).
+  - `tests/test_food_homepage_sections.py` — 8 tests: each of the 6 FOOD section types validates on create, public GET scopes by module (food_hero appears in `?module=food` but NOT in `?module=mart`), disabling a section hides it publicly.
+- ✅ **Live smoke** (testing agent iteration_88) — end-to-end verified: created food_hero via API → `/food` picked it up on next load (eyebrow + custom H1 + custom subtitle + custom background); deleted → clean fallback to `Good Food / Brings People Together`; MART/SHOP scoped homepage management shows only the 8 legacy section types (no FOOD leakage); admin CRUD tables render with data-testids and add buttons as spec'd. No regressions.
+
+
 ## Latest (2026-02-15) — SENDbakēd · Multiple Shipments 2-Step Booking Flow — COMPLETE
 - ✅ **Migration `0051_send_product_types`** — new `send_product_types` catalogue table (code · name_fr · name_en · is_default · sort_order · active · timestamps) with a partial unique index enforcing at most one default row. Seeded with the 8 canonical rows from the redesign prompt (`general_product` (default) → Documents → Aliments → Électronique → Vêtements → Meubles → Produits frais → Autre).
 - ✅ **New endpoint `GET /api/express/product-types`** — returns active rows ordered by sort_order with FR + EN labels + `is_default`. Frontend hydrates the Multiple-Shipments product-type dropdown dynamically; no hard-coded list.
