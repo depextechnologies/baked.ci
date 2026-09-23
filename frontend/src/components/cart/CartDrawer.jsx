@@ -85,15 +85,20 @@ export const CartDrawer = () => {
 
   const items = cart.items || [];
   const theme = getCartTheme(cart);
-  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  // MART totals — filter must exclude BOTH shop AND food so a FOOD-only
+  // cart doesn't inherit MART's delivery fee / min-order gate. Guest cart
+  // path uses this fallback (hydrateGuest doesn't split by module yet).
+  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop" && i.module !== "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
   const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
-  const hasMart = (cart.mart?.item_count ?? items.filter((i) => i.module !== "shop").length) > 0;
+  const foodSubtotal = cart.food?.subtotal ?? items.filter((i) => i.module === "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const hasMart = (cart.mart?.item_count ?? items.filter((i) => i.module !== "shop" && i.module !== "food").length) > 0;
   const hasShop = (cart.shop?.item_count ?? items.filter((i) => i.module === "shop").length) > 0;
+  const hasFood = (cart.food?.item_count ?? items.filter((i) => i.module === "food").length) > 0;
   const elig = checkOrderEligibility(martSubtotal, country);
   const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
   const minOrderOk = hasMart ? martEligible : true;
-  const subtotal = martSubtotal + shopSubtotal;
-  const total = (hasMart ? elig.total : 0) + shopSubtotal;
+  const subtotal = martSubtotal + shopSubtotal + foodSubtotal;
+  const total = (hasMart ? elig.total : 0) + shopSubtotal + foodSubtotal;
 
   // ESC to close (Fixing_Prompt §5, §28).
   useEffect(() => {
@@ -315,6 +320,14 @@ export const CartDrawer = () => {
                   <span className="text-muted-foreground">{t("cart.delivery_fee")} (SHOP)</span>
                   <span className="text-[11px] text-muted-foreground">
                     {t("cart.delivery_shop_note")}
+                  </span>
+                </div>
+              )}
+              {hasFood && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (FOOD)</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t("cart.delivery_food_note", { defaultValue: "Added at checkout" })}
                   </span>
                 </div>
               )}

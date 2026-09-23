@@ -71,6 +71,7 @@ from modules.driver.routes import (  # noqa: E402
     track_router as driver_track_router,
 )
 from modules.realtime.routes import router as realtime_router  # noqa: E402
+from modules.food.routes import router as food_router, admin_router as food_admin_router  # noqa: E402
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -176,6 +177,11 @@ api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
 api_router.include_router(driver_track_router)
 api_router.include_router(realtime_router)
+# --- FOODbakēd (Phase 1 — 2026-02) ---
+# Public /food/* + admin /admin/food/* routes for the FoodHome + admin
+# workspace under /admin/modules/food.
+api_router.include_router(food_router, prefix="/food")
+api_router.include_router(food_admin_router)
 
 # --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity

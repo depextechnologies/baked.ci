@@ -34,6 +34,7 @@ import { AdminSupplierDetail } from "@/pages/admin/AdminSupplierDetail";
 import { AdminMartAttributes } from "@/pages/admin/AdminMartAttributes";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
+import { AdminFoodRestaurants, AdminFoodCuisines, AdminFoodCategories } from "@/pages/admin/AdminFood";
 import { AdminShopCatalog } from "@/pages/admin/AdminShopCatalog";
 import { AdminShopAttributes } from "@/pages/admin/AdminShopAttributes";
 import { AdminShopProductApprovals } from "@/pages/admin/AdminShopProductApprovals";
@@ -124,6 +125,14 @@ export const AdminApp = () => (
         <Route path="pricing" element={<ModulePricing />} />
         <Route path="bookings" element={<ModuleBookings />} />
         <Route path="inventory" element={<AdminInventoryControlTower />} />
+        {/* Homepage Management — MART/SHOP/FOOD each drive their landing
+            page from the shared homepage_management schema. Route the
+            same component; the page reads `code` from useParams. */}
+        <Route path="homepage-management" element={<AdminHomepageManagement />} />
+        {/* FOODbakēd workspaces (Phase 1 — restaurants/categories/cuisines). */}
+        <Route path="restaurants" element={<AdminFoodRestaurants />} />
+        <Route path="cuisines" element={<AdminFoodCuisines />} />
+        <Route path="categories" element={<AdminFoodCategories />} />
         <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
         <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
         <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />

@@ -23,6 +23,8 @@ import { CartRouteDrawerRedirect } from "@/components/cart/CartRouteDrawerRedire
 import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
+import { FoodHome } from "@/apps/foodbaked/pages/FoodHome";
+import { FoodRestaurantDetail } from "@/apps/foodbaked/pages/FoodRestaurantDetail";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
 import { TermsOfService } from "@/pages/legal/TermsOfService";
@@ -149,7 +151,8 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/activities" element={<DesktopProfileShell><MobileActivities /></DesktopProfileShell>} />
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
-      <Route path="/food" element={<ComingSoonPage />} />
+      <Route path="/food" element={<FoodHome />} />
+      <Route path="/food/r/:slug" element={<FoodRestaurantDetail />} />
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
@@ -232,7 +235,8 @@ const MobileCustomerShell = () => (
       <Route path="/profile/activities" element={<MobileActivities />} />
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
-      <Route path="/food" element={<ComingSoonPage />} />
+      <Route path="/food" element={<FoodHome />} />
+      <Route path="/food/r/:slug" element={<FoodRestaurantDetail />} />
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />

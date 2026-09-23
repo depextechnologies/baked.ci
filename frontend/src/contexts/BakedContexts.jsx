@@ -305,6 +305,7 @@ export const CartProvider = ({ children }) => {
     const items = [];
     let martSubtotal = 0;
     let shopSubtotal = 0;
+    let foodSubtotal = 0;
     for (const it of g.items) {
       if (it.module === "shop") {
         // Guest SHOP row — render from the snapshot captured at add-time so
@@ -324,10 +325,10 @@ export const CartProvider = ({ children }) => {
           images: s.image ? [s.image] : [], unit_price: price,
         });
       } else {
-        // Guest non-SHOP row (MART today, FOOD in the future) — render from
-        // the snapshot captured at add-time when present. Legacy entries
-        // (added before the snapshot was introduced) fall back to a
-        // network fetch so no cart is left stranded after the upgrade.
+        // Guest non-SHOP row (MART or FOOD) — render from the snapshot
+        // captured at add-time when present. Legacy entries (added before
+        // the snapshot was introduced) fall back to a network fetch so no
+        // cart is left stranded after the upgrade.
         //
         // Preserve `it.module` verbatim (defaulting to 'mart' for legacy
         // rows that predate the module tag). Coercing to 'mart' here was
@@ -339,7 +340,11 @@ export const CartProvider = ({ children }) => {
           const s = it.snapshot;
           const price = Number(s.price) || 0;
           const line = price * it.quantity;
-          martSubtotal += line;
+          // Route to the correct subtotal bucket — the earlier "always MART"
+          // accumulator was double-counting FOOD lines (they'd also be
+          // picked up by the drawer's food fallback filter → 2× subtotal).
+          if (mod === "food") foodSubtotal += line;
+          else                martSubtotal += line;
           items.push({
             id: it.id, product_id: it.product_id, quantity: it.quantity,
             module: mod, product: s, line_total: line,
@@ -348,7 +353,8 @@ export const CartProvider = ({ children }) => {
           try {
             const { data: p } = await api.get(`/mart/products/${it.product_id}`);
             const line = (Number(p.price) || 0) * it.quantity;
-            martSubtotal += line;
+            if (mod === "food") foodSubtotal += line;
+            else                martSubtotal += line;
             items.push({ ...it, product: p, line_total: line, module: mod });
           } catch (e) { void e; }
         }
@@ -356,9 +362,10 @@ export const CartProvider = ({ children }) => {
     }
     const item_count = items.reduce((s, i) => s + i.quantity, 0);
     setCart({
-      items, subtotal: martSubtotal + shopSubtotal, item_count,
-      mart: { subtotal: martSubtotal, item_count: items.filter((i) => i.module !== "shop").reduce((s, i) => s + i.quantity, 0) },
+      items, subtotal: martSubtotal + shopSubtotal + foodSubtotal, item_count,
+      mart: { subtotal: martSubtotal, item_count: items.filter((i) => i.module !== "shop" && i.module !== "food").reduce((s, i) => s + i.quantity, 0) },
       shop: { subtotal: shopSubtotal, item_count: items.filter((i) => i.module === "shop").reduce((s, i) => s + i.quantity, 0) },
+      food: { subtotal: foodSubtotal, item_count: items.filter((i) => i.module === "food").reduce((s, i) => s + i.quantity, 0) },
     });
   }, []);
 
@@ -368,7 +375,10 @@ export const CartProvider = ({ children }) => {
   const mergeGuestIntoServer = useCallback(async () => {
     const g = readGuest();
     if (!g.items?.length) return;
-    for (const it of g.items) {
+    // FOOD rows stay in the guest cart even after login (Phase 2 — no
+    // server-side FOOD cart yet). Only drain MART + SHOP rows here.
+    const foodRows = g.items.filter((it) => it.module === "food");
+    for (const it of g.items.filter((it) => it.module !== "food")) {
       try {
         if (it.module === "shop") {
           await api.post("/shop/cart/items", { variant_id: it.variant_id, quantity: it.quantity });
@@ -382,7 +392,7 @@ export const CartProvider = ({ children }) => {
         console.warn("[cart.merge] guest item skipped", { item: it, error: e?.message });
       }
     }
-    writeGuest({ items: [] });
+    writeGuest({ items: foodRows });
   }, []);
 
   const load = useCallback(async () => {
@@ -414,12 +424,33 @@ export const CartProvider = ({ children }) => {
           title: i.product?.title, images: i.product?.images || i.variant?.images || [],
           unit_price: i.variant?.price,
         }));
+        // Phase 2 stopgap — FOOD has no server cart yet. Merge any
+        // guest-cart FOOD rows into the unified view so an authed user
+        // can add a burger + a MART item and see both in the drawer.
+        // Phase 3 will add /api/food/cart/me and replace this.
+        const g = readGuest();
+        const foodItems = (g.items || []).filter((it) => it.module === "food").map((it) => {
+          const s = it.snapshot || {};
+          const price = Number(s.price) || 0;
+          const line = price * it.quantity;
+          return {
+            id: it.id,
+            product_id: it.product_id,
+            quantity: it.quantity,
+            module: "food",
+            product: s,
+            line_total: line,
+          };
+        });
+        const foodSubtotal = foodItems.reduce((s, it) => s + (it.line_total || 0), 0);
+        const foodCount = foodItems.reduce((s, it) => s + it.quantity, 0);
         setCart({
-          items: [...martItems, ...shopItems],
-          subtotal: (mart.subtotal || 0) + (shop.subtotal || 0),
-          item_count: (mart.item_count || 0) + (shop.item_count || 0),
+          items: [...martItems, ...shopItems, ...foodItems],
+          subtotal: (mart.subtotal || 0) + (shop.subtotal || 0) + foodSubtotal,
+          item_count: (mart.item_count || 0) + (shop.item_count || 0) + foodCount,
           mart: { subtotal: mart.subtotal || 0, item_count: mart.item_count || 0 },
           shop: { subtotal: shop.subtotal || 0, item_count: shop.item_count || 0 },
+          food: { subtotal: foodSubtotal, item_count: foodCount },
         });
       } catch (e) { void e; }
     } else {
@@ -471,6 +502,18 @@ export const CartProvider = ({ children }) => {
   const updateItem = useCallback(async (itemId, quantity) => {
     if (customer) {
       const it = cart.items.find((i) => i.id === itemId);
+      // FOOD lines live in guest cart (Phase 2 stopgap) even when authed.
+      if (it?.module === "food") {
+        const g = readGuest();
+        const row = g.items.find((i) => i.id === itemId);
+        if (row) {
+          if (quantity <= 0) g.items = g.items.filter((i) => i.id !== itemId);
+          else row.quantity = quantity;
+        }
+        writeGuest(g);
+        await load();
+        return;
+      }
       if (it?.module === "shop") {
         await api.patch(`/shop/cart/items/${itemId}`, { quantity });
       } else {
@@ -489,6 +532,13 @@ export const CartProvider = ({ children }) => {
   const removeItem = useCallback(async (itemId) => {
     if (customer) {
       const it = cart.items.find((i) => i.id === itemId);
+      if (it?.module === "food") {
+        const g = readGuest();
+        g.items = g.items.filter((i) => i.id !== itemId);
+        writeGuest(g);
+        await load();
+        return;
+      }
       if (it?.module === "shop") {
         await api.delete(`/shop/cart/items/${itemId}`);
       } else {
@@ -544,7 +594,64 @@ export const CartProvider = ({ children }) => {
     setCart({ items: [], subtotal: 0, item_count: 0 });
   }, [customer, load]);
 
-  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, reload: load, drawerOpen, openCart, closeCart }), [cart, loaded, addItem, addShopVariant, updateItem, removeItem, clear, load, drawerOpen, openCart, closeCart]);
+  // FOOD add-to-cart — Phase 2. FOOD lines carry variant + add-on selections
+  // in the snapshot so the drawer can render them without a network round
+  // trip. Server-side FOOD cart persistence is Phase 3; until then we store
+  // in guest cart for BOTH guest and authed users, and `load()` merges the
+  // guest FOOD rows back into the unified cart shape on every hydrate.
+  //
+  // Signature:
+  //   addFoodItem({
+  //     item,          // { id, name, description, image, base_price, currency, currency_symbol }
+  //     restaurant,    // { id, name, slug }
+  //     variant,       // optional { id, name, price_delta }
+  //     addons,        // optional array of { id, name, price }
+  //     quantity,      // integer >= 1
+  //     notes,         // optional customer notes
+  //   })
+  const addFoodItem = useCallback(async (spec) => {
+    const { item, restaurant, variant = null, addons = [], quantity = 1, notes = "" } = spec || {};
+    if (!item?.id || !restaurant?.id) return;
+    const unitPrice = Number(item.base_price || 0)
+      + Number(variant?.price_delta || 0)
+      + addons.reduce((s, a) => s + Number(a.price || 0), 0);
+    const rowId = `g_food_${item.id}_${variant?.id || "_"}_${addons.map((a) => a.id).sort().join("_") || "_"}`;
+    const g = readGuest();
+    const found = g.items.find((i) => i.id === rowId);
+    if (found) {
+      found.quantity = Math.min(99, found.quantity + quantity);
+    } else {
+      g.items.push({
+        id: rowId,
+        product_id: item.id,
+        quantity,
+        module: "food",
+        notes,
+        // Snapshot carries EVERYTHING the drawer + checkout need to render
+        // this line offline — name, price (already includes variant + addons),
+        // image, currency, restaurant context and the selections themselves
+        // so the customer can see "Cheese Burger · Large · +Cheese, +Bacon".
+        snapshot: {
+          id: item.id,
+          name: item.name,
+          brand: restaurant.name,
+          restaurant_id: restaurant.id,
+          restaurant_slug: restaurant.slug,
+          image: item.image,
+          unit: variant?.name || "",
+          variant: variant ? { id: variant.id, name: variant.name } : null,
+          addons: addons.map((a) => ({ id: a.id, name: a.name, price: Number(a.price || 0) })),
+          price: unitPrice,
+          currency: item.currency || "XOF",
+          currency_symbol: item.currency_symbol || "",
+        },
+      });
+    }
+    writeGuest(g);
+    await load();
+  }, [load]);
+
+  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, addFoodItem, updateItem, removeItem, clear, reload: load, drawerOpen, openCart, closeCart }), [cart, loaded, addItem, addShopVariant, addFoodItem, updateItem, removeItem, clear, load, drawerOpen, openCart, closeCart]);
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);
