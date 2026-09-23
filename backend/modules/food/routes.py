@@ -18,18 +18,28 @@ add restaurant menu items, cart wiring and the SENDbakēd driver bridge.
 """
 from __future__ import annotations
 
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+import re
+from datetime import datetime, timezone
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
+from core.providers import object_storage
 from shared.admin.routes import get_current_admin
 
 
 router = APIRouter(tags=["food"])
 admin_router = APIRouter(prefix="/admin/food", tags=["food-admin"])
+
+
+def _slugify(value: str) -> str:
+    value = (value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    return value.strip("-") or "item"
 
 
 # ---------------------------------------------------------------------------
@@ -253,15 +263,93 @@ async def get_restaurant_menu(
 
 
 # ---------------------------------------------------------------------------
-# Admin surfaces
+# Admin surfaces — full CRUD (Phase 2 — Feb 2026)
 # ---------------------------------------------------------------------------
 
 
+# ---------- Reusable image upload ------------------------------------------
+# Used by every FOOD asset: restaurant logo/cover/gallery, category & cuisine
+# icons, menu section thumbnails, menu-item images, promo banners. Storage
+# handled by the shared object_storage provider; DB stores only the served
+# URL (/api/food/uploads/<key>).
+
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8 MB — reasonable for pre-optimised imagery
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/svg+xml"}
+
+
+@admin_router.post("/uploads")
+async def admin_food_upload(
+    file: UploadFile = File(...),
+    kind: str = Query("misc", description="asset kind — restaurant_logo|restaurant_cover|gallery|category|cuisine|menu_item|banner|misc"),
+    _admin=Depends(get_current_admin),
+):
+    """Reusable image upload for every FOODbakēd asset (Admin & Restaurant
+    Partner portals). Returns a permanent served URL to store in the DB.
+    """
+    ct = (file.content_type or "").lower()
+    if ct not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(400, "File must be an image (png / jpg / webp / gif / svg)")
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"File too large ({MAX_UPLOAD_BYTES // 1024 // 1024} MB max)")
+    if len(content) < 32:
+        raise HTTPException(400, "File is empty or too small")
+    ext = (file.filename or "bin").rsplit(".", 1)[-1].lower() or "png"
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    safe_kind = re.sub(r"[^a-z0-9_-]", "", kind.lower()) or "misc"
+    key = f"{object_storage.APP_NAME}/food/{safe_kind}/{ts}.{ext}"
+    try:
+        object_storage.put_object(key, content, ct)
+    except Exception as e:
+        raise HTTPException(502, f"Upload failed: {e}")
+    return {"file_url": f"/api/food/uploads/{key}", "size": len(content), "content_type": ct, "kind": safe_kind}
+
+
+@router.get("/uploads/{key:path}")
+async def food_upload_serve(key: str):
+    """Public serve for uploaded FOOD images."""
+    try:
+        content, ct = object_storage.get_object(key)
+    except Exception:
+        raise HTTPException(404, "Upload not found")
+    return Response(content=content, media_type=ct)
+
+
+# ---------- Restaurants CRUD -----------------------------------------------
+
+
+class RestaurantIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    slug: Optional[str] = None
+    country: str = Field(..., min_length=2, max_length=4)
+    cuisines: List[str] = Field(default_factory=list)
+    rating: float = 0.0
+    review_count: int = 0
+    prep_time_min: int = 15
+    prep_time_max: int = 30
+    delivery_fee: int = 0
+    is_open: bool = True
+    featured: bool = False
+    sort_order: int = 0
+    image: Optional[str] = None
+    status: str = "active"
+
+
 class RestaurantPatch(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    country: Optional[str] = None
+    cuisines: Optional[List[str]] = None
+    rating: Optional[float] = None
+    review_count: Optional[int] = None
+    prep_time_min: Optional[int] = None
+    prep_time_max: Optional[int] = None
+    delivery_fee: Optional[int] = None
     is_open: Optional[bool] = None
     featured: Optional[bool] = None
     status: Optional[str] = None
     sort_order: Optional[int] = None
+    image: Optional[str] = None
 
 
 @admin_router.get("/restaurants")
@@ -279,6 +367,45 @@ async def admin_list_restaurants(
     return [_restaurant_row(r) for r in res.fetchall()]
 
 
+@admin_router.post("/restaurants")
+async def admin_create_restaurant(
+    payload: RestaurantIn,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    slug = _slugify(payload.slug or payload.name)
+    country = payload.country.upper()
+    # Deterministic id: <slug>_<country_lower>
+    rid = f"{re.sub(r'[^a-z0-9]+', '_', slug)}_{country.lower()}"
+
+    # Enforce uniqueness of id
+    exists = await session.execute(text("SELECT 1 FROM food_restaurants WHERE id = :id"), {"id": rid})
+    if exists.fetchone():
+        raise HTTPException(409, f"Restaurant '{rid}' already exists")
+
+    await session.execute(text("""
+        INSERT INTO food_restaurants (
+            id, name, slug, country, cuisines, rating, review_count,
+            prep_time_min, prep_time_max, delivery_fee, is_open, featured,
+            sort_order, image, status
+        ) VALUES (
+            :id, :name, :slug, :country, CAST(:cuisines AS JSONB), :rating, :review_count,
+            :prep_time_min, :prep_time_max, :delivery_fee, :is_open, :featured,
+            :sort_order, :image, :status
+        )
+    """), {
+        "id": rid, "name": payload.name, "slug": slug, "country": country,
+        "cuisines": _json_dump(payload.cuisines), "rating": payload.rating,
+        "review_count": payload.review_count, "prep_time_min": payload.prep_time_min,
+        "prep_time_max": payload.prep_time_max, "delivery_fee": payload.delivery_fee,
+        "is_open": payload.is_open, "featured": payload.featured,
+        "sort_order": payload.sort_order, "image": payload.image, "status": payload.status,
+    })
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_restaurants WHERE id = :id"), {"id": rid})).fetchone()
+    return _restaurant_row(row)
+
+
 @admin_router.patch("/restaurants/{rid}")
 async def admin_patch_restaurant(
     rid: str,
@@ -289,14 +416,65 @@ async def admin_patch_restaurant(
     fields = {k: v for k, v in patch.model_dump().items() if v is not None}
     if not fields:
         raise HTTPException(400, "Nothing to update")
-    sets = ", ".join(f"{k} = :{k}" for k in fields)
-    fields["rid"] = rid
-    res = await session.execute(text(f"UPDATE food_restaurants SET {sets}, updated_at = now() WHERE id = :rid RETURNING *"), fields)
+
+    # Normalise country + slug
+    if "country" in fields:
+        fields["country"] = fields["country"].upper()
+    if "slug" in fields:
+        fields["slug"] = _slugify(fields["slug"])
+
+    # JSONB serialisation for cuisines
+    set_parts = []
+    params = {"rid": rid}
+    for k, v in fields.items():
+        if k == "cuisines":
+            set_parts.append(f"cuisines = CAST(:{k} AS JSONB)")
+            params[k] = _json_dump(v)
+        else:
+            set_parts.append(f"{k} = :{k}")
+            params[k] = v
+    sets = ", ".join(set_parts)
+    res = await session.execute(text(
+        f"UPDATE food_restaurants SET {sets}, updated_at = now() WHERE id = :rid RETURNING *"
+    ), params)
     row = res.fetchone()
     if not row:
         raise HTTPException(404, "Restaurant not found")
     await session.commit()
     return _restaurant_row(row)
+
+
+@admin_router.delete("/restaurants/{rid}")
+async def admin_delete_restaurant(
+    rid: str,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    res = await session.execute(text("DELETE FROM food_restaurants WHERE id = :rid RETURNING id"), {"rid": rid})
+    if not res.fetchone():
+        raise HTTPException(404, "Restaurant not found")
+    await session.commit()
+    return {"deleted": rid}
+
+
+# ---------- Categories CRUD -------------------------------------------------
+
+
+class CategoryIn(BaseModel):
+    code: str = Field(..., min_length=1, max_length=32)
+    name_en: str = Field(..., min_length=1, max_length=64)
+    name_fr: str = Field(..., min_length=1, max_length=64)
+    image: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class CategoryPatch(BaseModel):
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    image: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
 
 
 @admin_router.get("/categories")
@@ -305,7 +483,143 @@ async def admin_list_categories(session: AsyncSession = Depends(get_session), _a
     return [_category_row(r) for r in res.fetchall()]
 
 
+@admin_router.post("/categories")
+async def admin_create_category(
+    payload: CategoryIn,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    code = _slugify(payload.code)
+    exists = await session.execute(text("SELECT 1 FROM food_categories WHERE code = :code"), {"code": code})
+    if exists.fetchone():
+        raise HTTPException(409, f"Category '{code}' already exists")
+    await session.execute(text("""
+        INSERT INTO food_categories (code, name_en, name_fr, image, sort_order, is_active)
+        VALUES (:code, :name_en, :name_fr, :image, :sort_order, :is_active)
+    """), {"code": code, **payload.model_dump(exclude={"code"})})
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_categories WHERE code = :code"), {"code": code})).fetchone()
+    return _category_row(row)
+
+
+@admin_router.patch("/categories/{code}")
+async def admin_patch_category(
+    code: str,
+    patch: CategoryPatch,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["code"] = code
+    res = await session.execute(text(
+        f"UPDATE food_categories SET {sets}, updated_at = now() WHERE code = :code RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Category not found")
+    await session.commit()
+    return _category_row(row)
+
+
+@admin_router.delete("/categories/{code}")
+async def admin_delete_category(
+    code: str,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    res = await session.execute(text("DELETE FROM food_categories WHERE code = :code RETURNING code"), {"code": code})
+    if not res.fetchone():
+        raise HTTPException(404, "Category not found")
+    await session.commit()
+    return {"deleted": code}
+
+
+# ---------- Cuisines CRUD ---------------------------------------------------
+
+
+class CuisineIn(BaseModel):
+    code: str = Field(..., min_length=1, max_length=32)
+    name_en: str = Field(..., min_length=1, max_length=64)
+    name_fr: str = Field(..., min_length=1, max_length=64)
+    image: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class CuisinePatch(BaseModel):
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    image: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
 @admin_router.get("/cuisines")
 async def admin_list_cuisines(session: AsyncSession = Depends(get_session), _admin=Depends(get_current_admin)):
     res = await session.execute(text("SELECT * FROM food_cuisines ORDER BY sort_order, code"))
     return [_cuisine_row(r) for r in res.fetchall()]
+
+
+@admin_router.post("/cuisines")
+async def admin_create_cuisine(
+    payload: CuisineIn,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    code = _slugify(payload.code)
+    exists = await session.execute(text("SELECT 1 FROM food_cuisines WHERE code = :code"), {"code": code})
+    if exists.fetchone():
+        raise HTTPException(409, f"Cuisine '{code}' already exists")
+    await session.execute(text("""
+        INSERT INTO food_cuisines (code, name_en, name_fr, image, sort_order, is_active)
+        VALUES (:code, :name_en, :name_fr, :image, :sort_order, :is_active)
+    """), {"code": code, **payload.model_dump(exclude={"code"})})
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_cuisines WHERE code = :code"), {"code": code})).fetchone()
+    return _cuisine_row(row)
+
+
+@admin_router.patch("/cuisines/{code}")
+async def admin_patch_cuisine(
+    code: str,
+    patch: CuisinePatch,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["code"] = code
+    res = await session.execute(text(
+        f"UPDATE food_cuisines SET {sets}, updated_at = now() WHERE code = :code RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Cuisine not found")
+    await session.commit()
+    return _cuisine_row(row)
+
+
+@admin_router.delete("/cuisines/{code}")
+async def admin_delete_cuisine(
+    code: str,
+    session: AsyncSession = Depends(get_session),
+    _admin=Depends(get_current_admin),
+):
+    res = await session.execute(text("DELETE FROM food_cuisines WHERE code = :code RETURNING code"), {"code": code})
+    if not res.fetchone():
+        raise HTTPException(404, "Cuisine not found")
+    await session.commit()
+    return {"deleted": code}
+
+
+# ---------- JSON serialisation helper --------------------------------------
+
+
+def _json_dump(value) -> str:
+    import json
+    return json.dumps(value or [])

@@ -164,6 +164,7 @@ export const FoodHome = () => {
   const [mode, setMode] = useState("delivery");
   const [activeCategory, setActiveCategory] = useState("all");
   const [data, setData] = useState({ categories: [], cuisines: [], featured_restaurants: [] });
+  const [homepage, setHomepage] = useState({ sections: [] });
   const [loading, setLoading] = useState(true);
   const currencySymbol = country?.currency_symbol || (countryCode === "IN" ? "₹" : "CFA");
 
@@ -172,8 +173,13 @@ export const FoodHome = () => {
     (async () => {
       setLoading(true);
       try {
-        const { data: home } = await axios.get(`${API}/api/food/home?country=${encodeURIComponent(countryCode || "CI")}`);
-        if (!cancel) setData(home);
+        const cc = encodeURIComponent(countryCode || "CI");
+        // Fetch catalogue + admin-managed homepage sections in parallel.
+        const [homeRes, hpRes] = await Promise.all([
+          axios.get(`${API}/api/food/home?country=${cc}`),
+          axios.get(`${API}/api/homepage?country=${cc}&module=food`).catch(() => ({ data: { sections: [] } })),
+        ]);
+        if (!cancel) { setData(homeRes.data); setHomepage(hpRes.data); }
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -181,29 +187,51 @@ export const FoodHome = () => {
     return () => { cancel = true; };
   }, [countryCode]);
 
+  // Build a per-section-type map so the renderer can pull admin overrides
+  // (title/subtitle/config) with a single lookup. Any section_type absent
+  // from the map falls back to the hard-coded default below.
+  const sx = React.useMemo(() => {
+    const map = {};
+    for (const s of homepage.sections || []) map[s.section_type] = s;
+    return map;
+  }, [homepage]);
+
+  const heroCfg = sx.food_hero?.config || {};
+  const heroBg = heroCfg.background_image
+    || "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=1600&h=700&fit=crop";
+  const heroImg = heroBg.startsWith("http") || heroBg.startsWith("data:") ? heroBg : `${API}${heroBg}`;
+
+  const promoBanners = sx.food_promos?.config?.banners || [];
+  const uspTiles = sx.food_usps?.config?.usps || [];
+
   const filteredRestaurants = activeCategory === "all"
     ? data.featured_restaurants
     : data.featured_restaurants.filter((r) => (r.cuisines || []).includes(activeCategory));
 
   return (
     <div className="min-h-screen" data-testid="food-home">
-      {/* 1. Hero */}
+      {/* 1. Hero — admin override via food_hero section */}
       <section className="relative overflow-hidden">
         <div
           className="relative min-h-[380px] flex items-center"
           style={{
-            backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.1) 100%), url("https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=1600&h=700&fit=crop")`,
+            backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.1) 100%), url("${heroImg}")`,
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         >
           <div className="baked-container relative w-full">
             <div className="max-w-2xl text-white py-10 space-y-5">
+              {heroCfg.eyebrow && (
+                <div className="text-[11px] uppercase tracking-widest font-semibold text-white/70">
+                  {heroCfg.eyebrow}
+                </div>
+              )}
               <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-                {t("food.hero_line1", { defaultValue: "Good Food" })}
+                {sx.food_hero?.title || t("food.hero_line1", { defaultValue: "Good Food" })}
                 <br />
                 <span style={{ color: GREEN }}>
-                  {t("food.hero_line2", { defaultValue: "Brings People Together" })}
+                  {sx.food_hero?.subtitle || t("food.hero_line2", { defaultValue: "Brings People Together" })}
                 </span>
               </h1>
               <p className="text-sm md:text-base text-white/80 max-w-lg">
@@ -255,7 +283,12 @@ export const FoodHome = () => {
         {/* 4. Featured Restaurants */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">{t("food.featured_title", { defaultValue: "Featured Restaurants" })}</h2>
+            <div>
+              <h2 className="text-xl font-bold">{sx.food_featured_restaurants?.title || t("food.featured_title", { defaultValue: "Featured Restaurants" })}</h2>
+              {sx.food_featured_restaurants?.subtitle && (
+                <p className="text-xs text-muted-foreground mt-1">{sx.food_featured_restaurants.subtitle}</p>
+              )}
+            </div>
             <button className="text-sm font-semibold flex items-center gap-1 hover:opacity-80" style={{ color: GREEN }}>
               {t("food.view_all", { defaultValue: "View All" })} <ChevronRight size={16} />
             </button>
@@ -277,52 +310,80 @@ export const FoodHome = () => {
           </div>
         </section>
 
-        {/* 5. Promo strip */}
-        <section className="grid gap-4 md:grid-cols-[2fr_1fr]">
-          <div className="rounded-2xl overflow-hidden relative min-h-[140px]"
-               style={{ background: `linear-gradient(90deg, ${GREEN}44 0%, ${GREEN}0F 60%), url("https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=400&fit=crop") right/cover no-repeat, #0d0d0d` }}>
-            <div className="p-6 md:p-8 max-w-md">
-              <div className="text-xl md:text-2xl font-bold text-white">
-                {t("food.promo1_line1", { defaultValue: "Delicious" })}
-                <br />
-                {t("food.promo1_line2", { defaultValue: "Deals Every Day" })}
+        {/* 5. Promo strip — admin override via food_promos section */}
+        {promoBanners.length > 0 ? (
+          <section data-testid="food-promos" className="grid gap-4 md:grid-cols-2">
+            {promoBanners.map((b, i) => {
+              const bgUrl = b.image ? (b.image.startsWith("http") ? b.image : `${API}${b.image}`) : "";
+              return (
+                <div key={i}
+                     className="rounded-2xl overflow-hidden relative min-h-[160px] text-white"
+                     style={bgUrl ? { background: `linear-gradient(90deg, rgba(0,0,0,0.8), rgba(0,0,0,0.35)), url("${bgUrl}") center/cover no-repeat, #0d0d0d` } : { background: "#0d0d0d" }}>
+                  <div className="p-6 md:p-8 max-w-md">
+                    <div className="text-xl md:text-2xl font-bold">{b.headline}</div>
+                    {b.description && <p className="text-xs md:text-sm text-white/80 mt-2">{b.description}</p>}
+                    {b.cta_label && (
+                      <a href={b.cta_link || "#"}
+                         className="mt-4 px-4 h-10 rounded-full text-xs font-semibold text-black inline-flex items-center gap-2"
+                         style={{ backgroundColor: GREEN }}>
+                        {b.cta_label} <ChevronRight size={14} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="grid gap-4 md:grid-cols-[2fr_1fr]">
+            <div className="rounded-2xl overflow-hidden relative min-h-[140px]"
+                 style={{ background: `linear-gradient(90deg, ${GREEN}44 0%, ${GREEN}0F 60%), url("https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=400&fit=crop") right/cover no-repeat, #0d0d0d` }}>
+              <div className="p-6 md:p-8 max-w-md">
+                <div className="text-xl md:text-2xl font-bold text-white">
+                  {t("food.promo1_line1", { defaultValue: "Delicious" })}
+                  <br />
+                  {t("food.promo1_line2", { defaultValue: "Deals Every Day" })}
+                </div>
+                <p className="text-xs md:text-sm text-white/80 mt-2">
+                  {t("food.promo1_sub", { defaultValue: "Save more on your favourite meals." })}
+                </p>
+                <button className="mt-4 px-4 h-10 rounded-full text-xs font-semibold text-black inline-flex items-center gap-2" style={{ backgroundColor: GREEN }}>
+                  {t("food.promo1_cta", { defaultValue: "View Offers" })} <ChevronRight size={14} />
+                </button>
               </div>
-              <p className="text-xs md:text-sm text-white/80 mt-2">
-                {t("food.promo1_sub", { defaultValue: "Save more on your favourite meals." })}
-              </p>
-              <button className="mt-4 px-4 h-10 rounded-full text-xs font-semibold text-black inline-flex items-center gap-2" style={{ backgroundColor: GREEN }}>
-                {t("food.promo1_cta", { defaultValue: "View Offers" })} <ChevronRight size={14} />
-              </button>
+              <span className="absolute right-8 top-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center text-black font-bold text-xs text-center leading-tight" style={{ backgroundColor: GREEN }}>
+                UP TO<br />50%<br />OFF
+              </span>
             </div>
-            <span className="absolute right-8 top-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center text-black font-bold text-xs text-center leading-tight" style={{ backgroundColor: GREEN }}>
-              UP TO<br />50%<br />OFF
-            </span>
-          </div>
-          <div className="rounded-2xl bg-card border border-border p-6 flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>
-              <ShoppingBag size={26} />
+            <div className="rounded-2xl bg-card border border-border p-6 flex items-start gap-4">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>
+                <ShoppingBag size={26} />
+              </div>
+              <div className="flex-1">
+                <div className="text-lg font-bold" style={{ color: GREEN }}>
+                  {t("food.promo2_title", { defaultValue: "Free Delivery" })}
+                </div>
+                <div className="text-sm font-semibold text-foreground">
+                  {t("food.promo2_sub", { defaultValue: "This Week" })}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  {t("food.promo2_note", { defaultValue: `On orders above 5,000 ${currencySymbol}`, currencySymbol })}
+                </div>
+                <button className="mt-3 px-3 h-9 rounded-full text-[11px] font-semibold text-black inline-flex items-center gap-1" style={{ backgroundColor: GREEN }}>
+                  {t("food.promo2_cta", { defaultValue: "Order Now" })} <ChevronRight size={12} />
+                </button>
+              </div>
             </div>
-            <div className="flex-1">
-              <div className="text-lg font-bold" style={{ color: GREEN }}>
-                {t("food.promo2_title", { defaultValue: "Free Delivery" })}
-              </div>
-              <div className="text-sm font-semibold text-foreground">
-                {t("food.promo2_sub", { defaultValue: "This Week" })}
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-1">
-                {t("food.promo2_note", { defaultValue: `On orders above 5,000 ${currencySymbol}`, currencySymbol })}
-              </div>
-              <button className="mt-3 px-3 h-9 rounded-full text-[11px] font-semibold text-black inline-flex items-center gap-1" style={{ backgroundColor: GREEN }}>
-                {t("food.promo2_cta", { defaultValue: "Order Now" })} <ChevronRight size={12} />
-              </button>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 6. Cuisines You'll Love */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">{t("food.cuisines_title", { defaultValue: "Cuisines You'll Love" })}</h2>
+            <div>
+              <h2 className="text-xl font-bold">{sx.food_cuisines?.title || t("food.cuisines_title", { defaultValue: "Cuisines You'll Love" })}</h2>
+              {sx.food_cuisines?.subtitle && <p className="text-xs text-muted-foreground mt-1">{sx.food_cuisines.subtitle}</p>}
+            </div>
             <button className="text-sm font-semibold flex items-center gap-1 hover:opacity-80" style={{ color: GREEN }}>
               {t("food.view_all", { defaultValue: "View All" })} <ChevronRight size={16} />
             </button>
@@ -334,17 +395,31 @@ export const FoodHome = () => {
           </div>
         </section>
 
-        {/* 7. Why Choose */}
+        {/* 7. Why Choose — admin override via food_usps section */}
         <section>
           <h2 className="text-xl font-bold mb-4">
-            {t("food.why_title", { defaultValue: "Why Choose " })}
-            <span style={{ color: GREEN }}>FOOD</span>bakēd?
+            {sx.food_usps?.title || (
+              <>
+                {t("food.why_title", { defaultValue: "Why Choose " })}
+                <span style={{ color: GREEN }}>FOOD</span>bakēd?
+              </>
+            )}
           </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <USPTile icon={Clock}      title={t("food.usp1_title", { defaultValue: "Quick Delivery" })}    subtitle={t("food.usp1_sub", { defaultValue: "Fresh food at your doorstep" })} />
-            <USPTile icon={Utensils}   title={t("food.usp2_title", { defaultValue: "Wide Variety" })}      subtitle={t("food.usp2_sub", { defaultValue: "Local & global cuisines" })} />
-            <USPTile icon={Star}       title={t("food.usp3_title", { defaultValue: "Great Deals" })}       subtitle={t("food.usp3_sub", { defaultValue: "Save more every day" })} />
-            <USPTile icon={Heart}      title={t("food.usp4_title", { defaultValue: "Trusted Restaurants" })} subtitle={t("food.usp4_sub", { defaultValue: "Quality food, happy customers" })} />
+            {uspTiles.length > 0 ? (
+              uspTiles.map((u, i) => {
+                const ICON_MAP = { shield: Heart, truck: Truck, sparkles: Star, tag: Star, clock: Clock, utensils: Utensils, star: Star, heart: Heart, shopping: ShoppingBag };
+                const Icon = ICON_MAP[(u.icon || "star").toLowerCase()] || Star;
+                return <USPTile key={i} icon={Icon} title={u.title} subtitle={u.subtitle} />;
+              })
+            ) : (
+              <>
+                <USPTile icon={Clock}      title={t("food.usp1_title", { defaultValue: "Quick Delivery" })}    subtitle={t("food.usp1_sub", { defaultValue: "Fresh food at your doorstep" })} />
+                <USPTile icon={Utensils}   title={t("food.usp2_title", { defaultValue: "Wide Variety" })}      subtitle={t("food.usp2_sub", { defaultValue: "Local & global cuisines" })} />
+                <USPTile icon={Star}       title={t("food.usp3_title", { defaultValue: "Great Deals" })}       subtitle={t("food.usp3_sub", { defaultValue: "Save more every day" })} />
+                <USPTile icon={Heart}      title={t("food.usp4_title", { defaultValue: "Trusted Restaurants" })} subtitle={t("food.usp4_sub", { defaultValue: "Quality food, happy customers" })} />
+              </>
+            )}
           </div>
         </section>
 

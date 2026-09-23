@@ -8,6 +8,7 @@
  * Mounted at /admin/homepage-management.
  */
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Home, ArrowUp, ArrowDown, Eye, EyeOff, Pencil, Trash2, Plus, Save, X, Loader2, Globe,
@@ -168,17 +169,110 @@ const SECTION_SCHEMAS = {
     top: [F.text("title", "Headline"), F.text("subtitle", "Subline")],
     config: [F.text("cta_label", "CTA label"), F.url("cta_link", "CTA link")],
   },
+
+  // ---------------- FOODbakēd homepage sections (Feb 2026) ------------------
+  // Every food_* schema is FR-first / EN-second. The customer FoodHome page
+  // renders these via a lightweight renderer keyed on section_type.
+  food_hero: {
+    label: "FOOD · Hero Banner",
+    modules: ["food"],
+    top: [F.text("title", "Titre / Headline"), F.area("subtitle", "Sous-titre / Sub-headline")],
+    config: [
+      F.image("background_image", "Image d'arrière-plan · Background image"),
+      F.text("eyebrow", "Éyebrow (petit tag au-dessus du titre)"),
+      F.text("cta_label", "CTA label"),
+      F.url("cta_link", "CTA link"),
+    ],
+  },
+  food_categories: {
+    label: "FOOD · Catégories chips",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [
+      F.text("source", "Source (blank = seed catalogue food_categories)"),
+      F.num("limit", "Nombre à afficher · Number to show (blank = all)"),
+    ],
+  },
+  food_cuisines: {
+    label: "FOOD · Cuisines tiles",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [
+      F.num("columns", "Colonnes desktop · Desktop columns"),
+      F.num("limit", "Nombre à afficher · Number to show"),
+    ],
+  },
+  food_featured_restaurants: {
+    label: "FOOD · Restaurants mis en avant",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [
+      F.text("cuisine_filter", "Filtre cuisine (blank = all featured)"),
+      F.num("limit", "Nombre de cartes · Card limit"),
+    ],
+  },
+  food_promos: {
+    label: "FOOD · Bandeaux promotionnels · Promo banners",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [F.list("banners", "Bannières · Banners", [
+      F.image("image", "Image"),
+      F.text("headline", "Titre · Headline"),
+      F.text("description", "Description"),
+      F.text("cta_label", "CTA label"),
+      F.url("cta_link", "CTA link"),
+    ])],
+  },
+  food_usps: {
+    label: "FOOD · Points forts (USP Strip)",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title")],
+    config: [F.list("usps", "USPs (3-4 recommandés)", _USP_FIELDS)],
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Modules metadata + helpers
+// ---------------------------------------------------------------------------
+
+const MODULES_META = [
+  { code: "mart", label: "MARTbakēd" },
+  { code: "shop", label: "SHOPbakēd" },
+  { code: "food", label: "FOODbakēd" },
+];
+
+// Section types allowed for each module. Sections tagged with `modules: [...]`
+// are restricted; untagged sections are shared (available everywhere) but we
+// hide FOOD-specific ones from MART/SHOP.
+const _isSectionForModule = (schema, module) => {
+  if (schema.modules) return schema.modules.includes(module);
+  // Untagged sections were built for MART/SHOP originally.
+  return module !== "food";
 };
 
 const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";
 
 export const AdminHomepageManagement = () => {
+  const location = useLocation();
+  // Detect the scoped module from URL: /admin/modules/<code>/homepage-management.
+  // When scoped, the toggle is hidden and the module is locked so admins
+  // NEVER accidentally edit another module's homepage from within FOODbakēd.
+  const scopedModule = React.useMemo(() => {
+    const m = /\/admin\/modules\/([^/]+)\/homepage-management/.exec(location.pathname);
+    return m && MODULES_META.some((x) => x.code === m[1]) ? m[1] : null;
+  }, [location.pathname]);
+
   const [country, setCountry] = useState("CI");
-  const [module, setModule] = useState("mart");
+  const [module, setModule] = useState(scopedModule || "mart");
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);   // full row being edited
   const [creating, setCreating] = useState(false);
+
+  // Keep module in sync when the route changes (e.g. nav from FOOD to MART).
+  useEffect(() => {
+    if (scopedModule && scopedModule !== module) setModule(scopedModule);
+  }, [scopedModule]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = async () => {
     setBusy(true);
@@ -247,40 +341,57 @@ export const AdminHomepageManagement = () => {
       <div className="flex items-start justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Configuration</div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Home size={22} /> Homepage Management</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Home size={22} /> Homepage Management
+            {scopedModule && (
+              <span className="text-xs font-semibold px-2 py-1 rounded-full bg-primary/15 text-primary uppercase tracking-wider">
+                {MODULES_META.find((m) => m.code === scopedModule)?.label || scopedModule}
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Add, reorder, edit and toggle sections on the customer homepage. Country-specific.
+            {scopedModule === "food" && " · French-first · English-second."}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex rounded-full border border-border p-1 text-xs"
-                data-testid="hp-module-toggle">
-            {[
-              { code: "mart", label: "MARTbakēd" },
-              { code: "shop", label: "SHOPbakēd" },
-            ].map((m) => (
-              <button
-                key={m.code}
-                onClick={() => setModule(m.code)}
-                data-testid={`hp-module-${m.code}`}
-                className={`px-3 py-1.5 rounded-full transition-colors ${
-                  module === m.code
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </span>
+          {!scopedModule && (
+            <span className="inline-flex rounded-full border border-border p-1 text-xs"
+                  data-testid="hp-module-toggle">
+              {MODULES_META.map((m) => (
+                <button
+                  key={m.code}
+                  onClick={() => setModule(m.code)}
+                  data-testid={`hp-module-${m.code}`}
+                  className={`px-3 py-1.5 rounded-full transition-colors ${
+                    module === m.code
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </span>
+          )}
           <Globe size={14} className="text-muted-foreground" />
           <select value={country} onChange={(e) => setCountry(e.target.value)}
                   className="h-9 rounded-lg bg-secondary text-sm px-3"
                   data-testid="hp-country-select">
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
-          <button onClick={() => { setCreating(true); setEditing({ _creating: true, id: null,
-            section_type: "hero", title: "", subtitle: "", config: {}, is_enabled: true }); }}
+          <button onClick={() => {
+                    // First allowed section type for this module.
+                    const firstType = Object.entries(SECTION_SCHEMAS).find(
+                      ([, s]) => _isSectionForModule(s, module)
+                    )?.[0] || "hero";
+                    setCreating(true);
+                    setEditing({
+                      _creating: true, id: null,
+                      section_type: firstType, title: "", subtitle: "",
+                      config: {}, is_enabled: true,
+                    });
+                  }}
                   className="h-9 px-3 rounded-lg text-xs uppercase tracking-widest font-semibold bg-primary text-primary-foreground flex items-center gap-1"
                   data-testid="hp-add-btn">
             <Plus size={14} /> Add section
@@ -351,6 +462,7 @@ export const AdminHomepageManagement = () => {
         <SectionEditor
           row={editing}
           creating={creating}
+          module={module}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSave={save}
         />
@@ -361,7 +473,7 @@ export const AdminHomepageManagement = () => {
 
 /* --------------------------- Schema-driven editor ------------------------ */
 
-const SectionEditor = ({ row, creating, onClose, onSave }) => {
+const SectionEditor = ({ row, creating, module, onClose, onSave }) => {
   const [draft, setDraft] = useState(row);
   const schema = SECTION_SCHEMAS[draft.section_type] || { top: [], config: [] };
   const tabs = schema.tabs;
@@ -467,9 +579,11 @@ const SectionEditor = ({ row, creating, onClose, onSave }) => {
               <select value={draft.section_type} onChange={(e) => set("section_type", e.target.value)}
                       className="w-full h-10 rounded-lg bg-secondary px-3 text-sm"
                       data-testid="hp-editor-type">
-                {Object.entries(SECTION_SCHEMAS).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
+                {Object.entries(SECTION_SCHEMAS)
+                  .filter(([, v]) => _isSectionForModule(v, module))
+                  .map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
               </select>
             </Field>
           )}
