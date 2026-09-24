@@ -60,6 +60,17 @@
 - **Driver forgot-password** (2026-02): 6-digit code emailed via Gmail SMTP (`groupbaked@gmail.com`) using `core.mailer`. Env vars `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` (app-password, never logged), `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL` in `backend/.env` (gitignored). `dev_hint` in the response only when `APP_ENV != production`.
 - Test email driver (idempotent): `test.driver@baked.dev` / `driverPass123!` — created 2026-02-26. Onboarding status, no phone attached (KYC will collect it).
 
+## FOODbakēd Restaurant Partner (2026-02-23)
+- Portal: `/partner/food/login`
+- Super Admin creates accounts at `/admin/modules/food/restaurants` → row → **Partners** icon (Users)
+- Endpoints:
+  - `POST /api/food/partner/auth/login` — email + password (JWT `role="food_partner"`)
+  - `GET  /api/food/partner/auth/me`
+  - `POST /api/admin/food/restaurants/{rid}/partners` (super-admin creates account)
+  - `PATCH /api/food/partner/restaurant` — partner can toggle open, prep times, cover image only
+  - Menu CRUD: `/api/food/manage/{rid}/{sections|items|items/{iid}/variants|items/{iid}/addons}` — super-admin OR partner-of-that-rid
+- Cross-restaurant isolation: partners get **403** when hitting another restaurant's routes.
+
 ## Seeded Driver Applications (for Admin queue QA)
 - `drv_seed_onb1` — Rahul Onboarding · IN · onboarding
 - `drv_seed_onb2` — Awa Diallo · CI · onboarding

@@ -19,21 +19,29 @@ add restaurant menu items, cart wiring and the SENDbakēd driver bridge.
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import jwt as _jwt
+
 from core.db import get_session
 from core.providers import object_storage
+from core.security import (
+    create_access_token, decode_token, hash_password, verify_password,
+)
 from shared.admin.routes import get_current_admin
 
 
 router = APIRouter(tags=["food"])
 admin_router = APIRouter(prefix="/admin/food", tags=["food-admin"])
+partner_router = APIRouter(prefix="/food/partner", tags=["food-partner"])
+manage_router = APIRouter(prefix="/food/manage", tags=["food-manage"])  # menu CRUD (super-admin OR partner-of)
 
 
 def _slugify(value: str) -> str:
@@ -623,3 +631,667 @@ async def admin_delete_cuisine(
 def _json_dump(value) -> str:
     import json
     return json.dumps(value or [])
+
+
+# ===========================================================================
+# Restaurant Partner Portal — auth + menu CRUD (Feb 2026)
+# ===========================================================================
+#
+# Two writer surfaces exist for menu / partner data:
+#   • Super-admin JWT (`role in ("admin","super_admin")`) — can touch any
+#     restaurant.
+#   • Food-partner JWT (`role == "food_partner"`) — can only touch the
+#     restaurant whose `restaurant_id` is embedded in the token claim.
+#
+# `_get_menu_writer(rid)` resolves either identity and enforces isolation;
+# all menu-management endpoints depend on it.
+# ---------------------------------------------------------------------------
+
+
+def _partner_row(r) -> dict:
+    return {
+        "id": r.id,
+        "restaurant_id": r.restaurant_id,
+        "email": r.email,
+        "name": r.name,
+        "is_active": r.is_active,
+        "last_login_at": r.last_login_at.isoformat() if r.last_login_at else None,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+async def _load_partner_from_token(request: Request, session: AsyncSession):
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    try:
+        payload = decode_token(auth[7:])
+    except _jwt.PyJWTError:
+        return None
+    if payload.get("role") != "food_partner":
+        return None
+    partner = (await session.execute(text(
+        "SELECT * FROM food_restaurant_partners WHERE id = :id AND is_active = TRUE"
+    ), {"id": payload.get("sub")})).fetchone()
+    return partner
+
+
+async def get_current_food_partner(request: Request, session: AsyncSession = Depends(get_session)):
+    partner = await _load_partner_from_token(request, session)
+    if not partner:
+        raise HTTPException(401, "Not authenticated as restaurant partner")
+    return partner
+
+
+async def _get_menu_writer(rid: str, request: Request, session: AsyncSession):
+    """Allow super-admin OR partner of `rid`. Return (kind, actor)."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = decode_token(auth[7:])
+    except _jwt.PyJWTError:
+        raise HTTPException(401, "Invalid token")
+    role = payload.get("role")
+    if role in ("admin", "super_admin"):
+        # Confirm the restaurant exists.
+        r = (await session.execute(text("SELECT id FROM food_restaurants WHERE id = :id"), {"id": rid})).fetchone()
+        if not r:
+            raise HTTPException(404, "Restaurant not found")
+        return ("admin", payload.get("sub"))
+    if role == "food_partner":
+        partner = (await session.execute(text(
+            "SELECT * FROM food_restaurant_partners WHERE id = :id AND is_active = TRUE"
+        ), {"id": payload.get("sub")})).fetchone()
+        if not partner:
+            raise HTTPException(401, "Partner not found or disabled")
+        if partner.restaurant_id != rid:
+            raise HTTPException(403, "You can only manage your own restaurant")
+        return ("partner", partner.id)
+    raise HTTPException(403, "Not allowed to manage this restaurant")
+
+
+# ---------- Partner login + me ---------------------------------------------
+
+class PartnerLoginIn(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=1)
+
+
+@partner_router.post("/auth/login")
+async def partner_login(payload: PartnerLoginIn, session: AsyncSession = Depends(get_session)):
+    row = (await session.execute(text(
+        "SELECT * FROM food_restaurant_partners WHERE LOWER(email) = :email"
+    ), {"email": payload.email.lower()})).fetchone()
+    if not row or not verify_password(payload.password, row.password_hash or ""):
+        raise HTTPException(401, "Invalid credentials")
+    if not row.is_active:
+        raise HTTPException(403, "Account disabled — contact support")
+    token = create_access_token(row.id, role="food_partner", extra={
+        "email": row.email, "restaurant_id": row.restaurant_id,
+    })
+    await session.execute(text(
+        "UPDATE food_restaurant_partners SET last_login_at = now() WHERE id = :id"
+    ), {"id": row.id})
+    await session.commit()
+    return {
+        "access_token": token, "token_type": "bearer",
+        "partner": _partner_row(row),
+    }
+
+
+@partner_router.get("/auth/me")
+async def partner_me(partner=Depends(get_current_food_partner), session: AsyncSession = Depends(get_session)):
+    # Include the restaurant summary for the portal shell.
+    rest = (await session.execute(text(
+        "SELECT * FROM food_restaurants WHERE id = :id"
+    ), {"id": partner.restaurant_id})).fetchone()
+    return {"partner": _partner_row(partner), "restaurant": _restaurant_row(rest) if rest else None}
+
+
+# ---------- Super-admin: partner accounts management -----------------------
+
+class PartnerCreateIn(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    name: Optional[str] = Field(None, max_length=128)
+
+
+class PartnerPatch(BaseModel):
+    name: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
+
+
+@admin_router.get("/restaurants/{rid}/partners")
+async def admin_list_partners(rid: str, session: AsyncSession = Depends(get_session), _admin=Depends(get_current_admin)):
+    res = await session.execute(text(
+        "SELECT * FROM food_restaurant_partners WHERE restaurant_id = :rid ORDER BY created_at DESC"
+    ), {"rid": rid})
+    return [_partner_row(r) for r in res.fetchall()]
+
+
+@admin_router.post("/restaurants/{rid}/partners")
+async def admin_create_partner(
+    rid: str, payload: PartnerCreateIn,
+    session: AsyncSession = Depends(get_session), _admin=Depends(get_current_admin),
+):
+    # Verify restaurant exists
+    r = (await session.execute(text("SELECT id FROM food_restaurants WHERE id = :id"), {"id": rid})).fetchone()
+    if not r:
+        raise HTTPException(404, "Restaurant not found")
+    # Reject duplicate email
+    dup = (await session.execute(text(
+        "SELECT id FROM food_restaurant_partners WHERE LOWER(email) = :email"
+    ), {"email": payload.email.lower()})).fetchone()
+    if dup:
+        raise HTTPException(409, "Email already registered")
+    pid = f"fp_{uuid.uuid4().hex[:16]}"
+    await session.execute(text("""
+        INSERT INTO food_restaurant_partners (id, restaurant_id, email, password_hash, name, is_active)
+        VALUES (:id, :rid, :email, :ph, :name, TRUE)
+    """), {
+        "id": pid, "rid": rid, "email": payload.email.lower(),
+        "ph": hash_password(payload.password), "name": payload.name,
+    })
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_restaurant_partners WHERE id = :id"), {"id": pid})).fetchone()
+    return _partner_row(row)
+
+
+@admin_router.patch("/partners/{pid}")
+async def admin_patch_partner(
+    pid: str, patch: PartnerPatch,
+    session: AsyncSession = Depends(get_session), _admin=Depends(get_current_admin),
+):
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    if "password" in fields:
+        fields["password_hash"] = hash_password(fields.pop("password"))
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["id"] = pid
+    res = await session.execute(text(
+        f"UPDATE food_restaurant_partners SET {sets}, updated_at = now() WHERE id = :id RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Partner not found")
+    await session.commit()
+    return _partner_row(row)
+
+
+@admin_router.delete("/partners/{pid}")
+async def admin_delete_partner(
+    pid: str, session: AsyncSession = Depends(get_session), _admin=Depends(get_current_admin),
+):
+    res = await session.execute(text(
+        "DELETE FROM food_restaurant_partners WHERE id = :id RETURNING id"
+    ), {"id": pid})
+    if not res.fetchone():
+        raise HTTPException(404, "Partner not found")
+    await session.commit()
+    return {"deleted": pid}
+
+
+# ===========================================================================
+# Menu CRUD (shared surface — super-admin OR partner of the restaurant)
+# ===========================================================================
+
+
+class SectionIn(BaseModel):
+    name_en: str = Field(..., min_length=1, max_length=64)
+    name_fr: str = Field(..., min_length=1, max_length=64)
+    sort_order: int = 0
+
+
+class SectionPatch(BaseModel):
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class ItemIn(BaseModel):
+    section_id: str
+    name: str = Field(..., min_length=1, max_length=128)
+    description: Optional[str] = None
+    image: Optional[str] = None
+    base_price: float = 0.0
+    currency: str = "XOF"
+    is_veg: bool = False
+    spice_level: int = 0
+    tags: List[str] = Field(default_factory=list)
+    is_available: bool = True
+    sort_order: int = 0
+
+
+class ItemPatch(BaseModel):
+    section_id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    base_price: Optional[float] = None
+    currency: Optional[str] = None
+    is_veg: Optional[bool] = None
+    spice_level: Optional[int] = None
+    tags: Optional[List[str]] = None
+    is_available: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class VariantIn(BaseModel):
+    name_en: str
+    name_fr: str
+    price_delta: float = 0.0
+    is_default: bool = False
+    sort_order: int = 0
+
+
+class VariantPatch(BaseModel):
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    price_delta: Optional[float] = None
+    is_default: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class AddonIn(BaseModel):
+    name_en: str
+    name_fr: str
+    price: float = 0.0
+    sort_order: int = 0
+
+
+class AddonPatch(BaseModel):
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    price: Optional[float] = None
+    sort_order: Optional[int] = None
+
+
+def _mk_id(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:16]}"
+
+
+async def _item_belongs_to(rid: str, item_id: str, session: AsyncSession) -> bool:
+    r = (await session.execute(text(
+        "SELECT 1 FROM food_menu_items WHERE id = :id AND restaurant_id = :rid"
+    ), {"id": item_id, "rid": rid})).fetchone()
+    return r is not None
+
+
+# ---------- Full menu (read) ----------------------------------------------
+
+
+@manage_router.get("/{rid}/menu")
+async def manage_get_menu(rid: str, request: Request, session: AsyncSession = Depends(get_session)):
+    """Return the full menu tree for an authorized writer.
+
+    Unlike the customer route this also includes disabled items so partners
+    can bring them back online.
+    """
+    await _get_menu_writer(rid, request, session)
+
+    secs = (await session.execute(text(
+        "SELECT * FROM food_menu_sections WHERE restaurant_id = :rid ORDER BY sort_order, id"
+    ), {"rid": rid})).fetchall()
+
+    items = (await session.execute(text(
+        "SELECT * FROM food_menu_items WHERE restaurant_id = :rid ORDER BY section_id, sort_order, id"
+    ), {"rid": rid})).fetchall()
+
+    item_ids = [i.id for i in items]
+    variants_by_item: dict = {}
+    addons_by_item: dict = {}
+    if item_ids:
+        placeholders = ",".join(f":i{i}" for i in range(len(item_ids)))
+        params_ids = {f"i{i}": v for i, v in enumerate(item_ids)}
+        vrows = (await session.execute(text(
+            f"SELECT * FROM food_item_variants WHERE item_id IN ({placeholders}) ORDER BY item_id, sort_order"
+        ), params_ids)).fetchall()
+        arows = (await session.execute(text(
+            f"SELECT * FROM food_item_addons WHERE item_id IN ({placeholders}) ORDER BY item_id, sort_order"
+        ), params_ids)).fetchall()
+        for v in vrows:
+            variants_by_item.setdefault(v.item_id, []).append({
+                "id": v.id, "name_en": v.name_en, "name_fr": v.name_fr,
+                "price_delta": float(v.price_delta or 0), "is_default": v.is_default,
+                "sort_order": v.sort_order,
+            })
+        for a in arows:
+            addons_by_item.setdefault(a.item_id, []).append({
+                "id": a.id, "name_en": a.name_en, "name_fr": a.name_fr,
+                "price": float(a.price or 0), "sort_order": a.sort_order,
+            })
+
+    items_by_section: dict = {}
+    for it in items:
+        items_by_section.setdefault(it.section_id, []).append({
+            "id": it.id, "section_id": it.section_id, "name": it.name,
+            "description": it.description, "image": it.image,
+            "base_price": float(it.base_price or 0), "currency": it.currency,
+            "is_veg": it.is_veg, "spice_level": it.spice_level,
+            "tags": it.tags or [], "is_available": it.is_available,
+            "sort_order": it.sort_order,
+            "variants": variants_by_item.get(it.id, []),
+            "addons":   addons_by_item.get(it.id, []),
+        })
+    return {
+        "sections": [
+            {"id": s.id, "name_en": s.name_en, "name_fr": s.name_fr, "sort_order": s.sort_order,
+             "items": items_by_section.get(s.id, [])}
+            for s in secs
+        ],
+    }
+
+
+# ---------- Sections CRUD --------------------------------------------------
+
+
+@manage_router.post("/{rid}/sections")
+async def manage_create_section(
+    rid: str, payload: SectionIn, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    sid = _mk_id("fms")
+    await session.execute(text("""
+        INSERT INTO food_menu_sections (id, restaurant_id, name_en, name_fr, sort_order)
+        VALUES (:id, :rid, :name_en, :name_fr, :sort_order)
+    """), {"id": sid, "rid": rid, **payload.model_dump()})
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_menu_sections WHERE id = :id"), {"id": sid})).fetchone()
+    return {"id": row.id, "restaurant_id": row.restaurant_id, "name_en": row.name_en, "name_fr": row.name_fr, "sort_order": row.sort_order}
+
+
+@manage_router.patch("/{rid}/sections/{sid}")
+async def manage_patch_section(
+    rid: str, sid: str, patch: SectionPatch, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["sid"] = sid; fields["rid"] = rid
+    res = await session.execute(text(
+        f"UPDATE food_menu_sections SET {sets} WHERE id = :sid AND restaurant_id = :rid RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Section not found")
+    await session.commit()
+    return {"id": row.id, "name_en": row.name_en, "name_fr": row.name_fr, "sort_order": row.sort_order}
+
+
+@manage_router.delete("/{rid}/sections/{sid}")
+async def manage_delete_section(
+    rid: str, sid: str, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    res = await session.execute(text(
+        "DELETE FROM food_menu_sections WHERE id = :sid AND restaurant_id = :rid RETURNING id"
+    ), {"sid": sid, "rid": rid})
+    if not res.fetchone():
+        raise HTTPException(404, "Section not found")
+    await session.commit()
+    return {"deleted": sid}
+
+
+# ---------- Items CRUD -----------------------------------------------------
+
+
+@manage_router.post("/{rid}/items")
+async def manage_create_item(
+    rid: str, payload: ItemIn, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    # Ensure section belongs to this restaurant
+    ok = (await session.execute(text(
+        "SELECT 1 FROM food_menu_sections WHERE id = :sid AND restaurant_id = :rid"
+    ), {"sid": payload.section_id, "rid": rid})).fetchone()
+    if not ok:
+        raise HTTPException(400, "section_id does not belong to this restaurant")
+    iid = _mk_id("fmi")
+    body = payload.model_dump()
+    body["tags"] = _json_dump(body.get("tags") or [])
+    await session.execute(text("""
+        INSERT INTO food_menu_items (
+            id, restaurant_id, section_id, name, description, image,
+            base_price, currency, is_veg, spice_level, tags,
+            is_available, sort_order
+        ) VALUES (
+            :id, :rid, :section_id, :name, :description, :image,
+            :base_price, :currency, :is_veg, :spice_level, CAST(:tags AS JSONB),
+            :is_available, :sort_order
+        )
+    """), {"id": iid, "rid": rid, **body})
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_menu_items WHERE id = :id"), {"id": iid})).fetchone()
+    return _item_json(row)
+
+
+@manage_router.patch("/{rid}/items/{iid}")
+async def manage_patch_item(
+    rid: str, iid: str, patch: ItemPatch, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    if "section_id" in fields:
+        ok = (await session.execute(text(
+            "SELECT 1 FROM food_menu_sections WHERE id = :sid AND restaurant_id = :rid"
+        ), {"sid": fields["section_id"], "rid": rid})).fetchone()
+        if not ok:
+            raise HTTPException(400, "section_id does not belong to this restaurant")
+    parts = []
+    params = {"iid": iid, "rid": rid}
+    for k, v in fields.items():
+        if k == "tags":
+            parts.append("tags = CAST(:tags AS JSONB)")
+            params["tags"] = _json_dump(v)
+        else:
+            parts.append(f"{k} = :{k}")
+            params[k] = v
+    sets = ", ".join(parts)
+    res = await session.execute(text(
+        f"UPDATE food_menu_items SET {sets}, updated_at = now() WHERE id = :iid AND restaurant_id = :rid RETURNING *"
+    ), params)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Item not found")
+    await session.commit()
+    return _item_json(row)
+
+
+@manage_router.delete("/{rid}/items/{iid}")
+async def manage_delete_item(
+    rid: str, iid: str, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    res = await session.execute(text(
+        "DELETE FROM food_menu_items WHERE id = :iid AND restaurant_id = :rid RETURNING id"
+    ), {"iid": iid, "rid": rid})
+    if not res.fetchone():
+        raise HTTPException(404, "Item not found")
+    await session.commit()
+    return {"deleted": iid}
+
+
+# ---------- Variants + Add-ons ---------------------------------------------
+
+
+@manage_router.post("/{rid}/items/{iid}/variants")
+async def manage_create_variant(
+    rid: str, iid: str, payload: VariantIn, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    if not await _item_belongs_to(rid, iid, session):
+        raise HTTPException(404, "Item not found")
+    vid = _mk_id("fmv")
+    if payload.is_default:
+        await session.execute(text("UPDATE food_item_variants SET is_default = FALSE WHERE item_id = :iid"), {"iid": iid})
+    await session.execute(text("""
+        INSERT INTO food_item_variants (id, item_id, name_en, name_fr, price_delta, is_default, sort_order)
+        VALUES (:id, :iid, :name_en, :name_fr, :price_delta, :is_default, :sort_order)
+    """), {"id": vid, "iid": iid, **payload.model_dump()})
+    await session.commit()
+    return {"id": vid, "item_id": iid, **payload.model_dump()}
+
+
+@manage_router.patch("/{rid}/items/{iid}/variants/{vid}")
+async def manage_patch_variant(
+    rid: str, iid: str, vid: str, patch: VariantPatch, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    if not await _item_belongs_to(rid, iid, session):
+        raise HTTPException(404, "Item not found")
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    if fields.get("is_default") is True:
+        await session.execute(text("UPDATE food_item_variants SET is_default = FALSE WHERE item_id = :iid"), {"iid": iid})
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["vid"] = vid; fields["iid"] = iid
+    res = await session.execute(text(
+        f"UPDATE food_item_variants SET {sets} WHERE id = :vid AND item_id = :iid RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Variant not found")
+    await session.commit()
+    return {
+        "id": row.id, "item_id": row.item_id, "name_en": row.name_en, "name_fr": row.name_fr,
+        "price_delta": float(row.price_delta or 0), "is_default": row.is_default, "sort_order": row.sort_order,
+    }
+
+
+@manage_router.delete("/{rid}/items/{iid}/variants/{vid}")
+async def manage_delete_variant(
+    rid: str, iid: str, vid: str, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    if not await _item_belongs_to(rid, iid, session):
+        raise HTTPException(404, "Item not found")
+    res = await session.execute(text(
+        "DELETE FROM food_item_variants WHERE id = :vid AND item_id = :iid RETURNING id"
+    ), {"vid": vid, "iid": iid})
+    if not res.fetchone():
+        raise HTTPException(404, "Variant not found")
+    await session.commit()
+    return {"deleted": vid}
+
+
+@manage_router.post("/{rid}/items/{iid}/addons")
+async def manage_create_addon(
+    rid: str, iid: str, payload: AddonIn, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    if not await _item_belongs_to(rid, iid, session):
+        raise HTTPException(404, "Item not found")
+    aid = _mk_id("fma")
+    await session.execute(text("""
+        INSERT INTO food_item_addons (id, item_id, name_en, name_fr, price, sort_order)
+        VALUES (:id, :iid, :name_en, :name_fr, :price, :sort_order)
+    """), {"id": aid, "iid": iid, **payload.model_dump()})
+    await session.commit()
+    return {"id": aid, "item_id": iid, **payload.model_dump()}
+
+
+@manage_router.patch("/{rid}/items/{iid}/addons/{aid}")
+async def manage_patch_addon(
+    rid: str, iid: str, aid: str, patch: AddonPatch, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    if not await _item_belongs_to(rid, iid, session):
+        raise HTTPException(404, "Item not found")
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["aid"] = aid; fields["iid"] = iid
+    res = await session.execute(text(
+        f"UPDATE food_item_addons SET {sets} WHERE id = :aid AND item_id = :iid RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Add-on not found")
+    await session.commit()
+    return {
+        "id": row.id, "item_id": row.item_id, "name_en": row.name_en, "name_fr": row.name_fr,
+        "price": float(row.price or 0), "sort_order": row.sort_order,
+    }
+
+
+@manage_router.delete("/{rid}/items/{iid}/addons/{aid}")
+async def manage_delete_addon(
+    rid: str, iid: str, aid: str, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    if not await _item_belongs_to(rid, iid, session):
+        raise HTTPException(404, "Item not found")
+    res = await session.execute(text(
+        "DELETE FROM food_item_addons WHERE id = :aid AND item_id = :iid RETURNING id"
+    ), {"aid": aid, "iid": iid})
+    if not res.fetchone():
+        raise HTTPException(404, "Add-on not found")
+    await session.commit()
+    return {"deleted": aid}
+
+
+# ---------- Partner restaurant self-service --------------------------------
+
+
+class PartnerRestaurantPatch(BaseModel):
+    # Partners may only edit a narrow allow-list. Everything else needs admin.
+    is_open: Optional[bool] = None
+    prep_time_min: Optional[int] = None
+    prep_time_max: Optional[int] = None
+    image: Optional[str] = None
+
+
+@partner_router.patch("/restaurant")
+async def partner_patch_restaurant(
+    patch: PartnerRestaurantPatch,
+    partner=Depends(get_current_food_partner),
+    session: AsyncSession = Depends(get_session),
+):
+    fields = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(400, "Nothing to update")
+    sets = ", ".join(f"{k} = :{k}" for k in fields)
+    fields["rid"] = partner.restaurant_id
+    res = await session.execute(text(
+        f"UPDATE food_restaurants SET {sets}, updated_at = now() WHERE id = :rid RETURNING *"
+    ), fields)
+    row = res.fetchone()
+    if not row:
+        raise HTTPException(404, "Restaurant not found")
+    await session.commit()
+    return _restaurant_row(row)
+
+
+# ---------- shared item serialiser ----------------------------------------
+
+
+def _item_json(row) -> dict:
+    return {
+        "id": row.id, "section_id": row.section_id, "name": row.name,
+        "description": row.description, "image": row.image,
+        "base_price": float(row.base_price or 0), "currency": row.currency,
+        "is_veg": row.is_veg, "spice_level": row.spice_level,
+        "tags": row.tags or [], "is_available": row.is_available,
+        "sort_order": row.sort_order,
+    }

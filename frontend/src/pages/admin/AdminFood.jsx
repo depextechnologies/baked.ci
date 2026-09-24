@@ -13,7 +13,8 @@
  * Language: French-first · English-second (labels in the same line).
  */
 import React, { useEffect, useState, useCallback } from "react";
-import { Star, Eye, EyeOff, Award, Plus, Pencil, Trash2, Loader2, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Star, Eye, EyeOff, Award, Plus, Pencil, Trash2, Loader2, X, Utensils, Users } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 
@@ -173,6 +174,7 @@ export const AdminFoodRestaurants = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(null); // row | 'new' | null
+  const [managingPartners, setManagingPartners] = useState(null); // restaurant | null
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -307,6 +309,13 @@ export const AdminFoodRestaurants = () => {
                   </td>
                   <td className="px-3 py-2 text-center">
                     <div className="inline-flex gap-1">
+                      <Link
+                        to={`/admin/modules/food/restaurants/${r.id}/menu`}
+                        data-testid={`admin-food-restaurant-menu-${r.id}`}
+                        title="Gérer le menu · Manage menu"
+                        className="w-7 h-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 inline-flex items-center justify-center"
+                      ><Utensils size={12} /></Link>
+                      <button onClick={() => setManagingPartners(r)} data-testid={`admin-food-restaurant-partners-${r.id}`} title="Comptes partenaires · Partner accounts" className="w-7 h-7 rounded-lg bg-secondary hover:bg-secondary/70 inline-flex items-center justify-center"><Users size={12} /></button>
                       <button onClick={() => setEditing(r)} data-testid={`admin-food-restaurant-edit-${r.id}`} className="w-7 h-7 rounded-lg bg-secondary hover:bg-secondary/70 inline-flex items-center justify-center"><Pencil size={12} /></button>
                       <button onClick={() => remove(r)} data-testid={`admin-food-restaurant-delete-${r.id}`} className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 inline-flex items-center justify-center"><Trash2 size={12} /></button>
                     </div>
@@ -335,7 +344,136 @@ export const AdminFoodRestaurants = () => {
           />
         )}
       </Modal>
+
+      <PartnersModal
+        restaurant={managingPartners}
+        onClose={() => setManagingPartners(null)}
+      />
     </div>
+  );
+};
+
+
+// ---------------------------------------------------------------------------
+// Partner accounts modal — Restaurant Partner Portal management
+// ---------------------------------------------------------------------------
+
+const PartnersModal = ({ restaurant, onClose }) => {
+  const [partners, setPartners] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ email: "", password: "", name: "" });
+
+  const load = useCallback(async () => {
+    if (!restaurant) return;
+    setLoading(true); setErr("");
+    try {
+      const { data } = await adminApi.get(`/admin/food/restaurants/${restaurant.id}/partners`);
+      setPartners(data);
+    } catch (e) { setErr(errMsg(e)); }
+    finally { setLoading(false); }
+  }, [restaurant]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const create = async (e) => {
+    e.preventDefault();
+    setErr("");
+    try {
+      await adminApi.post(`/admin/food/restaurants/${restaurant.id}/partners`, form);
+      setForm({ email: "", password: "", name: "" });
+      setCreating(false);
+      await load();
+    } catch (e) { setErr(errMsg(e)); }
+  };
+
+  const toggleActive = async (p) => {
+    try { await adminApi.patch(`/admin/food/partners/${p.id}`, { is_active: !p.is_active }); await load(); }
+    catch (e) { setErr(errMsg(e)); }
+  };
+  const resetPassword = async (p) => {
+    const pw = window.prompt("Nouveau mot de passe · New password (min 8 chars)");
+    if (!pw || pw.length < 8) return;
+    try { await adminApi.patch(`/admin/food/partners/${p.id}`, { password: pw }); alert("Mot de passe changé · Password updated"); }
+    catch (e) { setErr(errMsg(e)); }
+  };
+  const remove = async (p) => {
+    if (!window.confirm(`Supprimer / Delete le compte "${p.email}" ?`)) return;
+    try { await adminApi.delete(`/admin/food/partners/${p.id}`); await load(); }
+    catch (e) { setErr(errMsg(e)); }
+  };
+
+  return (
+    <Modal open={!!restaurant} onClose={onClose} title={`Comptes partenaires · Partner accounts — ${restaurant?.name || ""}`} testId="admin-food-partners-modal">
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Créez un ou plusieurs comptes pour permettre au restaurant de gérer son menu depuis <code>/partner/food/login</code>. · Create accounts so the restaurant can manage its own menu.
+        </p>
+        {err && <div className="text-xs text-red-500">{err}</div>}
+        {loading ? <div className="text-xs text-muted-foreground">Chargement…</div> : (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 text-[10px] uppercase tracking-wider">
+                <tr><th className="px-3 py-2 text-left">Email · Nom</th><th className="px-3 py-2 text-center">Actif</th><th className="px-3 py-2 text-right">Actions</th></tr>
+              </thead>
+              <tbody>
+                {partners.map((p) => (
+                  <tr key={p.id} className="border-t border-border" data-testid={`admin-food-partner-row-${p.id}`}>
+                    <td className="px-3 py-2">
+                      <div className="text-xs font-medium">{p.email}</div>
+                      <div className="text-[10px] text-muted-foreground">{p.name || "—"}</div>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <button onClick={() => toggleActive(p)} data-testid={`admin-food-partner-toggle-${p.id}`}
+                              className={`h-6 px-2 rounded-full text-[10px] font-semibold ${p.is_active ? "bg-green-500/20 text-green-500" : "bg-secondary text-muted-foreground"}`}>
+                        {p.is_active ? "Actif" : "Off"}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="inline-flex gap-1">
+                        <button onClick={() => resetPassword(p)} title="Reset password" data-testid={`admin-food-partner-pw-${p.id}`} className="text-[10px] px-2 h-6 rounded bg-secondary hover:bg-secondary/70">🔑</button>
+                        <button onClick={() => remove(p)} data-testid={`admin-food-partner-delete-${p.id}`} className="w-6 h-6 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20 inline-flex items-center justify-center"><Trash2 size={10} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {partners.length === 0 && (
+                  <tr><td colSpan={3} className="px-3 py-6 text-center text-xs text-muted-foreground">Aucun compte partenaire · No partner accounts.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {creating ? (
+          <form onSubmit={create} className="rounded-lg border border-border p-3 space-y-2" data-testid="admin-food-partner-create-form">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground">Email</span>
+                <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-8 w-full rounded-lg border border-border bg-secondary/40 px-2 text-xs" data-testid="admin-food-partner-email" />
+              </label>
+              <label className="block text-xs space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground">Nom · Name</span>
+                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-8 w-full rounded-lg border border-border bg-secondary/40 px-2 text-xs" data-testid="admin-food-partner-name" />
+              </label>
+              <label className="block text-xs space-y-1 col-span-2">
+                <span className="text-[10px] uppercase text-muted-foreground">Mot de passe (min 8) · Password</span>
+                <input type="text" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="h-8 w-full rounded-lg border border-border bg-secondary/40 px-2 text-xs" data-testid="admin-food-partner-password" />
+              </label>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => setCreating(false)} className="h-8 px-3 rounded-lg bg-secondary text-xs">Annuler</button>
+              <button type="submit" className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold" data-testid="admin-food-partner-create-submit">Créer · Create</button>
+            </div>
+          </form>
+        ) : (
+          <button onClick={() => setCreating(true)} data-testid="admin-food-partner-add" className="w-full h-9 rounded-lg bg-primary/10 text-primary text-xs font-semibold inline-flex items-center justify-center gap-1">
+            <Plus size={12} /> Ajouter un compte · Add account
+          </button>
+        )}
+      </div>
+    </Modal>
   );
 };
 

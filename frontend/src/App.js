@@ -8,6 +8,7 @@ import { AdminApp } from "@/apps/admin/AdminApp";
 import { PartnerLandingApp } from "@/apps/partner-landing/PartnerLandingApp";
 import { PartnerHubApp } from "@/apps/partner-hub/PartnerHubApp";
 import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
+import { FoodPartnerApp } from "@/apps/foodbaked/PartnerApp";
 import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
@@ -57,6 +58,9 @@ const App = () => (
           <Route path="/partner-portal/*" element={<PartnerPortalApp />} />
           <Route path="/driver/*" element={<DriverApp />} />
           <Route path="/send/track/:jobId" element={<SendTrackApp />} />
+          {/* Restaurant Partner Portal — FOODbakēd. Registered BEFORE the
+              generic /partner/* hub because React Router matches most-specific. */}
+          <Route path="/partner/food/*" element={<FoodPartnerApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
