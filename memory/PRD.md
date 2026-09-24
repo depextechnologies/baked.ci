@@ -1,5 +1,20 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-24) — FOODbakēd · Restaurant Onboarding Portal — COMPLETE
+- ✅ **Public applicant portal** at `/foodbaked/sellers` (FR-first) — landing, dual-OTP signup (email + phone), phone+OTP login, resumable 6-step wizard, applicant dashboard with progress bar + status banner + correction notes surface.
+- ✅ **6-step wizard**: Restaurant details → Documents → Timing → Menu & Cuisines → Bank Details → Review & Submit. Each step auto-saves as a draft; explicit "Suivant · Next" advances the flow.
+- ✅ **Configurable document framework** — `food_doc_requirements` table (country_code, doc_type, label_fr/en, is_required, sort_order). Seeded with 5 docs (3 required, 2 optional). Backend enforces required docs at `POST /submit`.
+- ✅ **Country-scoped bank details** — CI = bank_account (IBAN + SWIFT) OR mobile_money (Orange/MTN/Wave/Moov); IN = bank_account (IFSC + Account # with confirm) OR UPI. Non-sensitive fields as columns, sensitive numbers inside a JSONB blob for future at-rest encryption.
+- ✅ **OTP infra** reused from existing provider abstraction — dev mode returns `dev_code` in the API response; production-guarded (`APP_ENV=production` → no dev hint).
+- ✅ **Admin queue** at `/admin/modules/food/applications` — list with search + status/country filters; right-side detail drawer with all 5 sections, per-document review (Verify / Reject with mandatory reason / Reset-to-pending), and admin actions (Start review · Request correction · Reject · Approve). Approval side-effects: create `food_restaurants` row + shell `food_restaurant_partners` (no password yet) + one-time activation token + welcome/activation email via SMTP.
+- ✅ **Partner activation** at `/partner/food/activate?token=…` — partner sets their own password (min 8), activation token single-use, then signs into existing `/partner/food/login`.
+- ✅ **Tenant isolation** enforced end-to-end — every applicant route resolves the application from the JWT `sub`, never URL params. Uploaded documents are scoped to `/applications/{app_id}/` in object storage; downloads reject when the caller's app_id doesn't match. Partner tokens still cannot touch another restaurant's data.
+- ✅ **/Sell-on-baked** FOOD card now links to `/foodbaked/sellers` (was external URL `food.partner.baked.ci`).
+- ✅ **Routing collision fix** (via testing_agent) — introduced `ApplicationsSwitch` in `AdminApp.jsx` so `/admin/modules/food/applications` renders the new queue while `/admin/modules/mart|shop/applications` continues to render `ModulePartnerApplications`. Same idiomatic pattern as existing `CatalogSwitch` / `ApprovalsSwitch`.
+- ✅ **Tests** — new `tests/test_food_application_flow.py` (9 tests: dual-OTP signup, phone login (+ silent 200 for unknown numbers), duplicate email/phone 409, doc upload + admin per-doc review, cross-application isolation for /me + delete + raw file fetch, submit gating (docs + name/address + bank), lifecycle start_review → request_correction → resubmit → reject, approve → activation token → set-password → partner login → activation token reuse rejected). **36/36 FOOD backend tests pass** together.
+- ✅ **E2E** (testing agent iteration_90) — every UI flow verified: signup → wizard → submit → admin queue → doc review → request correction → applicant resubmit → admin approve → activation email → set-password → partner-portal login. Regression on `/partner/food/login`, `/food` customer page, MART/SHOP homepage & applications queues all clean.
+
+
 ## Latest (2026-02-23) — FOODbakēd · Menu CRUD + Restaurant Partner Portal — COMPLETE
 - ✅ **Reusable `<MenuManager restaurantId api/>` component** (`/app/frontend/src/components/food/MenuManager.jsx`) — mounted BOTH by super-admin at `/admin/modules/food/restaurants/:id/menu` and by the new partner portal. Full CRUD for sections, items, variants and add-ons + FR-first inline dialogs + FoodImageUploader for menu-item photos.
 - ✅ **Restaurant Partner Portal** (`/partner/food/*`) — new isolated app:

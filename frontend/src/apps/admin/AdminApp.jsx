@@ -63,6 +63,13 @@ const ProductsSwitch = () => {
   const { code } = useOutletContext() || {};
   return code === "shop" ? <AdminShopProducts /> : <ModuleProducts />;
 };
+// FOOD has its own dedicated seller-onboarding queue; other modules keep the
+// legacy generic Partner Applications component. Both used the same route
+// path before this switch was introduced (routing collision fix).
+const ApplicationsSwitch = () => {
+  const { code } = useOutletContext() || {};
+  return code === "food" ? <AdminFoodApplications /> : <ModulePartnerApplications />;
+};
 
 export const AdminApp = () => (
   <Routes>
@@ -103,7 +110,7 @@ export const AdminApp = () => (
       <Route path="modules/:code" element={<ModuleWorkspace />}>
         <Route index element={<ModuleOverview />} />
         <Route path="vendors" element={<ModuleVendors />} />
-        <Route path="applications" element={<ModulePartnerApplications />} />
+        <Route path="applications" element={<ApplicationsSwitch />} />
         <Route path="partners/applications" element={<ModulePartnerApplications />} />
         <Route path="products" element={<ProductsSwitch />} />
         <Route path="catalog" element={<CatalogSwitch />} />
@@ -136,7 +143,7 @@ export const AdminApp = () => (
         <Route path="restaurants/:id/menu" element={<AdminFoodMenuManager />} />
         <Route path="cuisines" element={<AdminFoodCuisines />} />
         <Route path="categories" element={<AdminFoodCategories />} />
-        <Route path="applications" element={<AdminFoodApplications />} />
+        {/* Applications route is handled above via ApplicationsSwitch */}
         <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
         <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
         <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />
