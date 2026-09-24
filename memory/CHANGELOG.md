@@ -1,5 +1,22 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — FOODbakēd Seller Wizard — insertBefore Runtime Error Fix — COMPLETE
+
+**Symptom**: `NotFoundError: Failed to execute 'insertBefore' on 'Node'` at `/foodbaked/sellers/apply/step-2`. Stack pointed at React DOM reconciliation (`insertOrAppendPlacementNode` → `commitPlacement`).
+
+**Root cause**: The FOODbakēd Sellers wizard intentionally renders **inline bilingual strings** (e.g. `Suivant · Next`, `Téléverser · Upload`) as bare text nodes sitting alongside React elements. When Chrome / Google Translate auto-translated the page, it wrapped those text nodes in `<font>` tags — the next React commit (e.g. `uploading` state flipping the upload button label) then tried to `insertBefore` against a parent that no longer contained the expected text node.
+
+**Fix (3 layers, defense-in-depth)**:
+1. **`/app/frontend/public/index.html`** — `<html lang="fr" translate="no">`, `<meta name="google" content="notranslate">`, `<body class="notranslate">`. The platform owns its own FR ↔ EN via `react-i18next` (`/src/i18n/`), so blocking browser-level auto-translation is the correct architecture — the in-app language switcher continues to work.
+2. **`/app/frontend/src/apps/foodbaked/SellersApp.jsx`** — Step 2's `label_fr` and the upload button label are now wrapped in `<span>` so React always manages a stable DOM anchor even if a rogue translator extension bypasses the `translate="no"` hint.
+3. **`WizardErrorBoundary`** wraps `<FoodSellersApp>` — any future reconciliation error surfaces as a friendly bilingual "Recharger · Reload" card (`[data-testid="sellers-error-boundary"]`) instead of the dev overlay. Draft data is preserved server-side.
+
+**Verification** (`/app/test_reports/iteration_92.json`):
+- 0 pageerror, 0 React runtime errors across signup → Step1 → Step2 (back/forward/reload + simulated `<font>`-wrap DOM mutation) → Step3 → Step4 → Step5 → Step6 review.
+- Save-and-Resume verified: logout via portal-logout → phone-OTP re-login → dashboard rehydrated at correct step.
+- `yarn build` production build succeeds (2.27s).
+
+
 ## 2026-02-05 — Phase C: Phase-A Dispatch Pytest Suite — COMPLETE
 
 **Coverage**: 22 direct-DB pytests over `modules.express.dispatch` — the algorithmic core of Phase A real-driver dispatch.
