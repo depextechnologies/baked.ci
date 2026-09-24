@@ -5,7 +5,7 @@ import {
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
   LayoutDashboard, Store, Package, ClipboardList, Users, Bike, DollarSign,
   Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
-  Activity, Building2, Package as PackageIcon,
+  Activity, Building2, Package as PackageIcon, ClipboardCheck,
 } from "lucide-react";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
@@ -39,6 +39,7 @@ const MODULE_NAV = [
   // food_restaurants / food_categories / food_cuisines tables and gated with
   // foodOnly so they never appear inside other modules' workspaces.
   { seg: "restaurants", label: "Restaurants", icon: Store, foodOnly: true, note: "Restaurant partners" },
+  { seg: "applications", label: "Applications", icon: ClipboardCheck, foodOnly: true, note: "Restaurant onboarding queue" },
   { seg: "categories", label: "Categories", icon: Boxes, foodOnly: true, note: "Cuisine-category chips" },
   { seg: "cuisines", label: "Cuisines", icon: Tag, foodOnly: true, note: "Cuisine grid" },
   { seg: "orders", label: "Orders", icon: ClipboardList },

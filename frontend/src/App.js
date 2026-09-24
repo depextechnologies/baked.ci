@@ -9,6 +9,7 @@ import { PartnerLandingApp } from "@/apps/partner-landing/PartnerLandingApp";
 import { PartnerHubApp } from "@/apps/partner-hub/PartnerHubApp";
 import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
 import { FoodPartnerApp } from "@/apps/foodbaked/PartnerApp";
+import { FoodSellersApp } from "@/apps/foodbaked/SellersApp";
 import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
@@ -62,6 +63,8 @@ const App = () => (
               generic /partner/* hub because React Router matches most-specific. */}
           <Route path="/partner/food/*" element={<FoodPartnerApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
+          {/* FOODbakēd — Sellers / Onboarding portal at /foodbaked/sellers. */}
+          <Route path="/foodbaked/sellers/*" element={<FoodSellersApp />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />

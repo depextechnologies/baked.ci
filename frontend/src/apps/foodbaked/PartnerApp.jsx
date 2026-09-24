@@ -15,6 +15,7 @@ import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager from "../../components/food/MenuManager";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
+import { FoodPartnerActivateRoute } from "./SellersApp";
 
 const GREEN = "#00A651";
 const API_BASE = process.env.REACT_APP_BACKEND_URL || "";
@@ -228,6 +229,7 @@ export const FoodPartnerApp = () => (
   <FoodPartnerProvider>
     <Routes>
       <Route path="login" element={<PartnerLoginPage />} />
+      <Route path="activate" element={<FoodPartnerActivateRoute />} />
       <Route path="" element={<PartnerLayout />}>
         <Route index element={<PartnerDashboard />} />
         <Route path="menu" element={<PartnerMenuPage />} />

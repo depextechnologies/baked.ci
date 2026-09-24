@@ -71,6 +71,34 @@
   - Menu CRUD: `/api/food/manage/{rid}/{sections|items|items/{iid}/variants|items/{iid}/addons}` — super-admin OR partner-of-that-rid
 - Cross-restaurant isolation: partners get **403** when hitting another restaurant's routes.
 
+## FOODbakēd Restaurant Onboarding (2026-02-23)
+- Applicant portal: `/foodbaked/sellers`
+  - `/foodbaked/sellers/apply`  → signup with dual OTP (email + phone)
+  - `/foodbaked/sellers/login`  → phone + OTP (returning applicants)
+  - `/foodbaked/sellers/dashboard` → status + wizard entry
+  - `/foodbaked/sellers/apply/step-1..6` → resumable wizard
+- Post-approval activation: `/partner/food/activate?token=…` (set password)
+- OTP infra is in `OTP_PROVIDER=dev` (default) so `dev_code` is returned in the API response for QA. **Never** exposed in production (`APP_ENV=prod`).
+- Admin queue: `/admin/modules/food/applications`
+- Endpoints:
+  - `POST /api/food/apply/otp/request` `{channel: phone|email, target, purpose: signup_email|signup_phone|login_phone}` → `{delivered, dev_code}` (dev mode)
+  - `POST /api/food/apply/otp/verify` — advisory only
+  - `POST /api/food/apply/signup` — creates draft + applicant JWT
+  - `POST /api/food/apply/login/{request-otp,verify-otp}` — phone-only sign-in
+  - `GET /api/food/apply/me` — full application (bound to token's sub)
+  - `PUT /api/food/apply/step/{1|3|4}` — save JSONB step data (`advance:true` bumps `current_step`)
+  - `PUT /api/food/apply/bank` — upsert country-scoped payout details
+  - `POST /api/food/apply/documents?doc_type=...` — multipart upload
+  - `DELETE /api/food/apply/documents/{id}`
+  - `GET /api/food/apply/documents/{key:path}` — authenticated download (applicant-owner OR super-admin)
+  - `POST /api/food/apply/submit` — enforces required docs + name + address + bank
+  - Admin: `/api/admin/food/applications` GET list, `/{id}` GET detail, `PATCH /{id}` `{action: start_review|request_correction|reject|approve, reason, notes}`, `PATCH /{id}/documents/{docId}`
+  - Public: `GET /api/food/apply/doc-requirements?country=…` (label_en/fr + is_required per country)
+  - `POST /api/food/partner/activate {token, password}` — first-login set-password after approval
+- Tenant isolation invariants (see `test_food_application_flow.py::test_applicant_cannot_touch_another_application`):
+  - Every applicant route resolves the application from the JWT `sub` — never from URL params.
+  - Uploaded documents are scoped to `/applications/{app_id}/` in object storage; downloads reject if the path prefix does not match the caller's app_id.
+
 ## Seeded Driver Applications (for Admin queue QA)
 - `drv_seed_onb1` — Rahul Onboarding · IN · onboarding
 - `drv_seed_onb2` — Awa Diallo · CI · onboarding

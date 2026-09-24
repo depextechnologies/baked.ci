@@ -36,6 +36,7 @@ import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
 import { AdminFoodRestaurants, AdminFoodCuisines, AdminFoodCategories } from "@/pages/admin/AdminFood";
 import { AdminFoodMenuManager } from "@/pages/admin/AdminFoodMenuManager";
+import { AdminFoodApplications } from "@/pages/admin/AdminFoodApplications";
 import { AdminShopCatalog } from "@/pages/admin/AdminShopCatalog";
 import { AdminShopAttributes } from "@/pages/admin/AdminShopAttributes";
 import { AdminShopProductApprovals } from "@/pages/admin/AdminShopProductApprovals";
@@ -135,6 +136,7 @@ export const AdminApp = () => (
         <Route path="restaurants/:id/menu" element={<AdminFoodMenuManager />} />
         <Route path="cuisines" element={<AdminFoodCuisines />} />
         <Route path="categories" element={<AdminFoodCategories />} />
+        <Route path="applications" element={<AdminFoodApplications />} />
         <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
         <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
         <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />
