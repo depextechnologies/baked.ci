@@ -83,6 +83,10 @@ from modules.food.applications import (  # noqa: E402
     activation_router as food_partner_activation_router,
     public_apply_router as food_public_apply_router,
 )
+from modules.food.analytics import (  # noqa: E402
+    analytics_router as food_analytics_router,
+    seed_router as food_seed_router,
+)
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -200,6 +204,8 @@ api_router.include_router(food_public_apply_router)      # doc-requirements
 api_router.include_router(food_applicant_router)         # OTP + wizard
 api_router.include_router(food_apply_admin_router)       # admin review
 api_router.include_router(food_partner_activation_router)  # POST /food/partner/activate
+api_router.include_router(food_analytics_router)           # GET /food/manage/{rid}/analytics
+api_router.include_router(food_seed_router)                # POST /admin/food/restaurants/{rid}/seed-orders
 
 # --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity

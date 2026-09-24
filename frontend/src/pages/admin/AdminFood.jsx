@@ -14,7 +14,7 @@
  */
 import React, { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Star, Eye, EyeOff, Award, Plus, Pencil, Trash2, Loader2, X, Utensils, Users } from "lucide-react";
+import { Star, Eye, EyeOff, Award, Plus, Pencil, Trash2, Loader2, X, Utensils, Users, BarChart3 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 
@@ -315,6 +315,12 @@ export const AdminFoodRestaurants = () => {
                         title="Gérer le menu · Manage menu"
                         className="w-7 h-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 inline-flex items-center justify-center"
                       ><Utensils size={12} /></Link>
+                      <Link
+                        to={`/admin/modules/food/restaurants/${r.id}/analytics`}
+                        data-testid={`admin-food-restaurant-analytics-${r.id}`}
+                        title="Analytics"
+                        className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 inline-flex items-center justify-center"
+                      ><BarChart3 size={12} /></Link>
                       <button onClick={() => setManagingPartners(r)} data-testid={`admin-food-restaurant-partners-${r.id}`} title="Comptes partenaires · Partner accounts" className="w-7 h-7 rounded-lg bg-secondary hover:bg-secondary/70 inline-flex items-center justify-center"><Users size={12} /></button>
                       <button onClick={() => setEditing(r)} data-testid={`admin-food-restaurant-edit-${r.id}`} className="w-7 h-7 rounded-lg bg-secondary hover:bg-secondary/70 inline-flex items-center justify-center"><Pencil size={12} /></button>
                       <button onClick={() => remove(r)} data-testid={`admin-food-restaurant-delete-${r.id}`} className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 inline-flex items-center justify-center"><Trash2 size={12} /></button>

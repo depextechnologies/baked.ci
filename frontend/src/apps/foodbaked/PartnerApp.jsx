@@ -11,9 +11,10 @@
  */
 import React, { useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle } from "lucide-react";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3 } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager from "../../components/food/MenuManager";
+import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 import { FoodPartnerActivateRoute } from "./SellersApp";
 
@@ -90,8 +91,9 @@ const PartnerLayout = () => {
   if (!partner) return <Navigate to="/partner/food/login" replace />;
 
   const nav = [
-    { to: "/partner/food",      label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
-    { to: "/partner/food/menu", label: "Menu",                        icon: Utensils },
+    { to: "/partner/food",           label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
+    { to: "/partner/food/analytics", label: "Analytics",                    icon: BarChart3 },
+    { to: "/partner/food/menu",      label: "Menu",                         icon: Utensils },
   ];
 
   return (
@@ -221,6 +223,16 @@ const PartnerMenuPage = () => {
   );
 };
 
+const PartnerAnalyticsPage = () => {
+  const { restaurant } = useFoodPartner();
+  if (!restaurant) return null;
+  return (
+    <div className="space-y-3" data-testid="partner-analytics-page">
+      <RestaurantAnalytics restaurantId={restaurant.id} api={partnerApi} testId="partner-restaurant-analytics" />
+    </div>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Router — mounted from App.jsx
 // ---------------------------------------------------------------------------
@@ -233,6 +245,7 @@ export const FoodPartnerApp = () => (
       <Route path="" element={<PartnerLayout />}>
         <Route index element={<PartnerDashboard />} />
         <Route path="menu" element={<PartnerMenuPage />} />
+        <Route path="analytics" element={<PartnerAnalyticsPage />} />
       </Route>
     </Routes>
   </FoodPartnerProvider>

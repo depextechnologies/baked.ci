@@ -37,6 +37,7 @@ import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
 import { AdminFoodRestaurants, AdminFoodCuisines, AdminFoodCategories } from "@/pages/admin/AdminFood";
 import { AdminFoodMenuManager } from "@/pages/admin/AdminFoodMenuManager";
 import { AdminFoodApplications } from "@/pages/admin/AdminFoodApplications";
+import { AdminFoodAnalytics } from "@/pages/admin/AdminFoodAnalytics";
 import { AdminShopCatalog } from "@/pages/admin/AdminShopCatalog";
 import { AdminShopAttributes } from "@/pages/admin/AdminShopAttributes";
 import { AdminShopProductApprovals } from "@/pages/admin/AdminShopProductApprovals";
@@ -141,6 +142,7 @@ export const AdminApp = () => (
         {/* FOODbakēd workspaces (Phase 1 — restaurants/categories/cuisines). */}
         <Route path="restaurants" element={<AdminFoodRestaurants />} />
         <Route path="restaurants/:id/menu" element={<AdminFoodMenuManager />} />
+        <Route path="restaurants/:id/analytics" element={<AdminFoodAnalytics />} />
         <Route path="cuisines" element={<AdminFoodCuisines />} />
         <Route path="categories" element={<AdminFoodCategories />} />
         {/* Applications route is handled above via ApplicationsSwitch */}
