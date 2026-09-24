@@ -1,5 +1,32 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-24) — FOODbakēd · Restaurant Analytics + Real Order Foundation — COMPLETE
+- ✅ **`food_orders` production schema** (migration `0057_food_orders.py`) — not analytics-only. Status enum spans the full future workflow: `placed → accepted → preparing → ready → assigned → out_for_delivery → delivered` plus terminal `rejected · cancelled · refunded`. Also seeds:
+  - `food_order_items` — with `item_name_snapshot`, `variant_snapshot`, `addons_snapshot` (JSONB) so **historical orders never mutate when menus later change**.
+  - `food_order_events` — full status history (from_status, to_status, actor, actor_role, notes, created_at) — powers the future partner "Live orders" view.
+  - All timestamps (accepted_at, ready_at, assigned_at, out_for_delivery_at, delivered_at, cancelled_at) as nullable columns so the pipeline can fill them incrementally.
+- ✅ **Reusable `<RestaurantAnalytics restaurantId api testId/>`** component — mounted BOTH at `/admin/modules/food/restaurants/:id/analytics` (adminApi) AND `/partner/food/analytics` (partnerApi). Same component, different token — server enforces isolation.
+- ✅ **Analytics endpoint** `GET /api/food/manage/{rid}/analytics?range=7d|30d|90d`:
+  - KPIs: total/delivered/cancelled orders, gross revenue (delivered only), net earnings (after commission + delivery fee + tax), average order value, average prep-time min.
+  - Daily series: orders + revenue + earnings + avg prep-time (filled with zeros on empty days).
+  - Top items (10) with qty + revenue.
+  - Distributions: status mix, order type mix (delivery/pickup), payment method mix.
+  - Hourly volume (24-bucket peak-hour bar chart).
+  - Guarded by `_get_menu_writer(rid)` — super-admin OR partner-of-restaurant only. Cross-tenant partner → **403**.
+- ✅ **Dev-only seed helper** `POST /api/admin/food/restaurants/{rid}/seed-orders?days=&daily_avg=&clear=` — realistic 90-day history:
+  - Order volumes vary 60–140% + weekend surge x1.35.
+  - Lunch (11–14h) + dinner (18–22h) hourly peaks via weighted hour picker.
+  - 1–4 items per order with variant + add-on rolls, popularity weights favouring cheaper items.
+  - Status distribution: ~88% delivered, 6% cancelled, 4% rejected, 2% out-for-delivery.
+  - Payment methods scale to country (CI: cash/mobile_money/card; IN: upi/card/cash/wallet).
+  - 12% orders get a promo code + 10% discount; 5% tax; 15% platform commission — everything totals up to a plausible `restaurant_earnings` that matches the sum-of-daily-earnings shown in the dashboard.
+  - Production-guarded (`APP_ENV=production` → 403). Super-admin only.
+- ✅ **UI wiring**: BarChart3 icon added to each admin restaurant row (→ analytics). Partner sidebar gained an "Analytics" nav item. Admin analytics page also carries a "Générer données démo · Seed demo" button (clears + regenerates).
+- ✅ **Recharts** already in `package.json`; used AreaChart (orders+revenue), LineChart (avg prep min), PieCharts (status/type/payment), BarChart (peak hours), plus a bespoke horizontal-bar Top-Items list.
+- ✅ **Tests** — `tests/test_food_analytics.py` — 7 tests (auth guard, partner cross-tenant 403, KPI shape+cross-check, range independence 7d/30d/90d, partner-own analytics, seed clear behaviour). **43/43 FOOD backend tests pass** together.
+- ✅ **E2E** (testing_agent iteration_91) — admin + partner dashboards render every KPI + chart + range switch + seed button; partner isolation confirmed (403 on other restaurants, no restaurant selector); admin restaurant row action icons all present; no regressions.
+
+
 ## Latest (2026-02-24) — FOODbakēd · Restaurant Onboarding Portal — COMPLETE
 - ✅ **Public applicant portal** at `/foodbaked/sellers` (FR-first) — landing, dual-OTP signup (email + phone), phone+OTP login, resumable 6-step wizard, applicant dashboard with progress bar + status banner + correction notes surface.
 - ✅ **6-step wizard**: Restaurant details → Documents → Timing → Menu & Cuisines → Bank Details → Review & Submit. Each step auto-saves as a draft; explicit "Suivant · Next" advances the flow.
