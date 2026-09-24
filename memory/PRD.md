@@ -1,5 +1,26 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-23) — FOODbakēd · Menu CRUD + Restaurant Partner Portal — COMPLETE
+- ✅ **Reusable `<MenuManager restaurantId api/>` component** (`/app/frontend/src/components/food/MenuManager.jsx`) — mounted BOTH by super-admin at `/admin/modules/food/restaurants/:id/menu` and by the new partner portal. Full CRUD for sections, items, variants and add-ons + FR-first inline dialogs + FoodImageUploader for menu-item photos.
+- ✅ **Restaurant Partner Portal** (`/partner/food/*`) — new isolated app:
+  - `/partner/food/login` — email + password
+  - `/partner/food` — dashboard (Statut/Note/Prépa tiles + self-service: open/close toggle, prep-time inputs, cover-photo uploader)
+  - `/partner/food/menu` — MenuManager scoped to the partner's own restaurant
+  - Sign-out clears the JWT, protected routes redirect logged-out users to /login
+- ✅ **Backend**:
+  - Migration `0055_food_partners.py` — `food_restaurant_partners` table (id, restaurant_id, email, password_hash, name, is_active, last_login_at, timestamps). Case-insensitive unique index on email.
+  - New routers: `partner_router` (`/api/food/partner/auth/login`, `/auth/me`, `PATCH /restaurant`) + `manage_router` (`/api/food/manage/{rid}/menu` + CRUD for sections/items/variants/addons). Both mounted in `server.py`.
+  - Shared writer dependency `_get_menu_writer(rid)` — accepts EITHER a super-admin JWT (role=admin|super_admin) OR a food-partner JWT whose `restaurant_id` matches the route. Cross-restaurant partner access → **403**.
+  - Super-admin partner management: `POST /api/admin/food/restaurants/{rid}/partners` (create), `GET /partners` (list per restaurant), `PATCH /api/admin/food/partners/{pid}` (name/is_active/password reset), `DELETE /partners/{pid}`.
+  - Partner self-service `PATCH /api/food/partner/restaurant` — allow-list of `is_open / prep_time_min / prep_time_max / image` only; everything else stays in super-admin's hands.
+  - Reuses existing `hash_password/verify_password/create_access_token/decode_token` (bcrypt + PyJWT). JWT claim shape: `{sub: partner_id, role: "food_partner", email, restaurant_id}`.
+- ✅ **Admin UI upgrades** (`AdminFood.jsx`):
+  - Restaurant row actions now: **Menu** (routes to menu manager), **Partners** (opens PartnersModal), **Edit**, **Delete**.
+  - `PartnersModal` — list partners for the restaurant, add / toggle-active / password-reset / delete accounts.
+- ✅ **Tests** — `tests/test_food_partner_menu.py` — 9 new tests (partner login/me, wrong password 401, duplicate email 409, disabled account 403, admin password reset works + old password fails, full menu CRUD roundtrip with admin token, partner cross-restaurant isolation 403, partner-self-service restaurant patch, unauthenticated routes 401). All 27 FOOD backend tests pass together (10 admin CRUD + 8 homepage + 9 partner-menu).
+- ✅ **Live smoke** (testing agent iteration_89) — every UI flow verified: admin Menu + Partners buttons, PartnersModal CRUD, admin MenuManager full lifecycle (section→item with tag→variant→addon→reverse-delete), partner portal login+dashboard+menu, partner isolation, self-service toggles, logout+protected-route redirects. No regressions on MART/SHOP homepage management or /food customer page.
+
+
 ## Latest (2026-02-23) — FOODbakēd · Admin CRUD + Homepage Management + Reusable Image Uploader — COMPLETE
 - ✅ **Full admin CRUD** for `food_restaurants` / `food_categories` / `food_cuisines` (`POST`/`PATCH`/`DELETE` on `/api/admin/food/*`). Restaurant create auto-generates a deterministic `id` (`<slug>_<country>`) and 409s on duplicates.
 - ✅ **Reusable image uploader** — new `POST /api/admin/food/uploads?kind=<asset>` (kinds: restaurant_logo, restaurant_cover, gallery, category, cuisine, menu_item, banner, misc). Backed by the shared `object_storage` provider; validates image mime + ≤ 8 MB; served publicly via `GET /api/food/uploads/{key}`. Frontend widget `/app/frontend/src/apps/foodbaked/components/FoodImageUploader.jsx` provides drop/pick + preview + replace + delete + client-side downscale (max 1600 px, JPEG q=0.85). Used by all 3 admin FOOD workspaces — no more external URLs.

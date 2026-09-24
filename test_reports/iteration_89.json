@@ -1,0 +1,34 @@
+{
+  "summary": "End-to-end verification of FOODbakēd reusable Menu Item CRUD + new Restaurant Partner Portal. Ran the pre-existing pytest suite (9/9 pass) and drove the full UI flow via Playwright: super-admin login → restaurants list (Menu + Partners action icons render for burger_hub_ci) → PartnersModal (create partner, toggle Actif on/off, password reset, delete via API afterwards) → admin MenuManager full lifecycle (add section → add item with popular tag → variant → addon → reverse-delete) → partner portal login → dashboard tiles + toggle open/close (Statut updates Ouvert→Fermé) + prep_time_min blur update (tile reflects 25) + cover-photo present + NO Partners tab / no restaurants list → open menu manager (all 4 seed sections visible) → full add-section+item+variant+addon lifecycle as partner → dashboard restore → logout (redirects to /partner/food/login) → security (logged-out /partner/food and /partner/food/menu both redirect to /partner/food/login). Backend + Frontend integration are working end-to-end.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Menu Manager modals", "issues": ["React console warning: '<span> cannot be a child of <option>' hydration error emitted inside a <select> inside item/variant modals (does not block flow, but should be cleaned up)."]},
+      {"screen": "MenuManager images", "issues": ["Console spam: 'An empty string (\"\") was passed to the src attribute' when an item/section has no image_url — pass null or omit src instead of empty string in FoodImageUploader / thumbnails."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_partner_menu.py",
+    "/app/test_reports/pytest/iter89_food_partner.xml"
+  ],
+  "action_items": [
+    "SEED DATA CAVEAT: During Playwright exploration the test harness inadvertently deleted the burger_hub_ci Entrées seed section. I restored it via the admin API (2 items 'Crispy Chicken Wings' + 'Mozzarella Sticks' with 1 variant + 1 addon each) but the new IDs are 'fms_cccb975c4d234d3a' / 'fmi_04db9885c1124214' / 'fmi_7da894aa5256462a' — NOT the original 'burger_hub_ci_sec_starters' / '_crispy_wings' / '_mozz_sticks'. If any other test/code path relies on those literal IDs, please re-run the 0054 migration seed OR downgrade+upgrade the migration on burger_hub_ci. This is a TEST-ONLY side effect, not a product bug.",
+    "Fix hydration warning: '<span> cannot be a child of <option>' inside a <select> in MenuManager section-select (item modal).",
+    "Fix empty-string src warnings in FoodImageUploader / menu thumbnails when there is no image (use null / conditional rendering)."
+  ],
+  "critical_code_review_comments": [
+    "MenuManager <option> children contain <span>, causing React hydration warnings — replace inner markup with a plain string label or use custom dropdown.",
+    "FoodImageUploader passes src=\"\" when no image is set; guard with `{url ? <img src={url}/> : null}` to silence browser warnings.",
+    "Partner create endpoint returns a plain 'id' field; consider not accepting a caller-supplied 'id' silently (currently server generates its own even when body includes id — behavior is safe but silent)."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100% (9/9 pytest)", "frontend": "100% of scripted flows" },
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ — partner created dynamically qa-fe-1790232993@example.com / TestPw12ab (deleted at end of run).",
+  "seed_data_creation": "Recreated Entrées section on burger_hub_ci with 2 items (Crispy Chicken Wings 3500 XOF, Mozzarella Sticks 2500 XOF) + Regular variant + Extra Sauce addon per item. Cleaned up temporary QA sections and the QA partner account.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "burger_hub_ci Entrées section IDs are no longer the seeded 'burger_hub_ci_sec_starters' family — they were regenerated as fms_/fmi_ prefixed UUIDs after an accidental delete during Playwright exploration. Functionally the menu still has 4 sections with expected items. If you need canonical seed IDs, re-run migration 0054 (downgrade+upgrade on burger_hub_ci) or update seed script. All 9 backend pytest tests in test_food_partner_menu.py still pass against the current state.",
+  "rca of the issue": "No product issues. One test-harness quirk: my initial JS-based section-id resolver walked up 8 parents from an <edit> button and matched the FIRST ancestor whose textContent contained the new section's tag, which for the QA test section ended up matching the top-level menu container that also contained the Entrées section — so the wrong sid was picked and Entrées got deleted at cleanup. Mitigated in later scripts by using a nearest-depth match strategy. Restored data via admin API."
+}
