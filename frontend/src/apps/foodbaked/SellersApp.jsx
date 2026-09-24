@@ -604,11 +604,11 @@ const Step2 = () => {
             <div key={r.doc_type} className="border border-border rounded-lg p-3 space-y-2" data-testid={`step2-doc-${r.doc_type}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-semibold">{r.label_fr} <span className="text-muted-foreground text-xs">· {r.label_en}</span> {r.is_required && <span className="text-[10px] text-red-500 ml-1">Obligatoire · Required</span>}</div>
+                  <div className="text-sm font-semibold"><span>{r.label_fr}</span> <span className="text-muted-foreground text-xs">· {r.label_en}</span> {r.is_required && <span className="text-[10px] text-red-500 ml-1">Obligatoire · Required</span>}</div>
                 </div>
                 {!readOnly && (
                   <label className="cursor-pointer h-8 px-3 rounded-lg bg-primary/10 text-primary text-xs font-semibold inline-flex items-center gap-1">
-                    <Upload size={12} /> {uploading === r.doc_type ? "…" : "Téléverser · Upload"}
+                    <Upload size={12} /> <span>{uploading === r.doc_type ? "…" : "Téléverser · Upload"}</span>
                     <input type="file" accept="application/pdf,image/*" className="hidden" data-testid={`step2-upload-${r.doc_type}`} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFor(r.doc_type, f); e.target.value = ""; }} disabled={!!uploading} />
                   </label>
                 )}
@@ -968,24 +968,72 @@ const ActivatePage = () => {
 
 const StepRedirect = () => <Navigate to="/foodbaked/sellers/dashboard" replace />;
 
+/**
+ * Local error boundary — the sellers wizard renders many bilingual inline
+ * strings ("Suivant · Next" style). If any external agent (browser
+ * translation, third-party extension) mutates a React-managed text node,
+ * the next commit throws a DOMException. We swallow the specific message
+ * gracefully so applicants see a friendly retry card, never the dev
+ * overlay. The underlying insertBefore vulnerability is already blocked
+ * globally via `translate="no"` on <html> and the notranslate class on
+ * <body> (see /public/index.html); this is defense-in-depth only.
+ */
+class WizardErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err) {
+    // eslint-disable-next-line no-console
+    console.error("[FoodSellersApp] error boundary caught", err);
+  }
+  reset = () => { this.setState({ err: null }); window.location.reload(); };
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-secondary/30" data-testid="sellers-error-boundary">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 space-y-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>
+            <AlertTriangle size={22} />
+          </div>
+          <div>
+            <div className="text-lg font-bold">Un problème d'affichage · A display issue</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Nous n'avons pas pu afficher cette étape correctement. Vos informations sont sauvegardées — rechargez la page pour continuer. · We couldn't render this step correctly. Your data is saved — reload to continue.
+            </p>
+          </div>
+          <button
+            onClick={this.reset}
+            data-testid="sellers-error-boundary-reload"
+            className="h-10 px-4 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 text-white w-full"
+            style={{ backgroundColor: GREEN }}
+          >
+            <RefreshCw size={14} /> Recharger · Reload
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 export const FoodSellersApp = () => (
-  <AuthProvider>
-    <Routes>
-      <Route path="" element={<Landing />} />
-      <Route path="apply" element={<SignupPage />} />
-      <Route path="login" element={<LoginPage />} />
-      <Route path="" element={<PortalLayout />}>
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="apply/step-1" element={<Step1 />} />
-        <Route path="apply/step-2" element={<Step2 />} />
-        <Route path="apply/step-3" element={<Step3 />} />
-        <Route path="apply/step-4" element={<Step4 />} />
-        <Route path="apply/step-5" element={<Step5 />} />
-        <Route path="apply/step-6" element={<Step6 />} />
-      </Route>
-      <Route path="apply/*" element={<StepRedirect />} />
-    </Routes>
-  </AuthProvider>
+  <WizardErrorBoundary>
+    <AuthProvider>
+      <Routes>
+        <Route path="" element={<Landing />} />
+        <Route path="apply" element={<SignupPage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="" element={<PortalLayout />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="apply/step-1" element={<Step1 />} />
+          <Route path="apply/step-2" element={<Step2 />} />
+          <Route path="apply/step-3" element={<Step3 />} />
+          <Route path="apply/step-4" element={<Step4 />} />
+          <Route path="apply/step-5" element={<Step5 />} />
+          <Route path="apply/step-6" element={<Step6 />} />
+        </Route>
+        <Route path="apply/*" element={<StepRedirect />} />
+      </Routes>
+    </AuthProvider>
+  </WizardErrorBoundary>
 );
 
 // Standalone route surface for the activation link.

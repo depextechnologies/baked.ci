@@ -1,9 +1,20 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" translate="no">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#0A0A0A" />
+
+        <!-- =============================================================
+             Disable browser/Google auto-translation.
+             BAKĒD ships its own react-i18next FR/EN switcher (see
+             /src/i18n/) and all shells intentionally render bilingual
+             inline text (e.g. "Suivant · Next"). Allowing Chrome /
+             Google Translate to wrap our text nodes in <font> tags breaks
+             React reconciliation ("Failed to execute 'insertBefore' on
+             'Node'"). The in-app FR ↔ EN toggle remains fully functional.
+             ============================================================ -->
+        <meta name="google" content="notranslate" />
 
         <!-- =============================================================
              Primary SEO — BAKĒD, one app for everything.
@@ -125,7 +136,7 @@
         <!-- Required runtime infrastructure — retained per §6 exception -->
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
     </head>
-    <body>
+    <body class="notranslate">
         <div id="root"></div>
 
         <!--
