@@ -17,7 +17,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Calendar, Clock, Users, User, Phone, Mail, MessageSquare, CheckCircle2, AlertTriangle } from "lucide-react";
 import axios from "axios";
-import { useAuth } from "../../contexts/BakedContexts";
+import { useAuth, useApp } from "../../contexts/BakedContexts";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
 const GREEN = "#00A651";
@@ -42,6 +42,8 @@ const Field = ({ icon: Icon, label, hint, children, testId }) => (
 
 export const ReservationModal = ({ restaurant, onClose, onCreated }) => {
   const { customer, openLogin } = useAuth() || {};
+  const { countryCode } = useApp() || {};
+  const country = restaurant.country || countryCode || "CI";
   const [config, setConfig]       = useState(null);
   const [loading, setLoading]     = useState(true);
   const [err, setErr]             = useState("");
@@ -68,7 +70,7 @@ export const ReservationModal = ({ restaurant, onClose, onCreated }) => {
       try {
         const { data } = await axios.get(
           `${API}/api/food/restaurants/${encodeURIComponent(restaurant.slug || restaurant.id)}/reservation-config`,
-          { headers: authHeaders() },
+          { headers: authHeaders(), params: { country } },
         );
         if (!cancel) setConfig(data);
       } catch (e) {
@@ -89,7 +91,7 @@ export const ReservationModal = ({ restaurant, onClose, onCreated }) => {
       try {
         const { data } = await axios.get(
           `${API}/api/food/restaurants/${encodeURIComponent(restaurant.slug || restaurant.id)}/reservation-slots`,
-          { params: { date: isoDay(selectedDate), party_size: party }, headers: authHeaders() },
+          { params: { date: isoDay(selectedDate), party_size: party, country }, headers: authHeaders() },
         );
         if (!cancel) setSlots(data.slots || []);
       } catch (e) {
@@ -132,7 +134,7 @@ export const ReservationModal = ({ restaurant, onClose, onCreated }) => {
           guest_email: form.guest_email || null,
           notes: form.notes || null,
         },
-        { headers: authHeaders() },
+        { headers: authHeaders(), params: { country } },
       );
       setCreated(data);
       onCreated?.(data);

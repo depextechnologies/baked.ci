@@ -1,0 +1,46 @@
+{
+  "summary": "Regression-tested FOODbakēd Reservations end-to-end. Fixed CRITICAL infra issue: /usr/bin/redis-server was a broken symlink to redis-check-rdb, so Redis wouldn't start → pubsub silently fell back to in-process, which broke WS real-time broadcast across the 4 uvicorn workers. After fixing the symlink and pointing supervisord_redis.conf to /usr/local/bin/redis-server, Redis PONGs, backend restarted, and all real-time flows work. Backend: 24/25 pytest cases green (16 new e2e + 8/9 shipped; 1 shipped case fails due to accumulated seed data, not a regression). Tenant isolation verified via REST 403 and WS 4403. Frontend: customer booking modal → success + booking reference; partner login → reservations inbox with 6 pending rows + 6 confirm buttons; partner settings page renders every requested testid (13/13). sellers/apply/step-2 regression clean.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/food/restaurants/{slug}/reservation-config", "issue": "Slug 'burger-hub' is shared by burger_hub_ci and burger_hub_in — SELECT ... LIMIT 1 picks non-deterministically (currently resolves to burger_hub_in). Public POST via slug lands on IN, not CI. Add UNIQUE(slug) or scope by country."},
+      {"endpoint": "POST /api/food/partner/auth/login", "issue": "Review-request expected response {access_token, partner, restaurant}. Actual response is {access_token, token_type, partner{restaurant_id,...}} — no separate 'restaurant' object. Not a functional bug, but frontend/docs should agree."},
+      {"endpoint": "tests/test_food_reservations.py::test_capacity_overflow_rejected", "issue": "Test uses a fixed slot 45 days out at 21:30 UTC and assumes it's empty. Prior test runs fill it → subsequent runs fail with 409 on the FIRST insert. Randomise slot or add teardown/pre-clean."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_reservations.py",
+    "/app/backend/tests/test_food_reservations_e2e.py",
+    "/app/test_reports/pytest/food_reservations.xml",
+    "/app/test_reports/pytest/food_reservations_e2e.xml"
+  ],
+  "action_items": [
+    "Consider unique(slug) constraint on food_restaurants OR scope reservation-config/slot/create by country to prevent 'burger-hub' resolving to the wrong tenant (currently IN wins over CI).",
+    "Update test_food_reservations.py::test_capacity_overflow_rejected to randomise its target slot (or clean via SQL fixture) so it isn't polluted by prior runs.",
+    "Redis infra fix persisted in supervisord_redis.conf (/usr/local/bin/redis-server symlink) — main agent should verify this is baked into the container image / bootstrap script so it survives rebuilds.",
+    "Optional: include 'restaurant' object in /food/partner/auth/login response to match the doc'd contract."
+  ],
+  "critical_code_review_comments": [
+    "Real-time delivery silently degrades when Redis is down — the pubsub backend logs a WARNING and falls back to in-proc, which is invisible to callers but breaks multi-worker WS broadcast. Consider surfacing this via /health so ops notices.",
+    "modules/food/reservations.py — _resolve_restaurant does 'WHERE id=:s OR slug=:s LIMIT 1' with a duplicated slug across tenants; tenant leakage risk. Prefer slug uniqueness or explicit country filter from context.",
+    "modules/food/reservations.py:415 — booking_reference uniqueness loop only retries 5 times without erroring on exhaustion; extremely unlikely to collide but a raise on final attempt would be safer.",
+    "reservations.py:786 — cancelled/rejected/completed/no_show are considered terminal, so 'cancel' allowed on 'rejected'/'completed' rows. Intentional? Docstring says 'cannot transition from a terminal status' but 'cancel' bypasses that. Consider stricter guard for completed/no_show."
+  ],
+  "updated_files": [
+    "/etc/supervisor/conf.d/supervisord_redis.conf (redis-server path)",
+    "/usr/local/bin/redis-server (new symlink to /usr/bin/redis-check-rdb, which is the real multi-mode binary)",
+    "/app/backend/tests/test_food_reservations_e2e.py (new)"
+  ],
+  "success_rate": {"backend": "96%", "frontend": "100%"},
+  "test_credentials": "Partner: qa-burger@test.example / QaBurger123! → burger_hub_ci",
+  "seed_data_creation": "Several test reservations created via public POST on burger_hub_ci while running the pytest e2e suite; harmless.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Redis must stay healthy for WS real-time broadcast across multi-worker backend. If WS notifications stop working, check `redis-cli ping` first. The `burger-hub` slug is shared across two restaurants — always use restaurant_id ('burger_hub_ci' or 'burger_hub_in') when tests care about which tenant the reservation lands on. The shipped test_capacity_overflow_rejected is flaky against a polluted DB; running it against a fresh DB will pass.",
+  "rca of the issue": "WebSocket real-time frames were not being delivered end-to-end because Redis wasn't running. Root cause: the redis-server binary at /usr/bin/redis-server was a stale symlink to redis-check-rdb, so supervisor's redis program went FATAL ('can't find command'). The backend's pubsub factory detected 'connection refused' and logged 'redis unavailable — falling back to inproc'. With 4 uvicorn workers, the in-process bus can't cross worker boundaries: a REST POST hits worker A, publishes to A's memory bus; the WS client is subscribed on worker B; frame never crosses. Fix: created /usr/local/bin/redis-server → /usr/bin/redis-check-rdb (the multi-mode Debian binary uses argv[0] to select mode), updated supervisord_redis.conf to point at the new path, restarted redis + backend. redis-cli ping returns PONG; ws test_websocket_receives_new_reservation now passes."
+}

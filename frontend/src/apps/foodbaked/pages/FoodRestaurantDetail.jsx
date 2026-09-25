@@ -254,10 +254,12 @@ export const FoodRestaurantDetail = () => {
         if (!cancel) setLoading(false);
       }
       // Reservation config is fetched separately so its availability
-      // doesn't gate the menu render.
+      // doesn't gate the menu render. Pass the customer's country to
+      // disambiguate shared slugs like `burger-hub` (CI vs IN).
       try {
         const { data: cfg } = await axios.get(
           `${API}/api/food/restaurants/${encodeURIComponent(slug)}/reservation-config`,
+          { params: { country: countryCode || "CI" } },
         );
         if (!cancel) setReservationConfig(cfg);
       } catch { /* silent: reservations optional */ }

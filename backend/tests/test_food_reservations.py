@@ -164,9 +164,15 @@ def test_lead_time_enforced(slug):
 
 
 def test_capacity_overflow_rejected(slug):
-    # Pick a distant slot unlikely to be filled by prior runs. slot_capacity=20,
-    # a party of 12 followed by another 12 = 24 > 20.
-    when = (datetime.now(timezone.utc) + timedelta(days=45)).replace(hour=21, minute=30, second=0, microsecond=0).isoformat()
+    # Pick a random future slot unlikely to be filled by prior runs.
+    import random
+    days_out = random.randint(30, 55)
+    hour = random.choice([13, 14, 20, 21])
+    minute = random.choice([0, 30])
+    when = (datetime.now(timezone.utc) + timedelta(days=days_out)).replace(
+        hour=hour, minute=minute, second=0, microsecond=0
+    ).isoformat()
+    # slot_capacity default = 20 → two parties of 12 = 24 > 20.
     r1 = requests.post(_api(f"/food/restaurants/{slug}/reservations"), json={
         "reservation_at": when, "party_size": 12,
         "guest_name": "Big group", "guest_phone": "+2250790000001",

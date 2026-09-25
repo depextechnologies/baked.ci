@@ -1,5 +1,37 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-24 — FOODbakēd Table Reservations + Real-Time Notification Engine — COMPLETE
+
+**Goal**: Let diners reserve a table with date/time/party size straight from the restaurant page, plus full partner management + real-time alerts.
+
+**Delivered**
+- **DB (migration `0058_food_reservations.py`)**
+  - `food_restaurants` gained `reservations_enabled` + `reservations_paused_until`.
+  - New `food_reservation_settings` (per restaurant): slot_capacity, min/max party, lead-time, slot_interval (15/30/60), advance days, auto_confirm, hours (JSONB), blackout_dates (JSONB), sound_new_order / sound_new_reservation / sound_volume.
+  - New `food_reservations` + `food_reservation_events` for full audit trail. Booking references formatted `R-XXXXXX` (unambiguous alphabet).
+
+- **Backend routes (`/app/backend/modules/food/reservations.py`)**
+  - Public: `GET /food/restaurants/{slug}/reservation-config`, `/reservation-slots`, `POST /reservations` (guest OR auth). Slug collision (CI/IN) disambiguated via optional `country` query.
+  - Customer: `GET /food/customer/reservations` + `POST /reservations/{id}/cancel`. Guest rows with matching phone/email are auto-claimed on first authenticated fetch.
+  - Partner/admin: `GET /food/manage/{rid}/reservations` (+ filters), `PATCH /{id}` (confirm/reject/cancel/no_show/complete — terminal states rejected), `GET/PUT /reservation-settings`, `PATCH /reservation-toggle` (enabled + pause_hours).
+  - WebSocket: `wss://…/api/food/manage/{rid}/ws?token=<partner_jwt>` — subscribes to `food:restaurant:{rid}`. Frames: `food.reservation.created` / `food.reservation.updated` / (reserved) `food.order.created`. Tenant-isolated: partner JWT for other restaurant → close code 4403.
+  - Emails via existing `core.mailer` on create/confirm/reject (best-effort, async).
+
+- **Frontend**
+  - `ReservationModal.jsx` — public booking flow on `/food/r/:slug` (only when reservations enabled). Auto-prefill from logged-in Baked customer.
+  - `MyReservationsPage.jsx` — `/foodbaked/reservations/me` (customer).
+  - Partner portal (mounted under `/partner/food`) gained **Reservations** inbox with confirm/reject/complete/no_show/cancel actions and **Paramètres** for capacity/interval/hours/blackout/party-size/lead-time + sound preferences.
+  - `RestaurantNotificationEngine.jsx` — WebSocket + procedurally-generated Web Audio chime (no asset, autoplay-safe via `Activer les alertes` gesture) + Accept/Reject modal + FIFO queue for multiple incoming events.
+
+- **Real-time infrastructure**: Reuses existing `modules/realtime` pubsub. Testing agent found a stale `/usr/bin/redis-server` symlink → fixed and Redis is now healthy (`redis-cli ping = PONG`). Multi-worker WS broadcast confirmed via test.
+
+**Verification** (`/app/test_reports/iteration_93.json`)
+- Backend pytest 9/9 pass (`test_food_reservations.py`).
+- Full frontend flow: guest booking (Burger Hub → date/party/slot/contact → success + `R-XXXXXX`), partner login → inbox with pending count + Confirm/Reject, settings page renders every requested testid.
+- Real-time e2e (testing agent): partner WS receives `food.reservation.created` within 5s of a public POST; wrong-restaurant WS closed 4403; frontend notification modal appears without a refresh.
+- FOODbakēd Sellers wizard regression clean (translate="no" fix from iter92 still holds).
+
+
 ## 2026-02-24 — FOODbakēd Seller Wizard — insertBefore Runtime Error Fix — COMPLETE
 
 **Symptom**: `NotFoundError: Failed to execute 'insertBefore' on 'Node'` at `/foodbaked/sellers/apply/step-2`. Stack pointed at React DOM reconciliation (`insertOrAppendPlacementNode` → `commitPlacement`).

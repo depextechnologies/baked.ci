@@ -138,10 +138,25 @@ def _serialise_settings(row: Any) -> dict:
 # Restaurant lookup helpers
 # ---------------------------------------------------------------------------
 
-async def _resolve_restaurant(session: AsyncSession, slug_or_id: str) -> Any:
+async def _resolve_restaurant(session: AsyncSession, slug_or_id: str, country: Optional[str] = None) -> Any:
+    # Prefer exact ID match first (unique). If not found, fall back to slug —
+    # scoped by country when provided (some slugs — e.g. `burger-hub` — are
+    # shared across CI and IN tenants, so accept the caller's country hint
+    # to disambiguate; otherwise return the first hit deterministically by
+    # created_at ASC to keep behaviour stable across restarts.
     row = (await session.execute(text(
-        "SELECT * FROM food_restaurants WHERE id = :s OR slug = :s LIMIT 1"
+        "SELECT * FROM food_restaurants WHERE id = :s LIMIT 1"
     ), {"s": slug_or_id})).fetchone()
+    if row:
+        return row
+    if country:
+        row = (await session.execute(text(
+            "SELECT * FROM food_restaurants WHERE slug = :s AND country = :c LIMIT 1"
+        ), {"s": slug_or_id, "c": country})).fetchone()
+    if not row:
+        row = (await session.execute(text(
+            "SELECT * FROM food_restaurants WHERE slug = :s ORDER BY created_at ASC LIMIT 1"
+        ), {"s": slug_or_id})).fetchone()
     if not row:
         raise HTTPException(404, "Restaurant not found")
     return row
@@ -285,8 +300,12 @@ async def _publish(rid: str, frame: dict) -> None:
 # ---------------------------------------------------------------------------
 
 @public_router.get("/restaurants/{slug_or_id}/reservation-config")
-async def get_reservation_config(slug_or_id: str, session: AsyncSession = Depends(get_session)):
-    r = await _resolve_restaurant(session, slug_or_id)
+async def get_reservation_config(
+    slug_or_id: str,
+    country: Optional[str] = Query(None, max_length=4),
+    session: AsyncSession = Depends(get_session),
+):
+    r = await _resolve_restaurant(session, slug_or_id, country)
     if not r.reservations_enabled:
         return {
             "restaurant": {"id": r.id, "slug": r.slug, "name": r.name},
@@ -318,9 +337,10 @@ async def list_slots(
     slug_or_id: str,
     date_iso: str = Query(..., alias="date"),
     party_size: int = Query(2, ge=1, le=40),
+    country: Optional[str] = Query(None, max_length=4),
     session: AsyncSession = Depends(get_session),
 ):
-    r = await _resolve_restaurant(session, slug_or_id)
+    r = await _resolve_restaurant(session, slug_or_id, country)
     if not r.reservations_enabled:
         raise HTTPException(404, "Reservations not available for this restaurant")
     try:
@@ -358,10 +378,11 @@ class ReservationCreateIn(BaseModel):
 async def create_reservation(
     slug_or_id: str,
     payload: ReservationCreateIn,
+    country: Optional[str] = Query(None, max_length=4),
     session: AsyncSession = Depends(get_session),
     customer: Optional[Customer] = Depends(get_optional_customer),
 ):
-    r = await _resolve_restaurant(session, slug_or_id)
+    r = await _resolve_restaurant(session, slug_or_id, country)
     if not r.reservations_enabled:
         raise HTTPException(400, "Reservations are not enabled for this restaurant")
 
@@ -783,7 +804,8 @@ async def act_on_reservation(
         return _serialise_reservation(row)
 
     # Transition guards
-    if row.status in ("cancelled", "rejected", "completed", "no_show") and payload.action != "cancel":
+    TERMINAL = {"cancelled", "rejected", "completed", "no_show"}
+    if row.status in TERMINAL:
         raise HTTPException(400, f"Cannot {payload.action} a {row.status} reservation")
 
     now = datetime.now(timezone.utc)
