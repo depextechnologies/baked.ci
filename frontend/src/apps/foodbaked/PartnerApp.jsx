@@ -11,12 +11,15 @@
  */
 import React, { useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3 } from "lucide-react";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 import { FoodPartnerActivateRoute } from "./SellersApp";
+import RestaurantNotificationProvider from "./components/RestaurantNotificationEngine";
+import PartnerReservationsPage from "./pages/PartnerReservationsPage";
+import PartnerReservationSettingsPage from "./pages/PartnerReservationSettingsPage";
 
 const GREEN = "#00A651";
 const API_BASE = process.env.REACT_APP_BACKEND_URL || "";
@@ -86,45 +89,49 @@ const PartnerLoginPage = () => {
 // ---------------------------------------------------------------------------
 
 const PartnerLayout = () => {
-  const { partner, restaurant, logout, checking } = useFoodPartner();
+  const { partner, restaurant, logout, checking, token } = useFoodPartner();
   if (checking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="animate-spin mr-2" size={16} /> Chargement…</div>;
   if (!partner) return <Navigate to="/partner/food/login" replace />;
 
   const nav = [
-    { to: "/partner/food",           label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
-    { to: "/partner/food/analytics", label: "Analytics",                    icon: BarChart3 },
-    { to: "/partner/food/menu",      label: "Menu",                         icon: Utensils },
+    { to: "/partner/food",              label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
+    { to: "/partner/food/reservations", label: "Réservations · Reservations", icon: CalendarClock },
+    { to: "/partner/food/analytics",    label: "Analytics",                    icon: BarChart3 },
+    { to: "/partner/food/menu",         label: "Menu",                         icon: Utensils },
+    { to: "/partner/food/settings",     label: "Paramètres · Settings",        icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-secondary/30 flex" data-testid="partner-shell">
-      <aside className="w-64 shrink-0 bg-card border-r border-border flex flex-col">
-        <div className="p-5 border-b border-border">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Restaurant Portal</div>
-          <div className="text-lg font-bold">FOOD<span style={{ color: GREEN }}>bakēd</span></div>
-          <div className="mt-2 rounded-lg bg-secondary/60 p-2 flex items-center gap-2">
-            <img src={resolveImg(restaurant?.image)} alt="" className="w-8 h-8 rounded-md object-cover bg-muted" />
-            <div className="min-w-0">
-              <div className="text-xs font-semibold truncate">{restaurant?.name || "—"}</div>
-              <div className="text-[10px] text-muted-foreground truncate">{partner.email}</div>
+    <RestaurantNotificationProvider restaurantId={restaurant?.id} token={token}>
+      <div className="min-h-screen bg-secondary/30 flex" data-testid="partner-shell">
+        <aside className="w-64 shrink-0 bg-card border-r border-border flex flex-col">
+          <div className="p-5 border-b border-border">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Restaurant Portal</div>
+            <div className="text-lg font-bold">FOOD<span style={{ color: GREEN }}>bakēd</span></div>
+            <div className="mt-2 rounded-lg bg-secondary/60 p-2 flex items-center gap-2">
+              <img src={resolveImg(restaurant?.image)} alt="" className="w-8 h-8 rounded-md object-cover bg-muted" />
+              <div className="min-w-0">
+                <div className="text-xs font-semibold truncate">{restaurant?.name || "—"}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{partner.email}</div>
+              </div>
             </div>
           </div>
-        </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {nav.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end}
-                     className={({ isActive }) => `flex items-center gap-2 h-9 px-3 rounded-lg text-sm ${isActive ? "bg-primary/15 text-primary font-semibold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
-                     data-testid={`partner-nav-${to.split("/").pop() || "dashboard"}`}>
-              <Icon size={14} /> {label}
-            </NavLink>
-          ))}
-        </nav>
-        <button onClick={logout} data-testid="partner-logout" className="m-3 h-9 px-3 rounded-lg bg-secondary hover:bg-red-500/10 hover:text-red-500 text-sm inline-flex items-center gap-2">
-          <LogOut size={14} /> Se déconnecter · Sign out
-        </button>
-      </aside>
-      <main className="flex-1 min-w-0 p-6"><Outlet /></main>
-    </div>
+          <nav className="flex-1 p-3 space-y-1">
+            {nav.map(({ to, label, icon: Icon, end }) => (
+              <NavLink key={to} to={to} end={end}
+                       className={({ isActive }) => `flex items-center gap-2 h-9 px-3 rounded-lg text-sm ${isActive ? "bg-primary/15 text-primary font-semibold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                       data-testid={`partner-nav-${to.split("/").pop() || "dashboard"}`}>
+                <Icon size={14} /> <span>{label}</span>
+              </NavLink>
+            ))}
+          </nav>
+          <button onClick={logout} data-testid="partner-logout" className="m-3 h-9 px-3 rounded-lg bg-secondary hover:bg-red-500/10 hover:text-red-500 text-sm inline-flex items-center gap-2">
+            <LogOut size={14} /> Se déconnecter · Sign out
+          </button>
+        </aside>
+        <main className="flex-1 min-w-0 p-6"><Outlet /></main>
+      </div>
+    </RestaurantNotificationProvider>
   );
 };
 
@@ -246,6 +253,8 @@ export const FoodPartnerApp = () => (
         <Route index element={<PartnerDashboard />} />
         <Route path="menu" element={<PartnerMenuPage />} />
         <Route path="analytics" element={<PartnerAnalyticsPage />} />
+        <Route path="reservations" element={<PartnerReservationsPage />} />
+        <Route path="settings" element={<PartnerReservationSettingsPage />} />
       </Route>
     </Routes>
   </FoodPartnerProvider>

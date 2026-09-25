@@ -62,6 +62,7 @@
 
 ## FOODbakēd Restaurant Partner (2026-02-23)
 - Portal: `/partner/food/login`
+- **QA Partner (2026-02-24 · Reservations feature)**: `qa-burger@test.example` / `QaBurger123!` — restaurant `burger_hub_ci` (slug `burger-hub`)
 - Super Admin creates accounts at `/admin/modules/food/restaurants` → row → **Partners** icon (Users)
 - Endpoints:
   - `POST /api/food/partner/auth/login` — email + password (JWT `role="food_partner"`)

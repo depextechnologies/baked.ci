@@ -10,6 +10,7 @@ import { PartnerHubApp } from "@/apps/partner-hub/PartnerHubApp";
 import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
 import { FoodPartnerApp } from "@/apps/foodbaked/PartnerApp";
 import { FoodSellersApp } from "@/apps/foodbaked/SellersApp";
+import MyReservationsPage from "@/apps/foodbaked/pages/MyReservationsPage";
 import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";
@@ -65,6 +66,8 @@ const App = () => (
           <Route path="/partner/*" element={<PartnerHubApp />} />
           {/* FOODbakēd — Sellers / Onboarding portal at /foodbaked/sellers. */}
           <Route path="/foodbaked/sellers/*" element={<FoodSellersApp />} />
+          {/* FOODbakēd — Customer's own reservations. */}
+          <Route path="/foodbaked/reservations/me" element={<MyReservationsPage />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
           <Route path="/martbaked/:sellerSlug/portal/*" element={<SellerPortalApp />} />

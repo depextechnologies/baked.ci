@@ -27,9 +27,11 @@ export const FoodPartnerProvider = ({ children }) => {
   const [partner, setPartner] = useState(null);
   const [restaurant, setRestaurant] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [token, setTokenState] = useState(() => (typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null));
 
   const loadMe = useCallback(async () => {
     const t = localStorage.getItem(STORAGE_KEY);
+    setTokenState(t);
     if (!t) { setChecking(false); return; }
     try {
       const { data } = await partnerApi.get("/food/partner/auth/me");
@@ -37,7 +39,7 @@ export const FoodPartnerProvider = ({ children }) => {
       setRestaurant(data.restaurant);
     } catch (e) {
       localStorage.removeItem(STORAGE_KEY);
-      setPartner(null); setRestaurant(null);
+      setPartner(null); setRestaurant(null); setTokenState(null);
     } finally { setChecking(false); }
   }, []);
 
@@ -46,17 +48,18 @@ export const FoodPartnerProvider = ({ children }) => {
   const login = useCallback(async ({ email, password }) => {
     const { data } = await partnerApi.post("/food/partner/auth/login", { email, password });
     localStorage.setItem(STORAGE_KEY, data.access_token);
+    setTokenState(data.access_token);
     await loadMe();
     return data.partner;
   }, [loadMe]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
-    setPartner(null); setRestaurant(null);
+    setPartner(null); setRestaurant(null); setTokenState(null);
   }, []);
 
-  const value = useMemo(() => ({ partner, restaurant, checking, login, logout, refresh: loadMe }),
-                        [partner, restaurant, checking, login, logout, loadMe]);
+  const value = useMemo(() => ({ partner, restaurant, checking, login, logout, refresh: loadMe, token }),
+                        [partner, restaurant, checking, login, logout, loadMe, token]);
   return <FoodPartnerContext.Provider value={value}>{children}</FoodPartnerContext.Provider>;
 };
 

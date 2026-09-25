@@ -17,10 +17,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Star, Clock, ArrowLeft, Plus, Minus, Leaf, X, Check } from "lucide-react";
+import { Star, Clock, ArrowLeft, Plus, Minus, Leaf, X, Check, CalendarPlus } from "lucide-react";
 import { useApp, useCart } from "../../../contexts/BakedContexts";
 import { toast } from "sonner";
 import axios from "axios";
+import ReservationModal from "../../../components/food/ReservationModal";
 
 const API   = process.env.REACT_APP_BACKEND_URL;
 const GREEN = "#77BC1F";
@@ -230,6 +231,8 @@ export const FoodRestaurantDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState(null);
   const [openItem, setOpenItem] = useState(null);
+  const [reservationOpen, setReservationOpen] = useState(false);
+  const [reservationConfig, setReservationConfig] = useState(null);
   const sectionsRef = useRef({});
   const lang = i18n.language?.startsWith("fr") ? "fr" : "en";
 
@@ -250,6 +253,14 @@ export const FoodRestaurantDetail = () => {
       } finally {
         if (!cancel) setLoading(false);
       }
+      // Reservation config is fetched separately so its availability
+      // doesn't gate the menu render.
+      try {
+        const { data: cfg } = await axios.get(
+          `${API}/api/food/restaurants/${encodeURIComponent(slug)}/reservation-config`,
+        );
+        if (!cancel) setReservationConfig(cfg);
+      } catch { /* silent: reservations optional */ }
     })();
     return () => { cancel = true; };
   }, [slug, countryCode]);
@@ -316,6 +327,17 @@ export const FoodRestaurantDetail = () => {
                   ? t("food.free_delivery", { defaultValue: "Free delivery" })
                   : `${formatPrice(restaurant.delivery_fee, restaurant.cuisines?.includes("indian") ? "INR" : "CFA")} delivery`}
               </span>
+              {reservationConfig?.enabled && (
+                <button
+                  onClick={() => setReservationOpen(true)}
+                  disabled={reservationConfig.paused}
+                  data-testid="food-reserve-cta"
+                  className="ml-auto h-9 px-4 rounded-full text-sm font-semibold inline-flex items-center gap-2 text-black disabled:opacity-50"
+                  style={{ backgroundColor: GREEN }}
+                >
+                  <CalendarPlus size={14} /> Réserver une table · Book a table
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -401,6 +423,13 @@ export const FoodRestaurantDetail = () => {
           item={openItem}
           restaurant={restaurant}
           onClose={() => setOpenItem(null)}
+        />
+      )}
+
+      {reservationOpen && (
+        <ReservationModal
+          restaurant={restaurant}
+          onClose={() => setReservationOpen(false)}
         />
       )}
     </div>
