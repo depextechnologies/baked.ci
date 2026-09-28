@@ -21,15 +21,17 @@ Partner or super-admin (per `_get_menu_writer` — tenant isolated):
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, EmailStr, Field, constr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.providers import object_storage
 from core.db import get_session
 from modules.food.routes import _get_menu_writer, _restaurant_row  # type: ignore
 from modules.food.reservations import _resolve_restaurant  # reuse the country-aware lookup
@@ -347,3 +349,129 @@ async def reorder_photos(
         """), {"ord": idx, "id": pid, "rid": rid})
     await session.commit()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Partner — menu documents (PDF or image)
+#
+# Uses the same Emergent Object Storage backing as photos. Doc uploads
+# route through `/food/manage/{rid}/uploads/doc` because the existing
+# admin uploads endpoint is admin-only and image-only; this one accepts
+# both admin and food_partner tokens (via `_get_menu_writer`) and both
+# PDF and image content-types.
+# ---------------------------------------------------------------------------
+
+MENU_DOC_MAX_BYTES = 15 * 1024 * 1024  # 15 MB — allows a full multi-page PDF
+MENU_DOC_ALLOWED = {
+    "application/pdf",
+    "image/png", "image/jpeg", "image/jpg", "image/webp",
+}
+
+
+@manage_router.post("/{rid}/uploads/doc")
+async def upload_menu_doc_file(
+    rid: str, request: Request,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Upload a PDF or image and return `{file_url}`. Partner-scoped."""
+    await _get_menu_writer(rid, request, session)
+    ct = (file.content_type or "").lower()
+    if ct not in MENU_DOC_ALLOWED:
+        raise HTTPException(400, "File must be a PDF or an image")
+    content = await file.read()
+    if len(content) > MENU_DOC_MAX_BYTES:
+        raise HTTPException(413, f"File too large ({MENU_DOC_MAX_BYTES // 1024 // 1024} MB max)")
+    if len(content) < 32:
+        raise HTTPException(400, "File is empty or too small")
+    ext = (file.filename or "bin").rsplit(".", 1)[-1].lower() or ("pdf" if ct == "application/pdf" else "bin")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+    safe_rid = re.sub(r"[^a-zA-Z0-9_-]", "", rid)
+    key = f"{object_storage.APP_NAME}/food/menu_docs/{safe_rid}/{ts}.{ext}"
+    try:
+        object_storage.put_object(key, content, ct)
+    except Exception as e:
+        raise HTTPException(502, f"Upload failed: {e}")
+    return {"file_url": f"/api/food/uploads/{key}", "content_type": ct, "size": len(content)}
+
+
+class MenuDocIn(BaseModel):
+    label_fr: constr(strip_whitespace=True, min_length=1, max_length=120)
+    label_en: Optional[constr(strip_whitespace=True, max_length=120)] = None
+    url:      constr(strip_whitespace=True, min_length=1, max_length=2000)
+
+
+class MenuDocPatch(BaseModel):
+    label_fr:   Optional[constr(strip_whitespace=True, max_length=120)] = None
+    label_en:   Optional[constr(strip_whitespace=True, max_length=120)] = None
+    sort_order: Optional[int] = None
+
+
+@manage_router.get("/{rid}/menu-docs")
+async def list_menu_docs(rid: str, request: Request, session: AsyncSession = Depends(get_session)):
+    await _get_menu_writer(rid, request, session)
+    rows = (await session.execute(text(
+        "SELECT * FROM food_restaurant_menu_docs WHERE restaurant_id = :rid ORDER BY sort_order ASC, created_at ASC"
+    ), {"rid": rid})).fetchall()
+    return {"menu_docs": [_menu_doc(r) for r in rows]}
+
+
+@manage_router.post("/{rid}/menu-docs", status_code=201)
+async def add_menu_doc(
+    rid: str, payload: MenuDocIn,
+    request: Request, session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    next_order = (await session.execute(text(
+        "SELECT COALESCE(MAX(sort_order), -1) FROM food_restaurant_menu_docs WHERE restaurant_id = :rid"
+    ), {"rid": rid})).scalar()
+    did = f"doc_{uuid.uuid4().hex[:16]}"
+    await session.execute(text("""
+        INSERT INTO food_restaurant_menu_docs
+            (id, restaurant_id, label_fr, label_en, url, sort_order)
+        VALUES (:id, :rid, :fr, :en, :url, :ord)
+    """), {"id": did, "rid": rid, "fr": payload.label_fr,
+           "en": payload.label_en, "url": payload.url, "ord": int(next_order) + 1})
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_restaurant_menu_docs WHERE id = :id"), {"id": did})).fetchone()
+    return _menu_doc(row)
+
+
+@manage_router.patch("/{rid}/menu-docs/{doc_id}")
+async def patch_menu_doc(
+    rid: str, doc_id: str, payload: MenuDocPatch,
+    request: Request, session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    row = (await session.execute(text(
+        "SELECT * FROM food_restaurant_menu_docs WHERE id = :id AND restaurant_id = :rid"
+    ), {"id": doc_id, "rid": rid})).fetchone()
+    if not row:
+        raise HTTPException(404, "Menu document not found")
+    fields = payload.model_dump(exclude_none=True)
+    if not fields: return _menu_doc(row)
+    sets, params = [], {"id": doc_id}
+    for k, v in fields.items():
+        sets.append(f"{k} = :{k}")
+        params[k] = v
+    await session.execute(text(
+        f"UPDATE food_restaurant_menu_docs SET {', '.join(sets)} WHERE id = :id"
+    ), params)
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_restaurant_menu_docs WHERE id = :id"), {"id": doc_id})).fetchone()
+    return _menu_doc(row)
+
+
+@manage_router.delete("/{rid}/menu-docs/{doc_id}", status_code=204)
+async def delete_menu_doc(
+    rid: str, doc_id: str,
+    request: Request, session: AsyncSession = Depends(get_session),
+):
+    await _get_menu_writer(rid, request, session)
+    r = await session.execute(text(
+        "DELETE FROM food_restaurant_menu_docs WHERE id = :id AND restaurant_id = :rid"
+    ), {"id": doc_id, "rid": rid})
+    await session.commit()
+    if r.rowcount == 0:
+        raise HTTPException(404, "Menu document not found")
+

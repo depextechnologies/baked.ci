@@ -1,5 +1,19 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-25 (later 2) — Partner Menu Docs Upload UI — COMPLETE
+
+**Backend** (`/app/backend/modules/food/microsite.py` — append)
+- `POST /api/food/manage/{rid}/uploads/doc` — multipart file upload. Accepts admin OR food_partner JWT (`_get_menu_writer`) and `application/pdf` + jpg/png/webp. 15 MB cap. Stores via `core.providers.object_storage` under `baked-platform/food/menu_docs/{rid}/{ts}.{ext}`; returns `{file_url}` (served publicly through the existing `/api/food/uploads/{key}` handler).
+- `GET/POST/PATCH/DELETE /api/food/manage/{rid}/menu-docs` — CRUD over `food_restaurant_menu_docs`. Sort-order auto-advanced. Tenant-isolated via `_get_menu_writer`.
+
+**Frontend** (`/app/frontend/src/apps/foodbaked/pages/PartnerRestaurantProfilePage.jsx`)
+- New "Documents de menu · Menu documents" panel below Gallery. Bilingual FR-first, dark theme + green primary button. Test-ids `partner-menu-docs`, `menudoc-label-input`, `menudoc-upload-btn`, `menudoc-file-input`, `menudoc-{docId}`, `menudoc-rename-{docId}`, `menudoc-open-{docId}`, `menudoc-delete-{docId}`.
+- Flow: partner types an optional label → picks a PDF or image → `POST /uploads/doc` returns `file_url` → `POST /menu-docs` persists the record → the customer Menu tab (already shipping since Phase 1) picks it up automatically.
+- In-place rename (blur-to-save), open (external link), delete (confirm).
+
+**Verified** end-to-end with curl (partner `qa-burger@test.example`): PDF upload succeeded, doc listed on GET, appears on the customer Menu tab.
+
+
 ## 2026-02-25 (later) — FOODbakēd Restaurant Header / Hero Redesign — COMPLETE
 
 Refactored the top of the restaurant microsite so the page hierarchy becomes: **global header → module nav → identity → quick actions → gallery → sticky tabs → active tab content → global footer**. All existing global chrome (BAKED header, location, search, cart, module nav, footer) is untouched — no duplication.

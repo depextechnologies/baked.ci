@@ -1,17 +1,12 @@
 /**
- * PartnerRestaurantProfilePage — partner-managed restaurant identity + gallery.
+ * PartnerRestaurantProfilePage — partner-managed restaurant identity,
+ * gallery, and menu documents.
  * Route: /partner/food/profile.
- *
- * Two panels:
- *   1) Profile — description, price range, address, coords, contact,
- *      opening hours, facilities & highlights (multi-select chips).
- *   2) Gallery — upload / categorise / cover-select / delete. Reuses
- *      the existing FoodImageUploader (Emergent Object Storage).
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext";
 import FoodImageUploader from "../components/FoodImageUploader";
-import { Loader2, Save, Trash2, Star, Image as ImgIcon, AlertTriangle } from "lucide-react";
+import { Loader2, Save, Trash2, Star, Image as ImgIcon, AlertTriangle, FileText, Upload, ExternalLink } from "lucide-react";
 
 const GREEN = "#00A651";
 const HIGHLIGHTS = [
@@ -33,9 +28,13 @@ export const PartnerRestaurantProfilePage = () => {
   const { restaurant, refresh } = useFoodPartner() || {};
   const [profile, setProfile] = useState(null);
   const [photos, setPhotos]   = useState([]);
+  const [menuDocs, setMenuDocs] = useState([]);
   const [saving, setSaving]   = useState(false);
   const [err, setErr]         = useState("");
   const [uploadingCat, setUploadingCat] = useState("food");
+  const [docBusy, setDocBusy] = useState(false);
+  const [newDocLabel, setNewDocLabel] = useState("");
+  const docInputRef = useRef(null);
 
   const load = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -45,6 +44,8 @@ export const PartnerRestaurantProfilePage = () => {
       setProfile(data.restaurant);
       const p = await partnerApi.get(`/food/manage/${restaurant.id}/photos`);
       setPhotos(p.data.photos || []);
+      const md = await partnerApi.get(`/food/manage/${restaurant.id}/menu-docs`);
+      setMenuDocs(md.data.menu_docs || []);
     } catch (e) { setErr(e.response?.data?.detail || e.message); }
   }, [restaurant?.id]);
   useEffect(() => { load(); }, [load]);
@@ -78,6 +79,49 @@ export const PartnerRestaurantProfilePage = () => {
     try {
       await partnerApi.delete(`/food/manage/${restaurant.id}/photos/${id}`);
       setPhotos((s) => s.filter((p) => p.id !== id));
+    } catch (e) { setErr(e.response?.data?.detail || e.message); }
+  };
+
+  // -----------------------------------------------------------------
+  // Menu documents (PDF or image). Upload → store URL → POST record.
+  // -----------------------------------------------------------------
+
+  const uploadDoc = async (file) => {
+    if (!file) return;
+    setDocBusy(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data: up } = await partnerApi.post(`/food/manage/${restaurant.id}/uploads/doc`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const labelFr = (newDocLabel || file.name || "Menu").slice(0, 120);
+      const { data: doc } = await partnerApi.post(`/food/manage/${restaurant.id}/menu-docs`, {
+        label_fr: labelFr,
+        label_en: labelFr,
+        url: up.file_url,
+      });
+      setMenuDocs((s) => [...s, doc]);
+      setNewDocLabel("");
+      if (docInputRef.current) docInputRef.current.value = "";
+    } catch (e) {
+      setErr(e.response?.data?.detail || e.message);
+    } finally { setDocBusy(false); }
+  };
+
+  const renameDoc = async (id, label_fr) => {
+    if (!label_fr) return;
+    try {
+      const { data } = await partnerApi.patch(`/food/manage/${restaurant.id}/menu-docs/${id}`, { label_fr, label_en: label_fr });
+      setMenuDocs((s) => s.map((d) => (d.id === id ? data : d)));
+    } catch (e) { setErr(e.response?.data?.detail || e.message); }
+  };
+
+  const delDoc = async (id) => {
+    if (!window.confirm("Supprimer ce document ? · Delete this document?")) return;
+    try {
+      await partnerApi.delete(`/food/manage/${restaurant.id}/menu-docs/${id}`);
+      setMenuDocs((s) => s.filter((d) => d.id !== id));
     } catch (e) { setErr(e.response?.data?.detail || e.message); }
   };
 
@@ -229,6 +273,54 @@ export const PartnerRestaurantProfilePage = () => {
                   )}
                   <button onClick={() => del(p.id)} className="w-7 h-7 rounded-full bg-red-500/80 text-white flex items-center justify-center hover:bg-red-500" data-testid={`gallery-delete-${p.id}`}><Trash2 size={12} /></button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Menu documents — PDFs or images shown on the customer Menu tab */}
+      <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="partner-menu-docs">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <div className="text-sm font-semibold inline-flex items-center gap-2"><FileText size={14} /> Documents de menu · Menu documents</div>
+            <div className="text-xs text-muted-foreground">Téléversez un PDF ou une image (carte été, brunch, bar…) — visible sur l'onglet Menu du restaurant. · Upload a PDF or image visible on the restaurant Menu tab.</div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input value={newDocLabel} onChange={(e) => setNewDocLabel(e.target.value)}
+                 placeholder="Libellé · Label (ex : Carte été)"
+                 className="h-9 rounded-lg border border-border bg-secondary/40 px-3 text-xs w-64"
+                 data-testid="menudoc-label-input" />
+          <label className={`h-9 px-3 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer text-black ${docBusy ? "opacity-60 pointer-events-none" : ""}`}
+                 style={{ backgroundColor: GREEN }} data-testid="menudoc-upload-btn">
+            {docBusy ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} Téléverser · Upload
+            <input ref={docInputRef} type="file" accept="application/pdf,image/*" className="hidden"
+                   onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDoc(f); }}
+                   data-testid="menudoc-file-input" />
+          </label>
+          <span className="text-[10px] text-muted-foreground">PDF ou image · 15 Mo max</span>
+        </div>
+        {menuDocs.length === 0 ? (
+          <div className="text-sm text-muted-foreground italic inline-flex items-center gap-1"><FileText size={12} /> Aucun document pour l'instant · No documents yet.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {menuDocs.map((d) => (
+              <div key={d.id} className="py-2 flex items-center gap-3" data-testid={`menudoc-${d.id}`}>
+                <FileText size={14} className="text-muted-foreground shrink-0" />
+                <input defaultValue={d.label_fr} onBlur={(e) => e.target.value !== d.label_fr && renameDoc(d.id, e.target.value)}
+                       className="h-8 flex-1 min-w-0 rounded border border-border bg-secondary/40 px-2 text-xs"
+                       data-testid={`menudoc-rename-${d.id}`} />
+                <a href={d.url} target="_blank" rel="noreferrer"
+                   className="h-8 px-3 rounded-lg text-[11px] bg-secondary hover:bg-secondary/80 inline-flex items-center gap-1"
+                   data-testid={`menudoc-open-${d.id}`}>
+                  <ExternalLink size={11} /> Ouvrir
+                </a>
+                <button onClick={() => delDoc(d.id)}
+                        className="h-8 w-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20"
+                        data-testid={`menudoc-delete-${d.id}`}>
+                  <Trash2 size={12} />
+                </button>
               </div>
             ))}
           </div>
