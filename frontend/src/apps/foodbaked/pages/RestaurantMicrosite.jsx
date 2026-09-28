@@ -92,12 +92,13 @@ export const RestaurantMicrosite = () => {
   const { slug } = useParams();
   const { countryCode } = useApp() || {};
   const { data, loading, error } = useMicrosite(slug, countryCode);
+  const { t } = useTranslation("customer");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [reserveOpen, setReserveOpen] = useState(false);
 
-  if (loading) return <div className="baked-container py-16 text-center text-muted-foreground" data-testid="microsite-loading"><Loader2 className="inline animate-spin mr-2" size={16} /> Chargement · Loading…</div>;
-  if (error || !data) return <div className="baked-container py-16 text-center text-muted-foreground">Restaurant introuvable · Restaurant not found.</div>;
+  if (loading) return <div className="baked-container py-16 text-center text-muted-foreground" data-testid="microsite-loading"><Loader2 className="inline animate-spin mr-2" size={16} /> {t("food.loading", "Loading…")}</div>;
+  if (error || !data) return <div className="baked-container py-16 text-center text-muted-foreground">{t("food.not_found", "Restaurant not found.")}</div>;
   const { restaurant, photos, offers, menu_docs, reviews_summary } = data;
 
   return (
@@ -144,6 +145,7 @@ const _fmtRange = (r) => `${r[0]} – ${r[1]}`;
 
 const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }) => {
   const nav = useNavigate();
+  const { t } = useTranslation("customer");
   const { ranges: todayRanges } = _todayHours(restaurant.opening_hours);
   const isOpen = restaurant.is_open;
   const cuisines = (restaurant.cuisines || []).join(", ");
@@ -173,7 +175,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
     <section className="relative" data-testid="microsite-hero">
       <div className="baked-container pt-6">
         <button onClick={() => window.history.back()} className="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid="microsite-back">
-          <ArrowLeft size={12} /> Retour · Back
+          <ArrowLeft size={12} /> {t("food.back", "Back")}
         </button>
 
         {/* ── INFORMATION HEADER ────────────────────────────────────── */}
@@ -191,7 +193,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
                       ? { borderColor: `${GREEN}55`, color: GREEN, backgroundColor: `${GREEN}12` }
                       : { borderColor: "rgba(148,163,184,0.4)", color: "rgb(148,163,184)" }}
                     data-testid="microsite-open-status">
-                <Clock size={11} /> {isOpen ? "Ouvert · Open" : "Fermé · Closed"}
+                <Clock size={11} /> {isOpen ? t("food.open", "Open") : t("food.closed", "Closed")}
                 {todayRanges.length > 0 && (
                   <span className="opacity-80 font-normal ml-1">
                     · {todayRanges.map(_fmtRange).join(" · ")}
@@ -200,7 +202,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
               </span>
               {restaurant.price_range && (
                 <span className="text-muted-foreground" data-testid="microsite-price-range">
-                  <span className="font-semibold text-foreground">{restaurant.price_range}</span> · prix pour deux · price for two
+                  <span className="font-semibold text-foreground">{restaurant.price_range}</span> · {t("food.price_for_two", "price for two")}
                 </span>
               )}
               {restaurant.contact_phone && (
@@ -219,8 +221,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
                 testId="microsite-dining-rating"
                 value={reviews_summary.average}
                 count={reviews_summary.count}
-                labelFr="Avis · Ratings"
-                labelEn="Ratings"
+                label={t("food.ratings", "Ratings")}
               />
             )}
             {restaurant.review_count > 0 && (
@@ -228,8 +229,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
                 testId="microsite-delivery-rating"
                 value={Number(restaurant.rating || 0)}
                 count={restaurant.review_count}
-                labelFr="Livraison"
-                labelEn="Delivery"
+                label={t("food.delivery", "Delivery")}
               />
             )}
           </div>
@@ -237,12 +237,12 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
 
         {/* ── QUICK ACTIONS ────────────────────────────────────────── */}
         <div className="mt-5 flex flex-wrap gap-2" data-testid="microsite-quick-actions">
-          <QuickAction icon={MapPin}       label="Direction"         onClick={openDirections} testId="microsite-action-direction" />
-          <QuickAction icon={Share2}       label="Partager · Share"  onClick={share}          testId="microsite-action-share" />
-          <QuickAction icon={Star}         label="Avis · Reviews"    onClick={goReviews}      testId="microsite-action-reviews" />
+          <QuickAction icon={MapPin}       label={t("food.direction", "Direction")}         onClick={openDirections} testId="microsite-action-direction" />
+          <QuickAction icon={Share2}       label={t("food.share", "Share")}  onClick={share}          testId="microsite-action-share" />
+          <QuickAction icon={Star}         label={t("food.reviews_action", "Reviews")}    onClick={goReviews}      testId="microsite-action-reviews" />
           {restaurant.reservations_enabled && (
             <QuickAction icon={CalendarPlus}
-                         label="Réserver · Book a table"
+                         label={t("food.book_a_table", "Book a table")}
                          onClick={onReserve}
                          primary
                          testId="microsite-action-book" />
@@ -256,7 +256,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
   );
 };
 
-const RatingChip = ({ value, count, labelFr, labelEn, testId }) => (
+const RatingChip = ({ value, count, label, testId }) => (
   <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2" data-testid={testId}>
     <span className="inline-flex items-center justify-center h-9 px-2.5 rounded-lg text-sm font-bold text-black" style={{ backgroundColor: GREEN }}>
       {Number(value || 0).toFixed(1)}
@@ -264,7 +264,7 @@ const RatingChip = ({ value, count, labelFr, labelEn, testId }) => (
     </span>
     <div className="leading-tight">
       <div className="text-[13px] font-semibold">{Intl.NumberFormat().format(count)}</div>
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{labelFr} · {labelEn}</div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
     </div>
   </div>
 );
@@ -286,6 +286,7 @@ const QuickAction = ({ icon: Icon, label, onClick, primary, testId }) => (
 // ---------------------------------------------------------------------------
 
 const GalleryGrid = ({ restaurant, photos, onOpenLightbox }) => {
+  const { t } = useTranslation("customer");
   const list = photos && photos.length > 0
     ? photos
     : (restaurant.image ? [{ id: "__cover", url: restaurant.image, category: "food" }] : []);
@@ -295,8 +296,8 @@ const GalleryGrid = ({ restaurant, photos, onOpenLightbox }) => {
     return (
       <div className="mt-5 rounded-2xl border border-dashed border-border bg-card/50 h-[220px] md:h-[320px] flex flex-col items-center justify-center text-center px-6" data-testid="microsite-gallery-empty">
         <ImagePlus size={28} className="text-muted-foreground" />
-        <div className="mt-2 text-sm font-semibold">Aucune photo pour l'instant · No photos yet</div>
-        <div className="text-xs text-muted-foreground mt-0.5 max-w-sm">Le restaurant n'a pas encore publié de photos. · The restaurant hasn't uploaded photos yet.</div>
+        <div className="mt-2 text-sm font-semibold">{t("food.no_photos_title", "No photos yet")}</div>
+        <div className="text-xs text-muted-foreground mt-0.5 max-w-sm">{t("food.no_photos_hint", "The restaurant hasn't uploaded photos yet.")}</div>
       </div>
     );
   }
@@ -372,7 +373,7 @@ const GalleryGrid = ({ restaurant, photos, onOpenLightbox }) => {
                 <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
                 {showOverlay && (
                   <span className="absolute inset-0 bg-black/55 text-white text-sm font-semibold flex items-center justify-center gap-2" data-testid="microsite-view-gallery-overlay">
-                    <ImagePlus size={14} /> Voir la galerie · View gallery
+                    <ImagePlus size={14} /> {t("food.view_gallery", "View gallery")}
                   </span>
                 )}
               </button>
@@ -391,7 +392,7 @@ const GalleryGrid = ({ restaurant, photos, onOpenLightbox }) => {
         <button onClick={() => onOpenLightbox(0)}
                 className="hidden md:inline-flex mt-2 text-xs text-muted-foreground hover:text-foreground items-center gap-1"
                 data-testid="microsite-view-all-photos">
-          <ImagePlus size={11} /> Voir toutes les photos · View all photos ({total})
+          <ImagePlus size={11} /> {t("food.see_all_photos", "View all photos")} ({total})
         </button>
       )}
     </div>
@@ -405,29 +406,30 @@ const GalleryGrid = ({ restaurant, photos, onOpenLightbox }) => {
 // ---------------------------------------------------------------------------
 
 const StickyTabs = ({ slug, reservationsEnabled }) => {
+  const { t } = useTranslation("customer");
   const tabs = [
-    { path: "",             fr: "Aperçu",    en: "Overview" },
-    { path: "order",        fr: "Commander", en: "Order Online" },
-    { path: "reviews",      fr: "Avis",      en: "Reviews" },
-    { path: "photos",       fr: "Photos",    en: "Photos" },
-    { path: "menu",         fr: "Menu",      en: "Menu" },
-    ...(reservationsEnabled ? [{ path: "reservations", fr: "Réserver", en: "Book a table" }] : []),
+    { path: "",             label: t("food.tab_overview", "Overview") },
+    { path: "order",        label: t("food.tab_order", "Order Online") },
+    { path: "reviews",      label: t("food.tab_reviews", "Reviews") },
+    { path: "photos",       label: t("food.tab_photos", "Photos") },
+    { path: "menu",         label: t("food.tab_menu", "Menu") },
+    ...(reservationsEnabled ? [{ path: "reservations", label: t("food.tab_reservations", "Book a table") }] : []),
   ];
   return (
     <div className="sticky top-16 z-30 bg-background/95 backdrop-blur border-b border-border mt-6" data-testid="microsite-tabs">
       <div className="baked-container">
         <div className="flex gap-6 md:gap-8 overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: "none" }}>
-          {tabs.map((t) => (
-            <NavLink key={t.path || "overview"}
-                     to={`/foodbaked/restaurants/${slug}${t.path ? `/${t.path}` : ""}`}
-                     end={t.path === ""}
+          {tabs.map((tab) => (
+            <NavLink key={tab.path || "overview"}
+                     to={`/foodbaked/restaurants/${slug}${tab.path ? `/${tab.path}` : ""}`}
+                     end={tab.path === ""}
                      className={({ isActive }) =>
                        `relative py-3 whitespace-nowrap text-sm font-semibold motion-fast ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
                      }
-                     data-testid={`microsite-tab-${t.path || "overview"}`}>
+                     data-testid={`microsite-tab-${tab.path || "overview"}`}>
               {({ isActive }) => (
                 <>
-                  <span>{t.fr}</span> <span className="text-muted-foreground font-normal">· {t.en}</span>
+                  <span>{tab.label}</span>
                   {isActive && (
                     <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full" style={{ backgroundColor: GREEN }} />
                   )}
@@ -500,7 +502,7 @@ const Lightbox = ({ photos, startIndex, onClose }) => {
 
 export const RestaurantOverview = () => {
   const { restaurant, offers, reviews_summary, onOpenLightbox, onReserve } = useOutlet();
-  const { i18n } = useTranslation("customer");
+  const { t, i18n } = useTranslation("customer");
   const lang = i18n.language?.startsWith("fr") ? "fr" : "en";
   const highlights = restaurant.highlights || [];
   const hoursMap = restaurant.opening_hours || {};
@@ -511,7 +513,7 @@ export const RestaurantOverview = () => {
       {/* Highlights */}
       {highlights.length > 0 && (
         <section data-testid="microsite-overview-highlights">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Points forts · Highlights</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.highlights", "Highlights")}</h2>
           <div className="flex flex-wrap gap-2">
             {highlights.map((code) => {
               const Icon = HIGHLIGHT_ICONS[code] || Utensils;
@@ -528,7 +530,7 @@ export const RestaurantOverview = () => {
       {/* Offers */}
       {offers?.length > 0 && (
         <section data-testid="microsite-overview-offers">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Offres · Offers</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.offers", "Offers")}</h2>
           <div className="grid gap-3 md:grid-cols-2">
             {offers.map((o) => (
               <div key={o.id} className="rounded-2xl border border-border bg-card p-4" data-testid={`microsite-offer-${o.id}`}>
@@ -547,13 +549,13 @@ export const RestaurantOverview = () => {
       {/* About */}
       {restaurant.description && (
         <section data-testid="microsite-overview-about">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">À propos · About</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.about", "About")}</h2>
           <p className="text-sm text-foreground/90 whitespace-pre-wrap">{restaurant.description}</p>
         </section>
       )}
       {/* Cuisines */}
       <section data-testid="microsite-overview-cuisines">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Cuisines · Cuisines</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.cuisines", "Cuisines")}</h2>
         <div className="flex flex-wrap gap-2">
           {(restaurant.cuisines || []).map((c) => (
             <span key={c} className="inline-flex text-xs font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>{c}</span>
@@ -563,7 +565,7 @@ export const RestaurantOverview = () => {
       </section>
       {/* Opening hours */}
       <section data-testid="microsite-overview-hours">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Horaires · Opening hours</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.hours", "Opening hours")}</h2>
         <div className="rounded-2xl border border-border bg-card p-4 max-w-md">
           {DAY_KEYS.map((k) => {
             const ranges = hoursMap[k] || [];
@@ -582,7 +584,7 @@ export const RestaurantOverview = () => {
       {/* Location */}
       {restaurant.address && (
         <section data-testid="microsite-overview-location">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Adresse · Address</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.address", "Address")}</h2>
           <div className="rounded-2xl border border-border bg-card p-4 flex items-start gap-3 max-w-md">
             <MapPin size={18} className="text-muted-foreground mt-0.5" />
             <div>
@@ -590,9 +592,9 @@ export const RestaurantOverview = () => {
               <div className="flex gap-2 mt-2">
                 <a href={restaurant.latitude && restaurant.longitude ? `https://maps.google.com/?q=${restaurant.latitude},${restaurant.longitude}` : `https://maps.google.com/?q=${encodeURIComponent(restaurant.address)}`}
                    target="_blank" rel="noreferrer" className="h-7 px-3 rounded-lg text-[11px] font-semibold text-black" style={{ backgroundColor: GREEN }} data-testid="microsite-directions">
-                  Directions
+                  {t("food.directions", "Directions")}
                 </a>
-                <button onClick={() => navigator.clipboard?.writeText(restaurant.address)} className="h-7 px-3 rounded-lg text-[11px] font-semibold bg-secondary" data-testid="microsite-copy-address">Copier · Copy</button>
+                <button onClick={() => navigator.clipboard?.writeText(restaurant.address)} className="h-7 px-3 rounded-lg text-[11px] font-semibold bg-secondary" data-testid="microsite-copy-address">{t("food.copy", "Copy")}</button>
               </div>
             </div>
           </div>
@@ -601,12 +603,12 @@ export const RestaurantOverview = () => {
       {/* Reviews teaser */}
       <section data-testid="microsite-overview-reviews">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Avis · Reviews</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{t("food.tab_reviews", "Reviews")}</h2>
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           {reviews_summary.count === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-4">
-              Aucun avis pour l'instant · No reviews yet. Soyez le premier à commander et à laisser un avis.
+              {t("food.no_reviews", "No reviews yet — order and leave the first review!")}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -628,12 +630,12 @@ export const RestaurantOverview = () => {
         <section data-testid="microsite-overview-reserve">
           <div className="rounded-2xl border border-border bg-card p-5 flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <div className="text-lg font-bold">Réserver une table · Book a table</div>
-              <div className="text-sm text-muted-foreground">Choisissez date, heure et nombre d'invités. · Pick a date, time and party size.</div>
+              <div className="text-lg font-bold">{t("food.reserve", "Book a table")}</div>
+              <div className="text-sm text-muted-foreground">{t("food.reserve_hint", "Pick a date, time and party size.")}</div>
             </div>
             <button onClick={onReserve} className="h-10 px-5 rounded-full text-black font-semibold text-sm inline-flex items-center gap-2"
                     style={{ backgroundColor: GREEN }} data-testid="microsite-overview-reserve-btn">
-              <CalendarPlus size={14} /> Réserver
+              <CalendarPlus size={14} /> {t("food.book", "Book")}
             </button>
           </div>
         </section>
@@ -683,6 +685,7 @@ export const RestaurantOrderTab = () => (
 
 export const RestaurantMenuTab = () => {
   const { restaurant, menu_docs } = useOutlet();
+  const { t } = useTranslation("customer");
   const [menu, setMenu] = useState(null);
   const { countryCode } = useApp() || {};
   useEffect(() => {
@@ -699,7 +702,7 @@ export const RestaurantMenuTab = () => {
     <div className="space-y-6" data-testid="microsite-menu-tab">
       {menu_docs?.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Menus téléchargeables · Downloadable menus</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">{t("food.downloadable_menus", "Downloadable menus")}</h2>
           <div className="grid gap-3 md:grid-cols-2">
             {menu_docs.map((d) => (
               <a key={d.id} href={d.url} target="_blank" rel="noreferrer" className="rounded-2xl border border-border bg-card p-4 hover:bg-secondary" data-testid={`microsite-menudoc-${d.id}`}>
@@ -728,7 +731,7 @@ export const RestaurantMenuTab = () => {
         </section>
       ))}
       {(!menu || (menu.sections || []).length === 0) && (
-        <div className="text-sm text-muted-foreground italic">Menu à venir · Menu coming soon.</div>
+        <div className="text-sm text-muted-foreground italic">{t("food.menu_coming_soon", "Menu coming soon.")}</div>
       )}
     </div>
   );
@@ -740,6 +743,7 @@ export const RestaurantMenuTab = () => {
 
 export const RestaurantPhotosTab = () => {
   const { photos, onOpenLightbox } = useOutlet();
+  const { t } = useTranslation("customer");
   const [cat, setCat] = useState("all");
   const filtered = cat === "all" ? photos : photos.filter((p) => p.category === cat);
   const cats = ["all", "food", "ambience", "interior", "exterior", "menu"];
@@ -755,7 +759,7 @@ export const RestaurantPhotosTab = () => {
       </div>
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground" data-testid="microsite-photos-empty">
-          Aucune photo pour cette catégorie · No photos in this category.
+          {t("food.no_photos_category", "No photos in this category.")}
         </div>
       ) : (
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -778,6 +782,7 @@ export const RestaurantPhotosTab = () => {
 
 export const RestaurantReviewsTab = () => {
   const { reviews_summary } = useOutlet();
+  const { t } = useTranslation("customer");
   return (
     <div className="space-y-6" data-testid="microsite-reviews-tab">
       <div className="rounded-2xl border border-border bg-card p-5 max-w-lg">
@@ -785,7 +790,7 @@ export const RestaurantReviewsTab = () => {
       </div>
       {reviews_summary.count === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground" data-testid="microsite-reviews-empty">
-          Aucun avis pour l'instant. Commandez ici et déposez le premier avis ! · No reviews yet — order and leave the first review!
+          {t("food.no_reviews", "No reviews yet — order and leave the first review!")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -816,19 +821,20 @@ export const RestaurantReviewsTab = () => {
 
 export const RestaurantReservationsTab = () => {
   const { restaurant, onReserve } = useOutlet();
+  const { t } = useTranslation("customer");
   if (!restaurant.reservations_enabled) {
-    return <div className="text-sm text-muted-foreground italic">Réservations non disponibles · Reservations unavailable.</div>;
+    return <div className="text-sm text-muted-foreground italic">{t("food.reserve_reservations_unavailable", "Reservations unavailable.")}</div>;
   }
   return (
     <div className="rounded-2xl border border-border bg-card p-8 text-center space-y-4" data-testid="microsite-reservations-tab">
       <CalendarPlus size={40} className="mx-auto" style={{ color: GREEN }} />
       <div>
-        <h2 className="text-xl font-bold">Réserver une table · Book a table</h2>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">Choisissez une date, une heure et le nombre d'invités. Vous recevrez une confirmation dès que le restaurant accepte votre demande. · Pick a date, time and party size — the restaurant confirms shortly.</p>
+        <h2 className="text-xl font-bold">{t("food.book_a_table", "Book a table")}</h2>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">{t("food.reserve_cta_body", "Pick a date, time and party size — the restaurant confirms shortly.")}</p>
       </div>
       <button onClick={onReserve} className="h-11 px-6 rounded-full text-black font-semibold text-sm inline-flex items-center gap-2"
               style={{ backgroundColor: GREEN }} data-testid="microsite-reservations-cta">
-        <CalendarPlus size={14} /> Réserver maintenant · Book now
+        <CalendarPlus size={14} /> {t("food.reserve_book_now", "Book now")}
       </button>
     </div>
   );

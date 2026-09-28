@@ -1,5 +1,20 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-25 (later 3) — Language cleanup + demo gallery seed — COMPLETE
+
+**What was fixed**
+- **Bilingual display bug**: FOODbakēd customer UI was showing `Aperçu · Overview`, `Partager · Share`, etc. simultaneously. Full audit of `/app/frontend/src/apps/foodbaked/pages/RestaurantMicrosite.jsx` — every hard-coded bilingual string now runs through `useTranslation("customer")` with i18n keys under `food.*`. Selecting FR shows only French; EN shows only English. The global BAKED language switcher stays the single source of truth.
+- **New i18n keys** added to `/app/frontend/src/i18n/locales/{fr,en}/customer.json` under a new `food` namespace (35+ keys covering tabs, quick actions, gallery, overview headings, reserve CTA, empty states).
+- **Demo gallery seed**: burger-hub + spice-nation restaurants now have 4-5 photos each (Unsplash CDN URLs, real food + interior + ambience + exterior), inserted into the standard `food_restaurant_photos` table — same architecture partners use. Reservations enabled on both. This is what makes the premium 4+ gallery layout render (main image left + 2×2 side grid).
+
+**Deferred to next pass** (explicitly not in this small pass)
+- Onboarding step: "Do you offer table reservations?" toggle in the seller wizard (needs a new field on `food_applications` + wizard step-4 UI + auto-map to `reservations_enabled=true` on approval).
+- Floor plan / table management: schema for `food_restaurant_areas` + `food_restaurant_tables`, partner CRUD, capacity source-of-truth switch from slot-based to table-based.
+- Super Admin visibility columns: Reservations Enabled / Floor Plan Configured on the admin restaurants table.
+- Reviews CRUD Phase 2 (order-gated POST + partner response + moderation).
+- Offers partner CRUD UI.
+
+
 ## 2026-02-25 (later 2) — Partner Menu Docs Upload UI — COMPLETE
 
 **Backend** (`/app/backend/modules/food/microsite.py` — append)
