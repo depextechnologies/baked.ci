@@ -11,6 +11,16 @@ import { PartnerPortalApp } from "@/apps/partner-portal/PartnerPortalApp";
 import { FoodPartnerApp } from "@/apps/foodbaked/PartnerApp";
 import { FoodSellersApp } from "@/apps/foodbaked/SellersApp";
 import MyReservationsPage from "@/apps/foodbaked/pages/MyReservationsPage";
+import {
+  RestaurantMicrosite,
+  RestaurantOverview,
+  RestaurantOrderTab,
+  RestaurantMenuTab,
+  RestaurantPhotosTab,
+  RestaurantReviewsTab,
+  RestaurantReservationsTab,
+  LegacyDetailRedirect,
+} from "@/apps/foodbaked/pages/RestaurantMicrosite";
 import { DriverApp } from "@/apps/driver/DriverApp";
 import { SendTrackApp } from "@/apps/send-track/SendTrackApp";
 import { SellerApp } from "@/apps/martbaked-sellers/SellerApp";

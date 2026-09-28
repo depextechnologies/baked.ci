@@ -25,6 +25,16 @@ import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { FoodHome } from "@/apps/foodbaked/pages/FoodHome";
 import { FoodRestaurantDetail } from "@/apps/foodbaked/pages/FoodRestaurantDetail";
+import {
+  RestaurantMicrosite,
+  RestaurantOverview,
+  RestaurantOrderTab,
+  RestaurantMenuTab,
+  RestaurantPhotosTab,
+  RestaurantReviewsTab,
+  RestaurantReservationsTab,
+  LegacyDetailRedirect,
+} from "@/apps/foodbaked/pages/RestaurantMicrosite";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
 import { TermsOfService } from "@/pages/legal/TermsOfService";
@@ -152,7 +162,15 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<FoodHome />} />
-      <Route path="/food/r/:slug" element={<FoodRestaurantDetail />} />
+      <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
+      <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
+        <Route index element={<RestaurantOverview />} />
+        <Route path="order" element={<RestaurantOrderTab />} />
+        <Route path="menu" element={<RestaurantMenuTab />} />
+        <Route path="photos" element={<RestaurantPhotosTab />} />
+        <Route path="reviews" element={<RestaurantReviewsTab />} />
+        <Route path="reservations" element={<RestaurantReservationsTab />} />
+      </Route>
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
@@ -236,7 +254,15 @@ const MobileCustomerShell = () => (
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<FoodHome />} />
-      <Route path="/food/r/:slug" element={<FoodRestaurantDetail />} />
+      <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
+      <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
+        <Route index element={<RestaurantOverview />} />
+        <Route path="order" element={<RestaurantOrderTab />} />
+        <Route path="menu" element={<RestaurantMenuTab />} />
+        <Route path="photos" element={<RestaurantPhotosTab />} />
+        <Route path="reviews" element={<RestaurantReviewsTab />} />
+        <Route path="reservations" element={<RestaurantReservationsTab />} />
+      </Route>
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />

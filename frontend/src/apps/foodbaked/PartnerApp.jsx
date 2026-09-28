@@ -11,7 +11,7 @@
  */
 import React, { useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings } from "lucide-react";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
@@ -20,6 +20,7 @@ import { FoodPartnerActivateRoute } from "./SellersApp";
 import RestaurantNotificationProvider from "./components/RestaurantNotificationEngine";
 import PartnerReservationsPage from "./pages/PartnerReservationsPage";
 import PartnerReservationSettingsPage from "./pages/PartnerReservationSettingsPage";
+import PartnerRestaurantProfilePage from "./pages/PartnerRestaurantProfilePage";
 
 const GREEN = "#00A651";
 const API_BASE = process.env.REACT_APP_BACKEND_URL || "";
@@ -96,6 +97,7 @@ const PartnerLayout = () => {
   const nav = [
     { to: "/partner/food",              label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
     { to: "/partner/food/reservations", label: "Réservations · Reservations", icon: CalendarClock },
+    { to: "/partner/food/profile",      label: "Profil · Profile",              icon: ImgIcon },
     { to: "/partner/food/analytics",    label: "Analytics",                    icon: BarChart3 },
     { to: "/partner/food/menu",         label: "Menu",                         icon: Utensils },
     { to: "/partner/food/settings",     label: "Paramètres · Settings",        icon: Settings },
@@ -254,6 +256,7 @@ export const FoodPartnerApp = () => (
         <Route path="menu" element={<PartnerMenuPage />} />
         <Route path="analytics" element={<PartnerAnalyticsPage />} />
         <Route path="reservations" element={<PartnerReservationsPage />} />
+        <Route path="profile" element={<PartnerRestaurantProfilePage />} />
         <Route path="settings" element={<PartnerReservationSettingsPage />} />
       </Route>
     </Routes>

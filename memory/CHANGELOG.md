@@ -1,5 +1,31 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-25 — FOODbakēd Restaurant Microsite (Phase 1) — COMPLETE
+
+Transformed the FOOD restaurant detail page from "just a menu" into a complete restaurant microsite. This is Phase 1 — Reviews CRUD, Offers CRUD, and uploaded menu PDFs upload UI ship in the follow-up (schemas + display already here).
+
+**Migration `0059_restaurant_microsite.py`**
+- `food_restaurants` gains description, price_range, address, latitude/longitude, opening_hours (JSONB), facilities (JSONB), highlights (JSONB), contact_phone, contact_email.
+- New `food_restaurant_photos`, `food_restaurant_offers`, `food_restaurant_menu_docs`, `food_reviews` (order-gated architecture with partner_response + moderation status + uq_review_per_order).
+
+**Backend routes (`/app/backend/modules/food/microsite.py`)**
+- `GET /food/restaurants/{slug}/microsite?country=…` — one-shot: restaurant + photos + active offers + menu_docs + rating_summary (real aggregates from `food_reviews`).
+- `GET /food/restaurants/{slug}/photos?category=…` — public gallery.
+- Partner-scoped (tenant-isolated via `_get_menu_writer`): `PATCH /manage/{rid}/profile`, `GET/POST/PATCH/DELETE /manage/{rid}/photos`, `POST /manage/{rid}/photos/reorder`.
+
+**Frontend**
+- **`RestaurantMicrosite.jsx`** — hero gallery + identity bar + sticky tabs + Outlet-based nested routing. Categories in lightbox (all/food/ambience/interior/exterior/menu) + keyboard nav.
+- Six tab views: Overview (highlights + offers + about + cuisines + hours + address + reviews teaser + reservation teaser), Order (delegates to existing FoodRestaurantDetail — hero hidden via CSS since microsite already renders one), Menu (structured read-only + uploaded PDFs), Photos (masonry + lightbox + category filter), Reviews (rating breakdown + list, empty-state architecture), Book a Table (opens ReservationModal).
+- Legacy `/food/r/:slug` → 301-style client redirect to `/foodbaked/restaurants/:slug`.
+- Partner portal gains **`/partner/food/profile`** — profile fields + highlights chips + opening hours + full gallery uploader (uses existing `FoodImageUploader` → Emergent Object Storage). Set cover, delete, category select.
+- Uses global Baked cart/auth/location — no duplicates.
+
+**Deferred (follow-up pass)**
+- Customer review submission (order-gated) + partner response + super-admin moderation
+- Partner Offers CRUD UI (backend schema + Overview display already shipped)
+- Partner Menu-docs upload UI (backend schema + Menu tab display already shipped)
+
+
 ## 2026-02-24 — FOODbakēd Table Reservations + Real-Time Notification Engine — COMPLETE
 
 **Goal**: Let diners reserve a table with date/time/party size straight from the restaurant page, plus full partner management + real-time alerts.
