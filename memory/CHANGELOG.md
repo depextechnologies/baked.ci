@@ -1,5 +1,30 @@
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
+## 2026-02-25 (later) — FOODbakēd Restaurant Header / Hero Redesign — COMPLETE
+
+Refactored the top of the restaurant microsite so the page hierarchy becomes: **global header → module nav → identity → quick actions → gallery → sticky tabs → active tab content → global footer**. All existing global chrome (BAKED header, location, search, cart, module nav, footer) is untouched — no duplication.
+
+**Changed file**: `/app/frontend/src/apps/foodbaked/pages/RestaurantMicrosite.jsx` (only the `Hero`, `RestaurantIdentity` merged into `Hero`, and `StickyTabs` components).
+
+**What's new**
+- **Information header first** — name (up to `text-4xl`), cuisines, address, then a chip row: `Ouvert/Fermé · Open/Closed` (with today's ranges), `price_range · prix pour deux`, `contact_phone` (click-to-dial), and prep-time. Values gracefully hide when the underlying data isn't present — nothing hard-coded.
+- **Ratings on the right** — up to two `RatingChip`s. Renders "Avis · Ratings" from real `reviews_summary.average / count` (empty-safe: hidden when count = 0), plus the legacy denormalised delivery/rating chip when `restaurant.review_count > 0`. Extensible to a distinct "Dining Rating" once separate fields exist.
+- **Quick actions row** — Direction (opens Google Maps with stored coords or falls back to address), Partager · Share (uses `navigator.share` if available, otherwise clipboard-copy + toast), Avis · Reviews (deep-links to the Reviews tab), Réserver · Book a table (opens existing `ReservationModal` — reservation backend unchanged).
+- **Adaptive gallery grid**
+  - 0 images → subtle empty state (no more grey placeholder wall)
+  - 1 image → single elegant hero (`h-[360px] lg:h-[440px]`)
+  - 2 images → symmetrical split
+  - 3 images → 1 large + 2 stacked
+  - 4+ images → reference-inspired **65-70% main / 30-35% 2×2 side grid** with a "Voir la galerie · View gallery" overlay on the last tile when total > 5
+  - Mobile → horizontally swipeable snap-carousel (`w-[85%]` tiles). Never overflows.
+- **Sticky tab navigation** — full-width horizontal bar with an animated green underline for the active tab. Sticks below the global header (`sticky top-16 z-30`) so nav is always reachable while scrolling. Overflow-scrolls on mobile without breaking layout. Bilingual FR/EN inline (`Aperçu · Overview`).
+
+**Preserved**
+- Reservation flow, order flow, review flow, cart, auth, location — all unchanged.
+- Data model, migrations, and existing partner portal — untouched.
+- All test-ids (identity, tabs, gallery, quick actions) so the existing regression suite still exercises the same DOM anchors.
+
+
 ## 2026-02-25 — FOODbakēd Restaurant Microsite (Phase 1) — COMPLETE
 
 Transformed the FOOD restaurant detail page from "just a menu" into a complete restaurant microsite. This is Phase 1 — Reviews CRUD, Offers CRUD, and uploaded menu PDFs upload UI ship in the follow-up (schemas + display already here).

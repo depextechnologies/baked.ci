@@ -102,7 +102,7 @@ export const RestaurantMicrosite = () => {
 
   return (
     <div className="pb-24 bg-background" data-testid="restaurant-microsite">
-      <Hero restaurant={restaurant} photos={photos}
+      <Hero restaurant={restaurant} photos={photos} reviews_summary={reviews_summary}
             onOpenLightbox={(i) => { setLightboxIndex(i); setLightboxOpen(true); }}
             onReserve={() => setReserveOpen(true)} />
       <StickyTabs slug={restaurant.slug} reservationsEnabled={restaurant.reservations_enabled} />
@@ -122,117 +122,317 @@ export const RestaurantMicrosite = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Hero + gallery
+// Hero — information header → quick actions → gallery.
+//
+// Reference-inspired hierarchy (not visual clone):
+//   1) Restaurant identity + today's hours + price + phone   ← LEFT
+//      Dining rating chip (+ delivery rating when we have it)  ← RIGHT
+//   2) Quick actions: Direction · Share · Reviews · Book
+//   3) Adaptive gallery grid: 1 image → single hero;
+//      2-3 → symmetrical; 4+ → 65-70% main + 2x2 right side
+//      with "Voir la galerie · View Gallery" overlay on the
+//      final tile. Max height ~440px on desktop.
 // ---------------------------------------------------------------------------
 
-const Hero = ({ restaurant, photos, onOpenLightbox, onReserve }) => {
-  const cover = photos.find((p) => p.is_cover) || photos[0];
-  const heroImg = cover?.url || restaurant.image;
-  const thumbs = photos.filter((p) => p.id !== cover?.id).slice(0, 4);
+const DAY_MAP = ["mon","tue","wed","thu","fri","sat","sun"];
+const _todayHours = (openingHours) => {
+  const key = DAY_MAP[(new Date().getDay() + 6) % 7]; // Monday-first
+  const ranges = openingHours?.[key] || [];
+  return { key, ranges };
+};
+const _fmtRange = (r) => `${r[0]} – ${r[1]}`;
+
+const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }) => {
+  const nav = useNavigate();
+  const { ranges: todayRanges } = _todayHours(restaurant.opening_hours);
+  const isOpen = restaurant.is_open;
+  const cuisines = (restaurant.cuisines || []).join(", ");
+
+  const share = async () => {
+    const shareData = { title: restaurant.name, url: window.location.href };
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(window.location.href);
+        // Non-blocking hint
+        alert("Lien copié · Link copied");
+      }
+    } catch { /* user cancelled */ }
+  };
+
+  const openDirections = () => {
+    const url = restaurant.latitude && restaurant.longitude
+      ? `https://maps.google.com/?q=${restaurant.latitude},${restaurant.longitude}`
+      : `https://maps.google.com/?q=${encodeURIComponent(restaurant.address || restaurant.name)}`;
+    window.open(url, "_blank", "noopener");
+  };
+
+  const goReviews = () => nav(`/foodbaked/restaurants/${restaurant.slug}/reviews`);
+
   return (
     <section className="relative" data-testid="microsite-hero">
       <div className="baked-container pt-6">
         <button onClick={() => window.history.back()} className="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid="microsite-back">
           <ArrowLeft size={12} /> Retour · Back
         </button>
-        <div className="grid gap-3 md:grid-cols-4 relative">
-          <div className="md:col-span-3 aspect-[16/8] md:aspect-[16/9] rounded-2xl overflow-hidden bg-muted">
-            {heroImg
-              ? <img src={heroImg} alt={restaurant.name} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-muted-foreground"><ImagePlus size={40} /></div>}
+
+        {/* ── INFORMATION HEADER ────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-6 flex-wrap" data-testid="microsite-identity">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl md:text-4xl font-bold leading-tight">{restaurant.name}</h1>
+            {cuisines && <div className="text-sm text-muted-foreground mt-1">{cuisines}</div>}
+            {restaurant.address && (
+              <div className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><MapPin size={11} /> {restaurant.address}</div>
+            )}
+            {/* Status + hours + price + phone */}
+            <div className="mt-3 flex items-center flex-wrap gap-x-4 gap-y-2 text-xs">
+              <span className={`inline-flex items-center gap-1 h-7 px-3 rounded-full border font-semibold`}
+                    style={isOpen
+                      ? { borderColor: `${GREEN}55`, color: GREEN, backgroundColor: `${GREEN}12` }
+                      : { borderColor: "rgba(148,163,184,0.4)", color: "rgb(148,163,184)" }}
+                    data-testid="microsite-open-status">
+                <Clock size={11} /> {isOpen ? "Ouvert · Open" : "Fermé · Closed"}
+                {todayRanges.length > 0 && (
+                  <span className="opacity-80 font-normal ml-1">
+                    · {todayRanges.map(_fmtRange).join(" · ")}
+                  </span>
+                )}
+              </span>
+              {restaurant.price_range && (
+                <span className="text-muted-foreground" data-testid="microsite-price-range">
+                  <span className="font-semibold text-foreground">{restaurant.price_range}</span> · prix pour deux · price for two
+                </span>
+              )}
+              {restaurant.contact_phone && (
+                <a href={`tel:${restaurant.contact_phone}`} className="inline-flex items-center gap-1 hover:text-foreground" data-testid="microsite-phone">
+                  <Phone size={11} /> {restaurant.contact_phone}
+                </a>
+              )}
+              <span className="inline-flex items-center gap-1 text-muted-foreground"><Utensils size={11} /> {restaurant.prep_time_min}–{restaurant.prep_time_max} min</span>
+            </div>
           </div>
-          <div className="md:col-span-1 grid grid-cols-2 md:grid-cols-1 gap-2">
-            {[0,1,2,3].map((i) => {
-              const p = thumbs[i];
-              return (
-                <button key={i} onClick={() => p && onOpenLightbox(photos.indexOf(p))}
-                        className="aspect-video md:aspect-[4/3] rounded-xl overflow-hidden bg-muted relative motion-fast hover:opacity-90"
-                        data-testid={`microsite-hero-thumb-${i}`}>
-                  {p ? <img src={p.url} alt="" className="w-full h-full object-cover" />
-                     : <div className="w-full h-full flex items-center justify-center text-muted-foreground"><ImagePlus size={20} /></div>}
-                </button>
-              );
-            })}
+
+          {/* Ratings — dining (from reviews) + delivery (from denormalised) */}
+          <div className="flex items-center gap-3 shrink-0" data-testid="microsite-ratings">
+            {(reviews_summary?.count > 0) && (
+              <RatingChip
+                testId="microsite-dining-rating"
+                value={reviews_summary.average}
+                count={reviews_summary.count}
+                labelFr="Avis · Ratings"
+                labelEn="Ratings"
+              />
+            )}
+            {restaurant.review_count > 0 && (
+              <RatingChip
+                testId="microsite-delivery-rating"
+                value={Number(restaurant.rating || 0)}
+                count={restaurant.review_count}
+                labelFr="Livraison"
+                labelEn="Delivery"
+              />
+            )}
           </div>
-          {photos.length > 0 && (
-            <button onClick={() => onOpenLightbox(0)}
-                    className="absolute bottom-3 right-3 h-9 px-3 rounded-full bg-black/70 text-white text-xs font-semibold inline-flex items-center gap-1"
-                    data-testid="microsite-view-all-photos">
-              <ImagePlus size={12} /> Voir toutes les photos · View all photos ({photos.length})
-            </button>
+        </div>
+
+        {/* ── QUICK ACTIONS ────────────────────────────────────────── */}
+        <div className="mt-5 flex flex-wrap gap-2" data-testid="microsite-quick-actions">
+          <QuickAction icon={MapPin}       label="Direction"         onClick={openDirections} testId="microsite-action-direction" />
+          <QuickAction icon={Share2}       label="Partager · Share"  onClick={share}          testId="microsite-action-share" />
+          <QuickAction icon={Star}         label="Avis · Reviews"    onClick={goReviews}      testId="microsite-action-reviews" />
+          {restaurant.reservations_enabled && (
+            <QuickAction icon={CalendarPlus}
+                         label="Réserver · Book a table"
+                         onClick={onReserve}
+                         primary
+                         testId="microsite-action-book" />
           )}
         </div>
+
+        {/* ── ADAPTIVE GALLERY ────────────────────────────────────── */}
+        <GalleryGrid restaurant={restaurant} photos={photos} onOpenLightbox={onOpenLightbox} />
       </div>
-      <RestaurantIdentity restaurant={restaurant} reviews={{ average: 0, count: 0 }} onReserve={onReserve} />
     </section>
   );
 };
 
-const RestaurantIdentity = ({ restaurant, onReserve }) => {
-  return (
-    <div className="baked-container mt-4" data-testid="microsite-identity">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold">{restaurant.name}</h1>
-          <div className="text-sm text-muted-foreground">{(restaurant.cuisines || []).join(" • ")}{restaurant.price_range && ` • ${restaurant.price_range}`}</div>
-          <div className="mt-2 flex items-center flex-wrap gap-4 text-sm">
-            <span className="inline-flex items-center gap-1 font-semibold">
-              <Star size={14} className="fill-current" style={{ color: GREEN }} />
-              {Number(restaurant.rating || 0).toFixed(1)}
-              <span className="text-muted-foreground">({restaurant.review_count})</span>
-            </span>
-            <span className="inline-flex items-center gap-1 text-muted-foreground"><Clock size={13} /> {restaurant.prep_time_min}–{restaurant.prep_time_max} min</span>
-            {restaurant.address && <span className="inline-flex items-center gap-1 text-muted-foreground"><MapPin size={13} /> {restaurant.address}</span>}
-            <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${restaurant.is_open ? "text-black" : "bg-secondary text-muted-foreground"}`}
-                  style={restaurant.is_open ? { backgroundColor: `${GREEN}33`, color: GREEN } : {}}>
-              {restaurant.is_open ? "OPEN" : "CLOSED"}
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => navigator.share?.({ title: restaurant.name, url: window.location.href })}
-                  className="h-9 px-3 rounded-full bg-card border border-border text-xs inline-flex items-center gap-1"
-                  data-testid="microsite-share"><Share2 size={12} /> Partager</button>
-          <button className="h-9 px-3 rounded-full bg-card border border-border text-xs inline-flex items-center gap-1" data-testid="microsite-save">
-            <Heart size={12} /> Enregistrer
+const RatingChip = ({ value, count, labelFr, labelEn, testId }) => (
+  <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2" data-testid={testId}>
+    <span className="inline-flex items-center justify-center h-9 px-2.5 rounded-lg text-sm font-bold text-black" style={{ backgroundColor: GREEN }}>
+      {Number(value || 0).toFixed(1)}
+      <Star size={12} className="fill-current ml-0.5" />
+    </span>
+    <div className="leading-tight">
+      <div className="text-[13px] font-semibold">{Intl.NumberFormat().format(count)}</div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{labelFr} · {labelEn}</div>
+    </div>
+  </div>
+);
+
+const QuickAction = ({ icon: Icon, label, onClick, primary, testId }) => (
+  <button onClick={onClick} data-testid={testId}
+          className={`h-10 px-4 rounded-lg text-xs font-semibold inline-flex items-center gap-2 border transition-colors ${primary ? "text-black border-transparent" : "border-border bg-card hover:bg-secondary"}`}
+          style={primary ? { backgroundColor: GREEN } : undefined}>
+    <Icon size={13} /> {label}
+  </button>
+);
+
+// ---------------------------------------------------------------------------
+// Adaptive gallery grid
+//   0 images → subtle empty rail; 1 → single hero; 2 → split; 3 → 1+2 stacked;
+//   4+ → 1 large + right 2×2 with View Gallery overlay on the 4th tile.
+// Desktop max-height ~440px, aspect via classes; mobile → horizontally
+// swipeable strip.
+// ---------------------------------------------------------------------------
+
+const GalleryGrid = ({ restaurant, photos, onOpenLightbox }) => {
+  const list = photos && photos.length > 0
+    ? photos
+    : (restaurant.image ? [{ id: "__cover", url: restaurant.image, category: "food" }] : []);
+
+  // Empty state
+  if (list.length === 0) {
+    return (
+      <div className="mt-5 rounded-2xl border border-dashed border-border bg-card/50 h-[220px] md:h-[320px] flex flex-col items-center justify-center text-center px-6" data-testid="microsite-gallery-empty">
+        <ImagePlus size={28} className="text-muted-foreground" />
+        <div className="mt-2 text-sm font-semibold">Aucune photo pour l'instant · No photos yet</div>
+        <div className="text-xs text-muted-foreground mt-0.5 max-w-sm">Le restaurant n'a pas encore publié de photos. · The restaurant hasn't uploaded photos yet.</div>
+      </div>
+    );
+  }
+
+  const cover = list.find((p) => p.is_cover) || list[0];
+  const others = list.filter((p) => p.id !== cover.id);
+  const total = list.length;
+
+  // Mobile: horizontally swipeable strip.
+  const mobile = (
+    <div className="mt-5 md:hidden flex gap-2 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" data-testid="microsite-gallery-mobile">
+      {list.map((p, idx) => (
+        <button key={p.id} onClick={() => onOpenLightbox(idx)}
+                className="snap-start shrink-0 w-[85%] aspect-[16/10] rounded-2xl overflow-hidden bg-muted"
+                data-testid={`microsite-gallery-mobile-${idx}`}>
+          <img src={p.url} alt="" className="w-full h-full object-cover" loading={idx > 0 ? "lazy" : "eager"} />
+        </button>
+      ))}
+    </div>
+  );
+
+  // Desktop layouts.
+  let desktop;
+  if (total === 1) {
+    desktop = (
+      <button onClick={() => onOpenLightbox(0)}
+              className="mt-5 hidden md:block w-full h-[360px] lg:h-[440px] rounded-2xl overflow-hidden bg-muted"
+              data-testid="microsite-gallery-desktop-single">
+        <img src={cover.url} alt={restaurant.name} className="w-full h-full object-cover" />
+      </button>
+    );
+  } else if (total === 2) {
+    desktop = (
+      <div className="mt-5 hidden md:grid grid-cols-2 gap-2 h-[360px] lg:h-[440px]" data-testid="microsite-gallery-desktop-2">
+        {list.map((p, idx) => (
+          <button key={p.id} onClick={() => onOpenLightbox(idx)} className="rounded-2xl overflow-hidden bg-muted">
+            <img src={p.url} alt="" className="w-full h-full object-cover" />
           </button>
-          {restaurant.reservations_enabled && (
-            <button onClick={onReserve} className="h-9 px-3 rounded-full text-black text-xs font-semibold inline-flex items-center gap-1"
-                    style={{ backgroundColor: GREEN }} data-testid="microsite-reserve-cta">
-              <CalendarPlus size={12} /> Réserver · Book
-            </button>
-          )}
+        ))}
+      </div>
+    );
+  } else if (total === 3) {
+    desktop = (
+      <div className="mt-5 hidden md:grid grid-cols-3 gap-2 h-[360px] lg:h-[440px]" data-testid="microsite-gallery-desktop-3">
+        <button onClick={() => onOpenLightbox(0)} className="col-span-2 row-span-2 rounded-2xl overflow-hidden bg-muted">
+          <img src={cover.url} alt="" className="w-full h-full object-cover" />
+        </button>
+        {others.slice(0, 2).map((p) => (
+          <button key={p.id} onClick={() => onOpenLightbox(list.indexOf(p))} className="rounded-2xl overflow-hidden bg-muted">
+            <img src={p.url} alt="" className="w-full h-full object-cover" />
+          </button>
+        ))}
+      </div>
+    );
+  } else {
+    // 4+ images → premium reference-inspired layout.
+    const right = others.slice(0, 4); // may have 4 for 5+ total
+    desktop = (
+      <div className="mt-5 hidden md:grid grid-cols-12 gap-2 h-[360px] lg:h-[440px]" data-testid="microsite-gallery-desktop-4plus">
+        <button onClick={() => onOpenLightbox(0)}
+                className="col-span-8 rounded-2xl overflow-hidden bg-muted relative motion-fast hover:opacity-95"
+                data-testid="microsite-gallery-main">
+          <img src={cover.url} alt={restaurant.name} className="w-full h-full object-cover" />
+        </button>
+        <div className="col-span-4 grid grid-cols-2 grid-rows-2 gap-2">
+          {right.slice(0, 4).map((p, i) => {
+            const isLast = i === 3 || (right.length < 4 && i === right.length - 1);
+            const showOverlay = isLast && total > 5;
+            return (
+              <button key={p.id} onClick={() => onOpenLightbox(list.indexOf(p))}
+                      className="relative rounded-2xl overflow-hidden bg-muted motion-fast hover:opacity-95"
+                      data-testid={`microsite-gallery-tile-${i}`}>
+                <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                {showOverlay && (
+                  <span className="absolute inset-0 bg-black/55 text-white text-sm font-semibold flex items-center justify-center gap-2" data-testid="microsite-view-gallery-overlay">
+                    <ImagePlus size={14} /> Voir la galerie · View gallery
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div data-testid="microsite-gallery">
+      {desktop}
+      {mobile}
+      {total > 1 && (
+        <button onClick={() => onOpenLightbox(0)}
+                className="hidden md:inline-flex mt-2 text-xs text-muted-foreground hover:text-foreground items-center gap-1"
+                data-testid="microsite-view-all-photos">
+          <ImagePlus size={11} /> Voir toutes les photos · View all photos ({total})
+        </button>
+      )}
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
-// Sticky tabs
+// Sticky tabs — full-width, bilingual, active underline, translate-safe.
+// Sticks below the global BAKED header (top-16). Never duplicates the header
+// or any global chrome.
 // ---------------------------------------------------------------------------
 
 const StickyTabs = ({ slug, reservationsEnabled }) => {
   const tabs = [
-    { path: "",            label: "Aperçu · Overview" },
-    { path: "order",       label: "Commander · Order" },
-    { path: "menu",        label: "Menu" },
-    { path: "photos",      label: "Photos" },
-    { path: "reviews",     label: "Avis · Reviews" },
-    ...(reservationsEnabled ? [{ path: "reservations", label: "Réserver · Book" }] : []),
+    { path: "",             fr: "Aperçu",    en: "Overview" },
+    { path: "order",        fr: "Commander", en: "Order Online" },
+    { path: "reviews",      fr: "Avis",      en: "Reviews" },
+    { path: "photos",       fr: "Photos",    en: "Photos" },
+    { path: "menu",         fr: "Menu",      en: "Menu" },
+    ...(reservationsEnabled ? [{ path: "reservations", fr: "Réserver", en: "Book a table" }] : []),
   ];
   return (
-    <div className="sticky top-16 z-30 bg-background/95 backdrop-blur border-b border-border" data-testid="microsite-tabs">
-      <div className="baked-container overflow-x-auto -mx-2 px-2">
-        <div className="flex gap-1 py-2 min-w-max">
+    <div className="sticky top-16 z-30 bg-background/95 backdrop-blur border-b border-border mt-6" data-testid="microsite-tabs">
+      <div className="baked-container">
+        <div className="flex gap-6 md:gap-8 overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: "none" }}>
           {tabs.map((t) => (
             <NavLink key={t.path || "overview"}
                      to={`/foodbaked/restaurants/${slug}${t.path ? `/${t.path}` : ""}`}
                      end={t.path === ""}
-                     className={({ isActive }) => `h-9 px-4 rounded-full text-xs font-semibold whitespace-nowrap motion-fast ${isActive ? "text-black" : "bg-card text-foreground border border-border hover:bg-secondary"}`}
-                     style={({ isActive }) => (isActive ? { backgroundColor: GREEN } : {})}
+                     className={({ isActive }) =>
+                       `relative py-3 whitespace-nowrap text-sm font-semibold motion-fast ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`
+                     }
                      data-testid={`microsite-tab-${t.path || "overview"}`}>
-              {t.label}
+              {({ isActive }) => (
+                <>
+                  <span>{t.fr}</span> <span className="text-muted-foreground font-normal">· {t.en}</span>
+                  {isActive && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full" style={{ backgroundColor: GREEN }} />
+                  )}
+                </>
+              )}
             </NavLink>
           ))}
         </div>
