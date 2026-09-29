@@ -22,6 +22,7 @@
 import React, { useCallback, useEffect, useMemo, useState, createContext, useContext } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 import {
   Utensils, Phone, Mail, LogIn, LogOut, ChevronLeft, ChevronRight, Loader2, Upload,
   CheckCircle2, AlertTriangle, FileText, Clock, Banknote, Sparkles, ArrowRight, Shield,
@@ -524,12 +525,24 @@ const WizardShell = ({ step, children, canAdvance = true, onSave, onAdvance, onB
 
 const Step1 = () => {
   const { data, refresh } = useAuth();
-  const rd = data.application.restaurant_details || {};
-  const [f, setF] = useState({ name: rd.name || "", address: rd.address || "", city: rd.city || "", phone: rd.phone || "", description: rd.description || "", cover_image: rd.cover_image || "" });
+  const { t, i18n } = useTranslation("seller");
+  const app = data.application;
+  const rd = app.restaurant_details || {};
+  const [f, setF] = useState({
+    name: rd.name || "",
+    address: rd.address || "",
+    city: rd.city || "",
+    phone: rd.phone || "",
+    description: rd.description || "",
+    cover_image: rd.cover_image || "",
+    offers_reservations: !!app.offers_reservations,
+    reservations_seating_capacity: app.reservations_seating_capacity ?? "",
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const nav = useNavigate();
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const isFr = (i18n?.language || "fr").toLowerCase().startsWith("fr");
 
   const save = async (advance) => {
     setSaving(true); setErr("");
@@ -543,13 +556,42 @@ const Step1 = () => {
 
   return (
     <WizardShell step={STEPS[0]} onSave={() => save(false)} onAdvance={() => save(true)} onBack={() => nav("/foodbaked/sellers/dashboard")} saving={saving} canAdvance={!!f.name && !!f.address}>
-      <Card className="p-4 space-y-3">
+      <Card className="p-4 space-y-3" translate="no">
         {err && <div className="text-xs text-red-500">{err}</div>}
-        <Field label="Nom du restaurant · Restaurant name"><Input value={f.name} onChange={set("name")} required data-testid="step1-name" /></Field>
-        <Field label="Adresse · Address"><Input value={f.address} onChange={set("address")} required data-testid="step1-address" /></Field>
-        <Field label="Ville · City"><Input value={f.city} onChange={set("city")} data-testid="step1-city" /></Field>
-        <Field label="Téléphone du restaurant · Phone"><Input value={f.phone} onChange={set("phone")} data-testid="step1-phone" /></Field>
-        <Field label="Description · Description"><textarea value={f.description} onChange={set("description")} rows={3} className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm" data-testid="step1-description" /></Field>
+        <Field label={isFr ? "Nom du restaurant" : "Restaurant name"}><Input value={f.name} onChange={set("name")} required data-testid="step1-name" /></Field>
+        <Field label={isFr ? "Adresse" : "Address"}><Input value={f.address} onChange={set("address")} required data-testid="step1-address" /></Field>
+        <Field label={isFr ? "Ville" : "City"}><Input value={f.city} onChange={set("city")} data-testid="step1-city" /></Field>
+        <Field label={isFr ? "Téléphone du restaurant" : "Restaurant phone"}><Input value={f.phone} onChange={set("phone")} data-testid="step1-phone" /></Field>
+        <Field label={isFr ? "Description" : "Description"}><textarea value={f.description} onChange={set("description")} rows={3} className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm" data-testid="step1-description" /></Field>
+
+        {/* Reservation capability toggle */}
+        <div className="pt-4 mt-2 border-t border-border" data-testid="step1-reservations-block">
+          <div className="text-sm font-semibold" data-testid="step1-reservations-question">{t("apply.reservations.question")}</div>
+          <div className="text-xs text-muted-foreground mt-1">{t("apply.reservations.help")}</div>
+          <div className="mt-3 inline-flex rounded-full border border-border overflow-hidden bg-secondary/40">
+            <button type="button" onClick={() => setF({ ...f, offers_reservations: true })}
+                    className={`px-4 h-9 text-sm font-semibold ${f.offers_reservations ? "text-black" : "text-muted-foreground"}`}
+                    style={{ backgroundColor: f.offers_reservations ? GREEN : "transparent" }}
+                    data-testid="step1-reservations-yes">
+              {t("apply.reservations.yes")}
+            </button>
+            <button type="button" onClick={() => setF({ ...f, offers_reservations: false, reservations_seating_capacity: "" })}
+                    className={`px-4 h-9 text-sm font-semibold ${!f.offers_reservations ? "text-black" : "text-muted-foreground"}`}
+                    style={{ backgroundColor: !f.offers_reservations ? GREEN : "transparent" }}
+                    data-testid="step1-reservations-no">
+              {t("apply.reservations.no")}
+            </button>
+          </div>
+          {f.offers_reservations && (
+            <div className="mt-3 max-w-xs" data-testid="step1-reservations-capacity-field">
+              <div className="text-xs text-muted-foreground mb-1">{t("apply.reservations.capacity_label")}</div>
+              <Input type="number" min={1} max={999} value={f.reservations_seating_capacity}
+                     onChange={(e) => setF({ ...f, reservations_seating_capacity: e.target.value })}
+                     data-testid="step1-reservations-capacity" />
+              <div className="text-[10px] text-muted-foreground mt-1">{t("apply.reservations.capacity_hint")}</div>
+            </div>
+          )}
+        </div>
       </Card>
     </WizardShell>
   );

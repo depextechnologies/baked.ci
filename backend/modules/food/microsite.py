@@ -105,6 +105,7 @@ def _restaurant_profile(r: Any) -> dict:
         "contact_phone": r.contact_phone,
         "contact_email": r.contact_email,
         "reservations_enabled": bool(r.reservations_enabled),
+        "reservation_public":   bool(getattr(r, "reservation_public", False)),
     }
 
 

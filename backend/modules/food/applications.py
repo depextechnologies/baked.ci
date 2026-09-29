@@ -106,6 +106,8 @@ def _application_public(row) -> dict:
         "restaurant_details": row.restaurant_details or {},
         "timing":              row.timing or {},
         "menu_cuisines":       row.menu_cuisines or {},
+        "offers_reservations":           bool(getattr(row, "offers_reservations", False)),
+        "reservations_seating_capacity": getattr(row, "reservations_seating_capacity", None),
         "submitted_at":       row.submitted_at.isoformat() if row.submitted_at else None,
         "reviewed_at":        row.reviewed_at.isoformat()  if row.reviewed_at  else None,
         "decision_notes":     row.decision_notes,
@@ -403,8 +405,31 @@ async def save_step(step: int, payload: StepIn,
         raise HTTPException(400, "This step doesn't accept structured data — use its dedicated endpoint")
     _guard_editable(app_row)
     field = JSON_STEPS[step]
-    params = {"id": app_row.id, "data": _to_jsonb(payload.data)}
+    data = dict(payload.data or {})
+    # Step 1 extras: reservations toggle lives inside restaurant_details but
+    # we mirror it to dedicated columns so admin approval can propagate it
+    # without JSON gymnastics.
+    extra_sets: list[str] = []
+    extra_params: dict[str, Any] = {}
+    if step == 1:
+        if "offers_reservations" in data:
+            extra_sets.append("offers_reservations = :offers_reservations")
+            extra_params["offers_reservations"] = bool(data.get("offers_reservations"))
+        if "reservations_seating_capacity" in data:
+            cap = data.get("reservations_seating_capacity")
+            if cap in (None, ""):
+                extra_params["reservations_seating_capacity"] = None
+            else:
+                try:
+                    extra_params["reservations_seating_capacity"] = max(0, min(9999, int(cap)))
+                except (TypeError, ValueError):
+                    raise HTTPException(422, "reservations_seating_capacity must be an integer")
+            extra_sets.append("reservations_seating_capacity = :reservations_seating_capacity")
+
+    params = {"id": app_row.id, "data": _to_jsonb(data), **extra_params}
     sets = f"{field} = CAST(:data AS JSONB)"
+    if extra_sets:
+        sets += ", " + ", ".join(extra_sets)
     if payload.advance:
         sets += ", current_step = GREATEST(current_step, :next_step)"
         params["next_step"] = min(step + 1, 6)
@@ -729,6 +754,37 @@ async def admin_review(app_id: str, payload: AdminReviewIn,
                 "pmax": (row.timing or {}).get("prep_time_max") or 30,
                 "img":  rd.get("cover_image") or "",
             })
+        # ---- Reservations propagation ----
+        # If applicant opted-in during onboarding, flip reservations_enabled
+        # to TRUE, keep reservation_public FALSE until partner activates.
+        if bool(getattr(row, "offers_reservations", False)):
+            await session.execute(text(
+                "UPDATE food_restaurants "
+                "SET reservations_enabled = TRUE, reservation_public = FALSE "
+                "WHERE id = :id"
+            ), {"id": rid})
+            # Seed default reservation settings (idempotent).
+            import json as _json
+            _default_hours = {
+                "mon": [["12:00", "14:30"], ["19:00", "22:00"]],
+                "tue": [["12:00", "14:30"], ["19:00", "22:00"]],
+                "wed": [["12:00", "14:30"], ["19:00", "22:00"]],
+                "thu": [["12:00", "14:30"], ["19:00", "22:00"]],
+                "fri": [["12:00", "14:30"], ["19:00", "23:00"]],
+                "sat": [["12:00", "14:30"], ["19:00", "23:00"]],
+                "sun": [["12:00", "14:30"], ["19:00", "22:00"]],
+            }
+            _cap = int(getattr(row, "reservations_seating_capacity", 0) or 0) or 30
+            await session.execute(text("""
+                INSERT INTO food_reservation_settings
+                    (restaurant_id, slot_capacity, min_party_size, max_party_size,
+                     min_lead_time_minutes, slot_interval_minutes, advance_booking_days,
+                     auto_confirm, hours, blackout_dates)
+                VALUES
+                    (:rid, :cap, 1, 12, 60, 30, 60, FALSE,
+                     CAST(:hours AS JSONB), '[]'::jsonb)
+                ON CONFLICT (restaurant_id) DO NOTHING
+            """), {"rid": rid, "cap": _cap, "hours": _json.dumps(_default_hours)})
         # ---- Create shell partner ----
         pid = _mk_id("fp")
         await session.execute(text("""

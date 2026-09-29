@@ -306,7 +306,9 @@ async def get_reservation_config(
     session: AsyncSession = Depends(get_session),
 ):
     r = await _resolve_restaurant(session, slug_or_id, country)
-    if not r.reservations_enabled:
+    # Customer-facing gate: capability + partner has published availability.
+    public_open = bool(r.reservations_enabled) and bool(getattr(r, "reservation_public", False))
+    if not public_open:
         return {
             "restaurant": {"id": r.id, "slug": r.slug, "name": r.name},
             "enabled": False,
@@ -341,7 +343,7 @@ async def list_slots(
     session: AsyncSession = Depends(get_session),
 ):
     r = await _resolve_restaurant(session, slug_or_id, country)
-    if not r.reservations_enabled:
+    if not (r.reservations_enabled and getattr(r, "reservation_public", False)):
         raise HTTPException(404, "Reservations not available for this restaurant")
     try:
         target = date.fromisoformat(date_iso)
@@ -383,7 +385,7 @@ async def create_reservation(
     customer: Optional[Customer] = Depends(get_optional_customer),
 ):
     r = await _resolve_restaurant(session, slug_or_id, country)
-    if not r.reservations_enabled:
+    if not (r.reservations_enabled and getattr(r, "reservation_public", False)):
         raise HTTPException(400, "Reservations are not enabled for this restaurant")
 
     settings = await _get_or_seed_settings(session, r.id)

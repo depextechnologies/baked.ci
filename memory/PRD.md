@@ -1,5 +1,52 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-26) — FOODbakēd · Onboarding Reservation Toggle + Areas/Tables + Activation — COMPLETE
+
+**New split-flag model**
+- `food_restaurants.reservations_enabled` — capability enabled by admin (partner accepted reservations option during onboarding).
+- `food_restaurants.reservation_public` — partner has completed minimum config + hit **"Activer les réservations"**. Only when BOTH are `true` does the customer see the "Réserver une table" quick action + Réserver tab on the microsite.
+
+**Backend**
+- Migration `0060_food_res_public_tables.py` — adds `reservation_public` to `food_restaurants`, `offers_reservations` + `reservations_seating_capacity` to `food_partner_applications`, plus 2 new tables: `food_reservation_areas` (id, restaurant_id, name, sort_order, is_active) and `food_reservation_tables` (id, restaurant_id, area_id, code, seats, is_active, pos_x, pos_y, sort_order — with `UNIQUE(restaurant_id, code)` and `seats BETWEEN 1 AND 40`).
+- New module `modules/food/reservation_config.py`:
+  - `GET /api/food/manage/{rid}/reservation-status` — checklist `{hours, slots, party, capacity}` + counts + `enabled/public`.
+  - `POST /api/food/manage/{rid}/reservation-activate` — validates all_ok; else 400 with `{detail:"incomplete", checklist:{…}}`.
+  - `POST /api/food/manage/{rid}/reservation-deactivate`.
+  - Areas CRUD `GET/POST/PATCH/DELETE /reservation-areas[/{aid}]`.
+  - Tables CRUD `GET/POST/PATCH/DELETE /reservation-tables[/{tid}]` — 409 on duplicate code.
+- `applications.py`:
+  - `PUT /food/apply/step/1` extracts `offers_reservations` + `reservations_seating_capacity` from the data payload and persists them on dedicated columns.
+  - `admin approve` action now sets `reservations_enabled=true, reservation_public=false` on the newly-created restaurant AND seeds default `food_reservation_settings` (60-min lead, 30-min slots, capacity derived from applicant's hint) when `offers_reservations=true`.
+- `reservations.py` — public endpoints (`reservation-config`, `reservation-slots`, `POST /reservations`) now require BOTH `reservations_enabled=true AND reservation_public=true`. Partner endpoints unchanged (capability-only).
+- `microsite.py` — `_restaurant_profile` now also returns `reservation_public`.
+
+**Frontend**
+- `SellersApp.jsx` Step 1 wizard — new "Proposez-vous la réservation de tables ?" question with Oui/Non pill toggle + optional seating-capacity input. Labels via `react-i18next` (`t("apply.reservations.*")`); no bilingual concatenation on this block. `translate="no"` wrapper preserved.
+- `RestaurantMicrosite.jsx` — swapped 4 sites from `restaurants_enabled` → `reservation_public`: sticky tabs, quick-action reserve CTA, overview teaser, dedicated Réserver tab.
+- New `PartnerReservationsDashboard.jsx` — hub page (`/partner/food/reservations`) with:
+  - Post-approval banner "Configurez les réservations" (green highlight + CTA → Settings) when `enabled && !public`.
+  - Active-state banner "Réservations en ligne actives" when public=true.
+  - Live checklist (4 items) + counts + Activate/Deactivate CTA + 3 QuickCards.
+- New `PartnerFloorTablesPage.jsx` — full areas + tables CRUD with visual per-area chip preview (color-coded by seat count) and inline row edit. Foundation for a future graphical drag-and-drop floor plan (already carries `pos_x`/`pos_y` fields).
+- `PartnerApp.jsx` — added Reservations sub-tab pills (Aperçu · Demandes · Espaces & tables · Paramètres) via nested `<Outlet />`. Old top-level `/partner/food/reservations` now renders the new Dashboard by default.
+- i18n: added `apply.reservations.{question, help, yes, no, capacity_label, capacity_hint}` to `fr/seller.json` + `en/seller.json`.
+
+**Seed**
+- `/app/backend/scripts/seed_food_microsite_demo.py` extended with `seed_demo_layout()`:
+  - Configures **Main Hall** (T01-2 · T02-4 · T03-4 · T04-6) + **Terrace** (T05-2 · T06-4) for `burger_hub_ci`.
+  - Sets `reservation_public=true` only for the demo restaurant.
+  - Bumps slot_capacity to match total seats.
+
+**Tests** — `tests/test_food_reservations_onboarding.py` (2/2 pass):
+- `test_reservations_onboarding_and_activation_end_to_end` — signup → apply with reservations=YES + capacity=24 → docs → bank → submit → admin approve → verify restaurant created with `reservations_enabled=true, reservation_public=false` → public config closed → status checklist all_ok → activate 200 → public config now open → areas/tables CRUD + duplicate-code 409 + patch/delete → deactivate closes public flow.
+- `test_reservations_onboarding_no_does_not_enable` — same funnel with reservations=NO → after approval both flags are false.
+
+**Verified live**
+- Customer visibility rule: `burger-hub` shows "Réserver une table" CTA + Réserver tab; `pizza-palace` (public=false) shows neither.
+- Partner Reservations Dashboard renders green "Réservations en ligne actives" banner with 4-item green checklist + Deactivate CTA + counts + 3 QuickCards.
+- Floor & Tables page renders Main Hall + Terrace with T01-T06 chip preview + inline CRUD rows.
+
+
 ## Latest (2026-02-24) — FOODbakēd · Restaurant Analytics + Real Order Foundation — COMPLETE
 - ✅ **`food_orders` production schema** (migration `0057_food_orders.py`) — not analytics-only. Status enum spans the full future workflow: `placed → accepted → preparing → ready → assigned → out_for_delivery → delivered` plus terminal `rejected · cancelled · refunded`. Also seeds:
   - `food_order_items` — with `item_name_snapshot`, `variant_snapshot`, `addons_snapshot` (JSONB) so **historical orders never mutate when menus later change**.

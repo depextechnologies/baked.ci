@@ -106,7 +106,7 @@ export const RestaurantMicrosite = () => {
       <Hero restaurant={restaurant} photos={photos} reviews_summary={reviews_summary}
             onOpenLightbox={(i) => { setLightboxIndex(i); setLightboxOpen(true); }}
             onReserve={() => setReserveOpen(true)} />
-      <StickyTabs slug={restaurant.slug} reservationsEnabled={restaurant.reservations_enabled} />
+      <StickyTabs slug={restaurant.slug} reservationsEnabled={restaurant.reservation_public} />
       <div className="baked-container mt-6" data-testid="microsite-tab-content">
         <Outlet context={{ restaurant, photos, offers, menu_docs, reviews_summary,
                             onOpenLightbox: (i) => { setLightboxIndex(i); setLightboxOpen(true); },
@@ -240,7 +240,7 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
           <QuickAction icon={MapPin}       label={t("food.direction", "Direction")}         onClick={openDirections} testId="microsite-action-direction" />
           <QuickAction icon={Share2}       label={t("food.share", "Share")}  onClick={share}          testId="microsite-action-share" />
           <QuickAction icon={Star}         label={t("food.reviews_action", "Reviews")}    onClick={goReviews}      testId="microsite-action-reviews" />
-          {restaurant.reservations_enabled && (
+          {restaurant.reservation_public && (
             <QuickAction icon={CalendarPlus}
                          label={t("food.book_a_table", "Book a table")}
                          onClick={onReserve}
@@ -626,7 +626,7 @@ export const RestaurantOverview = () => {
         </div>
       </section>
       {/* Reservation teaser */}
-      {restaurant.reservations_enabled && (
+      {restaurant.reservation_public && (
         <section data-testid="microsite-overview-reserve">
           <div className="rounded-2xl border border-border bg-card p-5 flex items-center justify-between gap-3 flex-wrap">
             <div>
@@ -822,7 +822,7 @@ export const RestaurantReviewsTab = () => {
 export const RestaurantReservationsTab = () => {
   const { restaurant, onReserve } = useOutlet();
   const { t } = useTranslation("customer");
-  if (!restaurant.reservations_enabled) {
+  if (!restaurant.reservation_public) {
     return <div className="text-sm text-muted-foreground italic">{t("food.reserve_reservations_unavailable", "Reservations unavailable.")}</div>;
   }
   return (

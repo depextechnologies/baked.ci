@@ -62,6 +62,7 @@
 
 ## FOODbakēd Restaurant Partner (2026-02-23)
 - Portal: `/partner/food/login`
+- **QA Partner (2026-02-26 · Reservations activation)**: `qa-burger@test.example` / `QaBurger123!` — restaurant `burger_hub_ci` (slug `burger-hub`). Areas + tables already seeded (Main Hall T01-T04, Terrace T05-T06); reservation_public=true.
 - **QA Partner (2026-02-24 · Reservations feature)**: `qa-burger@test.example` / `QaBurger123!` — restaurant `burger_hub_ci` (slug `burger-hub`)
 - Super Admin creates accounts at `/admin/modules/food/restaurants` → row → **Partners** icon (Users)
 - Endpoints:

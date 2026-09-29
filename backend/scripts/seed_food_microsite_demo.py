@@ -1,9 +1,11 @@
 """Idempotent seed script for the FOODbakēd microsite demo.
 
 Populates:
-  • food_restaurant_photos  – gallery photos so the microsite hero + Photos tab render.
-  • food_reservation_settings – default capacity/hours so the reservations flow works.
+  • food_restaurant_photos          – gallery photos so the microsite hero + Photos tab render.
+  • food_reservation_settings       – default capacity/hours so the reservations flow works.
   • food_restaurants.reservations_enabled – flipped to TRUE for demo rows.
+  • food_reservation_areas + tables – Main Hall / Terrace layout for the demo restaurant.
+  • food_restaurants.reservation_public   – flipped to TRUE only for the demo restaurant.
 
 Usage:
   cd /app/backend && python -m scripts.seed_food_microsite_demo
@@ -75,13 +77,13 @@ GALLERY_BY_CUISINE = {
 }
 
 DEFAULT_HOURS = {
-    "mon": [{"open": "12:00", "close": "22:00"}],
-    "tue": [{"open": "12:00", "close": "22:00"}],
-    "wed": [{"open": "12:00", "close": "22:00"}],
-    "thu": [{"open": "12:00", "close": "22:00"}],
-    "fri": [{"open": "12:00", "close": "23:00"}],
-    "sat": [{"open": "12:00", "close": "23:00"}],
-    "sun": [{"open": "12:00", "close": "22:00"}],
+    "mon": [["12:00", "22:00"]],
+    "tue": [["12:00", "22:00"]],
+    "wed": [["12:00", "22:00"]],
+    "thu": [["12:00", "22:00"]],
+    "fri": [["12:00", "23:00"]],
+    "sat": [["12:00", "23:00"]],
+    "sun": [["12:00", "22:00"]],
 }
 
 
@@ -157,12 +159,98 @@ async def seed(session: AsyncSession) -> dict:
     return counts
 
 
+DEMO_RESTAURANT_ID = "burger_hub_ci"
+DEMO_LAYOUT = [
+    ("Main Hall", [("T01", 2), ("T02", 4), ("T03", 4), ("T04", 6)]),
+    ("Terrace",   [("T05", 2), ("T06", 4)]),
+]
+
+
+async def seed_demo_layout(session: AsyncSession) -> dict:
+    """Configure the flagship demo restaurant so 'Book a Table' is visible."""
+    counts = {"areas_added": 0, "tables_added": 0, "activated": 0}
+
+    exists = (await session.execute(
+        text("SELECT 1 FROM food_restaurants WHERE id = :id"),
+        {"id": DEMO_RESTAURANT_ID},
+    )).fetchone()
+    if not exists:
+        return counts
+
+    for idx, (area_name, tables) in enumerate(DEMO_LAYOUT):
+        area = (await session.execute(
+            text("SELECT id FROM food_reservation_areas WHERE restaurant_id = :rid AND name = :n"),
+            {"rid": DEMO_RESTAURANT_ID, "n": area_name},
+        )).fetchone()
+        if area:
+            aid = area.id
+        else:
+            aid = uuid.uuid4().hex[:24]
+            await session.execute(
+                text("""
+                    INSERT INTO food_reservation_areas (id, restaurant_id, name, sort_order, is_active)
+                    VALUES (:id, :rid, :n, :o, TRUE)
+                """),
+                {"id": f"area_{aid}", "rid": DEMO_RESTAURANT_ID, "n": area_name, "o": idx},
+            )
+            aid = f"area_{aid}"
+            counts["areas_added"] += 1
+
+        for t_idx, (code, seats) in enumerate(tables):
+            existing_tbl = (await session.execute(
+                text("SELECT 1 FROM food_reservation_tables WHERE restaurant_id = :rid AND code = :c"),
+                {"rid": DEMO_RESTAURANT_ID, "c": code},
+            )).fetchone()
+            if existing_tbl:
+                continue
+            await session.execute(
+                text("""
+                    INSERT INTO food_reservation_tables
+                        (id, restaurant_id, area_id, code, seats, is_active, sort_order)
+                    VALUES (:id, :rid, :aid, :c, :s, TRUE, :o)
+                """),
+                {
+                    "id": f"tbl_{uuid.uuid4().hex[:20]}",
+                    "rid": DEMO_RESTAURANT_ID, "aid": aid, "c": code, "s": seats, "o": t_idx,
+                },
+            )
+            counts["tables_added"] += 1
+
+    # Bump slot capacity to reflect the seat count so slot availability doesn't
+    # cap the demo unnecessarily.
+    total_seats = sum(s for _, tables in DEMO_LAYOUT for _, s in tables)
+    await session.execute(
+        text("""
+            UPDATE food_reservation_settings
+               SET slot_capacity = :cap, updated_at = now()
+             WHERE restaurant_id = :rid
+        """),
+        {"rid": DEMO_RESTAURANT_ID, "cap": max(total_seats, 20)},
+    )
+
+    # Flip public flag to TRUE for demo only.
+    res = await session.execute(
+        text("""
+            UPDATE food_restaurants
+               SET reservation_public = TRUE, updated_at = now()
+             WHERE id = :rid AND reservation_public = FALSE
+        """),
+        {"rid": DEMO_RESTAURANT_ID},
+    )
+    counts["activated"] = int(res.rowcount or 0)
+
+    await session.commit()
+    return counts
+
+
 async def main() -> None:
     engine = create_async_engine(DATABASE_URL, future=True)
     async with AsyncSession(engine) as session:
         counts = await seed(session)
+        demo = await seed_demo_layout(session)
     await engine.dispose()
     print("Seed complete:", counts)
+    print("Demo layout:  ", demo)
 
 
 if __name__ == "__main__":

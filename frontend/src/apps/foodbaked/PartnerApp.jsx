@@ -10,8 +10,8 @@
  * automatically attached by `partnerApi`.
  */
 import React, { useState } from "react";
-import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon } from "lucide-react";
+import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
@@ -20,6 +20,8 @@ import { FoodPartnerActivateRoute } from "./SellersApp";
 import RestaurantNotificationProvider from "./components/RestaurantNotificationEngine";
 import PartnerReservationsPage from "./pages/PartnerReservationsPage";
 import PartnerReservationSettingsPage from "./pages/PartnerReservationSettingsPage";
+import PartnerReservationsDashboard from "./pages/PartnerReservationsDashboard";
+import PartnerFloorTablesPage from "./pages/PartnerFloorTablesPage";
 import PartnerRestaurantProfilePage from "./pages/PartnerRestaurantProfilePage";
 
 const GREEN = "#00A651";
@@ -242,6 +244,32 @@ const PartnerAnalyticsPage = () => {
   );
 };
 
+const RESERVATION_SUBTABS = [
+  { to: "",          label_fr: "Aperçu",          label_en: "Dashboard",  test: "sub-dashboard", end: true },
+  { to: "bookings",  label_fr: "Demandes",        label_en: "Bookings",   test: "sub-bookings" },
+  { to: "floor",     label_fr: "Espaces & tables",label_en: "Floor & Tables", test: "sub-floor" },
+  { to: "settings",  label_fr: "Paramètres",      label_en: "Settings",   test: "sub-settings" },
+];
+
+const ReservationsHubLayout = () => {
+  const isFr = ((typeof window !== "undefined" && localStorage.getItem("i18nextLng")) || "fr").toLowerCase().startsWith("fr");
+  return (
+    <div className="space-y-4" data-testid="partner-reservations-hub">
+      <div className="inline-flex flex-wrap gap-1 rounded-full bg-secondary/60 p-1" translate="no">
+        {RESERVATION_SUBTABS.map((s) => (
+          <NavLink key={s.to || "index"} to={s.to} end={s.end}
+                   className={({ isActive }) => `px-4 h-9 rounded-full text-xs font-semibold inline-flex items-center gap-1 ${isActive ? "text-black" : "text-muted-foreground hover:text-foreground"}`}
+                   style={({ isActive }) => isActive ? { backgroundColor: GREEN } : undefined}
+                   data-testid={`partner-reservations-${s.test}`}>
+            {isFr ? s.label_fr : s.label_en}
+          </NavLink>
+        ))}
+      </div>
+      <Outlet />
+    </div>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Router — mounted from App.jsx
 // ---------------------------------------------------------------------------
@@ -255,7 +283,12 @@ export const FoodPartnerApp = () => (
         <Route index element={<PartnerDashboard />} />
         <Route path="menu" element={<PartnerMenuPage />} />
         <Route path="analytics" element={<PartnerAnalyticsPage />} />
-        <Route path="reservations" element={<PartnerReservationsPage />} />
+        <Route path="reservations" element={<ReservationsHubLayout />}>
+          <Route index element={<PartnerReservationsDashboard />} />
+          <Route path="bookings" element={<PartnerReservationsPage />} />
+          <Route path="floor" element={<PartnerFloorTablesPage />} />
+          <Route path="settings" element={<PartnerReservationSettingsPage />} />
+        </Route>
         <Route path="profile" element={<PartnerRestaurantProfilePage />} />
         <Route path="settings" element={<PartnerReservationSettingsPage />} />
       </Route>
