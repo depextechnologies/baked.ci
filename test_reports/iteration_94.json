@@ -1,0 +1,42 @@
+{
+  "summary": "Regression-tested FOODbakēd Reservation Onboarding Toggle + Areas/Tables Foundation. Backend: 2/2 shipped onboarding tests still green + 9/9 new focused tests covering visibility gate, public booking gate, areas/tables CRUD, duplicate-code 409, tenant isolation (partner qa-burger → pizza_palace_ci returns 404/403), activation round-trip, and checklist. Frontend: verified customer visibility gate (burger-hub public=True shows green 'Réserver une table' CTA; pizza-palace public=False hides both CTA and sticky tab — critical rule). Verified all partner reservations dashboard testids (banner, checklist, sub-tabs, deactivate). Verified partner floor page renders Main Hall (T01-T04: 2/4/4/6) + Terrace (T05-T06: 2/4) with all edit/delete controls. Verified deactivate/reactivate round-trip immediately toggles customer CTA visibility. Verified i18n switcher on customer microsite ('Réserver une table' → 'Book a table' without reload). Verified seller wizard Step 1 renders FR-only 'Proposez-vous la réservation de tables ?' block with Oui/Non pill toggle and capacity reveal — no bilingual concatenation on the new block.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/food/restaurants/{slug}/reservations", "issue": "When reservation_public=false the server returns 422 (schema validation runs before gate) if payload keys are wrong, or 400 with a proper payload. Ideally the gate should short-circuit before pydantic validation so the client always sees a consistent 400/404. Test asserts 400 or 404 — currently passes when payload is well-formed (returns 400)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Seller applicant portal chrome (SellersApp.jsx hub + step headers + Save/Next buttons)", "issues": ["Bilingual concatenation still present in pre-existing chrome: 'Détails du restaurant · Restaurant details', 'Enregistrer · Save draft', 'Suivez et complétez votre demande FOODbakēd. · Track and complete your FOODbakēd application.' The NEW reservations block itself is correctly FR-only, but the review request states 'FR-first, no bilingual concatenation on new UI'. If SellersApp.jsx counts as new UI, this chrome should be migrated to react-i18next as well. Not a functional bug; deferred styling item."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_reservations_onboarding.py",
+    "/app/backend/tests/test_food_reservation_gate_and_crud.py",
+    "/app/test_reports/pytest/food_reservations_onboarding.xml",
+    "/app/test_reports/pytest/food_reservation_gate.xml"
+  ],
+  "action_items": [
+    "Consider gating the /reservations POST *before* pydantic validation so a closed restaurant returns a consistent 400 instead of 422 for malformed payloads (cosmetic).",
+    "Optional: migrate the seller applicant portal chrome (SellersApp.jsx hub, step headers, Save/Next buttons) to react-i18next to remove pre-existing FR·EN concatenation and match the FR-first rule the new reservations block already follows."
+  ],
+  "critical_code_review_comments": [
+    "modules/food/reservation_config.py — reservation-activate returns 400 with detail={'detail':'incomplete','checklist':{...}} — good. But FastAPI's HTTPException wraps `detail` in another `detail` key on the wire (client sees {'detail': {'detail': 'incomplete', 'checklist': ...}}). Verify the frontend PartnerReservationsDashboard unwraps correctly.",
+    "PartnerFloorTablesPage exposes an extra 'QA-Area-{hex}' test area created by earlier gate-and-crud test runs (visible in the screenshot). Add a periodic cleanup or scope test data creation to disposable rids to prevent portal pollution.",
+    "Applicant wizard writes token to localStorage under 'food_applicant_token' — key is fine, but there is no XSS-hardening/expiration recheck on route entry; a stale JWT will 401 on first step API call. Consider a light refresh/redirect wrapper.",
+    "modules/food/reservations.py POST handler does pydantic validation *before* checking reservation_public — a closed restaurant returns 422 for bad payloads instead of 400, leaking schema shape to closed restaurants. Move gate check first."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_food_reservation_gate_and_crud.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11 pytest cases across 2 files)", "frontend": "100% on all critical flows tested"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ · Partner: qa-burger@test.example / QaBurger123!",
+  "seed_data_creation": "Left one 'QA-Area-<hex>' test area on burger_hub_ci from the areas-CRUD lifecycle test (deleted at end of test). A few disposable food_applicants created (qa-res-*, qa-ui-*) for the onboarding round-trip.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "burger_hub_ci is the seeded canonical partner (public=True after each test run). pizza_palace_ci is the negative fixture (enabled=True, public=False) — do NOT flip its reservation_public in tests. Slug 'burger-hub' is shared across CI+IN — always use rid 'burger_hub_ci' when addressing the partner manage endpoints from tests. The applicant token key in localStorage is 'food_applicant_token'. Partner login route is /partner/food/login (not /foodbaked/partner/login).",
+  "rca of the issue": "N/A — no bugs found; all shipped flows behave as specified."
+}
