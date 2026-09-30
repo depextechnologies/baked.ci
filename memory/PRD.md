@@ -1,5 +1,44 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-26) — FOODbakēd · Unified Discovery Search + FR-first Homepage — COMPLETE
+
+**P0 fix #1 — Unified search**
+- New endpoint `GET /api/food/search?q=&mode=&country=&limit=` in `modules/food/search.py`. Returns 4 grouped buckets: `restaurants`, `dishes`, `cuisines`, `reservations`.
+- Real DB queries: parameterised ILIKE against `food_restaurants.name/slug`, `food_menu_items.name/description/tags`, and JSONB `cuisines`. Country-aware. Only `status='active'` restaurants and `is_available=TRUE` menu items surfaced.
+- Cross-language cuisine expansion — a FR query like "indien" resolves to the canonical EN code `indian` so DB rows still match.
+- Reservation bucket is strictly gated by `reservations_enabled AND reservation_public`. `mode=dine_in` ranks reservable restaurants first.
+- Frontend `FoodSearchDropdown.jsx` — debounced 280 ms, stale-response protection via AbortController, group headers via i18n (`food.search_group_*`), localised empty/error states, uses the GLOBAL `useApp().countryCode`.
+- Results page `FoodSearchResultsPage.jsx` mounted at `/foodbaked/search?q=&mode=&group=` with Tout / Restaurants / Plats / Cuisines / Réservations tabs.
+- Wired into both mobile + desktop switchboards in `CustomerApp.jsx`.
+- Click behaviour: restaurant → `/foodbaked/restaurants/{slug}` (canonical), dish → same route with `?order=1&item={id}`, cuisine → results page filtered, reservation → `?reserve=1`. No duplicate microsite pages.
+
+**P0 fix #2 — FR-first homepage**
+- Added the full set of missing FR + EN keys to `i18n/locales/{fr,en}/customer.json`:
+  - Hero: `food.hero_line1`, `hero_line2`, `hero_subtitle`, `search_placeholder`, `search_btn`, `mode_delivery`, `mode_pickup`, `mode_dine_in`.
+  - Featured / cuisines / why sections: `featured_title`, `view_all`, `cuisines_title`, `why_title`, `no_restaurants`.
+  - Promo tiles: `promo1_line1/line2/sub/cta`, `promo2_title/sub/note/cta`.
+  - USPs 1-4: `usp{1..4}_title` and `usp{1..4}_sub`.
+  - Testimonial: `testimonial_quote`, `testimonial_meta`.
+  - Search groups & states: `search_group_restaurants/dishes/cuisines/reservations`, `search_view_all`, `search_empty_title`, `search_empty_hint`, `search_error`, `search_all_tab`, `search_reservable_pill`, `search_verified_pill`.
+  - Delivery status labels: `free_delivery`, `delivery_fee_line`.
+- FoodHome.jsx now uses `t()` everywhere — no bilingual concatenation, no hardcoded English. Global FR/EN switch flips the whole page live.
+- Global-context safety: FoodHome sources `countryCode` from `useApp()` (no new FOODbakēd-only selector).
+
+**Cleanup**
+- Deleted 2 leftover QA test restaurants (`no-res-qa-*`, `bistro-qa-*`) that were polluting search results.
+
+**Tests** (`tests/test_food_search.py`, 9/9 pass):
+- burger / spice / cheeseburger / indien / table / dine_in ranking / country isolation / empty q → 422 / zzzz → empty buckets.
+
+**Verified live** — screenshots confirm:
+- FR default hero copy ("La bonne cuisine / nous rassemble"), FR placeholder + button, FR service toggle.
+- Debounced dropdown groups Restaurants/Plats/Cuisines/Réservations with thumbnails, rating, "Réservable" pill.
+- Enter routes to `/foodbaked/search?q=burger&mode=delivery` with Tout(23)/Restaurants(3)/Plats(18)/Cuisines(1)/Réservations(1) tabs and card grids.
+- Every section below the hero (Cuisines à découvrir · Pourquoi choisir FOODbakēd · USP tiles · testimonial) is fully French.
+
+**Testing agent iteration_95**: 100% backend / 95% frontend, no P0 bugs, only outstanding item was missing FR keys below the hero — now fixed.
+
+
 ## Latest (2026-02-26) — FOODbakēd · Reviews Publication (verified-order & verified-visit) — COMPLETE
 
 **Schema**
