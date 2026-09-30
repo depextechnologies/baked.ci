@@ -18,6 +18,7 @@
  * via the GLOBAL `i18n.language`, which the top nav switcher owns.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
@@ -42,8 +43,31 @@ export const FoodSearchDropdown = ({ mode, country, placeholder, ctaLabel }) => 
   const [data, setData] = useState(null);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const panelRef = useRef(null);
   const reqIdRef = useRef(0);
   const isFr = (i18n?.language || "fr").toLowerCase().startsWith("fr");
+
+  // Anchor rect for the portal-rendered dropdown so it can never be clipped
+  // by the hero's `overflow-hidden`, a parent transform, backdrop-filter, etc.
+  const [anchor, setAnchor] = useState(null);
+  const recomputeAnchor = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setAnchor({ top: r.bottom + 8, left: r.left, width: r.width });
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    recomputeAnchor();
+    const onScroll = () => recomputeAnchor();
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open, recomputeAnchor]);
+  useEffect(() => { if (open && q) recomputeAnchor(); }, [q, open, recomputeAnchor]);
 
   // ---- Debounced fetch
   useEffect(() => {
@@ -71,13 +95,20 @@ export const FoodSearchDropdown = ({ mode, country, placeholder, ctaLabel }) => 
     return () => { clearTimeout(tm); controller.abort(); };
   }, [q, mode, country]);
 
-  // ---- Close on outside click
+  // ---- Close on outside click (both the input container AND the portalled panel count as "inside")
   useEffect(() => {
     const onClick = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+      const inContainer = containerRef.current && containerRef.current.contains(e.target);
+      const inPanel     = panelRef.current     && panelRef.current.contains(e.target);
+      if (!inContainer && !inPanel) setOpen(false);
     };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const gotoResults = useCallback((query = q) => {
@@ -130,9 +161,21 @@ export const FoodSearchDropdown = ({ mode, country, placeholder, ctaLabel }) => 
         </button>
       </form>
 
-      {showDropdown && (
-        <div className="absolute z-50 mt-2 w-full rounded-2xl bg-card border border-border shadow-2xl max-h-[70vh] overflow-y-auto"
+      {showDropdown && anchor && typeof document !== "undefined" && createPortal(
+        <div ref={panelRef}
+             className="rounded-2xl bg-card border border-border shadow-2xl overflow-hidden"
+             style={{
+               position: "fixed",
+               top: anchor.top,
+               left: anchor.left,
+               width: Math.max(anchor.width, 320),
+               maxWidth: `calc(100vw - 16px)`,
+               maxHeight: `min(70vh, calc(100vh - ${anchor.top + 16}px))`,
+               zIndex: 9999,
+             }}
+             translate="no"
              data-testid="food-search-dropdown">
+          <div className="overflow-y-auto" style={{ maxHeight: `min(70vh, calc(100vh - ${anchor.top + 16}px))` }}>
           {error ? (
             <div className="p-6 text-sm text-red-500 inline-flex items-center gap-2" data-testid="food-search-error">
               <AlertTriangle size={14} /> {t("food.search_error")}
@@ -206,14 +249,16 @@ export const FoodSearchDropdown = ({ mode, country, placeholder, ctaLabel }) => 
               )}
 
               <button onClick={() => gotoResults()}
-                      className="w-full h-11 px-4 text-sm font-semibold text-black inline-flex items-center justify-center gap-2 hover:brightness-95"
+                      className="w-full h-11 px-4 text-sm font-semibold text-black inline-flex items-center justify-center gap-2 hover:brightness-95 sticky bottom-0"
                       style={{ backgroundColor: GREEN }}
                       data-testid="food-search-view-all">
                 {t("food.search_view_all")} <ChevronRight size={14} />
               </button>
             </div>
           )}
-        </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
