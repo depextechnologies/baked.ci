@@ -1,5 +1,32 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-26) — FOODbakēd · Reviews Publication (verified-order & verified-visit) — COMPLETE
+
+**Schema**
+- Migration `0061_food_reviews_extras.py` — adds `reservation_id` FK, `flagged_reason`, `moderation_notes` to `food_reviews`. Partial `UNIQUE(reservation_id, customer_id)` when both non-null so one review per booking per customer.
+
+**Backend** (`modules/food/reviews.py`)
+- `POST /api/food/customer/reviews` — customer publishes a review. MUST reference either an `order_id` (order.status='delivered' + owned) or a `reservation_id` (reservation.status='completed' + owned). One review per order OR per reservation (enforced by unique indices). Automated moderation `_moderate()` deterministically flags contains_email / contains_link / contains_phone / prohibited_content / possible_shouting — flagged rows are stored with `status='reported'` and NOT shown publicly (super-admin can moderate later). Genuine 1★ reviews are never hidden. Publishing recomputes `food_restaurants.review_count` + `rating` in the same commit.
+- `GET /api/food/customer/reviews/eligible` — lists delivered orders + completed reservations still awaiting a review (feeds the "Laisser un avis" prompt).
+- `GET /api/food/restaurants/{slug}/reviews?page=&size=&sort=recent|top|low` — paginated public list (published only) with rating distribution + average. Author is normalised to "Prénom N." for privacy. Each review carries `verified_order`/`verified_visit` booleans.
+- Microsite endpoint keeps its aggregated `reviews_summary` shape untouched — dashboards + hero rating chip auto-refresh.
+
+**Frontend**
+- New `apps/foodbaked/components/ReviewModal.jsx` — 5★ overall + optional 4 sub-ratings (Cuisine · Service · Ambiance · Rapport qualité-prix) + text (1000 char cap). Shows "Commande vérifiée" / "Visite vérifiée" pill up-front. On success, renders a thank-you card that adapts if the review was auto-published vs held for moderation.
+- `MyReservationsPage.jsx` — fetches `/reviews/eligible` on load; on completed reservations, renders a green "Laisser un avis" chip that opens the modal. After publish, chip becomes "Avis publié" (data-testid `reservation-reviewed-{id}`).
+- `RestaurantMicrosite.jsx` — Reviews tab now fetches the full paginated list (not just `.recent`), renders sort pills (Plus récents / Meilleures notes / Notes les plus basses), individual review cards with "Prénom N.", verified pill, star row, and partner response block when present.
+
+**Seed** — 6 demo reviews stamped on `burger_hub_ci` via `seed_food_microsite_demo.py` (rating avg 4.3, mixed sub-ratings, "Prénom N." authors encoded in `moderation_notes` for the demo). Aggregates recomputed on the restaurant row.
+
+**Tests** (`tests/test_food_reviews.py`, 4/4 pass; existing onboarding tests 2/2 still green — 6/6 overall):
+- `test_public_reviews_list_reads_seeded_demo` — validates seeded reviews surface with normalised authors + distribution sum.
+- `test_reviews_sort_switches_result_order` — top vs low sorts return in the right order.
+- `test_review_moderation_flags_urls_emails_phones` — unit test on `_moderate()` covering the 5 rules.
+- `test_reviews_write_requires_bearer_token` — anonymous POST → 401/403.
+
+**Verified live** — customer microsite `/foodbaked/restaurants/burger-hub/reviews` shows 4.3 ★ · 6 avis · full breakdown bars · 6 review cards with author + date + stars + text; sort pills switch order; hero rating chip reflects the new count.
+
+
 ## Latest (2026-02-26) — FOODbakēd · Onboarding Reservation Toggle + Areas/Tables + Activation — COMPLETE
 
 **New split-flag model**

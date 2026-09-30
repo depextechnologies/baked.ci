@@ -248,9 +248,93 @@ async def main() -> None:
     async with AsyncSession(engine) as session:
         counts = await seed(session)
         demo = await seed_demo_layout(session)
+        reviews = await seed_demo_reviews(session)
     await engine.dispose()
     print("Seed complete:", counts)
     print("Demo layout:  ", demo)
+    print("Demo reviews: ", reviews)
+
+
+DEMO_REVIEWS = [
+    {"author": "Aïcha K.",   "rating": 5, "text": "Les burgers signature sont exceptionnels — cuisson parfaite et service rapide. On revient sans hésiter !",
+     "food": 5, "service": 5, "ambience": 4, "value": 5},
+    {"author": "Kouassi T.", "rating": 4, "text": "Très bon rapport qualité-prix. Les frites au fromage sont un délice. Un peu bruyant le soir mais rien de grave.",
+     "food": 5, "service": 4, "ambience": 3, "value": 5},
+    {"author": "Mariam D.",  "rating": 5, "text": "Ambiance chaleureuse en salle, terrasse agréable. Le personnel est adorable et attentif.",
+     "food": 4, "service": 5, "ambience": 5, "value": 4},
+    {"author": "Yao B.",     "rating": 3, "text": "Correct sans plus, l'attente était longue un vendredi soir. Le burger reste bon quand même.",
+     "food": 4, "service": 2, "ambience": 4, "value": 3},
+    {"author": "Fatou S.",   "rating": 5, "text": "Meilleur burger d'Abidjan à ce prix ! Réservation facile et la table était prête à notre arrivée.",
+     "food": 5, "service": 5, "ambience": 4, "value": 5},
+    {"author": "Ibrahim N.", "rating": 4, "text": "Menu varié, bien pour un dîner en famille. Les enfants ont adoré. On reviendra en terrasse.",
+     "food": 4, "service": 4, "ambience": 5, "value": 4},
+]
+
+
+async def seed_demo_reviews(session: AsyncSession) -> dict:
+    """Stamp published reviews on the demo restaurant (idempotent)."""
+    counts = {"reviews_inserted": 0}
+    existing = (await session.execute(
+        text("SELECT COUNT(*) FROM food_reviews WHERE restaurant_id = :rid"),
+        {"rid": DEMO_RESTAURANT_ID},
+    )).scalar_one()
+    if int(existing) >= len(DEMO_REVIEWS):
+        return counts
+
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+
+    for idx, rv in enumerate(DEMO_REVIEWS):
+        rid = f"rvw_demo_{DEMO_RESTAURANT_ID}_{idx:02d}"
+        # Skip if this exact seed row already exists
+        prior = (await session.execute(
+            text("SELECT 1 FROM food_reviews WHERE id = :id"), {"id": rid},
+        )).fetchone()
+        if prior:
+            continue
+        # Fabricate a customer_id so the display normalisation returns the seed author.
+        # We store the author in `moderation_notes` for traceability and use a fake
+        # (nullable) customer_id — the public serializer falls back to "Client vérifié"
+        # otherwise. To surface the desired display name we upsert a lightweight
+        # customer row when possible, else drop customer_id and store the display name
+        # inside moderation_notes for the seed only.
+        await session.execute(
+            text("""
+                INSERT INTO food_reviews
+                    (id, restaurant_id, customer_id, order_id, reservation_id,
+                     rating, text, food_rating, service_rating, ambience_rating, value_rating,
+                     status, flagged_reason, moderation_notes, created_at, updated_at)
+                VALUES
+                    (:id, :rest, NULL, NULL, NULL,
+                     :rating, :text, :food, :service, :ambience, :value,
+                     'published', NULL, :author, :ts, :ts)
+            """),
+            {
+                "id": rid, "rest": DEMO_RESTAURANT_ID,
+                "rating": rv["rating"], "text": rv["text"],
+                "food": rv["food"], "service": rv["service"],
+                "ambience": rv["ambience"], "value": rv["value"],
+                "author": f"seed_author={rv['author']}",
+                "ts": now - timedelta(days=idx * 3 + 1),
+            },
+        )
+        counts["reviews_inserted"] += 1
+
+    # Refresh aggregates on the restaurant row.
+    await session.execute(text("""
+        UPDATE food_restaurants r
+           SET review_count = sub.n,
+               rating       = sub.avg
+          FROM (
+              SELECT COUNT(*)                 AS n,
+                     COALESCE(AVG(rating), 0) AS avg
+                FROM food_reviews
+               WHERE restaurant_id = :rid AND status = 'published'
+          ) sub
+         WHERE r.id = :rid
+    """), {"rid": DEMO_RESTAURANT_ID})
+    await session.commit()
+    return counts
 
 
 if __name__ == "__main__":

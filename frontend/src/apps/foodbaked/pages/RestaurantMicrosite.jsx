@@ -23,7 +23,7 @@ import {
   Star, Clock, MapPin, Share2, Heart, ChevronRight, ChevronLeft, X,
   Wifi, Utensils, Car, Accessibility, Music, Trees, Leaf, Cigarette,
   Baby, Wine, Snowflake, Phone, Mail, Calendar, ImagePlus, Loader2, ArrowLeft,
-  CalendarPlus,
+  CalendarPlus, CheckCircle2,
 } from "lucide-react";
 import { useApp } from "../../../contexts/BakedContexts";
 import FoodRestaurantDetail from "./FoodRestaurantDetail";
@@ -781,29 +781,88 @@ export const RestaurantPhotosTab = () => {
 // ---------------------------------------------------------------------------
 
 export const RestaurantReviewsTab = () => {
-  const { reviews_summary } = useOutlet();
-  const { t } = useTranslation("customer");
+  const { restaurant, reviews_summary } = useOutlet();
+  const { t, i18n } = useTranslation("customer");
+  const [reviews, setReviews] = useState(null);
+  const [summary, setSummary] = useState(reviews_summary);
+  const [sort, setSort] = useState("recent");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const isFr = (i18n?.language || "fr").toLowerCase().startsWith("fr");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setErr("");
+      try {
+        const url = `${process.env.REACT_APP_BACKEND_URL || ""}/api/food/restaurants/${restaurant.slug}/reviews?sort=${sort}&size=20&country=${encodeURIComponent(restaurant.country || "CI")}`;
+        const res = await fetch(url);
+        const d = await res.json();
+        if (!cancelled) { setReviews(d.reviews || []); setSummary(d.summary || reviews_summary); }
+      } catch (e) {
+        if (!cancelled) setErr(String(e.message || e));
+      } finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [restaurant.slug, restaurant.country, sort, reviews_summary]);
+
+  const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString(isFr ? "fr-FR" : "en-US", { day: "2-digit", month: "short", year: "numeric" }) : "";
+
   return (
     <div className="space-y-6" data-testid="microsite-reviews-tab">
       <div className="rounded-2xl border border-border bg-card p-5 max-w-lg">
-        <RatingBreakdown summary={reviews_summary} />
+        <RatingBreakdown summary={summary} />
       </div>
-      {reviews_summary.count === 0 ? (
+
+      <div className="flex items-center gap-2 flex-wrap" data-testid="microsite-reviews-sort">
+        {[
+          { k: "recent", fr: "Plus récents", en: "Most recent" },
+          { k: "top",    fr: "Meilleures notes", en: "Highest rated" },
+          { k: "low",    fr: "Notes les plus basses", en: "Lowest rated" },
+        ].map((o) => (
+          <button key={o.k} onClick={() => setSort(o.k)}
+                  className={`text-xs h-8 px-3 rounded-full font-semibold ${sort === o.k ? "text-black" : "text-muted-foreground bg-secondary hover:bg-secondary/80"}`}
+                  style={sort === o.k ? { backgroundColor: GREEN } : undefined}
+                  data-testid={`microsite-reviews-sort-${o.k}`}>
+            {isFr ? o.fr : o.en}
+          </button>
+        ))}
+      </div>
+
+      {err && <div className="text-xs text-red-500">{err}</div>}
+
+      {loading && reviews === null ? (
+        <div className="text-sm text-muted-foreground inline-flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> …</div>
+      ) : (reviews || []).length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground" data-testid="microsite-reviews-empty">
           {t("food.no_reviews", "No reviews yet — order and leave the first review!")}
         </div>
       ) : (
-        <div className="space-y-3">
-          {reviews_summary.recent.map((r) => (
+        <div className="space-y-3" data-testid="microsite-reviews-list">
+          {reviews.map((r) => (
             <div key={r.id} className="rounded-2xl border border-border bg-card p-4" data-testid={`microsite-review-${r.id}`}>
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-sm">{r.customer?.name || "Anonyme"}</div>
-                <div className="text-xs" style={{ color: GREEN }}>★ {r.rating}</div>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="font-semibold text-sm">{r.author}</div>
+                  {(r.verified_order || r.verified_visit) && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                          style={{ backgroundColor: `${GREEN}22`, color: GREEN }}
+                          data-testid={`microsite-review-verified-${r.id}`}>
+                      <CheckCircle2 size={10} /> {r.verified_order ? (isFr ? "Commande vérifiée" : "Verified order") : (isFr ? "Visite vérifiée" : "Verified visit")}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">{fmtDate(r.created_at)}</span>
+                </div>
+                <div className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: "#f59e0b" }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} size={12} fill={i < r.rating ? "#f59e0b" : "none"} stroke={i < r.rating ? "#f59e0b" : "#a1a1aa"} />
+                  ))}
+                </div>
               </div>
-              <div className="text-sm text-foreground/90 mt-1">{r.text}</div>
+              {r.text && <div className="text-sm text-foreground/90 mt-2">{r.text}</div>}
               {r.partner_response && (
                 <div className="mt-2 rounded-lg bg-secondary/60 p-3 text-xs">
-                  <div className="font-semibold" style={{ color: GREEN }}>Réponse du restaurant · Response</div>
+                  <div className="font-semibold" style={{ color: GREEN }}>{isFr ? "Réponse du restaurant" : "Response from the restaurant"}</div>
                   <div className="text-muted-foreground mt-0.5">{r.partner_response}</div>
                 </div>
               )}

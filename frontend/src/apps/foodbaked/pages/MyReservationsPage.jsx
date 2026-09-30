@@ -9,8 +9,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { Loader2, ChevronLeft, Calendar, Clock, Users, XCircle, CheckCircle2, AlertTriangle, Utensils } from "lucide-react";
+import { Loader2, ChevronLeft, Calendar, Clock, Users, XCircle, CheckCircle2, AlertTriangle, Utensils, Star } from "lucide-react";
 import { useAuth } from "../../../contexts/BakedContexts";
+import ReviewModal from "../components/ReviewModal";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
 const GREEN = "#00A651";
@@ -41,12 +42,21 @@ export const MyReservationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [reviewedIds, setReviewedIds] = useState(new Set());
+  const [eligibleReservationIds, setEligibleReservationIds] = useState(new Set());
+  const [reviewCtx, setReviewCtx] = useState(null); // { kind:"reservation", id, restaurant_name }
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
       const { data } = await axios.get(`${API}/api/food/customer/reservations`, { headers: authHeaders() });
       setList(data.reservations || []);
+      // Eligibility (which reservations still need a review) — best-effort.
+      try {
+        const el = await axios.get(`${API}/api/food/customer/reviews/eligible`, { headers: authHeaders() });
+        const rs = new Set((el.data?.reservations || []).map((r) => r.id));
+        setEligibleReservationIds(rs);
+      } catch { /* silent */ }
     } catch (e) {
       setErr(e.response?.data?.detail || e.message || "Erreur · Error");
     } finally { setLoading(false); }
@@ -108,15 +118,27 @@ export const MyReservationsPage = () => {
         <section className="space-y-3" data-testid="reservations-past">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Historique · History</h2>
           {past.map((r) => (
-            <ReservationCard key={r.id} r={r} onCancel={cancel} busy={false} />
+            <ReservationCard key={r.id} r={r} onCancel={cancel} busy={false}
+                             canReview={r.status === "completed" && eligibleReservationIds.has(r.id) && !reviewedIds.has(r.id)}
+                             alreadyReviewed={r.status === "completed" && !eligibleReservationIds.has(r.id) && !reviewedIds.has(r.id) ? false : reviewedIds.has(r.id)}
+                             onReview={() => setReviewCtx({ kind: "reservation", id: r.id, restaurant_name: r.restaurant?.name })} />
           ))}
         </section>
+      )}
+
+      {reviewCtx && (
+        <ReviewModal context={reviewCtx}
+                     onClose={() => setReviewCtx(null)}
+                     onSubmit={() => {
+                       setReviewedIds(new Set([...reviewedIds, reviewCtx.id]));
+                       setEligibleReservationIds((s) => { const n = new Set(s); n.delete(reviewCtx.id); return n; });
+                     }} />
       )}
     </div>
   );
 };
 
-const ReservationCard = ({ r, onCancel, busy }) => {
+const ReservationCard = ({ r, onCancel, busy, canReview, alreadyReviewed, onReview }) => {
   const st = STATUS_MAP[r.status] || STATUS_MAP.pending;
   const canCancel = ["pending", "confirmed"].includes(r.status);
   return (
@@ -138,6 +160,18 @@ const ReservationCard = ({ r, onCancel, busy }) => {
         </div>
         {r.rejection_reason && <div className="text-[11px] text-red-500 mt-1"><em>Motif :</em> {r.rejection_reason}</div>}
       </div>
+      {canReview && (
+        <button onClick={onReview} data-testid={`reservation-review-${r.id}`}
+                className="h-9 px-3 rounded-lg text-xs font-semibold text-black inline-flex items-center gap-1"
+                style={{ backgroundColor: GREEN }}>
+          <Star size={12} /> Laisser un avis
+        </button>
+      )}
+      {alreadyReviewed && (
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${GREEN}22`, color: GREEN }} data-testid={`reservation-reviewed-${r.id}`}>
+          <CheckCircle2 size={10} className="inline mr-1" /> Avis publié
+        </span>
+      )}
       {canCancel && (
         <button onClick={() => onCancel(r.id)} disabled={busy} data-testid={`reservation-cancel-${r.id}`}
                 className="h-9 px-3 rounded-lg text-xs font-semibold bg-red-500/10 text-red-500 hover:bg-red-500/20 inline-flex items-center gap-1 disabled:opacity-50">

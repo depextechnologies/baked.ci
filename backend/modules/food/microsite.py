@@ -76,6 +76,9 @@ def _menu_doc(r: Any) -> dict:
 
 
 def _review(r: Any) -> dict:
+    # Seed rows encode the intended display name in moderation_notes.
+    note = getattr(r, "moderation_notes", None) or ""
+    seed_name = note.split("=", 1)[1].strip() if note.startswith("seed_author=") else None
     return {
         "id": r.id, "rating": r.rating, "text": r.text,
         "food_rating": r.food_rating, "service_rating": r.service_rating,
@@ -83,7 +86,7 @@ def _review(r: Any) -> dict:
         "partner_response": r.partner_response,
         "partner_response_at": _iso(r.partner_response_at),
         "created_at": _iso(r.created_at),
-        "customer": {"id": r.customer_id, "name": getattr(r, "customer_name", None)},
+        "customer": {"id": r.customer_id, "name": seed_name or getattr(r, "customer_name", None)},
     }
 
 
