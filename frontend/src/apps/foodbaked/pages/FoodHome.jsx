@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { Search, Bike, ShoppingBag, Utensils, Star, Clock, Truck, Heart, ChevronRight } from "lucide-react";
 import { useApp } from "../../../contexts/BakedContexts";
 import axios from "axios";
+import FoodSearchDropdown from "../components/FoodSearchDropdown";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const GREEN = "#77BC1F";
@@ -88,6 +89,7 @@ const CategoryChip = ({ category, isActive, onClick }) => {
 };
 
 const RestaurantCard = ({ r, currencySymbol = "CFA" }) => {
+  const { t } = useTranslation("customer");
   const cuisines = (r.cuisines || []).slice(0, 2).join(" · ");
   const rating = Number(r.rating || 0).toFixed(1);
   return (
@@ -118,11 +120,13 @@ const RestaurantCard = ({ r, currencySymbol = "CFA" }) => {
             }`}
             style={r.is_open ? { backgroundColor: `${GREEN}33`, color: GREEN } : {}}
           >
-            {r.is_open ? "Open" : "Closed"}
+            {r.is_open ? t("food.open") : t("food.closed")}
           </span>
         </div>
         <div className="text-[11px] text-muted-foreground pt-1">
-          {r.delivery_fee === 0 ? "Free delivery" : `${r.delivery_fee} ${currencySymbol} delivery`}
+          {r.delivery_fee === 0
+            ? t("food.free_delivery", { defaultValue: "Free delivery" })
+            : t("food.delivery_fee_line", { defaultValue: "{{fee}} {{cur}} delivery", fee: r.delivery_fee, cur: currencySymbol })}
         </div>
       </div>
     </Link>
@@ -238,25 +242,13 @@ export const FoodHome = () => {
                 {t("food.hero_subtitle", { defaultValue: "Discover amazing restaurants, local favourites and global cuisines — only on FOODbakēd." })}
               </p>
 
-              {/* Search bar */}
-              <div className="flex bg-white rounded-full overflow-hidden max-w-xl shadow-xl">
-                <div className="flex items-center gap-2 px-4 flex-1">
-                  <Search size={16} className="text-neutral-500" />
-                  <input
-                    type="text"
-                    placeholder={t("food.search_placeholder", { defaultValue: "Search for restaurants, cuisines or dishes…" })}
-                    className="flex-1 bg-transparent outline-none py-3 text-sm text-neutral-800"
-                    data-testid="food-search-input"
-                  />
-                </div>
-                <button
-                  className="px-6 text-sm font-semibold text-black"
-                  style={{ backgroundColor: GREEN }}
-                  data-testid="food-search-btn"
-                >
-                  {t("food.search_btn", { defaultValue: "Search" })}
-                </button>
-              </div>
+              {/* Search bar (unified discovery) */}
+              <FoodSearchDropdown
+                mode={mode}
+                country={countryCode || undefined}
+                placeholder={t("food.search_placeholder", { defaultValue: "Search for restaurants, cuisines or dishes…" })}
+                ctaLabel={t("food.search_btn", { defaultValue: "Search" })}
+              />
 
               {/* Service toggle */}
               <ServiceToggle value={mode} onChange={setMode} />

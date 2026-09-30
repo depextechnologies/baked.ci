@@ -24,6 +24,7 @@ import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { FoodHome } from "@/apps/foodbaked/pages/FoodHome";
+import { FoodSearchResultsPage } from "@/apps/foodbaked/pages/FoodSearchResultsPage";
 import { FoodRestaurantDetail } from "@/apps/foodbaked/pages/FoodRestaurantDetail";
 import {
   RestaurantMicrosite,
@@ -162,6 +163,7 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<FoodHome />} />
+      <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
       <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
       <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
         <Route index element={<RestaurantOverview />} />
@@ -254,6 +256,7 @@ const MobileCustomerShell = () => (
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<FoodHome />} />
+      <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
       <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
       <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
         <Route index element={<RestaurantOverview />} />

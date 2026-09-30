@@ -103,6 +103,7 @@ from modules.food.reviews import (  # noqa: E402
     public_router   as food_reviews_public_router,
     customer_router as food_reviews_customer_router,
 )
+from modules.food.search import public_router as food_search_public_router  # noqa: E402
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -232,6 +233,7 @@ api_router.include_router(food_microsite_manage_router)        # /food/manage/{r
 api_router.include_router(food_reservation_config_manage_router)  # /food/manage/{rid}/reservation-areas + tables + activate
 api_router.include_router(food_reviews_public_router)             # /food/restaurants/{slug}/reviews
 api_router.include_router(food_reviews_customer_router)           # /food/customer/reviews[/eligible]
+api_router.include_router(food_search_public_router)              # /food/search
 
 # --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity
