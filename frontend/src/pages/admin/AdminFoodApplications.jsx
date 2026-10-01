@@ -214,6 +214,15 @@ const ApplicationDetail = ({ appId, onClose, onChanged }) => {
             <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-xs text-green-700 space-y-2" data-testid="admin-food-app-activation-url">
               <div className="font-semibold">Activation email envoyé · Activation email sent.</div>
               <div className="break-all">Dev preview: <a href={activationUrl} target="_blank" rel="noreferrer" className="underline">{activationUrl}</a></div>
+              {app.created_restaurant_id && (
+                <div className="pt-1">
+                  <a href={`/admin/modules/food/restaurants?rid=${encodeURIComponent(app.created_restaurant_id)}`}
+                     className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-700"
+                     data-testid="admin-food-app-view-restaurant">
+                    <Store size={12} /> Voir le restaurant · View restaurant →
+                  </a>
+                </div>
+              )}
             </div>
           )}
 

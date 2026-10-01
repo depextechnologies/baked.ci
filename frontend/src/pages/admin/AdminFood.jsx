@@ -176,6 +176,22 @@ export const AdminFoodRestaurants = () => {
   const [editing, setEditing] = useState(null); // row | 'new' | null
   const [managingPartners, setManagingPartners] = useState(null); // restaurant | null
   const [saving, setSaving] = useState(false);
+  const [highlightRid, setHighlightRid] = useState(null);
+
+  // Honour `?rid=` deep-link (coming from "View restaurant" after approval)
+  // and auto-clear the country filter so the row is guaranteed to appear.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rid = new URLSearchParams(window.location.search).get("rid");
+    if (rid) {
+      setHighlightRid(rid);
+      setCountry(""); // show all countries so the newly-approved row surfaces
+      setTimeout(() => {
+        const el = document.querySelector(`[data-testid="admin-food-restaurant-row-${rid}"]`);
+        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 400);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -267,7 +283,9 @@ export const AdminFoodRestaurants = () => {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-border" data-testid={`admin-food-restaurant-row-${r.id}`}>
+                <tr key={r.id}
+                    className={`border-t border-border ${highlightRid === r.id ? "bg-green-500/10 ring-1 ring-green-500/40" : ""}`}
+                    data-testid={`admin-food-restaurant-row-${r.id}`}>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <img src={resolveImg(r.image)} alt="" className="w-8 h-8 rounded-lg object-cover bg-muted" />

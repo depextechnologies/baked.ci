@@ -813,8 +813,24 @@ async def admin_review(app_id: str, payload: AdminReviewIn,
         await session.commit()
 
         # ---- Welcome email with activation link ----
-        base = os.environ.get("PUBLIC_BASE_URL") or ""
-        activate_url = f"{base}/partner/food/activate?token={raw}" if base else f"/partner/food/activate?token={raw}"
+        # Build an absolute URL so email clients render a real anchor.
+        # In non-production we prefer the live preview origin so QA testers
+        # can click through on the same cluster they are testing on.
+        _env = (os.environ.get("APP_ENV") or "development").lower()
+        if _env == "production":
+            base = (
+                os.environ.get("APP_BASE_URL")
+                or os.environ.get("REACT_APP_BACKEND_URL")
+                or "https://baked.ci"
+            )
+        else:
+            base = (
+                os.environ.get("REACT_APP_BACKEND_URL")
+                or os.environ.get("APP_BASE_URL")
+                or "https://baked.ci"
+            )
+        base = base.rstrip("/")
+        activate_url = f"{base}/partner/food/activate?token={raw}"
         html = f"""
           <div style="font-family:system-ui;color:#111;max-width:560px">
             <h2 style="color:#00A651">Bienvenue chez FOODbakēd · Welcome to FOODbakēd</h2>
