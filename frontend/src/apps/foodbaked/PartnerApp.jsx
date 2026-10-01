@@ -28,6 +28,8 @@ import PartnerRestaurantProfilePage from "./pages/PartnerRestaurantProfilePage";
 const GREEN = "#00A651";
 const API_BASE = process.env.REACT_APP_BACKEND_URL || "";
 const resolveImg = (u) => (!u ? "" : u.startsWith("http") || u.startsWith("data:") ? u : `${API_BASE}${u}`);
+const detectFr = () =>
+  (((typeof window !== "undefined" && localStorage.getItem("i18nextLng")) || "fr").toLowerCase().startsWith("fr"));
 
 // ---------------------------------------------------------------------------
 // Auth screens
@@ -39,8 +41,9 @@ const PartnerLoginPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const isFr = detectFr();
 
-  if (checking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="animate-spin mr-2" size={16} /> Chargement…</div>;
+  if (checking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="animate-spin mr-2" size={16} /> {isFr ? "Chargement…" : "Loading…"}</div>;
   if (partner) return <Navigate to="/partner/food" replace />;
 
   const submit = async (e) => {
@@ -50,7 +53,7 @@ const PartnerLoginPage = () => {
       await login(form);
       nav("/partner/food", { replace: true });
     } catch (e) {
-      setErr(e.response?.data?.detail || e.message || "Erreur · Error");
+      setErr(e.response?.data?.detail || e.message || (isFr ? "Erreur" : "Error"));
     } finally { setBusy(false); }
   };
 
@@ -58,9 +61,9 @@ const PartnerLoginPage = () => {
     <div className="min-h-screen flex items-center justify-center p-6 bg-secondary/30" data-testid="partner-login-page">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 space-y-4 shadow-xl">
         <div className="text-center space-y-1">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Portail Restaurant · Restaurant Portal</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{isFr ? "Portail Restaurant" : "Restaurant Portal"}</div>
           <h1 className="text-2xl font-bold">FOOD<span style={{ color: GREEN }}>bakēd</span></h1>
-          <p className="text-xs text-muted-foreground">Connexion partenaire · Partner sign-in</p>
+          <p className="text-xs text-muted-foreground">{isFr ? "Connexion partenaire" : "Partner sign-in"}</p>
         </div>
         <form onSubmit={submit} className="space-y-3">
           <label className="block space-y-1">
@@ -69,7 +72,7 @@ const PartnerLoginPage = () => {
                    className="h-10 w-full rounded-lg border border-border bg-secondary/40 px-3 text-sm" data-testid="partner-login-email" />
           </label>
           <label className="block space-y-1">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Mot de passe · Password</div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{isFr ? "Mot de passe" : "Password"}</div>
             <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
                    className="h-10 w-full rounded-lg border border-border bg-secondary/40 px-3 text-sm" data-testid="partner-login-password" />
           </label>
@@ -77,10 +80,10 @@ const PartnerLoginPage = () => {
           <button type="submit" disabled={busy} data-testid="partner-login-submit"
                   className="w-full h-10 rounded-lg text-primary-foreground font-semibold text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
                   style={{ backgroundColor: GREEN }}>
-            {busy && <Loader2 size={14} className="animate-spin" />} <LogIn size={14} /> Se connecter · Sign in
+            {busy && <Loader2 size={14} className="animate-spin" />} <LogIn size={14} /> {isFr ? "Se connecter" : "Sign in"}
           </button>
           <div className="text-[10px] text-center text-muted-foreground">
-            Pas de compte ? Demandez à l'équipe FOODbakēd. · No account? Contact the FOODbakēd team.
+            {isFr ? "Pas de compte ? Demandez à l'équipe FOODbakēd." : "No account? Contact the FOODbakēd team."}
           </div>
         </form>
       </div>
@@ -94,17 +97,18 @@ const PartnerLoginPage = () => {
 
 const PartnerLayout = () => {
   const { partner, restaurant, logout, checking, token } = useFoodPartner();
-  if (checking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="animate-spin mr-2" size={16} /> Chargement…</div>;
+  const isFr = detectFr();
+  if (checking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="animate-spin mr-2" size={16} /> {isFr ? "Chargement…" : "Loading…"}</div>;
   if (!partner) return <Navigate to="/partner/food/login" replace />;
 
   const nav = [
-    { to: "/partner/food",              label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
-    { to: "/partner/food/orders",       label: "Commandes · Orders",         icon: Package },
-    { to: "/partner/food/reservations", label: "Réservations · Reservations", icon: CalendarClock },
-    { to: "/partner/food/profile",      label: "Profil · Profile",              icon: ImgIcon },
-    { to: "/partner/food/analytics",    label: "Analytics",                    icon: BarChart3 },
-    { to: "/partner/food/menu",         label: "Menu",                         icon: Utensils },
-    { to: "/partner/food/settings",     label: "Paramètres · Settings",        icon: Settings },
+    { to: "/partner/food",              label: isFr ? "Tableau de bord" : "Dashboard",     icon: LayoutDashboard, end: true },
+    { to: "/partner/food/orders",       label: isFr ? "Commandes" : "Orders",              icon: Package },
+    { to: "/partner/food/reservations", label: isFr ? "Réservations" : "Reservations",     icon: CalendarClock },
+    { to: "/partner/food/profile",      label: isFr ? "Profil" : "Profile",                icon: ImgIcon },
+    { to: "/partner/food/analytics",    label: "Analytics",                                 icon: BarChart3 },
+    { to: "/partner/food/menu",         label: "Menu",                                      icon: Utensils },
+    { to: "/partner/food/settings",     label: isFr ? "Paramètres" : "Settings",            icon: Settings },
   ];
 
   return (
@@ -112,7 +116,7 @@ const PartnerLayout = () => {
       <div className="min-h-screen bg-secondary/30 flex" data-testid="partner-shell">
         <aside className="w-64 shrink-0 bg-card border-r border-border flex flex-col">
           <div className="p-5 border-b border-border">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Restaurant Portal</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{isFr ? "Portail Restaurant" : "Restaurant Portal"}</div>
             <div className="text-lg font-bold">FOOD<span style={{ color: GREEN }}>bakēd</span></div>
             <div className="mt-2 rounded-lg bg-secondary/60 p-2 flex items-center gap-2">
               <img src={resolveImg(restaurant?.image)} alt="" className="w-8 h-8 rounded-md object-cover bg-muted" />
@@ -132,7 +136,7 @@ const PartnerLayout = () => {
             ))}
           </nav>
           <button onClick={logout} data-testid="partner-logout" className="m-3 h-9 px-3 rounded-lg bg-secondary hover:bg-red-500/10 hover:text-red-500 text-sm inline-flex items-center gap-2">
-            <LogOut size={14} /> Se déconnecter · Sign out
+            <LogOut size={14} /> {isFr ? "Se déconnecter" : "Sign out"}
           </button>
         </aside>
         <main className="flex-1 min-w-0 p-6"><Outlet /></main>
@@ -149,13 +153,14 @@ const PartnerDashboard = () => {
   const { restaurant, refresh } = useFoodPartner();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const isFr = detectFr();
 
   if (!restaurant) return null;
 
   const patch = async (fields) => {
     setSaving(true); setErr("");
     try { await partnerApi.patch("/food/partner/restaurant", fields); await refresh(); }
-    catch (e) { setErr(e.response?.data?.detail || e.message || "Erreur"); }
+    catch (e) { setErr(e.response?.data?.detail || e.message || (isFr ? "Erreur" : "Error")); }
     finally { setSaving(false); }
   };
 
@@ -167,28 +172,30 @@ const PartnerDashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatTile label="Statut · Status" value={restaurant.is_open ? "Ouvert · Open" : "Fermé · Closed"} intent={restaurant.is_open ? "ok" : "off"} />
-        <StatTile label="Note · Rating" value={`${Number(restaurant.rating).toFixed(1)} ★ (${restaurant.review_count})`} />
-        <StatTile label="Prépa · Prep time" value={`${restaurant.prep_time_min}–${restaurant.prep_time_max} min`} />
+        <StatTile label={isFr ? "Statut" : "Status"} value={restaurant.is_open ? (isFr ? "Ouvert" : "Open") : (isFr ? "Fermé" : "Closed")} intent={restaurant.is_open ? "ok" : "off"} />
+        <StatTile label={isFr ? "Note" : "Rating"} value={`${Number(restaurant.rating).toFixed(1)} ★ (${restaurant.review_count})`} />
+        <StatTile label={isFr ? "Prépa" : "Prep time"} value={`${restaurant.prep_time_min}–${restaurant.prep_time_max} min`} />
       </div>
 
       {err && <div className="text-xs text-red-500">{err}</div>}
 
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="partner-restaurant-controls">
-        <div className="text-sm font-semibold flex items-center gap-2"><Store size={16} /> Auto-service · Self-service</div>
-        <p className="text-xs text-muted-foreground">Vous pouvez basculer votre statut d'ouverture, ajuster le temps de préparation et changer votre image. Le reste est géré par l'équipe FOODbakēd. · Toggle open/closed, tweak prep time, change cover photo — anything else needs the FOODbakēd team.</p>
+        <div className="text-sm font-semibold flex items-center gap-2"><Store size={16} /> {isFr ? "Auto-service" : "Self-service"}</div>
+        <p className="text-xs text-muted-foreground">{isFr
+          ? "Vous pouvez basculer votre statut d'ouverture, ajuster le temps de préparation et changer votre image. Le reste est géré par l'équipe FOODbakēd."
+          : "Toggle open/closed, tweak prep time, change cover photo — anything else needs the FOODbakēd team."}</p>
         <div className="flex flex-wrap gap-3 items-center">
           <button onClick={() => patch({ is_open: !restaurant.is_open })} disabled={saving} data-testid="partner-toggle-open"
                   className={`h-9 px-4 rounded-lg text-sm font-semibold ${restaurant.is_open ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"}`}>
-            {restaurant.is_open ? "Fermer · Close now" : "Ouvrir · Open now"}
+            {restaurant.is_open ? (isFr ? "Fermer" : "Close now") : (isFr ? "Ouvrir" : "Open now")}
           </button>
           <label className="text-xs inline-flex items-center gap-2">
-            <span className="text-muted-foreground">Prépa min</span>
+            <span className="text-muted-foreground">{isFr ? "Prépa min" : "Prep min"}</span>
             <input type="number" min={1} defaultValue={restaurant.prep_time_min} onBlur={(e) => { const v = parseInt(e.target.value || 0, 10); if (v !== restaurant.prep_time_min) patch({ prep_time_min: v }); }}
                    className="h-8 w-16 rounded-lg border border-border bg-secondary/40 px-2 text-xs" data-testid="partner-prep-min" />
           </label>
           <label className="text-xs inline-flex items-center gap-2">
-            <span className="text-muted-foreground">Prépa max</span>
+            <span className="text-muted-foreground">{isFr ? "Prépa max" : "Prep max"}</span>
             <input type="number" min={1} defaultValue={restaurant.prep_time_max} onBlur={(e) => { const v = parseInt(e.target.value || 0, 10); if (v !== restaurant.prep_time_max) patch({ prep_time_max: v }); }}
                    className="h-8 w-16 rounded-lg border border-border bg-secondary/40 px-2 text-xs" data-testid="partner-prep-max" />
           </label>
@@ -198,7 +205,7 @@ const PartnerDashboard = () => {
             value={restaurant.image}
             onChange={(v) => patch({ image: v })}
             kind="restaurant_cover"
-            label="Photo de couverture · Cover photo"
+            label={isFr ? "Photo de couverture" : "Cover photo"}
             testId="partner-restaurant-image"
           />
         </div>
@@ -207,11 +214,13 @@ const PartnerDashboard = () => {
       <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold">Menu · Menu management</div>
-            <div className="text-xs text-muted-foreground">Ajoutez sections, plats, variantes et extras. · Add sections, items, variants and add-ons.</div>
+            <div className="text-sm font-semibold">{isFr ? "Gestion du menu" : "Menu management"}</div>
+            <div className="text-xs text-muted-foreground">{isFr
+              ? "Ajoutez sections, plats, variantes et extras."
+              : "Add sections, items, variants and add-ons."}</div>
           </div>
           <Link to="/partner/food/menu" data-testid="partner-open-menu" className="h-9 px-4 rounded-lg text-primary-foreground font-semibold text-sm inline-flex items-center gap-2" style={{ backgroundColor: GREEN }}>
-            <Utensils size={14} /> Gérer le menu · Open menu
+            <Utensils size={14} /> {isFr ? "Gérer le menu" : "Open menu"}
           </Link>
         </div>
       </div>

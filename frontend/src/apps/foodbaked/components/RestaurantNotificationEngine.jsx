@@ -36,6 +36,9 @@ const GREEN = "#00A651";
 const NotificationCtx = createContext(null);
 export const useRestaurantNotifications = () => useContext(NotificationCtx) || {};
 
+const detectFr = () =>
+  (((typeof window !== "undefined" && localStorage.getItem("i18nextLng")) || "fr").toLowerCase().startsWith("fr"));
+
 const wsUrl = (rid, token) => {
   const base = API.replace(/^http/, "ws");
   return `${base}/api/food/manage/${encodeURIComponent(rid)}/ws?token=${encodeURIComponent(token || "")}`;
@@ -113,7 +116,15 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
   const [updatesVersion, setUpdatesVersion] = useState(0); // consumers subscribe to this to refetch
   const [wsStatus, setWsStatus] = useState("idle"); // idle | connecting | open | closed
   const wsRef = useRef(null);
+  // Refs for values read inside WS onmessage — avoids stale closure when the
+  // partner enables alerts or changes settings AFTER the WS already connected.
+  const audioReadyRef = useRef(false);
+  const settingsRef = useRef(settings);
+  const seenEventIdsRef = useRef(new Set()); // de-dup across WS reconnects
   const { unlock, playChime, stopChime } = useChime();
+
+  useEffect(() => { audioReadyRef.current = audioReady; }, [audioReady]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   // Load settings once
   useEffect(() => {
@@ -147,10 +158,22 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
       ws.onmessage = (ev) => {
         try {
           const frame = JSON.parse(ev.data);
+          // De-dup on event id or (type + entity_id) across WS reconnects / rerenders
+          const dedupKey = frame.event_id || `${frame.type}:${frame.reservation?.id || frame.order?.id || ""}`;
+          if (dedupKey && seenEventIdsRef.current.has(dedupKey)) return;
+          if (dedupKey) {
+            seenEventIdsRef.current.add(dedupKey);
+            if (seenEventIdsRef.current.size > 500) {
+              // Trim oldest half to cap memory on long-running sessions.
+              seenEventIdsRef.current = new Set(Array.from(seenEventIdsRef.current).slice(-250));
+            }
+          }
+          const s = settingsRef.current;
+          const ready = audioReadyRef.current;
           if (frame.type === "food.reservation.created") {
             const res = frame.reservation;
             setQueue((q) => q.some((x) => x.id === res.id) ? q : [...q, res]);
-            if (settings.sound_new_reservation && audioReady) playChime(settings.sound_volume);
+            if (s.sound_new_reservation && ready) playChime(s.sound_volume);
             setUpdatesVersion((v) => v + 1);
           } else if (frame.type === "food.reservation.updated") {
             setUpdatesVersion((v) => v + 1);
@@ -158,7 +181,7 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
             const o = frame.order;
             if (o && o.id) {
               setOrderQueue((q) => q.some((x) => x.id === o.id) ? q : [...q, o]);
-              if (settings.sound_new_order && audioReady) playChime(settings.sound_volume);
+              if (s.sound_new_order && ready) playChime(s.sound_volume);
               setUpdatesVersion((v) => v + 1);
             }
           } else if (frame.type === "food.order.updated") {
@@ -180,8 +203,8 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
       cancelled = true;
       try { wsRef.current?.close(); } catch {}
     };
-    // audioReady, playChime, settings intentionally captured — they change
-    // rarely and re-establishing the WS on every keystroke is wasteful.
+    // Values are read via refs inside onmessage so changing audioReady /
+    // settings does NOT need to re-establish the WS.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, token]);
 
@@ -266,7 +289,7 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
           className="fixed bottom-4 right-4 z-[120] h-10 px-4 rounded-full text-xs font-semibold shadow-lg inline-flex items-center gap-2 text-white"
           style={{ backgroundColor: GREEN }}
         >
-          <Volume2 size={13} /> Activer les alertes · Enable alerts
+          <Volume2 size={13} /> {detectFr() ? "Activer les alertes" : "Enable alerts"}
         </button>
       )}
       {current && (
@@ -299,17 +322,24 @@ const IncomingOrderModal = ({ order, onAccept, onReject, onDismiss, extra }) => 
   const [busy, setBusy] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const isFr = detectFr();
   const accept = async () => { setBusy(true); try { await onAccept(); } finally { setBusy(false); } };
   const reject = async () => { setBusy(true); try { await onReject(reason.trim() || "Unspecified"); } finally { setBusy(false); } };
-  const typeLabel = order.order_type === "pickup" ? "À emporter · Pickup" : "Livraison · Delivery";
+  const typeLabel = order.order_type === "pickup"
+    ? (isFr ? "À emporter" : "Pickup")
+    : (isFr ? "Livraison" : "Delivery");
+
+  const REASONS_FR = ["Restaurant trop occupé", "Article indisponible", "Fermeture imminente", "Impossible de préparer", "Autre"];
+  const REASONS_EN = ["Too busy",                "Item unavailable",     "Closing soon",         "Unable to fulfil",       "Other"];
+  const reasons = isFr ? REASONS_FR : REASONS_EN;
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4" data-testid="partner-order-modal" translate="no">
+    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4" data-testid="new-food-order-modal" translate="no">
       <button type="button" aria-label="Dismiss" onClick={onDismiss} className="absolute inset-0 bg-black/70" />
       <div className="relative w-full max-w-md rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between" style={{ backgroundColor: `${GREEN}1a` }}>
           <div>
-            <div className="text-[10px] uppercase tracking-widest" style={{ color: GREEN }}>Nouvelle commande · New order</div>
+            <div className="text-[10px] uppercase tracking-widest" style={{ color: GREEN }}>{isFr ? "Nouvelle commande" : "New order"}</div>
             <div className="text-lg font-bold font-mono" data-testid="partner-order-modal-number">{order.order_number}</div>
           </div>
           <button onClick={onDismiss} className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"><X size={14} /></button>
@@ -317,30 +347,32 @@ const IncomingOrderModal = ({ order, onAccept, onReject, onDismiss, extra }) => 
         <div className="p-5 space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <div className="text-muted-foreground">{typeLabel}</div>
-            <div className="text-xs text-muted-foreground">{order.items_count} article(s) · item(s)</div>
+            <div className="text-xs text-muted-foreground">{order.items_count} {isFr ? "article(s)" : "item(s)"}</div>
           </div>
           <div className="text-3xl font-bold" style={{ color: GREEN }} data-testid="partner-order-modal-total">
-            {Number(order.grand_total || 0).toLocaleString("fr-FR")} <span className="text-base font-semibold text-muted-foreground">{order.currency}</span>
+            {Number(order.grand_total || 0).toLocaleString(isFr ? "fr-FR" : "en-US")} <span className="text-base font-semibold text-muted-foreground">{order.currency}</span>
           </div>
-          {extra > 0 && <div className="text-[10px] text-muted-foreground">+{extra} autre(s) en attente · more waiting</div>}
+          {extra > 0 && (
+            <div className="text-[10px] text-muted-foreground" data-testid="partner-order-modal-queue">
+              {isFr ? `+${extra} autre(s) en attente` : `+${extra} more waiting`}
+            </div>
+          )}
           {rejecting ? (
             <div className="space-y-2 pt-1">
-              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Motif · Reason</div>
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{isFr ? "Motif" : "Reason"}</div>
               <select value={reason} onChange={(e) => setReason(e.target.value)}
                       className="w-full rounded-lg border border-border bg-secondary/40 px-3 h-9 text-sm"
-                      data-testid="partner-order-modal-reason">
+                      data-testid="reject-reason-input">
                 <option value="">—</option>
-                <option>Restaurant trop occupé · Too busy</option>
-                <option>Article indisponible · Item unavailable</option>
-                <option>Fermeture imminente · Closing soon</option>
-                <option>Impossible de préparer · Unable to fulfil</option>
-                <option>Autre · Other</option>
+                {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
               <div className="flex gap-2 pt-1">
-                <button onClick={() => setRejecting(false)} className="flex-1 h-10 rounded-lg bg-secondary text-sm font-semibold" disabled={busy}>Annuler</button>
+                <button onClick={() => setRejecting(false)} className="flex-1 h-10 rounded-lg bg-secondary text-sm font-semibold" disabled={busy}>
+                  {isFr ? "Annuler" : "Cancel"}
+                </button>
                 <button onClick={reject} className="flex-1 h-10 rounded-lg bg-red-500 text-white text-sm font-semibold inline-flex items-center justify-center gap-2"
                         disabled={busy || !reason} data-testid="partner-order-modal-reject-confirm">
-                  {busy && <Loader2 size={12} className="animate-spin" />} Confirmer le refus
+                  {busy && <Loader2 size={12} className="animate-spin" />} {isFr ? "Confirmer le refus" : "Confirm rejection"}
                 </button>
               </div>
             </div>
@@ -349,13 +381,13 @@ const IncomingOrderModal = ({ order, onAccept, onReject, onDismiss, extra }) => 
               <button onClick={() => setRejecting(true)} disabled={busy}
                       className="flex-1 h-11 rounded-lg bg-red-500/10 text-red-500 text-sm font-semibold inline-flex items-center justify-center gap-2"
                       data-testid="partner-order-modal-reject">
-                <X size={14} /> Refuser · Reject
+                <X size={14} /> {isFr ? "Refuser" : "Reject"}
               </button>
               <button onClick={accept} disabled={busy}
                       className="flex-1 h-11 rounded-lg text-black text-sm font-semibold inline-flex items-center justify-center gap-2"
                       style={{ backgroundColor: GREEN }}
                       data-testid="partner-order-modal-accept">
-                {busy && <Loader2 size={12} className="animate-spin" />} <Check size={14} /> Accepter · Accept
+                {busy && <Loader2 size={12} className="animate-spin" />} <Check size={14} /> {isFr ? "Accepter" : "Accept"}
               </button>
             </div>
           )}
@@ -373,8 +405,9 @@ const IncomingModal = ({ reservation, onAccept, onReject, onDismiss, extra }) =>
   const [busy, setBusy] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const isFr = detectFr();
 
-  const when = new Date(reservation.reservation_at || "").toLocaleString(undefined, {
+  const when = new Date(reservation.reservation_at || "").toLocaleString(isFr ? "fr-FR" : "en-US", {
     weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
@@ -387,23 +420,23 @@ const IncomingModal = ({ reservation, onAccept, onReject, onDismiss, extra }) =>
       <div className="relative w-full max-w-md rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between" style={{ backgroundColor: `${GREEN}12` }}>
           <div>
-            <div className="text-[10px] uppercase tracking-widest" style={{ color: GREEN }}>Nouvelle réservation · New reservation</div>
+            <div className="text-[10px] uppercase tracking-widest" style={{ color: GREEN }}>{isFr ? "Nouvelle réservation" : "New reservation"}</div>
             <div className="text-lg font-bold">{reservation.guest_name}</div>
           </div>
           <button onClick={onDismiss} className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center" data-testid="partner-notification-close"><X size={14} /></button>
         </div>
         <div className="p-5 space-y-3 text-sm">
           <div className="flex items-center gap-2"><Calendar size={14} className="text-muted-foreground" /> <span>{when}</span></div>
-          <div className="flex items-center gap-2"><Users size={14} className="text-muted-foreground" /> <span>{reservation.party_size} personnes · people</span></div>
+          <div className="flex items-center gap-2"><Users size={14} className="text-muted-foreground" /> <span>{reservation.party_size} {isFr ? "personnes" : "people"}</span></div>
           <div className="flex items-center gap-2"><Phone size={14} className="text-muted-foreground" /> <span>{reservation.guest_phone}</span></div>
           {reservation.notes && <div className="flex items-start gap-2"><MessageSquare size={14} className="text-muted-foreground mt-0.5" /> <span className="italic">{reservation.notes}</span></div>}
           <div className="text-[10px] font-mono text-muted-foreground pt-2">{reservation.booking_reference}</div>
           {rejecting && (
             <div className="space-y-2 pt-1">
-              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Motif · Reason</div>
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{isFr ? "Motif" : "Reason"}</div>
               <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
                         className="w-full rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs"
-                        placeholder="Complet · Fully booked, etc." data-testid="partner-notification-reason" />
+                        placeholder={isFr ? "Complet, etc." : "Fully booked, etc."} data-testid="partner-notification-reason" />
             </div>
           )}
         </div>
@@ -413,13 +446,13 @@ const IncomingModal = ({ reservation, onAccept, onReject, onDismiss, extra }) =>
               <button onClick={() => setRejecting(true)} disabled={busy}
                       className="flex-1 h-10 rounded-lg text-sm font-semibold bg-red-500/10 text-red-500 hover:bg-red-500/20 inline-flex items-center justify-center gap-2 disabled:opacity-50"
                       data-testid="partner-notification-reject">
-                <X size={14} /> Refuser · Reject
+                <X size={14} /> {isFr ? "Refuser" : "Reject"}
               </button>
               <button onClick={accept} disabled={busy}
                       className="flex-1 h-10 rounded-lg text-sm font-semibold text-white inline-flex items-center justify-center gap-2 disabled:opacity-50"
                       style={{ backgroundColor: GREEN }}
                       data-testid="partner-notification-accept">
-                {busy && <Loader2 size={14} className="animate-spin" />} <Check size={14} /> Accepter · Accept
+                {busy && <Loader2 size={14} className="animate-spin" />} <Check size={14} /> {isFr ? "Accepter" : "Accept"}
               </button>
             </>
           ) : (
@@ -427,19 +460,19 @@ const IncomingModal = ({ reservation, onAccept, onReject, onDismiss, extra }) =>
               <button onClick={() => setRejecting(false)} disabled={busy}
                       className="flex-1 h-10 rounded-lg text-sm font-semibold bg-secondary hover:bg-secondary/80"
                       data-testid="partner-notification-reject-cancel">
-                Retour · Back
+                {isFr ? "Retour" : "Back"}
               </button>
               <button onClick={reject} disabled={busy}
                       className="flex-1 h-10 rounded-lg text-sm font-semibold bg-red-500 text-white inline-flex items-center justify-center gap-2 disabled:opacity-50"
                       data-testid="partner-notification-reject-confirm">
-                {busy && <Loader2 size={14} className="animate-spin" />} Confirmer · Confirm
+                {busy && <Loader2 size={14} className="animate-spin" />} {isFr ? "Confirmer" : "Confirm"}
               </button>
             </>
           )}
         </div>
         {extra > 0 && (
           <div className="px-5 py-2 border-t border-border text-[11px] text-muted-foreground text-center" data-testid="partner-notification-queue-count">
-            +{extra} en attente · pending
+            {isFr ? `+${extra} en attente` : `+${extra} pending`}
           </div>
         )}
       </div>

@@ -249,10 +249,12 @@ async def main() -> None:
         counts = await seed(session)
         demo = await seed_demo_layout(session)
         reviews = await seed_demo_reviews(session)
+        partner = await seed_qa_partner(session)
     await engine.dispose()
     print("Seed complete:", counts)
     print("Demo layout:  ", demo)
     print("Demo reviews: ", reviews)
+    print("QA partner:   ", partner)
 
 
 DEMO_REVIEWS = [
@@ -333,6 +335,50 @@ async def seed_demo_reviews(session: AsyncSession) -> dict:
           ) sub
          WHERE r.id = :rid
     """), {"rid": DEMO_RESTAURANT_ID})
+    await session.commit()
+    return counts
+
+
+async def seed_qa_partner(session: AsyncSession) -> dict:
+    """Idempotent upsert of the QA partner account used by E2E tests.
+
+    Mirrors the fallback flow in `applications.py::approve_application` for
+    `food_restaurant_partners`. This exists so a reset DB (or an environment
+    where approval has never been run) still has qa-burger@test.example able
+    to log into /partner/food/login with password QaBurger123!.
+    """
+    from passlib.context import CryptContext
+    counts = {"partner_upserted": 0}
+    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    ph = pwd.hash("QaBurger123!")
+
+    row = (await session.execute(text(
+        "SELECT id, password_hash FROM food_restaurant_partners "
+        "WHERE lower(email) = lower(:email) LIMIT 1"
+    ), {"email": "qa-burger@test.example"})).fetchone()
+
+    if row is None:
+        await session.execute(text("""
+            INSERT INTO food_restaurant_partners
+                (id, restaurant_id, email, password_hash, name, is_active)
+            VALUES (:id, :rid, :email, :ph, :name, TRUE)
+        """), {
+            "id": f"frp_qa_burger_{uuid.uuid4().hex[:8]}",
+            "rid": DEMO_RESTAURANT_ID,
+            "email": "qa-burger@test.example",
+            "ph": ph,
+            "name": "QA Burger Partner",
+        })
+        counts["partner_upserted"] = 1
+    else:
+        # Force password reset + is_active so stale rows always resolve.
+        await session.execute(text("""
+            UPDATE food_restaurant_partners
+               SET password_hash = :ph, is_active = TRUE, updated_at = now()
+             WHERE id = :id
+        """), {"ph": ph, "id": row.id})
+        counts["partner_upserted"] = 1
+
     await session.commit()
     return counts
 

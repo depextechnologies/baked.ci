@@ -422,7 +422,7 @@ export const CartDrawer = () => {
                 className="w-full mt-2 h-11 font-semibold disabled:opacity-60 text-black"
                 style={{ backgroundColor: "#00A651" }}
               >
-                {foodPlacing ? "…" : (t("cart.food_checkout_cta", { defaultValue: "Commander FOOD · Place food order" }))}
+                {foodPlacing ? "…" : t("cart.food_checkout_cta")}
               </Button>
             )}
             <button
