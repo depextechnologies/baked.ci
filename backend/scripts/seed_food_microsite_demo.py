@@ -346,7 +346,18 @@ async def seed_qa_partner(session: AsyncSession) -> dict:
     `food_restaurant_partners`. This exists so a reset DB (or an environment
     where approval has never been run) still has qa-burger@test.example able
     to log into /partner/food/login with password QaBurger123!.
+    Also seeds Abidjan coordinates on the demo restaurant so Pass 2
+    dispatch tests have a valid pickup point.
     """
+    # Ensure demo restaurant has coords for dispatch bridge
+    await session.execute(text("""
+        UPDATE food_restaurants
+           SET latitude = COALESCE(latitude, 5.3484),
+               longitude = COALESCE(longitude, -4.0017)
+         WHERE id = :id
+    """), {"id": DEMO_RESTAURANT_ID})
+    await session.commit()
+
     from passlib.context import CryptContext
     counts = {"partner_upserted": 0}
     pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")

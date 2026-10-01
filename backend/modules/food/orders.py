@@ -429,6 +429,32 @@ async def partner_act_on_order(rid: str, oid: str, payload: PartnerAction,
                      actor_role="partner", notes=payload.reason)
     await session.commit()
 
+    # ------------------------------------------------------------------
+    # Pass 2 — Driver Dispatch bridge
+    # ------------------------------------------------------------------
+    # On `accepted → preparing` we spin up a shadow express_bookings row and
+    # kick off SEND dispatch so the driver 10-second alarm fires in parallel
+    # with the kitchen preparing the food. Idempotent — a replayed PATCH
+    # won't duplicate the delivery job.
+    delivery_booking_id: Optional[str] = None
+    if new_status == "preparing":
+        from modules.food.dispatch_bridge import create_delivery_job_for_order, DispatchError
+        try:
+            delivery_booking_id, dispatch_status = await create_delivery_job_for_order(session, oid)
+            if dispatch_status == "created":
+                await _log_event(session, oid, to_status="delivery_dispatched",
+                                 from_status=new_status, actor_role="system",
+                                 notes=f"booking={delivery_booking_id}")
+            await session.commit()
+        except DispatchError as e:
+            # Don't fail the partner PATCH if we can't start dispatch — log
+            # a dedicated audit event so Ops can replay / fix the address.
+            await _log_event(session, oid, to_status="delivery_failed",
+                             from_status=new_status, actor_role="system",
+                             notes=f"dispatch_error={e.args[0] if e.args else 'unknown'}")
+            await session.commit()
+            log.warning("food.dispatch_bridge failed for order=%s: %s", oid, e)
+
     detail = await _detail(session, oid)
 
     # Fan-out so the partner page re-fetches + customer tracker ticks forward.
@@ -446,3 +472,166 @@ async def partner_act_on_order(rid: str, oid: str, payload: PartnerAction,
         log.warning("food.order.updated publish failed: %s", e)
 
     return detail
+
+
+# ---------------------------------------------------------------------------
+# Pass 2 — Delivery visibility + pickup confirmation
+# ---------------------------------------------------------------------------
+
+@partner_router.get("/{rid}/orders/{oid}/delivery")
+async def partner_get_delivery(rid: str, oid: str,
+                                request: Request,
+                                session: AsyncSession = Depends(get_session)):
+    """Live Driver card data for the partner Orders page. Tenant-isolated
+    through `_get_menu_writer` + explicit restaurant_id ownership check.
+    Returns 404 if the order doesn't belong to this restaurant, 204 if
+    the order has no delivery job yet (pickup orders / dispatch not kicked
+    in). Includes the pickup PIN so the partner can read it to the driver."""
+    await _get_menu_writer(rid, request, session)
+    from core.models import ExpressBooking
+    from modules.food.dispatch_bridge import food_delivery_public
+
+    owner = (await session.execute(text(
+        "SELECT restaurant_id FROM food_orders WHERE id = :id"
+    ), {"id": oid})).fetchone()
+    if not owner or owner.restaurant_id != rid:
+        raise HTTPException(404, "Order not found")
+
+    # Pick the most recent non-cancelled booking (allowing operator rescue
+    # by cancelling + re-dispatching a stuck job).
+    row = (await session.execute(text(
+        "SELECT id FROM express_bookings "
+        " WHERE food_order_id = :fo AND status <> 'cancelled' "
+        " ORDER BY created_at DESC LIMIT 1"
+    ), {"fo": oid})).fetchone()
+    if not row:
+        return {"booking_id": None, "status": "none"}
+    booking = await session.get(ExpressBooking, row.id)
+    return food_delivery_public(booking, include_pin=True)
+
+
+@customer_router.get("/orders/{oid}/track")
+async def customer_track_order(oid: str,
+                                session: AsyncSession = Depends(get_session),
+                                customer: Customer = Depends(get_current_customer)):
+    """Customer live-tracking payload: order detail + attached delivery
+    (pickup_pin stripped). Powers the FOOD-themed /foodbaked/orders/{id}/track
+    page."""
+    from core.models import ExpressBooking
+    from modules.food.dispatch_bridge import food_delivery_public
+
+    detail = await _detail(session, oid)
+    owner = (await session.execute(text(
+        "SELECT customer_id FROM food_orders WHERE id = :id"
+    ), {"id": oid})).fetchone()
+    if not owner or owner.customer_id != customer.id:
+        raise HTTPException(404, "Order not found")
+
+    row = (await session.execute(text(
+        "SELECT id FROM express_bookings "
+        " WHERE food_order_id = :fo AND status <> 'cancelled' "
+        " ORDER BY created_at DESC LIMIT 1"
+    ), {"fo": oid})).fetchone()
+    delivery = None
+    if row:
+        b = await session.get(ExpressBooking, row.id)
+        delivery = food_delivery_public(b, include_pin=False)
+        # Strip driver phone from the customer view — they already have the
+        # in-app contact mechanism (reserved for Pass 3).
+        if delivery.get("driver"):
+            delivery["driver"].pop("phone", None)
+    return {"order": detail, "delivery": delivery}
+
+
+class PickupConfirmIn(BaseModel):
+    pin: constr(strip_whitespace=True, min_length=4, max_length=8)
+
+
+@partner_router.post("/{rid}/orders/{oid}/confirm-pickup")
+async def partner_confirm_pickup(rid: str, oid: str, payload: PickupConfirmIn,
+                                  request: Request,
+                                  session: AsyncSession = Depends(get_session)):
+    """Driver has arrived; partner enters the PIN the driver just read to
+    them, flipping the delivery booking `driver_assigned → picked_up`.
+    This closes the SEND side (dispatch is done) and ticks the FOOD order
+    forward to `out_for_delivery` so the customer tracker reflects it."""
+    await _get_menu_writer(rid, request, session)
+    owner = (await session.execute(text(
+        "SELECT restaurant_id, status FROM food_orders WHERE id = :id"
+    ), {"id": oid})).fetchone()
+    if not owner or owner.restaurant_id != rid:
+        raise HTTPException(404, "Order not found")
+
+    booking = (await session.execute(text(
+        "SELECT id, pickup_pin, status, driver_id "
+        "  FROM express_bookings "
+        " WHERE food_order_id = :fo AND status <> 'cancelled' "
+        " ORDER BY created_at DESC LIMIT 1"
+    ), {"fo": oid})).fetchone()
+    if not booking:
+        raise HTTPException(409, "No active delivery for this order")
+    if booking.status not in ("driver_assigned", "arriving"):
+        raise HTTPException(409, f"Driver is not here yet (status={booking.status})")
+    if (payload.pin or "").strip() != (booking.pickup_pin or ""):
+        raise HTTPException(422, "Invalid pickup PIN")
+
+    # Flip the express_booking and the food order in one transaction.
+    await session.execute(text(
+        "UPDATE express_bookings SET status = 'picked_up', updated_at = now() "
+        " WHERE id = :id"
+    ), {"id": booking.id})
+    await session.execute(text(
+        "UPDATE food_orders SET status = 'out_for_delivery', updated_at = now() "
+        " WHERE id = :id"
+    ), {"id": oid})
+    await _log_event(session, oid, to_status="out_for_delivery",
+                     from_status=owner.status, actor_role="partner",
+                     notes=f"pickup_confirmed booking={booking.id}")
+    await session.commit()
+
+    # Fan-out to both partner + customer.
+    try:
+        await _publish(rid, {
+            "type": "food.order.updated",
+            "order": {"id": oid, "status": "out_for_delivery"},
+        })
+    except Exception as e:  # noqa: BLE001
+        log.warning("confirm-pickup publish failed: %s", e)
+    return {"ok": True, "status": "out_for_delivery", "booking_id": booking.id}
+
+
+# ---------------------------------------------------------------------------
+# Cascade — called by SEND tracking when the driver marks delivered
+# ---------------------------------------------------------------------------
+
+async def cascade_delivered_from_express(session: AsyncSession,
+                                           food_order_id: str,
+                                           booking_id: str) -> bool:
+    """Mark the FOOD order delivered when the SEND side flips to delivered.
+    Idempotent: a second call is a no-op if the order is already delivered.
+    Returns True if a state change happened, False otherwise."""
+    row = (await session.execute(text(
+        "SELECT status, restaurant_id FROM food_orders WHERE id = :id FOR UPDATE"
+    ), {"id": food_order_id})).fetchone()
+    if not row:
+        log.warning("cascade_delivered: order %s missing", food_order_id)
+        return False
+    if row.status == "delivered":
+        return False
+    await session.execute(text(
+        "UPDATE food_orders "
+        "   SET status = 'delivered', delivered_at = now(), updated_at = now() "
+        " WHERE id = :id"
+    ), {"id": food_order_id})
+    await _log_event(session, food_order_id, to_status="delivered",
+                     from_status=row.status, actor_role="system",
+                     notes=f"booking={booking_id}")
+    await session.commit()
+    try:
+        await _publish(row.restaurant_id, {
+            "type": "food.order.updated",
+            "order": {"id": food_order_id, "status": "delivered"},
+        })
+    except Exception as e:  # noqa: BLE001
+        log.warning("food.delivered publish failed: %s", e)
+    return True

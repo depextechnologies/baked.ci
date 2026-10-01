@@ -36,6 +36,7 @@ import {
   RestaurantReservationsTab,
   LegacyDetailRedirect,
 } from "@/apps/foodbaked/pages/RestaurantMicrosite";
+import FoodOrderTrackPage from "@/apps/foodbaked/pages/FoodOrderTrackPage";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
 import { TermsOfService } from "@/pages/legal/TermsOfService";
@@ -164,6 +165,7 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<FoodHome />} />
       <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
+      <Route path="/foodbaked/orders/:orderId/track" element={<FoodOrderTrackPage />} />
       <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
       <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
         <Route index element={<RestaurantOverview />} />
@@ -257,6 +259,7 @@ const MobileCustomerShell = () => (
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<FoodHome />} />
       <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
+      <Route path="/foodbaked/orders/:orderId/track" element={<FoodOrderTrackPage />} />
       <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
       <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
         <Route index element={<RestaurantOverview />} />
