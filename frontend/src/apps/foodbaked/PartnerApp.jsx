@@ -102,13 +102,13 @@ const PartnerLayout = () => {
   if (!partner) return <Navigate to="/partner/food/login" replace />;
 
   const nav = [
-    { to: "/partner/food",              label: isFr ? "Tableau de bord" : "Dashboard",     icon: LayoutDashboard, end: true },
-    { to: "/partner/food/orders",       label: isFr ? "Commandes" : "Orders",              icon: Package },
-    { to: "/partner/food/reservations", label: isFr ? "Réservations" : "Reservations",     icon: CalendarClock },
-    { to: "/partner/food/profile",      label: isFr ? "Profil" : "Profile",                icon: ImgIcon },
-    { to: "/partner/food/analytics",    label: "Analytics",                                 icon: BarChart3 },
-    { to: "/partner/food/menu",         label: "Menu",                                      icon: Utensils },
-    { to: "/partner/food/settings",     label: isFr ? "Paramètres" : "Settings",            icon: Settings },
+    { to: "/partner/food",              key: "dashboard",     label: isFr ? "Tableau de bord" : "Dashboard",     icon: LayoutDashboard, end: true },
+    { to: "/partner/food/orders",       key: "orders",        label: isFr ? "Commandes" : "Orders",              icon: Package },
+    { to: "/partner/food/reservations", key: "reservations",  label: isFr ? "Réservations" : "Reservations",     icon: CalendarClock },
+    { to: "/partner/food/profile",      key: "profile",       label: isFr ? "Profil" : "Profile",                icon: ImgIcon },
+    { to: "/partner/food/analytics",    key: "analytics",     label: "Analytics",                                 icon: BarChart3 },
+    { to: "/partner/food/menu",         key: "menu",          label: "Menu",                                      icon: Utensils },
+    { to: "/partner/food/settings",     key: "settings",      label: isFr ? "Paramètres" : "Settings",            icon: Settings },
   ];
 
   return (
@@ -127,10 +127,10 @@ const PartnerLayout = () => {
             </div>
           </div>
           <nav className="flex-1 p-3 space-y-1">
-            {nav.map(({ to, label, icon: Icon, end }) => (
+            {nav.map(({ to, key, label, icon: Icon, end }) => (
               <NavLink key={to} to={to} end={end}
                        className={({ isActive }) => `flex items-center gap-2 h-9 px-3 rounded-lg text-sm ${isActive ? "bg-primary/15 text-primary font-semibold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
-                       data-testid={`partner-nav-${to.split("/").pop() || "dashboard"}`}>
+                       data-testid={`partner-nav-${key}`}>
                 <Icon size={14} /> <span>{label}</span>
               </NavLink>
             ))}

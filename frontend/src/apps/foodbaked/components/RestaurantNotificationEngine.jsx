@@ -286,7 +286,7 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
         <button
           onClick={armAudio}
           data-testid="partner-arm-audio"
-          className="fixed bottom-4 right-4 z-[120] h-10 px-4 rounded-full text-xs font-semibold shadow-lg inline-flex items-center gap-2 text-white"
+          className="fixed bottom-4 right-4 z-[150] h-10 px-4 rounded-full text-xs font-semibold shadow-lg inline-flex items-center gap-2 text-white"
           style={{ backgroundColor: GREEN }}
         >
           <Volume2 size={13} /> {detectFr() ? "Activer les alertes" : "Enable alerts"}

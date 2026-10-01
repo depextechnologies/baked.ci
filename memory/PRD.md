@@ -1,5 +1,48 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-10-01) — FOODbakēd · Live Order Workflow Pass 1 (Customer → Partner, pre-driver) — COMPLETE
+
+**Scope — Pass 1 only**: Customer picks an available menu item on the restaurant microsite → Global Cart → Checkout → `food_orders` + `food_order_items` + `food_order_events` persisted → `food.order.created` WebSocket broadcast → Partner Portal receives real-time 10-s audio alarm + modal → Accept / Reject (with mandatory reason) / Preparing / Ready. Driver dispatch deferred to Pass 2.
+
+**Backend fix (P0 root cause)**
+- `/api/food/restaurants/{rid}/menu` was filtering `is_available=TRUE` in SQL but DROPPING the field from the response. Added `is_available: it.is_available` to the public menu item serializer (`/app/backend/modules/food/routes.py` ~line 258). All downstream consumers (customer UI "Sold Out" state, automated tests, future partner sold-out toggles) now get the real DB value.
+- All 6 tests in `tests/test_food_orders.py` now pass (create → full state machine → reject with reason → idempotency → cross-restaurant rejection → tenant isolation). Combined FOOD regression: 21/21 across orders + reviews + search + reservations + onboarding.
+
+**Frontend — Partner Portal i18n cleanup (P0)**
+- `/app/frontend/src/apps/foodbaked/components/RestaurantNotificationEngine.jsx` — rewrote `IncomingOrderModal` and `IncomingModal` to use `detectFr()` ternary pattern. Zero `·`-concatenated bilingual strings remain. New `data-testid`s: `new-food-order-modal` (was `partner-order-modal`), `reject-reason-input` (was `partner-order-modal-reason`). Z-index of arm-audio pill raised to `z-[150]` so partners can enable alerts while a modal is open.
+- `/app/frontend/src/apps/foodbaked/PartnerApp.jsx` — Login screen, PartnerLayout sidebar nav (+ `key`-based testids for stable `partner-nav-dashboard`), logout button, and PartnerDashboard labels all now switch on `detectFr()`. Example FR sidebar: "Tableau de bord · Commandes · Réservations · Profil · Analytics · Menu · Paramètres · Se déconnecter". EN: "Dashboard · Orders · Reservations · Profile · Analytics · Menu · Settings · Sign out".
+- `/app/frontend/src/components/cart/CartDrawer.jsx` — FOOD checkout CTA now reads `t('cart.food_checkout_cta')` (no bilingual defaultValue fallback). Keys added to `/app/frontend/src/i18n/locales/{fr,en}/customer.json` → FR="Commander", EN="Place food order".
+
+**Frontend — WS robustness (P1)**
+- Stale-closure bug fixed: `audioReadyRef` + `settingsRef` written on every state change and read inside `ws.onmessage`. Previously, if a partner clicked "Enable alerts" AFTER the WS already connected, chimes never played because the handler captured `audioReady=false` at mount.
+- Duplicate-event dedupe: `seenEventIdsRef` (Set, 500-entry cap) keyed on `frame.event_id` or `type:entity_id` prevents the same order/reservation from re-ringing after WS reconnect or React rerender.
+
+**Seed hardening**
+- `/app/backend/scripts/seed_food_microsite_demo.py` — new `seed_qa_partner()` idempotently upserts `qa-burger@test.example / QaBurger123!` on `burger_hub_ci`. Re-running the seed restores the QA partner's auth; previously a DB reset silently broke E2E.
+
+**Verification matrix** (testing_agent iterations 96 → 97)
+- ✅ Backend: 24/24 FOOD tests (incl. new `test_food_order_ws_fanout`)
+- ✅ P0.1 — public menu returns `is_available: true`
+- ✅ P0 — zero bilingual concatenations across Partner Portal (FR & EN visual spot-check + grep confirms only one `·` left and it's in a code comment)
+- ✅ Customer → Global Cart → Checkout → food_orders persistence
+- ✅ Partner receives `food.order.created` modal without page refresh
+- ✅ Accept early-stops the chime; auto-stop at ~10 s leaves order in `placed`
+- ✅ State machine: placed → accepted → preparing → ready (persisted server-side on each PATCH)
+- ✅ Reject requires non-empty reason (422 without, 200 with)
+- ✅ Portal-wide notification engine (works on Dashboard, Orders, Menu, Reservations, Analytics — provider wraps PartnerLayout `<Outlet />`)
+- ✅ Dedupe across WS reconnect / rerender
+- ✅ Multi-order queue (A pending while B arrives — both actionable)
+- ✅ FR default + EN switch (no bilingual leaks)
+- ✅ Tenant isolation (super-admin bypass works both ways; anon → 401)
+- ✅ Global cart regression: FOOD CTA keyed on `hasFood`, MART/SHOP paths untouched
+
+**Known open items (Pass 2+)**
+- Pass 2 — READY → `driver_jobs` bridge, extend `dispatch_next_offer`, Partner "Live Driver" card
+- Pass 3 — Menu Partner CRUD + Sold-Out quick toggle (now that `is_available` is exposed)
+- Pass 4 — Partner Dashboard upgrade, Notification Center, Pause mode
+
+
+
 ## Latest (2026-02-26) — FOODbakēd · Unified Discovery Search + FR-first Homepage — COMPLETE
 
 **P0 fix #1 — Unified search**
