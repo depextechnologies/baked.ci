@@ -1,5 +1,40 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-10-01 PM) — FOODbakēd · Pass 2 Driver Dispatch Bridge — COMPLETE
+
+**Scope — Pass 2**: Food order `preparing` transition kicks off driver dispatch through the existing SEND pipeline; Partner Live Driver card + 4-digit Pickup PIN handover; cascade on `delivered` back to `food_orders`. Customer gets a FOOD-themed `/foodbaked/orders/{id}/track` page. Zero rewrite of SEND dispatch — just a glue layer.
+
+**Backend — new**
+- `migrations/versions/0062_food_delivery_bridge.py` — adds `source_module`, `food_order_id`, `pickup_pin` columns to `express_bookings`; new `booking_type='food_delivery'` enum value; partial UNIQUE index `(food_order_id) WHERE status <> 'cancelled'` prevents duplicate dispatch rows. Fully reversible via `downgrade()`.
+- `core/models/express.py` — ORM mirrors new nullable columns.
+- `modules/food/dispatch_bridge.py` — `create_delivery_job_for_order()` (idempotent, validates coords + customer, generates PIN) + `food_delivery_public()` serializer with `include_pin` flag.
+- `modules/food/orders.py` — hook on `accept → preparing` transition; new endpoints:
+  - `GET /api/food/manage/{rid}/orders/{oid}/delivery` (partner, PIN visible)
+  - `GET /api/food/customer/orders/{oid}/track` (customer, PIN hidden)
+  - `POST /api/food/manage/{rid}/orders/{oid}/confirm-pickup` (partner enters PIN → status flips)
+  - `cascade_delivered_from_express()` helper
+- `modules/express/tracking.py` — on `transition_status('delivered')` for a `source_module='food'` booking, cascades to `food_orders.status='delivered'` + fires WS. Idempotent.
+
+**Dynamic vehicle selection** (user-requested — no hardcoded `bike`): items ≤8 → bike, 9-20 → scooter, 21+ → three_wheeler. Lives in one function; Super Admin can later swap thresholds without touching dispatch.
+
+**Frontend — new**
+- `apps/foodbaked/pages/PartnerOrdersPage.jsx` — `LiveDriverCard` sub-component rendered under each delivery order in preparing/ready/out_for_delivery/delivered. Shows status label (FR/EN mono), driver chip (photo, name, vehicle, plate, rating), Call button, and the 4-digit Pickup PIN with input + confirm button.
+- `apps/foodbaked/pages/FoodOrderTrackPage.jsx` — customer-facing `/foodbaked/orders/:orderId/track`. 6-stage pipeline (placed → accepted → preparing → ready → out_for_delivery → delivered), live driver sub-card without the PIN, order summary, "Leave a review" CTA at delivered.
+- `apps/customer/CustomerApp.jsx` — registers the new route in both mobile + desktop route sets.
+- `pages/mobile/MobileActivities.jsx` — FOOD orders now navigate to the new track page.
+
+**Verification (testing_agent iteration_98)**
+- Backend: **16/16 pass** (test_food_dispatch_bridge 7 + test_food_dispatch_bridge_pass2_ext 9). Zero issues.
+- Frontend: 100% on P1 scope — partner Live Driver cards render (36 inline), customer tracking page shows all 6 stages with monolingual FR/EN parity, Pickup PIN hidden from customer, dynamic vehicle 1→bike / 10→scooter / 25→three_wheeler verified.
+- Backward compatibility: existing EXPRESS parcel/mover bookings untouched; `/api/express/vehicles?country=CI` still 200; parcel delivered cascade does NOT touch food_orders.
+
+**Open — Pass 3**
+- Menu Partner CRUD (sections, items, variants, Sold-Out quick toggle)
+- Partner Dashboard upgrade + Pause mode
+- Favourites
+
+
+
 ## Latest (2026-10-01) — FOODbakēd · Live Order Workflow Pass 1 (Customer → Partner, pre-driver) — COMPLETE
 
 **Scope — Pass 1 only**: Customer picks an available menu item on the restaurant microsite → Global Cart → Checkout → `food_orders` + `food_order_items` + `food_order_events` persisted → `food.order.created` WebSocket broadcast → Partner Portal receives real-time 10-s audio alarm + modal → Accept / Reject (with mandatory reason) / Preparing / Ready. Driver dispatch deferred to Pass 2.
