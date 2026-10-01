@@ -106,6 +106,7 @@ const useChime = () => {
 
 export const RestaurantNotificationProvider = ({ restaurantId, token, children }) => {
   const [queue, setQueue] = useState([]);           // pending reservations awaiting action
+  const [orderQueue, setOrderQueue] = useState([]); // pending FOOD orders awaiting Accept/Reject
   const [audioReady, setAudioReady] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [settings, setSettings] = useState({ sound_new_reservation: true, sound_new_order: true, sound_volume: 0.8 });
@@ -154,7 +155,13 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
           } else if (frame.type === "food.reservation.updated") {
             setUpdatesVersion((v) => v + 1);
           } else if (frame.type === "food.order.created") {
-            if (settings.sound_new_order && audioReady) playChime(settings.sound_volume);
+            const o = frame.order;
+            if (o && o.id) {
+              setOrderQueue((q) => q.some((x) => x.id === o.id) ? q : [...q, o]);
+              if (settings.sound_new_order && audioReady) playChime(settings.sound_volume);
+              setUpdatesVersion((v) => v + 1);
+            }
+          } else if (frame.type === "food.order.updated") {
             setUpdatesVersion((v) => v + 1);
           }
         } catch { /* ignore */ }
@@ -194,6 +201,21 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
     stopChime();
   }, [stopChime]);
 
+  const dismissOrder = useCallback((id) => {
+    setOrderQueue((q) => q.filter((o) => o.id !== id));
+    stopChime();
+  }, [stopChime]);
+
+  const actOnOrder = useCallback(async (order, action, reason) => {
+    try {
+      await partnerApi.patch(`/food/manage/${restaurantId}/orders/${order.id}`, { action, reason });
+      dismissOrder(order.id);
+    } catch (e) {
+      // eslint-disable-next-line no-alert
+      alert(e.response?.data?.detail || e.message || "Erreur");
+    }
+  }, [restaurantId, dismissOrder]);
+
   const act = useCallback(async (reservation, action, reason) => {
     try {
       await partnerApi.patch(`/food/manage/${restaurantId}/reservations/${reservation.id}`, { action, reason });
@@ -226,9 +248,13 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
     queue,
     dismiss,
     act,
-  }), [wsStatus, audioReady, audioBlocked, armAudio, testSound, settings, updateSettings, updatesVersion, queue, dismiss, act]);
+    orderQueue,
+    dismissOrder,
+    actOnOrder,
+  }), [wsStatus, audioReady, audioBlocked, armAudio, testSound, settings, updateSettings, updatesVersion, queue, dismiss, act, orderQueue, dismissOrder, actOnOrder]);
 
   const current = queue[0] || null;
+  const currentOrder = orderQueue[0] || null;
 
   return (
     <NotificationCtx.Provider value={value}>
@@ -252,7 +278,90 @@ export const RestaurantNotificationProvider = ({ restaurantId, token, children }
           extra={queue.length - 1}
         />
       )}
+      {currentOrder && (
+        <IncomingOrderModal
+          order={currentOrder}
+          onAccept={() => actOnOrder(currentOrder, "accept")}
+          onReject={(reason) => actOnOrder(currentOrder, "reject", reason)}
+          onDismiss={() => dismissOrder(currentOrder.id)}
+          extra={orderQueue.length - 1}
+        />
+      )}
     </NotificationCtx.Provider>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Incoming FOOD ORDER modal
+// ---------------------------------------------------------------------------
+
+const IncomingOrderModal = ({ order, onAccept, onReject, onDismiss, extra }) => {
+  const [busy, setBusy] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const accept = async () => { setBusy(true); try { await onAccept(); } finally { setBusy(false); } };
+  const reject = async () => { setBusy(true); try { await onReject(reason.trim() || "Unspecified"); } finally { setBusy(false); } };
+  const typeLabel = order.order_type === "pickup" ? "À emporter · Pickup" : "Livraison · Delivery";
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4" data-testid="partner-order-modal" translate="no">
+      <button type="button" aria-label="Dismiss" onClick={onDismiss} className="absolute inset-0 bg-black/70" />
+      <div className="relative w-full max-w-md rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between" style={{ backgroundColor: `${GREEN}1a` }}>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest" style={{ color: GREEN }}>Nouvelle commande · New order</div>
+            <div className="text-lg font-bold font-mono" data-testid="partner-order-modal-number">{order.order_number}</div>
+          </div>
+          <button onClick={onDismiss} className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center"><X size={14} /></button>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-muted-foreground">{typeLabel}</div>
+            <div className="text-xs text-muted-foreground">{order.items_count} article(s) · item(s)</div>
+          </div>
+          <div className="text-3xl font-bold" style={{ color: GREEN }} data-testid="partner-order-modal-total">
+            {Number(order.grand_total || 0).toLocaleString("fr-FR")} <span className="text-base font-semibold text-muted-foreground">{order.currency}</span>
+          </div>
+          {extra > 0 && <div className="text-[10px] text-muted-foreground">+{extra} autre(s) en attente · more waiting</div>}
+          {rejecting ? (
+            <div className="space-y-2 pt-1">
+              <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Motif · Reason</div>
+              <select value={reason} onChange={(e) => setReason(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-secondary/40 px-3 h-9 text-sm"
+                      data-testid="partner-order-modal-reason">
+                <option value="">—</option>
+                <option>Restaurant trop occupé · Too busy</option>
+                <option>Article indisponible · Item unavailable</option>
+                <option>Fermeture imminente · Closing soon</option>
+                <option>Impossible de préparer · Unable to fulfil</option>
+                <option>Autre · Other</option>
+              </select>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setRejecting(false)} className="flex-1 h-10 rounded-lg bg-secondary text-sm font-semibold" disabled={busy}>Annuler</button>
+                <button onClick={reject} className="flex-1 h-10 rounded-lg bg-red-500 text-white text-sm font-semibold inline-flex items-center justify-center gap-2"
+                        disabled={busy || !reason} data-testid="partner-order-modal-reject-confirm">
+                  {busy && <Loader2 size={12} className="animate-spin" />} Confirmer le refus
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setRejecting(true)} disabled={busy}
+                      className="flex-1 h-11 rounded-lg bg-red-500/10 text-red-500 text-sm font-semibold inline-flex items-center justify-center gap-2"
+                      data-testid="partner-order-modal-reject">
+                <X size={14} /> Refuser · Reject
+              </button>
+              <button onClick={accept} disabled={busy}
+                      className="flex-1 h-11 rounded-lg text-black text-sm font-semibold inline-flex items-center justify-center gap-2"
+                      style={{ backgroundColor: GREEN }}
+                      data-testid="partner-order-modal-accept">
+                {busy && <Loader2 size={12} className="animate-spin" />} <Check size={14} /> Accepter · Accept
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

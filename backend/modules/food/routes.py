@@ -256,6 +256,7 @@ async def get_restaurant_menu(
             "is_veg": it.is_veg,
             "spice_level": it.spice_level,
             "tags": it.tags or [],
+            "is_available": it.is_available,
             "variants": variants_by_item.get(it.id, []),
             "addons": addons_by_item.get(it.id, []),
         })

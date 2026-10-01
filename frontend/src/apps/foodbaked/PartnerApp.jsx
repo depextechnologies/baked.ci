@@ -11,7 +11,7 @@
  */
 import React, { useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks } from "lucide-react";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks, Package } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
@@ -22,6 +22,7 @@ import PartnerReservationsPage from "./pages/PartnerReservationsPage";
 import PartnerReservationSettingsPage from "./pages/PartnerReservationSettingsPage";
 import PartnerReservationsDashboard from "./pages/PartnerReservationsDashboard";
 import PartnerFloorTablesPage from "./pages/PartnerFloorTablesPage";
+import PartnerOrdersPage from "./pages/PartnerOrdersPage";
 import PartnerRestaurantProfilePage from "./pages/PartnerRestaurantProfilePage";
 
 const GREEN = "#00A651";
@@ -98,6 +99,7 @@ const PartnerLayout = () => {
 
   const nav = [
     { to: "/partner/food",              label: "Tableau de bord · Dashboard", icon: LayoutDashboard, end: true },
+    { to: "/partner/food/orders",       label: "Commandes · Orders",         icon: Package },
     { to: "/partner/food/reservations", label: "Réservations · Reservations", icon: CalendarClock },
     { to: "/partner/food/profile",      label: "Profil · Profile",              icon: ImgIcon },
     { to: "/partner/food/analytics",    label: "Analytics",                    icon: BarChart3 },
@@ -282,6 +284,7 @@ export const FoodPartnerApp = () => (
       <Route path="" element={<PartnerLayout />}>
         <Route index element={<PartnerDashboard />} />
         <Route path="menu" element={<PartnerMenuPage />} />
+        <Route path="orders" element={<PartnerOrdersPage />} />
         <Route path="analytics" element={<PartnerAnalyticsPage />} />
         <Route path="reservations" element={<ReservationsHubLayout />}>
           <Route index element={<PartnerReservationsDashboard />} />

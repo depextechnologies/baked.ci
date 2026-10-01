@@ -148,6 +148,62 @@ export const CartDrawer = () => {
     navigate(path("checkout"));
   }, [customer, minOrderOk, navigate, path, openLogin, closeCart]);
 
+  // -------------------------------------------------------------------------
+  // FOOD-only quick checkout — posts /api/food/customer/orders per restaurant,
+  // clears the food lines, and shows a success toast. Leaves MART/SHOP intact.
+  // -------------------------------------------------------------------------
+  const [foodPlacing, setFoodPlacing] = React.useState(false);
+  const placeFoodOrders = useCallback(async () => {
+    if (!customer) { openLogin?.(path("checkout")); closeCart(); return; }
+    const foodLines = items.filter((i) => i.module === "food");
+    if (foodLines.length === 0) return;
+    // Group by restaurant_id (one food_order per restaurant)
+    const byR = {};
+    for (const it of foodLines) {
+      const snap = it.product || it.snapshot || {};
+      const rid = snap.restaurant_id;
+      if (!rid) continue;
+      byR[rid] = byR[rid] || { items: [], restaurant_id: rid };
+      byR[rid].items.push({
+        item_id: it.product_id,
+        quantity: it.quantity,
+        variant: snap.variant || null,
+        addons: snap.addons || [],
+        notes: it.notes || null,
+      });
+    }
+    setFoodPlacing(true);
+    try {
+      const API = process.env.REACT_APP_BACKEND_URL || "";
+      const token = typeof window !== "undefined" ? localStorage.getItem("baked_access_token") : null;
+      const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      const createdNumbers = [];
+      for (const group of Object.values(byR)) {
+        const client_order_id = `coid_${group.restaurant_id}_${Date.now()}`;
+        const body = {
+          restaurant_id: group.restaurant_id,
+          order_type: "delivery",
+          items: group.items,
+          customer_snapshot: { name: customer.name, phone: customer.phone, email: customer.email },
+          delivery_address: {},  // Pass 1: free delivery, address will plug in P2
+          payment_method: "cod",
+          client_order_id,
+        };
+        const r = await fetch(`${API}/api/food/customer/orders`, { method: "POST", headers, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error(await r.text());
+        const d = await r.json();
+        createdNumbers.push(d.order_number);
+      }
+      // Clear FOOD lines from guest cart (persistence lives in localStorage per BakedContexts)
+      for (const it of foodLines) await removeItem(it.id);
+      closeCart();
+      navigate(path("activites") || "/compte/activites");
+    } catch (e) {
+      // eslint-disable-next-line no-alert
+      alert(e.message || "Erreur lors de la commande");
+    } finally { setFoodPlacing(false); }
+  }, [customer, items, openLogin, closeCart, removeItem, navigate, path]);
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -358,6 +414,17 @@ export const CartDrawer = () => {
                 ? t("cart.checkout_cta")
                 : t("cart.sign_in_to_checkout")}
             </Button>
+            {hasFood && (
+              <Button
+                data-testid="cart-drawer-food-checkout"
+                onClick={placeFoodOrders}
+                disabled={foodPlacing}
+                className="w-full mt-2 h-11 font-semibold disabled:opacity-60 text-black"
+                style={{ backgroundColor: "#00A651" }}
+              >
+                {foodPlacing ? "…" : (t("cart.food_checkout_cta", { defaultValue: "Commander FOOD · Place food order" }))}
+              </Button>
+            )}
             <button
               type="button"
               onClick={closeCart}
