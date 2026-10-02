@@ -1,5 +1,29 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-10-02 PM) — Partner Portal Hub + Footer Link — COMPLETE
+
+**`/partner-portal/login` hub** — SHOP, FOOD and SEND tiles are now LIVE (previously stale "SOON" placeholders) and link straight to each module's real sign-in page:
+- MARTbakēd → `/partner-portal/martbaked/login` (inline owner sign-in, unchanged)
+- FOODbakēd → `/partner/food/login`
+- SHOPbakēd → `/shopbaked/sellers/login`
+- SENDbakēd → `/driver/login`
+
+Only AUTO + IMMO keep the "SOON" badge. External links use `<a>` instead of `<Link>` so the target app's own BrowserRouter mounts cleanly.
+
+**Footer link** — new "Partner's Login" item under the Opportunities column, pointing at the hub:
+- FR → `Connexion partenaire`
+- EN → `Partner's Login`
+- Added to both locale files (`footer.partner_login`) + `Footer.jsx` OPPORTUNITIES array.
+
+**Files touched** (3):
+- `/app/frontend/src/apps/partner-portal/moduleRegistry.js` — `isLive: true` + `ownerLoginHref` on FOOD/SHOP/SEND; module colours aligned to brand (SHOP→#FCC44C, FOOD→#00A651, SEND→#F3B300)
+- `/app/frontend/src/apps/partner-portal/ModuleSelectorPage.jsx` — honours `ownerLoginHref`; external modules use `<a>` for a fresh BrowserRouter mount
+- `/app/frontend/src/components/layout/Footer.jsx` + `i18n/locales/{fr,en}/common.json` — new footer entry
+
+Verified live: all 4 hrefs correct, FR shows "Connexion partenaire", EN shows "Partner's Login" after language toggle.
+
+
+
 ## Latest (2026-10-02) — FOODbakēd · Live Driver Map (Pass 2.5) — COMPLETE
 
 Added a Google Map hero to `/foodbaked/orders/{orderId}/track`. Zero backend changes — reuses the SEND `/api/express/ws/bookings/{booking_id}` WebSocket because `food_delivery` is an `express_bookings` row with `source_module='food'`.
