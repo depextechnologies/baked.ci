@@ -104,6 +104,7 @@ from modules.food.reviews import (  # noqa: E402
     customer_router as food_reviews_customer_router,
 )
 from modules.food.search import public_router as food_search_public_router  # noqa: E402
+from modules.search import router as global_search_router  # noqa: E402
 from modules.food.orders import (  # noqa: E402
     customer_router as food_orders_customer_router,
     partner_router  as food_orders_partner_router,
@@ -148,6 +149,7 @@ async def health():
 # --- Shared Platform Foundation ---
 api_router.include_router(auth_router)
 api_router.include_router(customer_router)
+api_router.include_router(global_search_router)
 api_router.include_router(addresses_router)
 api_router.include_router(express_router)
 api_router.include_router(config_router)

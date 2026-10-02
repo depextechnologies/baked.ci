@@ -976,6 +976,15 @@ async def run_seed():
     from modules.express.seed import seed_express  # local import to avoid circulars
     await seed_express()
 
+    # Global Search — intent dictionary (idempotent).
+    try:
+        from scripts.seed_search_intents import seed_intents
+        async with SessionLocal() as session:
+            await seed_intents(session)
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("baked.seed").warning("search intents seed skipped: %s", e)
+
     # FOODbakēd — demo microsite + QA partner. Guarantees the restaurant
     # login (qa-burger@test.example / QaBurger123!) is always valid on a
     # fresh pod. Idempotent: coords use COALESCE, password_hash is reset
