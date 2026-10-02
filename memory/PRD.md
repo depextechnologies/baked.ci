@@ -1,5 +1,21 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-10-02) — FOODbakēd · Live Driver Map (Pass 2.5) — COMPLETE
+
+Added a Google Map hero to `/foodbaked/orders/{orderId}/track`. Zero backend changes — reuses the SEND `/api/express/ws/bookings/{booking_id}` WebSocket because `food_delivery` is an `express_bookings` row with `source_module='food'`.
+
+**Behaviour**
+- Map renders only when GMAPS key + pickup/drop coords + (driver assigned OR driver_location) — before dispatch, the stages + driver chip still show, no empty map.
+- Three markers: `food-track-pickup-pin` (restaurant), `food-track-drop-pin` (customer), `food-track-driver-pin` (live). FOOD-themed green pulse on the driver pin (same visual grammar as SEND's yellow).
+- WS lifecycle mirrors SEND's: snapshot on open, `type:location` frames move the pin without a refresh, 3-s auto-reconnect on close.
+- Pickup PIN still hidden from the customer. Legend FR = "Livreur · Restaurant · Vous", EN = "Driver · Restaurant · You" — no bilingual concatenation.
+
+**Verification (testing_agent iteration_99)** — 100% on P0+P1 scope, zero issues. Backend regression 16/16 pass. SEND tracking untouched.
+
+**File touched**: `/app/frontend/src/apps/foodbaked/pages/FoodOrderTrackPage.jsx` (single file).
+
+
+
 ## Latest (2026-10-01 PM) — FOODbakēd · Pass 2 Driver Dispatch Bridge — COMPLETE
 
 **Scope — Pass 2**: Food order `preparing` transition kicks off driver dispatch through the existing SEND pipeline; Partner Live Driver card + 4-digit Pickup PIN handover; cascade on `delivered` back to `food_orders`. Customer gets a FOOD-themed `/foodbaked/orders/{id}/track` page. Zero rewrite of SEND dispatch — just a glue layer.
