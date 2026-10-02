@@ -1,5 +1,31 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-10-02 Pass 3) — FOODbakēd · Menu CRUD · COMPLETE
+
+Discovery: backend CRUD (sections / items / variants / addons) was **already** fully built with tenant isolation. This pass added one backend endpoint (deep clone) and polished the frontend end-to-end.
+
+**Backend — new**
+- `POST /api/food/manage/{rid}/items/{iid}/duplicate` — deep clones an item + all its variants + all its addons as fresh rows with new ids. Clone lands as `is_available=FALSE` with name suffixed `(Copie)` (FR header `X-Lang: fr` or default) or `(Copy)` (`X-Lang: en`). Fully transactional.
+- `/app/backend/tests/test_food_partner_menu_pass3.py` — 4 tests: deep-clone with children, EN suffix via header, 404 on unknown item, section reorder affects public menu immediately.
+
+**Frontend — rewritten `MenuManager.jsx`**
+- Zero `·` bilingual concatenations — all strings use `detectFr()` ternary. Switch EN and the whole surface flips.
+- `Épuisé` (FR) / `Sold Out` (EN) badge replaces the old "Indisponible · Unavailable" badge.
+- Section reorder: drag handle (GripVertical) + explicit ↑ / ↓ buttons; writes new `sort_order` via existing section PATCH, public menu reflects the new order on next read.
+- `Par défaut` (FR) / `Default` (EN) badge on the one default variant — now a filled primary pill instead of invisible text.
+- `Dupliquer` / `Duplicate` button on every item row (Copy icon). Calls the new backend endpoint and sends `X-Lang` so the suffix matches the partner's language.
+- Exported new `DashboardSoldOutPanel` component — a horizontally-scrollable one-tap "Remettre en stock / Restock" strip. Rendered on both the Partner Dashboard home AND the Menu page. Collapses to a compact "All items available" tile when nothing is sold out.
+
+**Verification (testing_agent iteration_100)** — 100% / 100%. Backend 26/26 pytest green (new 4 + regression 22). Frontend: all P0 + P1 flows pass including mobile 390×844, FR/EN monolingual check, section reorder persistence, default variant exclusivity, Restock → public microsite reflects instantly.
+
+**Files touched** (3):
+- `/app/backend/modules/food/routes.py` (+90 lines — duplicate endpoint)
+- `/app/backend/tests/test_food_partner_menu_pass3.py` (new, 4 tests)
+- `/app/frontend/src/components/food/MenuManager.jsx` (full rewrite, +Dashboard panel export)
+- `/app/frontend/src/apps/foodbaked/PartnerApp.jsx` (wire DashboardSoldOutPanel)
+
+
+
 ## Latest (2026-10-02 PM) — Partner Portal Hub + Footer Link — COMPLETE
 
 **`/partner-portal/login` hub** — SHOP, FOOD and SEND tiles are now LIVE (previously stale "SOON" placeholders) and link straight to each module's real sign-in page:
