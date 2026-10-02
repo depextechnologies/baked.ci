@@ -1125,6 +1125,80 @@ async def manage_delete_item(
     return {"deleted": iid}
 
 
+@manage_router.post("/{rid}/items/{iid}/duplicate")
+async def manage_duplicate_item(
+    rid: str, iid: str, request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Pass 3 — deep-clone a menu item: copies the item row AND its variants
+    + addons as fresh records with new IDs. The clone lands as **unavailable**
+    with "(Copie)" / "(Copy)" appended to the name so the partner can edit it
+    before publishing. Idempotent per request — each call produces a new row.
+    """
+    await _get_menu_writer(rid, request, session)
+    src = (await session.execute(text(
+        "SELECT * FROM food_menu_items WHERE id = :id AND restaurant_id = :rid"
+    ), {"id": iid, "rid": rid})).fetchone()
+    if not src:
+        raise HTTPException(404, "Item not found")
+
+    # Suffix is language-neutral — the partner UI picks the right word based
+    # on its own i18nextLng; we keep both legal so a FR partner sees
+    # "(Copie)" and an EN partner sees "(Copy)" via a client-side rewrite
+    # if they land on an item cloned on a different language context.
+    suffix = request.headers.get("X-Lang", "fr").lower().startswith("fr") and "(Copie)" or "(Copy)"
+    new_id = _mk_id("fmi")
+    await session.execute(text("""
+        INSERT INTO food_menu_items (
+            id, restaurant_id, section_id, name, description, image,
+            base_price, currency, is_veg, spice_level, tags,
+            is_available, sort_order
+        ) VALUES (
+            :id, :rid, :section_id, :name, :description, :image,
+            :base_price, :currency, :is_veg, :spice_level, CAST(:tags AS JSONB),
+            FALSE, :sort_order
+        )
+    """), {
+        "id": new_id, "rid": rid,
+        "section_id": src.section_id,
+        "name": f"{src.name} {suffix}",
+        "description": src.description,
+        "image": src.image,
+        "base_price": float(src.base_price or 0),
+        "currency": src.currency,
+        "is_veg": src.is_veg,
+        "spice_level": src.spice_level,
+        "tags": _json_dump(src.tags or []),
+        "sort_order": (src.sort_order or 0) + 1,
+    })
+
+    # Clone variants (preserving is_default + sort_order + price_delta).
+    variants = (await session.execute(text(
+        "SELECT * FROM food_item_variants WHERE item_id = :iid ORDER BY sort_order, id"
+    ), {"iid": iid})).fetchall()
+    for v in variants:
+        await session.execute(text("""
+            INSERT INTO food_item_variants (id, item_id, name_en, name_fr, price_delta, is_default, sort_order)
+            VALUES (:id, :iid, :en, :fr, :pd, :isd, :so)
+        """), {"id": _mk_id("fmv"), "iid": new_id, "en": v.name_en, "fr": v.name_fr,
+               "pd": float(v.price_delta or 0), "isd": v.is_default, "so": v.sort_order})
+
+    # Clone add-ons.
+    addons = (await session.execute(text(
+        "SELECT * FROM food_item_addons WHERE item_id = :iid ORDER BY sort_order, id"
+    ), {"iid": iid})).fetchall()
+    for a in addons:
+        await session.execute(text("""
+            INSERT INTO food_item_addons (id, item_id, name_en, name_fr, price, sort_order)
+            VALUES (:id, :iid, :en, :fr, :pr, :so)
+        """), {"id": _mk_id("fma"), "iid": new_id, "en": a.name_en, "fr": a.name_fr,
+               "pr": float(a.price or 0), "so": a.sort_order})
+
+    await session.commit()
+    row = (await session.execute(text("SELECT * FROM food_menu_items WHERE id = :id"), {"id": new_id})).fetchone()
+    return _item_json(row)
+
+
 # ---------- Variants + Add-ons ---------------------------------------------
 
 

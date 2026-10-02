@@ -13,7 +13,7 @@ import React, { useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks, Package } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
-import MenuManager from "../../components/food/MenuManager";
+import MenuManager, { DashboardSoldOutPanel } from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 import { FoodPartnerActivateRoute } from "./SellersApp";
@@ -224,6 +224,10 @@ const PartnerDashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* Pass 3 — one-tap sold-out triage, visible on the dashboard home so
+          the partner never needs to open the full menu page during a rush. */}
+      <DashboardSoldOutPanel restaurantId={restaurant.id} api={partnerApi} />
     </div>
   );
 };
