@@ -5,6 +5,15 @@
 - Password: `baked@2026#!$@`
 - Path: `/admin/login`
 
+## 🍔 FOODbakēd Restaurant Partner — ALWAYS AVAILABLE
+- URL: `https://baked-platform.preview.emergentagent.com/partner/food/login`
+- Email: `qa-burger@test.example`
+- Password: `QaBurger123!`
+- Restaurant: **Burger Hub** (`burger_hub_ci`, slug `burger-hub`), Abidjan · XOF
+- Auto-provisioned on every backend boot via `seed.run_seed()` → `seed_qa_partner()`. Password hash is reset each boot — this account **cannot** be locked out by an operator-rotated password.
+- Scope: Orders · Reservations · Menu · Analytics · Floor plan (Main Hall T01-T04, Terrace T05-T06, reservation_public=true).
+
+
 ## Partner (Store Manager / Owner)
 - Email: `partner-alpha-store@test.example`
 - Password: `Alpha1234!Beta`
