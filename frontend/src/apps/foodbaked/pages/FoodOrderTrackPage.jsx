@@ -9,16 +9,53 @@
  * and ETA logic are visually FOOD but power themselves from the same
  * substrate the SEND tracker uses — no second delivery engine.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { APIProvider, Map, AdvancedMarker } from "@vis.gl/react-google-maps";
 import {
   Loader2, MapPin, Clock, Phone, ChevronLeft, Utensils,
-  Receipt, CheckCircle2, Package, Bike, UserCheck, ChefHat,
+  Receipt, CheckCircle2, Package, Bike, UserCheck, ChefHat, Store,
 } from "lucide-react";
 
 const GREEN = "#00A651";
 const API = process.env.REACT_APP_BACKEND_URL;
+const GMAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+
+// Reuse the SEND WS: food_delivery is just another express_booking row, so
+// `/api/express/ws/bookings/{booking_id}` already pushes snapshot + live
+// `driver_location` frames exactly as the SEND tracker expects.
+const wsUrl = (bookingId) => {
+  const base = API || "";
+  return `${base.replace(/^http/i, "ws")}/api/express/ws/bookings/${bookingId}`;
+};
+
+// FOOD-coloured markers (same visual language as SEND but swap yellow → green)
+const DriverMapMarker = () => (
+  <div className="relative">
+    <div className="absolute -inset-1.5 rounded-full animate-ping" style={{ backgroundColor: GREEN, opacity: 0.35 }} />
+    <div className="relative w-10 h-10 rounded-full flex items-center justify-center shadow-2xl border-2"
+         style={{ backgroundColor: GREEN, borderColor: "#0a0a0a" }} data-testid="food-track-driver-pin">
+      <Bike size={16} color="#0a0a0a" strokeWidth={2.5} />
+    </div>
+  </div>
+);
+const PickupMarker = () => (
+  <div className="flex flex-col items-center" data-testid="food-track-pickup-pin">
+    <div className="w-9 h-9 rounded-full border-[3px] border-white shadow-lg flex items-center justify-center"
+         style={{ backgroundColor: "#0a0a0a", color: GREEN }}>
+      <Store size={14} />
+    </div>
+  </div>
+);
+const DropMarker = () => (
+  <div className="flex flex-col items-center" data-testid="food-track-drop-pin">
+    <div className="w-9 h-9 rounded-full border-[3px] border-white shadow-lg flex items-center justify-center bg-white"
+         style={{ color: "#0a0a0a" }}>
+      <MapPin size={14} />
+    </div>
+  </div>
+);
 
 const authHeaders = () => {
   const t = typeof window !== "undefined" ? localStorage.getItem("baked_access_token") : null;
@@ -78,6 +115,8 @@ const FoodOrderTrackPage = () => {
   const [data, setData]   = useState(null);
   const [err, setErr]     = useState("");
   const [loading, setLoading] = useState(true);
+  const [liveLoc, setLiveLoc] = useState(null); // real-time driver_location from WS
+  const wsRef = useRef(null);
 
   const load = useCallback(async () => {
     if (!hasToken()) { setLoading(false); return; }
@@ -90,15 +129,47 @@ const FoodOrderTrackPage = () => {
     } finally { setLoading(false); }
   }, [orderId]);
 
-  // Initial fetch + poll every 5s while the order is in flight. We refetch
-  // more aggressively than the SEND WS because the FOOD cart drawer doesn't
-  // own a persistent socket — the SEND track page does, but inside its own
-  // module.
+  // Initial fetch + poll every 5s. The WS below drives the map pin; this
+  // GET keeps order status chips and driver chip fresh if the socket drops.
   useEffect(() => {
     load();
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
   }, [load]);
+
+  // --- Live driver_location via the SEND booking WS -------------------
+  // Opens once we know the delivery booking id. Reconnects automatically if
+  // the socket drops. Mirrors the SEND tracker lifecycle so a single bug
+  // fix in SEND benefits FOOD too.
+  const bookingId = data?.delivery?.booking_id;
+  useEffect(() => {
+    if (!bookingId) return;
+    let stopped = false;
+    let reconnectTimer;
+    const open = () => {
+      if (stopped) return;
+      const ws = new WebSocket(wsUrl(bookingId));
+      wsRef.current = ws;
+      ws.onclose = () => { if (!stopped) reconnectTimer = setTimeout(open, 3000); };
+      ws.onerror = () => { try { ws.close(); } catch (e) { /* ignore */ } };
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "snapshot" && msg.driver_location) {
+            setLiveLoc({ lat: msg.driver_location.lat, lng: msg.driver_location.lng });
+          } else if (msg.type === "location") {
+            setLiveLoc({ lat: msg.driver_location.lat, lng: msg.driver_location.lng });
+          }
+        } catch { /* ignore malformed */ }
+      };
+    };
+    open();
+    return () => {
+      stopped = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (wsRef.current) { try { wsRef.current.close(); } catch (e) { /* ignore */ } }
+    };
+  }, [bookingId]);
 
   if (!hasToken()) {
     return (
@@ -129,6 +200,20 @@ const FoodOrderTrackPage = () => {
   const driverStatus = delivery?.status;
   const driverLabel  = driverStatus ? ((fr ? DRIVER_STATUS_FR : DRIVER_STATUS_EN)[driverStatus] || driverStatus) : null;
 
+  // Live-map geometry: pickup = restaurant, drop = customer address, driver
+  // = live WS position (preferred) else last snapshot's driver_location.
+  const pickup = delivery?.pickup?.lat != null ? delivery.pickup : null;
+  const drop   = delivery?.drop?.lat   != null ? delivery.drop   : null;
+  const driverLoc = liveLoc || (delivery?.driver_location?.lat != null ? delivery.driver_location : null);
+  const driverAssigned = !!delivery?.driver;
+  const showMap = GMAPS_KEY && pickup && drop && (driverAssigned || driverLoc);
+  const mapCenter = driverLoc
+    ? { lat: Number(driverLoc.lat), lng: Number(driverLoc.lng) }
+    : (pickup && drop
+        ? { lat: (Number(pickup.lat) + Number(drop.lat)) / 2,
+            lng: (Number(pickup.lng) + Number(drop.lng)) / 2 }
+        : null);
+
   return (
     <div className="min-h-screen bg-background pb-20" data-testid="food-track-page">
       <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
@@ -152,6 +237,53 @@ const FoodOrderTrackPage = () => {
       </header>
 
       <main className="max-w-md mx-auto p-4 space-y-5">
+        {showMap && (
+          <section className="rounded-2xl overflow-hidden border border-border bg-card" data-testid="food-track-map">
+            <div className="h-56 w-full relative">
+              <APIProvider apiKey={GMAPS_KEY}>
+                <Map
+                  defaultCenter={mapCenter}
+                  center={mapCenter}
+                  defaultZoom={14}
+                  mapId="food-track-map"
+                  gestureHandling="greedy"
+                  disableDefaultUI
+                  styles={[{ featureType: "poi", stylers: [{ visibility: "off" }] }]}
+                >
+                  {pickup && (
+                    <AdvancedMarker position={{ lat: Number(pickup.lat), lng: Number(pickup.lng) }}>
+                      <PickupMarker />
+                    </AdvancedMarker>
+                  )}
+                  {drop && (
+                    <AdvancedMarker position={{ lat: Number(drop.lat), lng: Number(drop.lng) }}>
+                      <DropMarker />
+                    </AdvancedMarker>
+                  )}
+                  {driverLoc && (
+                    <AdvancedMarker position={{ lat: Number(driverLoc.lat), lng: Number(driverLoc.lng) }}>
+                      <DriverMapMarker />
+                    </AdvancedMarker>
+                  )}
+                </Map>
+              </APIProvider>
+            </div>
+            <div className="px-4 py-2 text-[11px] text-muted-foreground border-t border-border">
+              <span className="inline-flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: GREEN }} /> {fr ? "Livreur" : "Driver"}
+              </span>
+              <span className="mx-2">·</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-black" /> {fr ? "Restaurant" : "Restaurant"}
+              </span>
+              <span className="mx-2">·</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-white border border-black" /> {fr ? "Vous" : "You"}
+              </span>
+            </div>
+          </section>
+        )}
+
         <section className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="food-track-stages">
           <div className="text-sm font-semibold flex items-center gap-2">
             <Utensils size={14} /> {fr ? "Progression" : "Progress"}
