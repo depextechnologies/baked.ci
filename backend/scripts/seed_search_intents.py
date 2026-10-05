@@ -5,6 +5,10 @@ so the orchestrator's substring check is accent-insensitive. Each row maps
 one short-phrase set → one action card shown at the top of the global
 search results page.
 
+Destinations MUST reference real registered React Router paths. See
+`frontend/src/apps/customer/CustomerApp.jsx` for the authoritative route
+list.
+
 Adding a new intent later is a one-row INSERT — no code change required.
 Super Admin CRUD can be plumbed on top of this table without a migration.
 """
@@ -17,71 +21,118 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 INTENTS = [
-    # SEND — primary action-only module
+    # -------------------------------------------------------------------
+    # SEND — primary action-only module. Every destination must map to a
+    # real route in CustomerApp.jsx otherwise clicks fall through to the
+    # not-found handler (which previously rendered MART under the SEND
+    # tab — the bug we are fixing).
+    # -------------------------------------------------------------------
     dict(module="send", code="send_parcel",
-         phrases=["send parcel", "send a parcel", "book parcel", "parcel delivery",
-                  "deliver package", "deliver parcel", "courier", "send document",
-                  "envoyer un colis", "envoyer colis", "livraison colis",
-                  "livrer un colis", "coursier", "envoyer document"],
+         phrases=[
+             "send parcel", "send a parcel", "book parcel", "book a parcel",
+             "parcel", "parcel delivery", "parcel booking", "send package",
+             "deliver package", "deliver parcel", "deliver a parcel",
+             "courier", "courier service", "send document", "send documents",
+             "envoyer un colis", "envoyer colis", "envoi colis",
+             "livraison colis", "livrer un colis", "coursier", "livreur",
+             "envoyer document", "envoyer un document", "colis",
+         ],
          fr="Envoyer un colis", en="Send a parcel",
          sfr="Livraison porte-à-porte via SENDbakēd",
          sen="Door-to-door delivery via SENDbakēd",
-         dest="/send/book/parcel", icon="package", weight=200),
+         dest="/send/parcel", icon="package", weight=200),
 
     dict(module="send", code="book_truck",
-         phrases=["book truck", "truck delivery", "move goods", "transport goods",
-                  "camion", "reserver camion", "réserver camion", "livraison camion",
-                  "transport marchandises"],
+         phrases=[
+             "book truck", "truck", "truck delivery", "truck booking",
+             "move goods", "transport goods", "goods transport",
+             "camion", "camionnette", "reserver camion", "réserver camion",
+             "reserver un camion", "livraison camion", "transport marchandises",
+             "transport marchandise", "réserver vehicule", "reserver vehicule",
+             "book vehicle", "book a vehicle", "reserver un vehicule",
+         ],
          fr="Réserver un véhicule", en="Book a vehicle",
          sfr="Transporter des articles volumineux",
          sen="Move larger items",
          dest="/send/book/vehicle", icon="truck", weight=180),
 
     dict(module="send", code="shift_home",
-         phrases=["shift home", "home shifting", "move house", "relocation",
-                  "demenagement", "déménagement", "demenager", "déménager",
-                  "transport maison"],
+         phrases=[
+             "shift home", "home shifting", "move house", "moving",
+             "moving service", "moving services", "relocation", "relocate",
+             "demenagement", "déménagement", "demenager", "déménager",
+             "demenagement maison", "déménagement maison", "transport maison",
+             "service de demenagement", "service de déménagement",
+             "home moving", "house moving", "movers",
+         ],
          fr="Déménagement", en="Home shifting",
          sfr="Service de déménagement SENDbakēd",
          sen="SENDbakēd moving service",
-         dest="/send/book/movers", icon="home", weight=170),
+         dest="/send/movers", icon="home", weight=170),
 
+    # -------------------------------------------------------------------
     # FOOD — reservation + discovery
+    # -------------------------------------------------------------------
     dict(module="food", code="book_table",
-         phrases=["book table", "book a table", "reserve restaurant",
-                  "reserve a table", "table reservation", "dinner reservation",
-                  "reserver table", "réserver une table", "reserver restaurant",
-                  "réserver un restaurant", "reservation restaurant",
-                  "réservation restaurant"],
+         phrases=[
+             "book table", "book a table", "reserve restaurant",
+             "reserve a table", "table reservation", "dinner reservation",
+             "reserver table", "réserver une table", "reserver restaurant",
+             "réserver un restaurant", "reservation restaurant",
+             "réservation restaurant", "reserve table",
+         ],
          fr="Trouver une table", en="Find a table",
          sfr="Réserver dans un restaurant FOODbakēd",
          sen="Reserve at a FOODbakēd restaurant",
          dest="/foodbaked?intent=reservation", icon="utensils", weight=180),
 
     dict(module="food", code="order_food",
-         phrases=["order food", "food delivery", "livraison nourriture",
-                  "commander à manger", "commander a manger", "commander nourriture"],
+         phrases=[
+             "order food", "food delivery", "livraison nourriture",
+             "livraison repas", "commander à manger", "commander a manger",
+             "commander nourriture", "commander repas", "order a meal",
+             "order meal",
+         ],
          fr="Commander un repas", en="Order food",
          sfr="Explorer les restaurants FOODbakēd",
          sen="Explore FOODbakēd restaurants",
          dest="/foodbaked", icon="utensils", weight=150),
 
+    # -------------------------------------------------------------------
     # MART
+    # -------------------------------------------------------------------
     dict(module="mart", code="grocery",
-         phrases=["grocery", "groceries", "epicerie", "épicerie", "supermarche",
-                  "supermarché", "faire les courses"],
+         phrases=[
+             "grocery", "groceries", "epicerie", "épicerie", "supermarche",
+             "supermarché", "faire les courses", "courses", "shopping grocery",
+         ],
          fr="Faire les courses", en="Grocery shopping",
          sfr="Parcourir les rayons MARTbakēd",
          sen="Browse MARTbakēd aisles",
          dest="/products", icon="shopping-cart", weight=140),
 
+    # -------------------------------------------------------------------
     # SHOP
+    # -------------------------------------------------------------------
     dict(module="shop", code="shop_fashion",
-         phrases=["fashion", "clothing", "mode", "vetements", "vêtements"],
+         phrases=[
+             "fashion", "clothing", "clothes", "mode", "vetements", "vêtements",
+             "buy clothes", "acheter vetements", "acheter vêtements",
+         ],
          fr="Mode & Vêtements", en="Fashion & Clothing",
          sfr="Découvrir les boutiques SHOPbakēd",
          sen="Discover SHOPbakēd stores",
-         dest="/shopbaked?category=fashion", icon="shopping-bag", weight=130),
+         dest="/shop", icon="shopping-bag", weight=130),
+
+    dict(module="shop", code="shop_general",
+         phrases=[
+             "buy", "shop", "shopping", "acheter", "boutique", "magasin",
+             "shop online",
+         ],
+         fr="Boutique SHOPbakēd", en="Shop online",
+         sfr="Produits de vendeurs SHOPbakēd",
+         sen="Products from SHOPbakēd sellers",
+         dest="/shop", icon="shopping-bag", weight=100),
 
     # Future: AUTO / IMMO — not seeded until modules go live. Adding a row
     # is a single INSERT when AUTO/IMMO ship.
