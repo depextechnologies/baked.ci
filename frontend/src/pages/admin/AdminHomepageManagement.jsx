@@ -176,10 +176,17 @@ const SECTION_SCHEMAS = {
   food_hero: {
     label: "FOOD · Hero Banner",
     modules: ["food"],
-    top: [F.text("title", "Titre / Headline"), F.area("subtitle", "Sous-titre / Sub-headline")],
+    top: [F.text("title", "Titre · Headline (FR par défaut)"),
+          F.area("subtitle", "Sous-titre · Sub-headline (FR par défaut)")],
     config: [
       F.image("background_image", "Image d'arrière-plan · Background image"),
       F.text("eyebrow", "Éyebrow (petit tag au-dessus du titre)"),
+      F.text("title_fr", "Titre FR (optionnel — remplace le titre ci-dessus en FR)"),
+      F.text("title_en", "Title EN (optional — shown when English is selected)"),
+      F.area("subtitle_fr", "Sous-titre FR (optionnel)"),
+      F.area("subtitle_en", "Subtitle EN (optional)"),
+      F.area("tagline_fr", "Phrase d'accroche FR"),
+      F.area("tagline_en", "Tagline EN"),
       F.text("cta_label", "CTA label"),
       F.url("cta_link", "CTA link"),
     ],
@@ -198,6 +205,8 @@ const SECTION_SCHEMAS = {
     modules: ["food"],
     top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
     config: [
+      F.text("title_fr", "Titre FR (optionnel)"),
+      F.text("title_en", "Title EN (optional)"),
       F.num("columns", "Colonnes desktop · Desktop columns"),
       F.num("limit", "Nombre à afficher · Number to show"),
     ],
@@ -207,6 +216,8 @@ const SECTION_SCHEMAS = {
     modules: ["food"],
     top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
     config: [
+      F.text("title_fr", "Titre FR (optionnel)"),
+      F.text("title_en", "Title EN (optional)"),
       F.text("cuisine_filter", "Filtre cuisine (blank = all featured)"),
       F.num("limit", "Nombre de cartes · Card limit"),
     ],
@@ -217,9 +228,12 @@ const SECTION_SCHEMAS = {
     top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
     config: [F.list("banners", "Bannières · Banners", [
       F.image("image", "Image"),
-      F.text("headline", "Titre · Headline"),
-      F.text("description", "Description"),
-      F.text("cta_label", "CTA label"),
+      F.text("headline_fr", "Titre FR · Headline"),
+      F.text("headline_en", "Headline EN"),
+      F.text("description_fr", "Description FR"),
+      F.text("description_en", "Description EN"),
+      F.text("cta_label_fr", "CTA FR"),
+      F.text("cta_label_en", "CTA EN"),
       F.url("cta_link", "CTA link"),
     ])],
   },
@@ -227,7 +241,25 @@ const SECTION_SCHEMAS = {
     label: "FOOD · Points forts (USP Strip)",
     modules: ["food"],
     top: [F.text("title", "Titre · Section title")],
-    config: [F.list("usps", "USPs (3-4 recommandés)", _USP_FIELDS)],
+    config: [F.list("usps", "USPs (3-4 recommandés)", [
+      F.text("icon", "Icon key (shield / truck / sparkles / tag / clock / utensils / star / heart / shopping)"),
+      F.text("title_fr", "Titre FR"),
+      F.text("title_en", "Title EN"),
+      F.text("subtitle_fr", "Sous-titre FR"),
+      F.text("subtitle_en", "Subtitle EN"),
+    ])],
+  },
+  food_testimonial: {
+    label: "FOOD · Témoignage · Testimonial banner",
+    modules: ["food"],
+    top: [F.text("title", "Titre (interne)")],
+    config: [
+      F.image("background_image", "Image d'arrière-plan · Background image"),
+      F.area("quote_fr", "Citation FR · Quote (French)"),
+      F.area("quote_en", "Quote EN"),
+      F.text("meta_fr", "Métadonnée FR (ex: 4.8/5 sur 10 000+ clients)"),
+      F.text("meta_en", "Meta EN"),
+    ],
   },
 };
 
@@ -380,6 +412,16 @@ export const AdminHomepageManagement = () => {
                   data-testid="hp-country-select">
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
+          {module === "food" && (
+            <a
+              href={`/food?preview_country=${country}`}
+              target="_blank" rel="noreferrer"
+              className="h-9 px-3 rounded-lg text-xs uppercase tracking-widest font-semibold bg-secondary text-foreground border border-border hover:bg-accent flex items-center gap-1"
+              data-testid="hp-preview-btn"
+              title="Opens the live FOODbakēd homepage in a new tab with the selected country">
+              <Eye size={14} /> Preview
+            </a>
+          )}
           <button onClick={() => {
                     // First allowed section type for this module.
                     const firstType = Object.entries(SECTION_SCHEMAS).find(
