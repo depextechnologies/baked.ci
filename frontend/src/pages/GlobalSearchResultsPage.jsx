@@ -8,14 +8,13 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import {
   Search, Loader2, Utensils, ShoppingCart, ShoppingBag, Package, ArrowRight, Store,
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const detectFr = () =>
-  (((typeof window !== "undefined" && localStorage.getItem("i18nextLng")) || "fr").toLowerCase().startsWith("fr"));
 const detectCountry = () => {
   try {
     const raw = localStorage.getItem("baked_location") || localStorage.getItem("baked_customer_location");
@@ -36,7 +35,8 @@ const MODULE_META = {
 const GlobalSearchResultsPage = () => {
   const [params, setParams] = useSearchParams();
   const nav = useNavigate();
-  const fr = detectFr();
+  const { i18n } = useTranslation();
+  const fr = (i18n?.language || "fr").toLowerCase().startsWith("fr");
   const q = params.get("q") || "";
   const moduleFilter = params.get("module") || "all";
 

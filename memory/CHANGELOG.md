@@ -1,3 +1,48 @@
+## 2026-02-05 — Global Search Audit & Elastic/Fuzzy Overhaul
+
+### Root causes of the 3 reported bugs (Lait Frais / Signature Car Parts / Send Parcel)
+1. **`unaccent` extension was never installed** → every MART/SHOP query threw
+   `function unaccent(…) does not exist` inside the provider, caught silently
+   and returned 0 hits. That made real catalogue items appear un-searchable.
+2. **SEND intent destinations pointed to non-existent React Router paths**
+   (`/send/book/parcel`, `/send/book/movers`). React Router fell through and
+   kept rendering whatever was underneath (MART homepage), while the SEND tab
+   lit up — exactly the "Send Parcel → MART content" symptom reported.
+3. **SHOP result URLs used `/shopbaked/product/{slug}`** which is not a real
+   route; actual route is `/shop/p/{productId}`. Same for category.
+
+### Fixes shipped
+- `backend/migrations/versions/0064_search_pg_extensions.py` — installs
+  `unaccent` + `pg_trgm` and creates trigram GIN indexes on
+  `mart_products.name`, `mart_products.brand`, `shop_products.title`,
+  `shop_products.title_fr`, `food_restaurants.name`, `food_menu_items.name`.
+- `backend/modules/search/__init__.py` — rewritten orchestrator with
+  deterministic 8-tier ranking:
+    1.00 exact · 0.95 exact category · 0.90 prefix · 0.80 word-boundary ·
+    0.70 multi-token · 0.55 contains · 0.50 brand/cat · 0.45 description ·
+    pg_trgm similarity() floor for typo tolerance (disabled under 4 chars
+    so "lai" doesn't match "balais"). SHOP searches products, categories
+    AND brands. All destination URLs now map to real routes:
+    `/products/{id}` (MART), `/shop/p/{slug}` + `/shop/c/{slug}` + `/shop?brand=…`
+    (SHOP), `/foodbaked/restaurants/{slug}` (FOOD).
+- `backend/scripts/seed_search_intents.py` — SEND destinations fixed to
+  `/send/parcel`, `/send/movers`, `/send/book/vehicle`; expanded phrase lists
+  (parcel, courier, package, moving service, demenagement, movers, …).
+  Intent detection now also accepts token-overlap and difflib fuzzy matches.
+- `GlobalSearchDropdown.jsx` + `GlobalSearchResultsPage.jsx` — reactive FR/EN
+  via `react-i18next` instead of one-shot `localStorage` read.
+- `backend/tests/test_global_search.py` — 29 tests passing (13 original +
+  16 new regressions covering the exact user scenarios).
+
+### Verification
+- Backend: 29/29 search tests + 11/11 food dispatch & menu tests PASS.
+- Frontend (testing_agent iteration_102): 16/16 end-to-end scenarios PASS
+  (Lait Frais, Lai prefix, lait fris typo, Send Parcel, courier, shift home,
+  book truck, pizza, burger, Signature Car Parts click-through, FR→EN
+  toggle, cross-module search from /foodbaked, legacy /products?search=
+  backward compat, empty state).
+
+
 # BAKĒD — Changelog (recent slices only; older detail lives in PRD.md)
 
 ## 2026-02-25 (later 3) — Language cleanup + demo gallery seed — COMPLETE

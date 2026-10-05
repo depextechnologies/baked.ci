@@ -12,6 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import {
   Search, Loader2, Utensils, ShoppingCart, ShoppingBag, Package, Store,
@@ -19,9 +20,6 @@ import {
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
-
-const detectFr = () =>
-  (((typeof window !== "undefined" && localStorage.getItem("i18nextLng")) || "fr").toLowerCase().startsWith("fr"));
 
 const MODULE_META = {
   mart: { label_fr: "MARTbakēd",  label_en: "MARTbakēd",  color: "#77BC1F", icon: ShoppingCart },
@@ -45,7 +43,8 @@ const detectCountry = () => {
 
 const GlobalSearchDropdown = ({ anchorRef, open, onClose, query, onPickResult }) => {
   const nav = useNavigate();
-  const fr = detectFr();
+  const { i18n } = useTranslation();
+  const fr = (i18n?.language || "fr").toLowerCase().startsWith("fr");
   const [data, setData]     = useState(null);
   const [loading, setLoad]  = useState(false);
   const abortRef = useRef(null);

@@ -272,10 +272,11 @@ class FoodSearchProvider(SearchProvider):
             ))
         # Cuisines (category-style)
         for c in data.get("cuisines", []) or []:
+            n = int(c.get("restaurant_count") or 0)
             hits.append(SearchHit(
                 module="food", entity_type="cuisine",
                 title=(c.get("name") or "").title(),
-                subtitle=f"{c.get('restaurant_count', 0)} restaurants",
+                subtitle=(f"{n} restaurants" if n > 0 else ""),
                 destination_url=f"/foodbaked/search?q={q}",
                 relevance=0.55,
             ))
