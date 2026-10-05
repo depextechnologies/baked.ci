@@ -1,3 +1,51 @@
+## 2026-02-05 — FOOD Homepage CMS wired end-to-end
+
+### The bug
+Super Admin's /admin/modules/food/homepage-management listed three
+ENABLED rows (Best Deal Ever, Best Festive Offer, evryday) but NONE
+of them rendered on the customer /food page. Two architectural flaws:
+
+1. `FoodHome.jsx` built a `type → section` map (`sx[s.section_type] = s`)
+   which collapsed duplicate `section_type` down to the last row and
+   dropped every row that shared a type. The two `food_promos` rows
+   became one — then the one with no `banners` config overwrote the
+   one with content, so neither rendered.
+2. The JSX layout was HARDCODED top-to-bottom. Admin ↑/↓ updated
+   `display_order` in the DB but FoodHome never read it; the field
+   was a cosmetic sort key for the admin table only.
+
+### Fix shipped
+- `frontend/src/apps/foodbaked/pages/FoodHome.jsx` — rewritten so
+  layout is driven by `homepage.sections.sort(display_order).map(renderSection)`.
+  Hero is pulled out and rendered first (always); every other row maps
+  1:1 to a typed renderer (`PromoStrip`, `CategoryStrip`, `RestaurantCarousel`,
+  `CuisineCarousel`, `USPGrid`, `TestimonialBanner`). Multiple rows of the
+  same `section_type` render independently. When the CMS returns zero
+  rows for a country, a `DEFAULT_SECTIONS` fallback keeps the live page
+  populated so a fresh country install is never empty.
+- Added `?preview_country=XX` query-string escape hatch so Super Admin
+  can preview any country's homepage without flipping their location.
+- `backend/core/models/homepage.py` — added `food_testimonial` to the
+  section_type whitelist.
+- `frontend/src/pages/admin/AdminHomepageManagement.jsx` — added
+  bilingual title_fr / title_en / subtitle_fr / subtitle_en fields to
+  every food_* schema (frontend already honours per-language fallback).
+  Added a new `food_testimonial` schema and a 'Preview' button that
+  opens `/food?preview_country=<cc>` in a new tab.
+- `backend/tests/test_food_homepage_cms.py` — 11 new regression tests:
+  duplicate-type preservation, display_order ordering, enabled filter,
+  country/module isolation, config shape invariants.
+
+### Verification
+- Backend pytest: 46/46 PASS (11 new CMS + 29 search + 6 min-order).
+- Frontend testing_agent (iteration_104): 12/12 PASS incl. admin reorder
+  → customer render, enable/disable, add new section, delete safety
+  prompt, bilingual testimonial, country isolation, preview link,
+  global shell untouched.
+- Zero duplicate hardcoded/CMS sections — FoodHome has no demo content
+  that competes with CMS rows.
+
+
 ## 2026-02-05 — Checkout Integrity P0 (Subtotal=₹0 after login) + Min-Order Removed
 
 ### Root cause of the "₹527 cart → ₹0 subtotal after login" bug
