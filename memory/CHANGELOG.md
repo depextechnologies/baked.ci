@@ -1,3 +1,48 @@
+## 2026-02-05 — Checkout Integrity P0 (Subtotal=₹0 after login) + Min-Order Removed
+
+### Root cause of the "₹527 cart → ₹0 subtotal after login" bug
+`CheckoutPage.jsx` read `cart.mart?.subtotal` with a `??` fallback. After a
+guest→auth transition, the client-side cart hydrator pulls MART from the
+server (empty — guest items were FOOD) + SHOP from the server (empty) +
+FOOD from localStorage (3 items worth ₹527). That left `cart.mart.subtotal
+= 0` which is defined-but-zero, so `??` returned 0 instead of recomputing
+from items. The same page also treated every non-SHOP item as MART, so
+the FOOD rows were tagged "MART" in the Order Summary but their price
+never hit `martSubtotal`. Divergence between the item list (₹527) and
+the total (₹29 = delivery only) was baked in.
+
+### Fixes shipped
+- `frontend/src/pages/CheckoutPage.jsx` — totals are now derived directly
+  from `cart.items`. One line-total helper (`lineTotal(i)`), three bucket
+  filters (`martItems/shopItems/foodItems`), one subtotal per bucket, and
+  the Total is always `subtotal + deliveryFee`. FOOD subtotal line
+  rendered. FOOD chip (red) rendered on FOOD rows. `placeOrder()` now also
+  posts `/api/food/customer/orders` per restaurant when the cart contains
+  FOOD rows (mirrors the CartDrawer code path).
+- `frontend/src/lib/checkout.js` + `backend/modules/mart/cart_rules.py` —
+  BAKĒD v1.1: minimum-order rule REMOVED. The helpers still return the
+  `min_order`/`shortfall`/`reason` fields for API-compat but
+  `eligible === true` always and `shortfall === 0` always. UI warnings
+  that depend on `!eligible` are now dead code (left in place so adding
+  the rule back is one-line).
+- `backend/modules/mart/orders.py` — removed the `HTTPException(400, ...)`
+  that blocked carts below the threshold. Rewards redemption now caps at
+  the full payable total rather than at `total - min_order`.
+- `backend/tests/test_min_order_eligibility.py` — rewritten to assert the
+  INVERSE of the old rule so any future regression that re-introduces a
+  min-order gate fails loudly. Hardcoded product IDs replaced with a
+  live-lookup fixture so the suite survives catalogue reseeds. **6/6 PASS.**
+
+### Verification
+- Backend pytest: 6/6 min-order + 29/29 search + 11/11 food tests PASS.
+- Frontend testing_agent (iteration_103): P0 scenario reproduced live —
+  guest in IN added FOOD items from Burger Hub, logged in via OTP, and
+  /checkout showed: FOOD subtotal = ₹328, Subtotal = ₹328, Total = ₹328,
+  FOOD chip rendered, no minimum-order warning, Place-order enabled.
+- Order persistence: GET /api/orders/{id} returns the same total as
+  the POST response (authoritative server-side pricing).
+
+
 ## 2026-02-05 — Global Search Audit & Elastic/Fuzzy Overhaul
 
 ### Root causes of the 3 reported bugs (Lait Frais / Signature Car Parts / Send Parcel)
