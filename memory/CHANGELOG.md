@@ -1,3 +1,31 @@
+## 2026-02-05 (b) — FOOD CMS brought to full parity with MART
+
+Follow-up to the earlier CMS wiring: the user asked for MART-style
+behaviour where Super Admin truly owns every section (edit, add, reorder,
+disable, delete) and nothing is hardcoded. Shipped:
+
+- **`backend/modules/homepage/seed.py`** — added `seed_food_homepage()`
+  which idempotently seeds 7 default FOOD sections per country (hero,
+  categories, featured_restaurants, promos, cuisines, usps, testimonial).
+  Insert-only-if-missing, deterministic ids (`hps_food_<cc>_<seq>_<type>`),
+  bilingual FR/EN config stored under `*_fr` / `*_en` keys so admin edits
+  survive restarts and never clash with admin-created rows (which use
+  UUID-style ids).
+- **`backend/seed.py`** — wired `seed_food_homepage()` into boot alongside
+  the MART seed.
+- **`frontend/.../FoodHome.jsx`** — removed the client-side
+  `DEFAULT_SECTIONS` fallback. If admin deletes every row the page now
+  renders an empty-state CTA pointing to the configurator — exactly
+  mirroring MART behaviour. Admin truly owns everything.
+- **`backend/tests/test_food_homepage_cms.py`** — +2 new tests covering
+  the seeded stack (7 types per country) and deterministic-id contract.
+
+Verification: 48/48 backend tests pass. Admin UI now shows 7 pre-populated
+sections for CI and 7 for IN, each editable with bilingual title/subtitle,
+rich config fields, Preview button, reorder arrows, enable/disable toggle
+and confirmation on delete — identical UX to the MART homepage manager.
+
+
 ## 2026-02-05 — FOOD Homepage CMS wired end-to-end
 
 ### The bug

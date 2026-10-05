@@ -260,6 +260,174 @@ _ALL_COUNTRIES: tuple[tuple[str, dict], ...] = (
 )
 
 
+# ============================================================================
+# FOODbakēd seed — same architecture as MART (insert-only-if-missing,
+# deterministic ids, bilingual FR/EN config stored under *_fr / *_en keys).
+# Super Admin can edit / reorder / disable / delete; a restart NEVER
+# resurrects a deleted row (idempotent `ON CONFLICT DO NOTHING`).
+# ============================================================================
+
+_FOOD_HERO_BG = (
+    "https://images.unsplash.com/photo-1555939594-58d7cb561ad1"
+    "?w=1600&auto=format&fit=crop&q=70"
+)
+
+# One `config` block per section, authored FR-first with EN alongside. The
+# FoodHome renderer reads the right language key based on i18n.
+_FOOD_SECTIONS: dict[str, list[dict]] = {
+    "CI": [
+        dict(seq=10, type="food_hero",                 title="La bonne cuisine",
+             subtitle="Rassemble les gens",
+             config={
+                 "background_image": _FOOD_HERO_BG,
+                 "title_fr":    "La bonne cuisine",
+                 "title_en":    "Good Food",
+                 "subtitle_fr": "Rassemble les gens",
+                 "subtitle_en": "Brings People Together",
+                 "tagline_fr":  "Découvrez des restaurants locaux et des cuisines du monde — uniquement sur FOODbakēd.",
+                 "tagline_en":  "Discover local favourites and global cuisines — only on FOODbakēd.",
+                 "eyebrow":     "FOODbakēd",
+             }),
+        dict(seq=20, type="food_categories",           title="Explorer par type",
+             subtitle="Choisissez votre repas",
+             config={"title_fr": "Explorer par type", "title_en": "Browse by type"}),
+        dict(seq=30, type="food_featured_restaurants", title="Restaurants populaires",
+             subtitle="Les favoris de la ville",
+             config={
+                 "title_fr": "Restaurants populaires",
+                 "title_en": "Featured Restaurants",
+                 "subtitle_fr": "Les favoris de la ville",
+                 "subtitle_en": "City favourites",
+                 "limit": 10,
+             }),
+        dict(seq=40, type="food_promos",               title="Offres du moment",
+             subtitle="Les meilleures promos chez les restaurateurs partenaires",
+             config={"banners": [
+                 {
+                     "image": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&auto=format&fit=crop&q=70",
+                     "headline_fr": "–30 % sur les pizzas", "headline_en": "–30% on pizzas",
+                     "description_fr": "Chaque mardi, chez tous les partenaires FOOD.",
+                     "description_en": "Every Tuesday, at every FOOD partner.",
+                     "cta_label_fr": "J'en profite", "cta_label_en": "Grab it", "cta_link": "/foodbaked",
+                 },
+                 {
+                     "image": "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=1200&auto=format&fit=crop&q=70",
+                     "headline_fr": "Livraison offerte", "headline_en": "Free delivery",
+                     "description_fr": "Dès 10 000 XOF de commande.", "description_en": "On orders over 10,000 XOF.",
+                     "cta_label_fr": "Commander", "cta_label_en": "Order", "cta_link": "/foodbaked",
+                 },
+             ]}),
+        dict(seq=50, type="food_cuisines",             title="Cuisines du monde",
+             subtitle="De l'Ivoire à l'Italie, en passant par l'Asie",
+             config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
+        dict(seq=60, type="food_usps",                 title="Pourquoi FOODbakēd ?",
+             subtitle=None,
+             config={"usps": [
+                 {"icon": "clock",    "title_fr": "Livraison rapide",      "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",       "subtitle_en": "Hot meals at your door"},
+                 {"icon": "utensils", "title_fr": "Grande variété",         "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
+                 {"icon": "tag",      "title_fr": "Super offres",           "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",            "subtitle_en": "Save more every day"},
+                 {"icon": "heart",    "title_fr": "Partenaires de confiance","title_en": "Trusted Restaurants","subtitle_fr": "Qualité et clients heureux",       "subtitle_en": "Quality food, happy customers"},
+             ]}),
+        dict(seq=70, type="food_testimonial",          title="Ils nous adorent",
+             subtitle=None,
+             config={
+                 "background_image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1400&auto=format&fit=crop&q=70",
+                 "quote_fr": "FOODbakēd a changé ma façon de commander. Rapide, varié, et toujours chaud à l'arrivée.",
+                 "quote_en": "FOODbakēd changed how I order. Fast, varied, and still hot when it arrives.",
+                 "meta_fr":  "4,8/5 sur plus de 10 000 clients satisfaits",
+                 "meta_en":  "4.8/5 from 10,000+ happy food lovers",
+             }),
+    ],
+    "IN": [
+        dict(seq=10, type="food_hero",                 title="Good Food",
+             subtitle="Brings People Together",
+             config={
+                 "background_image": _FOOD_HERO_BG,
+                 "title_fr":    "Un bon repas",
+                 "title_en":    "Good Food",
+                 "subtitle_fr": "Rassemble les gens",
+                 "subtitle_en": "Brings People Together",
+                 "tagline_fr":  "Découvrez des restaurants locaux et des cuisines du monde — uniquement sur FOODbakēd.",
+                 "tagline_en":  "Discover local favourites and global cuisines — only on FOODbakēd.",
+                 "eyebrow":     "FOODbakēd",
+             }),
+        dict(seq=20, type="food_categories",           title="Browse by type", subtitle="Pick your meal",
+             config={"title_fr": "Explorer par type", "title_en": "Browse by type"}),
+        dict(seq=30, type="food_featured_restaurants", title="Featured Restaurants", subtitle="City favourites",
+             config={"title_fr": "Restaurants populaires", "title_en": "Featured Restaurants", "limit": 10}),
+        dict(seq=40, type="food_promos",               title="Hot deals right now", subtitle="Picked by our team",
+             config={"banners": [
+                 {
+                     "image": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&auto=format&fit=crop&q=70",
+                     "headline_fr": "–30 % sur les pizzas", "headline_en": "–30% on pizzas",
+                     "description_fr": "Chaque mardi, chez tous les partenaires.", "description_en": "Every Tuesday, at every partner.",
+                     "cta_label_fr": "J'en profite", "cta_label_en": "Grab it", "cta_link": "/foodbaked",
+                 },
+                 {
+                     "image": "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=1200&auto=format&fit=crop&q=70",
+                     "headline_fr": "Livraison offerte", "headline_en": "Free delivery",
+                     "description_fr": "Dès 500 ₹ de commande.", "description_en": "On orders over ₹500.",
+                     "cta_label_fr": "Commander", "cta_label_en": "Order", "cta_link": "/foodbaked",
+                 },
+             ]}),
+        dict(seq=50, type="food_cuisines",             title="Cuisines You'll Love", subtitle="From Mumbai to Milan",
+             config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
+        dict(seq=60, type="food_usps",                 title="Why FOODbakēd?", subtitle=None,
+             config={"usps": [
+                 {"icon": "clock",    "title_fr": "Livraison rapide",       "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",         "subtitle_en": "Hot meals at your door"},
+                 {"icon": "utensils", "title_fr": "Grande variété",          "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
+                 {"icon": "tag",      "title_fr": "Super offres",            "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",             "subtitle_en": "Save more every day"},
+                 {"icon": "heart",    "title_fr": "Partenaires de confiance","title_en": "Trusted Restaurants","subtitle_fr": "Qualité et clients heureux",         "subtitle_en": "Quality food, happy customers"},
+             ]}),
+        dict(seq=70, type="food_testimonial",          title="Loved by foodies", subtitle=None,
+             config={
+                 "background_image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1400&auto=format&fit=crop&q=70",
+                 "quote_fr": "FOODbakēd est devenu mon réflexe. Rapide, varié et toujours chaud.",
+                 "quote_en": "FOODbakēd changed how I order. Fast, varied, and still hot when it arrives.",
+                 "meta_fr":  "4,8/5 sur plus de 10 000 clients satisfaits",
+                 "meta_en":  "4.8/5 from 10,000+ happy food lovers",
+             }),
+    ],
+}
+
+
+def _food_rows(country: str) -> list[dict]:
+    """Build the default FOOD section rows for one country (deterministic ids)."""
+    out = []
+    for row in _FOOD_SECTIONS[country]:
+        out.append({
+            "id": f"hps_food_{country.lower()}_{row['seq']:03d}_{row['type']}",
+            "country": country,
+            "module":  "food",
+            "section_type": row["type"],
+            "title":    row.get("title"),
+            "subtitle": row.get("subtitle"),
+            "config":   row.get("config") or {},
+            "display_order": row["seq"],
+            "is_enabled": True,
+        })
+    return out
+
+
+async def seed_food_homepage(session: AsyncSession) -> dict[str, int]:
+    """Idempotently insert the default FOOD homepage stack per country.
+
+    Admin edits via /admin/modules/food/homepage-management are preserved
+    because we `ON CONFLICT DO NOTHING` on the deterministic row id.
+    Deleted rows are NEVER re-inserted — unless the admin resets via a
+    (future) "Restore defaults" button.
+    """
+    counts: dict[str, int] = {}
+    for country in _FOOD_SECTIONS.keys():
+        rows = _food_rows(country)
+        stmt = pg_insert(HomepageSection).values(rows).on_conflict_do_nothing(index_elements=["id"])
+        result = await session.execute(stmt)
+        counts[country] = result.rowcount or 0
+    await session.commit()
+    return counts
+
+
+
 async def seed_homepage(session: AsyncSession) -> dict[str, int]:
     """Idempotently insert the default homepage stack for each supported country.
 

@@ -404,20 +404,6 @@ const TestimonialBanner = ({ row, language, t }) => {
 };
 
 // -------------------------------------------------------------------------
-// Default section list (used when CMS returns ZERO rows for the country).
-// Keeps the live page populated during a fresh country install.
-// -------------------------------------------------------------------------
-const DEFAULT_SECTIONS = [
-  { id: "default-hero",       section_type: "food_hero",                 display_order: 10,  title: null, subtitle: null, config: {} },
-  { id: "default-categories", section_type: "food_categories",           display_order: 20,  title: null, subtitle: null, config: {} },
-  { id: "default-featured",   section_type: "food_featured_restaurants", display_order: 30,  title: null, subtitle: null, config: {} },
-  { id: "default-promos",     section_type: "food_promos",               display_order: 40,  title: null, subtitle: null, config: {} },
-  { id: "default-cuisines",   section_type: "food_cuisines",             display_order: 50,  title: null, subtitle: null, config: {} },
-  { id: "default-usps",       section_type: "food_usps",                 display_order: 60,  title: null, subtitle: null, config: {} },
-  { id: "default-testimonial",section_type: "food_testimonial",          display_order: 70,  title: null, subtitle: null, config: {} },
-];
-
-// -------------------------------------------------------------------------
 // Page
 // -------------------------------------------------------------------------
 
@@ -456,13 +442,33 @@ export const FoodHome = () => {
 
   // ---------------------------------------------------------------------
   // Build the ORDERED section list. Each admin row is honoured — including
-  // multiple rows of the same type. If the CMS returned nothing, we fall
-  // back to a sensible default list so the live site is never empty.
+  // multiple rows of the same type. When the CMS returns zero rows the
+  // page renders an "empty state" CTA pointing admins at the configurator
+  // (parity with the MARTbakēd CMS behaviour).
   // ---------------------------------------------------------------------
   const sections = useMemo(() => {
-    const live = (homepage.sections || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-    return live.length > 0 ? live : DEFAULT_SECTIONS;
+    return (homepage.sections || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   }, [homepage.sections]);
+
+  // Empty-state when the CMS has nothing enabled for this country.
+  if (!loading && sections.length === 0) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-6" data-testid="food-home-empty">
+        <div className="max-w-md text-center space-y-3">
+          <h2 className="text-xl font-bold">
+            {language === "fr"
+              ? "Aucune section FOODbakēd configurée pour ce pays"
+              : "No FOODbakēd sections configured for this country"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {language === "fr"
+              ? "Configurez la page d'accueil dans /admin/modules/food/homepage-management."
+              : "Set up the homepage in /admin/modules/food/homepage-management."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Extract the hero row (always rendered at the TOP, full-bleed, above the
   // content container). All other sections live inside the container with
