@@ -288,7 +288,7 @@ async def create_order(
 
     detail = await _detail(session, oid)
 
-    # ---- Realtime fan-out to the partner portal
+    # ---- Realtime fan-out to the partner portal (live WS + browser Push)
     try:
         await _publish(payload.restaurant_id, {
             "type": "food.order.created",
@@ -302,6 +302,19 @@ async def create_order(
         })
     except Exception as e:  # noqa: BLE001
         log.warning("food.order.created publish failed: %s", e)
+
+    # Browser Push — wakes the partner's phone even when the tab is closed.
+    # Fire-and-forget: a slow push service never blocks the customer's HTTP
+    # response. Revoked endpoints are pruned by the dispatcher.
+    try:
+        from modules.food.push import fire_and_forget, new_order_payload
+        from core.db import SessionLocal
+        fire_and_forget(SessionLocal, payload.restaurant_id, new_order_payload({
+            **detail,
+            "customer_snapshot": payload.customer_snapshot or {},
+        }))
+    except Exception as e:  # noqa: BLE001
+        log.warning("push fan-out skipped: %s", e)
 
     return detail
 
@@ -796,3 +809,80 @@ async def partner_dashboard_stats(rid: str, request: Request,
         "avg_prep_minutes": round(float(row.avg_prep_minutes or 0), 1),
         "currency":         row.currency or "XOF",
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 4b — Web Push subscription management
+# ---------------------------------------------------------------------------
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth:   str
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: constr(min_length=10, max_length=4096)
+    keys:     PushSubscriptionKeys
+    user_agent: Optional[str] = None
+
+class PushUnsubscribeIn(BaseModel):
+    endpoint: constr(min_length=10, max_length=4096)
+
+
+@partner_router.get("/{rid}/push/vapid-public-key")
+async def partner_push_vapid_public(rid: str, request: Request,
+                                      session: AsyncSession = Depends(get_session)):
+    """Serve the public VAPID key the browser needs for `PushManager.subscribe`.
+    Returns 503 when the server isn't configured for push so the UI can
+    hide the opt-in control cleanly."""
+    await _get_menu_writer(rid, request, session)
+    from modules.food.push import VAPID_PUBLIC_KEY, is_configured
+    if not is_configured():
+        raise HTTPException(503, "Push not configured on this server")
+    return {"public_key": VAPID_PUBLIC_KEY}
+
+
+@partner_router.post("/{rid}/push/subscribe")
+async def partner_push_subscribe(rid: str, payload: PushSubscriptionIn,
+                                   request: Request,
+                                   session: AsyncSession = Depends(get_session)):
+    """Store (or refresh) a browser push subscription for this restaurant.
+
+    The same device re-POSTing on every app boot is fine — the row is
+    idempotent via `ON CONFLICT (endpoint) DO UPDATE`.
+    """
+    writer = await _get_menu_writer(rid, request, session)
+    from modules.food.push import save_subscription
+    try:
+        await save_subscription(
+            session,
+            restaurant_id=rid,
+            partner_id=getattr(writer, "id", None),
+            subscription=payload.model_dump(),
+            user_agent=payload.user_agent or request.headers.get("user-agent"),
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@partner_router.post("/{rid}/push/unsubscribe")
+async def partner_push_unsubscribe(rid: str, payload: PushUnsubscribeIn,
+                                     request: Request,
+                                     session: AsyncSession = Depends(get_session)):
+    await _get_menu_writer(rid, request, session)
+    from modules.food.push import delete_subscription
+    await delete_subscription(session, payload.endpoint)
+    return {"ok": True}
+
+
+@partner_router.get("/{rid}/push/status")
+async def partner_push_status(rid: str, request: Request,
+                                session: AsyncSession = Depends(get_session)):
+    """How many devices this restaurant currently has subscribed."""
+    await _get_menu_writer(rid, request, session)
+    row = (await session.execute(text(
+        "SELECT COUNT(*) AS n FROM partner_push_subscriptions WHERE restaurant_id = :rid"
+    ), {"rid": rid})).fetchone()
+    from modules.food.push import is_configured
+    return {"configured": is_configured(), "subscriptions": int(row.n or 0)}
+

@@ -1,3 +1,49 @@
+## 2026-02-05 (d) — Phase 4b Web Push wakes the partner's phone
+
+### Shipped
+- **VAPID keypair generated and stored** in `backend/.env` under
+  `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_PEM_B64`, `VAPID_SUBJECT`.
+- **DB migration 0066** adds `partner_push_subscriptions`
+  (endpoint PK, restaurant_id FK, p256dh, auth, user_agent, created_at,
+  last_notified_at) + an index on `restaurant_id`.
+- **`modules/food/push.py`** — pywebpush-based dispatcher with:
+  * `save_subscription` / `delete_subscription`
+  * `_dispatch_to_restaurant` — fans out a VAPID-signed payload to every
+    device, prunes HTTP 410/404 revoked endpoints, bumps `last_notified_at`.
+  * `fire_and_forget(session_factory, rid, payload)` — scheduled onto the
+    event loop so a slow push service never blocks the customer's HTTP
+    response.
+  * Payload builders `new_order_payload` / `new_reservation_payload`.
+- **Order-create hook** — `POST /food/customer/orders` now fires
+  `fire_and_forget` with `new_order_payload(detail)` right after the WS
+  publish. Reservations hook is wired the same way via the builder.
+- **New endpoints**:
+  * `GET  /food/manage/{rid}/push/vapid-public-key` → `{public_key}`
+  * `POST /food/manage/{rid}/push/subscribe        {endpoint, keys, user_agent}`
+  * `POST /food/manage/{rid}/push/unsubscribe       {endpoint}`
+  * `GET  /food/manage/{rid}/push/status            → {configured, subscriptions}`
+- **Frontend**:
+  * `/public/sw-partner-push.js` — narrow-scope service worker that
+    renders `showNotification` on `push` events and focuses / opens
+    `/partner/food/*` on `notificationclick`.
+  * `components/PartnerPushOptIn.jsx` — a FR-first opt-in card on the
+    dashboard. Handles permission prompt, SW registration, VAPID fetch,
+    `PushManager.subscribe`, persistence, unsubscribe. Shows "N devices
+    subscribed" and recoverable error states (denied / unconfigured /
+    unsupported).
+- **Dependencies**: `pywebpush==2.5.0` + `py-vapid==1.9.4` added to
+  `backend/requirements.txt`.
+
+### Verification
+- Backend pytest: **67/67 PASS** (7 new push + 12 pause + 13 CMS +
+  29 search + 6 min-order).
+- Live preview: partner dashboard shows the new "Notifications sur le
+  téléphone" card between the pause controls and the self-service panel.
+  Service worker file served with correct `application/javascript` MIME.
+- Idempotent `ON CONFLICT (endpoint) DO UPDATE` — re-subscribing the
+  same device on every app boot is a no-op.
+
+
 ## 2026-02-05 (c) — Phase 4 Partner Dashboard & Notification Center
 
 ### Shipped

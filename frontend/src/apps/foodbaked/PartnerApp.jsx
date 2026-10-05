@@ -19,6 +19,7 @@ import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader
 import { FoodPartnerActivateRoute } from "./SellersApp";
 import RestaurantNotificationProvider, { useRestaurantNotifications } from "./components/RestaurantNotificationEngine";
 import PartnerPauseCard from "./components/PartnerPauseCard";
+import PartnerPushOptIn from "./components/PartnerPushOptIn";
 import PartnerNotificationCenter, { useNotificationHistory } from "./components/PartnerNotificationCenter";
 import PartnerReservationsPage from "./pages/PartnerReservationsPage";
 import PartnerReservationSettingsPage from "./pages/PartnerReservationSettingsPage";
@@ -251,6 +252,9 @@ const PartnerDashboard = () => {
 
       {/* ---- Phase 4 delivery/pickup pause card ---- */}
       <PartnerPauseCard restaurantId={restaurant.id} />
+
+      {/* ---- Phase 4b wake-the-phone push opt-in ---- */}
+      <PartnerPushOptIn restaurantId={restaurant.id} />
 
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="partner-restaurant-controls">
         <div className="text-sm font-semibold flex items-center gap-2"><Store size={16} /> {isFr ? "Auto-service" : "Self-service"}</div>
