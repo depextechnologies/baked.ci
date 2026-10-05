@@ -9,15 +9,17 @@
  * All screens FR-first · EN-second. Partner JWT is stored client-side and
  * automatically attached by `partnerApi`.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks, Package } from "lucide-react";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks, Package, Bell, TrendingUp, Clock } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager, { DashboardSoldOutPanel } from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 import { FoodPartnerActivateRoute } from "./SellersApp";
-import RestaurantNotificationProvider from "./components/RestaurantNotificationEngine";
+import RestaurantNotificationProvider, { useRestaurantNotifications } from "./components/RestaurantNotificationEngine";
+import PartnerPauseCard from "./components/PartnerPauseCard";
+import PartnerNotificationCenter, { useNotificationHistory } from "./components/PartnerNotificationCenter";
 import PartnerReservationsPage from "./pages/PartnerReservationsPage";
 import PartnerReservationSettingsPage from "./pages/PartnerReservationSettingsPage";
 import PartnerReservationsDashboard from "./pages/PartnerReservationsDashboard";
@@ -98,6 +100,7 @@ const PartnerLoginPage = () => {
 const PartnerLayout = () => {
   const { partner, restaurant, logout, checking, token } = useFoodPartner();
   const isFr = detectFr();
+  const [notifOpen, setNotifOpen] = useState(false);
   if (checking) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground"><Loader2 className="animate-spin mr-2" size={16} /> {isFr ? "Chargement…" : "Loading…"}</div>;
   if (!partner) return <Navigate to="/partner/food/login" replace />;
 
@@ -139,9 +142,38 @@ const PartnerLayout = () => {
             <LogOut size={14} /> {isFr ? "Se déconnecter" : "Sign out"}
           </button>
         </aside>
-        <main className="flex-1 min-w-0 p-6"><Outlet /></main>
+        <main className="flex-1 min-w-0">
+          <div className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border px-6 h-14 flex items-center justify-end gap-3">
+            <NotificationBell restaurantId={restaurant?.id} onOpen={() => setNotifOpen(true)} />
+          </div>
+          <div className="p-6"><Outlet /></div>
+        </main>
+        <PartnerNotificationCenter restaurantId={restaurant?.id}
+                                     open={notifOpen}
+                                     onClose={() => setNotifOpen(false)} />
       </div>
     </RestaurantNotificationProvider>
+  );
+};
+
+// Thin bell button that reads the unread count from the same localStorage
+// history the drawer uses. Keeps the badge in sync without extra plumbing.
+const NotificationBell = ({ restaurantId, onOpen }) => {
+  const { unread } = useNotificationHistory(restaurantId);
+  return (
+    <button onClick={onOpen}
+            className="relative h-9 w-9 rounded-lg border border-border inline-flex items-center justify-center hover:bg-secondary"
+            data-testid="partner-notif-bell"
+            aria-label="Notifications">
+      <Bell size={16} />
+      {unread > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+              style={{ background: "#EF4444" }}
+              data-testid="partner-notif-bell-badge">
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
+    </button>
   );
 };
 
@@ -151,9 +183,25 @@ const PartnerLayout = () => {
 
 const PartnerDashboard = () => {
   const { restaurant, refresh } = useFoodPartner();
+  const { updatesVersion } = useRestaurantNotifications();
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [stats, setStats] = useState(null);
   const isFr = detectFr();
+
+  // Refresh dashboard KPIs on mount AND whenever the WS fires a change
+  // (new order, status update, etc.). No polling needed.
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const { data } = await partnerApi.get(`/food/manage/${restaurant.id}/dashboard-stats`);
+        if (!cancel) setStats(data);
+      } catch (_) { /* non-fatal */ }
+    })();
+    return () => { cancel = true; };
+  }, [restaurant?.id, updatesVersion]);
 
   if (!restaurant) return null;
 
@@ -164,6 +212,11 @@ const PartnerDashboard = () => {
     finally { setSaving(false); }
   };
 
+  const fmtMoney = (v, cur) => {
+    const n = Math.round(Number(v || 0));
+    return `${n.toLocaleString(isFr ? "fr-FR" : "en-US")} ${cur || "XOF"}`;
+  };
+
   return (
     <div className="space-y-6" data-testid="partner-dashboard">
       <div>
@@ -171,13 +224,33 @@ const PartnerDashboard = () => {
         <p className="text-sm text-muted-foreground">{restaurant.country} · {(restaurant.cuisines || []).join(", ") || "—"}</p>
       </div>
 
+      {/* ---- Phase 4 live KPI strip ---- */}
+      <div className="grid gap-3 md:grid-cols-4" data-testid="partner-kpi-strip">
+        <KpiTile icon={Package}    label={isFr ? "Commandes aujourd'hui" : "Orders today"}
+                 value={stats?.orders_today ?? "—"} testId="partner-kpi-orders" />
+        <KpiTile icon={Clock}      label={isFr ? "En attente d'action" : "Needs action"}
+                 value={stats?.pending_orders ?? "—"}
+                 intent={(stats?.pending_orders || 0) > 0 ? "warn" : "ok"}
+                 testId="partner-kpi-pending" />
+        <KpiTile icon={TrendingUp} label={isFr ? "Chiffre d'affaires" : "Revenue today"}
+                 value={stats ? fmtMoney(stats.revenue_today, stats.currency) : "—"}
+                 testId="partner-kpi-revenue" />
+        <KpiTile icon={BarChart3}  label={isFr ? "Temps de prépa moyen" : "Avg prep time"}
+                 value={stats ? `${stats.avg_prep_minutes} min` : "—"}
+                 testId="partner-kpi-prep" />
+      </div>
+
+      {/* Restaurant status + rating + prep window (compact, below KPI strip) */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatTile label={isFr ? "Statut" : "Status"} value={restaurant.is_open ? (isFr ? "Ouvert" : "Open") : (isFr ? "Fermé" : "Closed")} intent={restaurant.is_open ? "ok" : "off"} />
         <StatTile label={isFr ? "Note" : "Rating"} value={`${Number(restaurant.rating).toFixed(1)} ★ (${restaurant.review_count})`} />
-        <StatTile label={isFr ? "Prépa" : "Prep time"} value={`${restaurant.prep_time_min}–${restaurant.prep_time_max} min`} />
+        <StatTile label={isFr ? "Fenêtre de prépa" : "Prep window"} value={`${restaurant.prep_time_min}–${restaurant.prep_time_max} min`} />
       </div>
 
       {err && <div className="text-xs text-red-500">{err}</div>}
+
+      {/* ---- Phase 4 delivery/pickup pause card ---- */}
+      <PartnerPauseCard restaurantId={restaurant.id} />
 
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="partner-restaurant-controls">
         <div className="text-sm font-semibold flex items-center gap-2"><Store size={16} /> {isFr ? "Auto-service" : "Self-service"}</div>
@@ -228,6 +301,23 @@ const PartnerDashboard = () => {
       {/* Pass 3 — one-tap sold-out triage, visible on the dashboard home so
           the partner never needs to open the full menu page during a rush. */}
       <DashboardSoldOutPanel restaurantId={restaurant.id} api={partnerApi} />
+    </div>
+  );
+};
+
+const KpiTile = ({ icon: Icon, label, value, intent = "info", testId }) => {
+  const toneBg = intent === "warn" ? "rgba(245,158,11,.08)" : "rgba(0,166,81,.06)";
+  const toneFg = intent === "warn" ? "#F59E0B" : GREEN;
+  return (
+    <div className="rounded-2xl border border-border p-4 flex items-start gap-3 bg-card" data-testid={testId}>
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+           style={{ background: toneBg, color: toneFg }}>
+        <Icon size={18} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className="text-xl font-bold mt-0.5 truncate">{value}</div>
+      </div>
     </div>
   );
 };

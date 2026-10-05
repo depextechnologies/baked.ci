@@ -169,10 +169,30 @@ async def create_order(
 
     # ---- Validate restaurant
     r = (await session.execute(text(
-        "SELECT id, country, status FROM food_restaurants WHERE id = :id"
+        "SELECT id, country, status, delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
     ), {"id": payload.restaurant_id})).fetchone()
     if not r or r.status != "active":
         raise HTTPException(404, "Restaurant unavailable")
+
+    # ---- Phase 4: service pause check. Reject the order with a clear
+    # payload the customer-side UI can act on (e.g. offer the OTHER service
+    # mode if only one is paused).
+    now = datetime.now(timezone.utc)
+    pause_until = None
+    if payload.order_type == "delivery" and r.delivery_paused_until and r.delivery_paused_until > now:
+        pause_until = r.delivery_paused_until
+    elif payload.order_type == "pickup" and r.pickup_paused_until and r.pickup_paused_until > now:
+        pause_until = r.pickup_paused_until
+    if pause_until is not None:
+        raise HTTPException(409, {
+            "code": "service_paused",
+            "service": payload.order_type,
+            "paused_until": _iso(pause_until),
+            "message": (
+                "Ce service est temporairement en pause par le restaurant. "
+                "Merci de réessayer plus tard."
+            ),
+        })
 
     # ---- Re-price items from DB (never trust client prices)
     item_ids = [it.item_id for it in payload.items]
@@ -635,3 +655,144 @@ async def cascade_delivered_from_express(session: AsyncSession,
     except Exception as e:  # noqa: BLE001
         log.warning("food.delivered publish failed: %s", e)
     return True
+
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Service pause (delivery / pickup) and dashboard stats
+# ---------------------------------------------------------------------------
+
+class PauseIn(BaseModel):
+    service: constr(strip_whitespace=True) = Field(
+        "all",
+        pattern="^(delivery|pickup|all)$",
+        description="Which service to pause: 'delivery', 'pickup', or 'all'.",
+    )
+    minutes: conint(ge=0, le=24 * 60) = Field(
+        30,
+        description="Minutes from now until auto-resume. 0 = pause indefinitely (until manual resume).",
+    )
+
+
+def _service_status(r: Any) -> dict:
+    now = datetime.now(timezone.utc)
+    def _active(ts):
+        return bool(ts and ts > now)
+    return {
+        "delivery_paused_until": _iso(getattr(r, "delivery_paused_until", None)),
+        "pickup_paused_until":   _iso(getattr(r, "pickup_paused_until",   None)),
+        "delivery_paused": _active(getattr(r, "delivery_paused_until", None)),
+        "pickup_paused":   _active(getattr(r, "pickup_paused_until",   None)),
+    }
+
+
+@partner_router.get("/{rid}/service-status")
+async def partner_service_status(rid: str, request: Request,
+                                   session: AsyncSession = Depends(get_session)):
+    """Current pause state for both delivery and pickup."""
+    await _get_menu_writer(rid, request, session)
+    r = (await session.execute(text(
+        "SELECT delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
+    ), {"id": rid})).fetchone()
+    if not r:
+        raise HTTPException(404, "Restaurant not found")
+    return _service_status(r)
+
+
+@partner_router.post("/{rid}/pause")
+async def partner_pause_service(rid: str, payload: PauseIn, request: Request,
+                                 session: AsyncSession = Depends(get_session)):
+    """Pause delivery, pickup, or both for `minutes` (0 = indefinite).
+
+    The pause rejects brand-new orders for the targeted service. Existing
+    accepted orders keep moving through the pipeline. Pickup/delivery
+    pauses are independent so a partner can pause just delivery while
+    accepting walk-in pickups.
+    """
+    await _get_menu_writer(rid, request, session)
+    until_sql = "NULL" if payload.minutes == 0 else "now() + make_interval(mins => :mins)"
+    sets = []
+    params: dict[str, Any] = {"id": rid, "mins": payload.minutes}
+    if payload.service in ("delivery", "all"):
+        sets.append(f"delivery_paused_until = {until_sql}")
+    if payload.service in ("pickup", "all"):
+        sets.append(f"pickup_paused_until = {until_sql}")
+    await session.execute(text(
+        f"UPDATE food_restaurants SET {', '.join(sets)}, updated_at = now() WHERE id = :id"
+    ), params)
+    await session.commit()
+    r = (await session.execute(text(
+        "SELECT delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
+    ), {"id": rid})).fetchone()
+    status = _service_status(r)
+    try:
+        await _publish(rid, {"type": "food.service.paused", "service": payload.service, **status})
+    except Exception as e:  # noqa: BLE001
+        log.warning("service pause publish failed: %s", e)
+    return status
+
+
+@partner_router.post("/{rid}/resume")
+async def partner_resume_service(rid: str, payload: PauseIn, request: Request,
+                                   session: AsyncSession = Depends(get_session)):
+    """Clear the pause for `service` (delivery / pickup / all)."""
+    await _get_menu_writer(rid, request, session)
+    sets = []
+    if payload.service in ("delivery", "all"):
+        sets.append("delivery_paused_until = NULL")
+    if payload.service in ("pickup", "all"):
+        sets.append("pickup_paused_until = NULL")
+    await session.execute(text(
+        f"UPDATE food_restaurants SET {', '.join(sets)}, updated_at = now() WHERE id = :id"
+    ), {"id": rid})
+    await session.commit()
+    r = (await session.execute(text(
+        "SELECT delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
+    ), {"id": rid})).fetchone()
+    status = _service_status(r)
+    try:
+        await _publish(rid, {"type": "food.service.resumed", "service": payload.service, **status})
+    except Exception as e:  # noqa: BLE001
+        log.warning("service resume publish failed: %s", e)
+    return status
+
+
+@partner_router.get("/{rid}/dashboard-stats")
+async def partner_dashboard_stats(rid: str, request: Request,
+                                    session: AsyncSession = Depends(get_session)):
+    """Today's KPI strip for the dashboard.
+
+    Returns per-restaurant counts since local midnight (UTC-approximation):
+      orders_today      — total orders placed today
+      pending_orders    — placed + accepted (actionable queue depth)
+      ready_orders      — ready for handoff
+      revenue_today     — sum(grand_total) of non-cancelled orders today
+      avg_prep_minutes  — moving average over the last 10 completed orders
+      currency          — restaurant's currency
+    """
+    await _get_menu_writer(rid, request, session)
+    row = (await session.execute(text("""
+        WITH today AS (
+            SELECT o.id, o.status, o.grand_total, o.currency,
+                   EXTRACT(EPOCH FROM (COALESCE(o.ready_at, o.delivered_at) - o.accepted_at))/60.0 AS prep_min
+              FROM food_orders o
+             WHERE o.restaurant_id = :rid
+               AND o.placed_at >= date_trunc('day', now())
+        )
+        SELECT
+            (SELECT COUNT(*) FROM today) AS orders_today,
+            (SELECT COUNT(*) FROM today WHERE status IN ('placed','accepted'))  AS pending_orders,
+            (SELECT COUNT(*) FROM today WHERE status = 'ready')                 AS ready_orders,
+            COALESCE((SELECT SUM(grand_total) FROM today WHERE status <> 'cancelled'), 0) AS revenue_today,
+            (SELECT COALESCE(AVG(prep_min), 0) FROM today
+              WHERE prep_min IS NOT NULL AND prep_min > 0 AND prep_min < 240)   AS avg_prep_minutes,
+            (SELECT currency FROM food_orders WHERE restaurant_id = :rid ORDER BY placed_at DESC LIMIT 1) AS currency
+    """), {"rid": rid})).fetchone()
+    return {
+        "orders_today":     int(row.orders_today or 0),
+        "pending_orders":   int(row.pending_orders or 0),
+        "ready_orders":     int(row.ready_orders or 0),
+        "revenue_today":    float(row.revenue_today or 0),
+        "avg_prep_minutes": round(float(row.avg_prep_minutes or 0), 1),
+        "currency":         row.currency or "XOF",
+    }

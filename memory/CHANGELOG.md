@@ -1,3 +1,43 @@
+## 2026-02-05 (c) — Phase 4 Partner Dashboard & Notification Center
+
+### Shipped
+- **DB migration 0065** — `delivery_paused_until`, `pickup_paused_until`
+  nullable TIMESTAMPTZ on `food_restaurants` (mirrors the existing
+  `reservations_paused_until`).
+- **Pause / resume endpoints** (`partner_router /food/manage/{rid}`):
+  * `GET  /service-status`                  — read current pause state
+  * `POST /pause   {service, minutes}`      — delivery / pickup / all; 0 = indefinite
+  * `POST /resume  {service, minutes}`      — clear the pause (`service` scope)
+  * `GET  /dashboard-stats`                 — orders_today / pending / ready /
+    revenue_today / avg_prep_minutes / currency
+  WS fan-out via `food.service.paused` / `food.service.resumed` so a
+  pause on one partner device appears live on another.
+- **Order gate** — `POST /food/customer/orders` returns HTTP 409
+  `{code: service_paused, service, paused_until, message}` while the
+  relevant service is paused. Pickup and delivery are independent so a
+  partner can shut only delivery without stopping walk-ins.
+- **Partner Pause card** — `components/PartnerPauseCard.jsx` with per-service
+  preset chips (15 min · 30 min · 1 h · Until manual), live
+  "Resumes in Xm Ys" countdown, FR-first.
+- **Notification Center drawer** — `components/PartnerNotificationCenter.jsx`
+  mirrors every WS frame into a 50-entry history kept in localStorage
+  (zero schema cost). Bell with unread badge in the partner shell, mark
+  all read on open, deep-link to the related entity on click.
+- **Partner Dashboard upgrade** — live KPI strip reactive to the same WS
+  `updatesVersion` the notification engine fires, so the stats refresh
+  the instant a new order arrives.
+- **Public restaurant payload** — `_restaurant_row` now carries
+  `delivery_paused` / `pickup_paused` so the customer microsite can hide
+  a paused service without an extra fetch.
+
+### Verification
+- Backend pytest: **60/60 PASS** (12 new pause/stats + 13 FOOD CMS +
+  29 search + 6 min-order).
+- Live smoke on preview URL: partner-kpi-strip, partner-pause-card
+  (delivery + pickup), partner-notif-bell and partner-notif-drawer all
+  render and function correctly for the qa-burger partner.
+
+
 ## 2026-02-05 (b) — FOOD CMS brought to full parity with MART
 
 Follow-up to the earlier CMS wiring: the user asked for MART-style

@@ -67,6 +67,14 @@ def _cuisine_row(r) -> dict:
 
 
 def _restaurant_row(r) -> dict:
+    # Phase 4 — expose pause state alongside is_open so the customer UI
+    # hides the paused service in the restaurant microsite (and the
+    # order_type picker). Falls back to False when the column is absent
+    # (old serialised rows / selects that didn't request these columns).
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    def _p(ts):
+        return bool(ts and ts > now)
     return {
         "id": r.id,
         "name": r.name,
@@ -83,6 +91,8 @@ def _restaurant_row(r) -> dict:
         "sort_order": r.sort_order,
         "image": r.image,
         "status": r.status,
+        "delivery_paused": _p(getattr(r, "delivery_paused_until", None)),
+        "pickup_paused":   _p(getattr(r, "pickup_paused_until", None)),
     }
 
 
