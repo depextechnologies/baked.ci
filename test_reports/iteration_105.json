@@ -1,0 +1,41 @@
+{
+  "summary": "FOODbakēd Phase 3 Favourites — full regression. Backend pytest test_food_favourites.py: 6/6 PASS. Frontend e2e covered all 11 review scenarios: guest redirect+login dialog, guest heart→toast+dialog, dev-OTP login→heart persists (POST toggle, data-fav-active=true, server /ids returns restaurants=['burger_hub_ci']), Mes Favoris page with tabs+count badges, 1-tap reorder opens food-item-modal with variants/addons/qty, food-nav-favourites pill on /food hero, m-prof-nav-food-favs row on /profile navigates to /foodbaked/favorites, i18n toggle FR↔EN (Mes Favoris↔My Favourites, Plats↔Dishes, empty-state copy), microsite-action-favourite-burger_hub_ci on /foodbaked/restaurants/burger-hub. No regressions observed on FoodHome, restaurant microsite, or cart flow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_favourites.py",
+    "/app/test_reports/pytest/food_favourites_iter105.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor i18n leak noticed on restaurant /order page: console warnings '[i18n] missing key customer:food.loading_menu for fr' and 'customer:food.status_open for fr'. Non-blocking but worth adding keys.",
+    "Favourites endpoints correctly require Bearer token (401 w/o auth) and are per-customer scoped (pytest covers both). Toggle is idempotent-friendly (returns favourited:boolean).",
+    "FavouriteButton exposes data-fav-active='true|false' which is excellent for test assertions. Keep the pattern consistent across other heart-style buttons.",
+    "FoodReorderDishModal re-fetches menu and re-opens standard ItemModal (data-testid=food-item-modal) — good reuse, no logic duplication with first-order flow."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Ephemeral dev-OTP customers: POST /api/auth/otp/request {country_code:'+225', phone:'<10 digits>'} returns dev_code in body (APP_ENV!=production); then /api/auth/otp/verify returns access_token stored at localStorage['baked_access_token'].",
+  "seed_data_creation": "Each test customer favourited burger_hub_ci + burger_hub_ci_crispy_wings. Customers are ephemeral; data isolated per customer (verified via pytest + fresh customer per e2e run).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "FoodHome route is /food (not /foodbaked). Favourites page is /foodbaked/favorites. Key testids: food-favourites-page, food-nav-favourites, food-fav-restaurant-<rid>, food-fav-dish-<dish_id>, food-fav-dish-reorder-<dish_id>, food-item-modal, microsite-action-favourite-<rid>, m-prof-nav-food-favs, top-nav-language-switcher, auth-open-login-btn. Dev OTP: POST /api/auth/otp/request → dev_code in response, then /verify to get access_token into localStorage['baked_access_token']. Seeded restaurant burger_hub_ci / slug burger-hub exists in CI with 9 dish hearts on /foodbaked/restaurants/burger-hub/order.",
+  "verified_scenarios": {
+    "BACKEND_PYTEST": "PASS 6/6 — test_food_favourites.py (bearer required, toggle add/remove restaurant, toggle dish persist+list, 404 unknown target, 422 invalid target_type, per-customer scoping).",
+    "GUEST_FAVS_PAGE": "PASS — /foodbaked/favorites mounts food-favourites-page and opens GlobalLoginDialog (auth-open-login-btn testid detected).",
+    "GUEST_HEART_PROMPT": "PASS — clicking food-fav-restaurant-burger_hub_ci on /food shows toast 'Connectez-vous pour sauvegarder vos favoris' and opens login dialog.",
+    "LOGGED_HEART_PERSIST": "PASS — after dev-OTP login, clicking heart sets data-fav-active=true; GET /api/food/customer/favourites/ids returns {restaurants:['burger_hub_ci'], dishes:[]} (then dishes:['burger_hub_ci_crispy_wings'] after dish fav).",
+    "FAVS_PAGE_TABS": "PASS — 'Restaurants 1' and 'Plats 1' tabs with correct counts; favourited restaurant Burger Hub renders in Restaurants tab card.",
+    "REORDER_MODAL": "PASS — clicking food-fav-dish-reorder-<id> on Plats tab opens food-item-modal rendering Crispy Chicken Wings with Add-ons (Sauce extra +200 XOF), quantity stepper, and 'Add to cart · 3,500 XOF' CTA.",
+    "FOOD_NAV_PILL": "PASS — food-nav-favourites 'Mes Favoris' pill visible on /food hero top-right.",
+    "MOBILE_PROFILE_ROW": "PASS — m-prof-nav-food-favs present on /profile (390px) and navigates to /foodbaked/favorites.",
+    "I18N": "PASS — language switcher toggles 'Mes Favoris' → 'My Favourites', 'Plats' → 'Dishes', 'Aucun restaurant en favori' → 'No favourite restaurants yet'. Heart aria-label switches FR/EN.",
+    "ISOLATION": "PASS (pytest) — second fresh customer sees empty favourites after first customer added entries.",
+    "MICROSITE_FAV_PILL": "PASS — microsite-action-favourite-burger_hub_ci testid present in hero quick-actions on /foodbaked/restaurants/burger-hub.",
+    "NO_REGRESSIONS": "PASS — /food renders FOODbakēd hero + category chips + Restaurants populaires grid with 5 cards; microsite hero + photos grid renders; module tabs (MART/FOOD/SHOP/SEND/AUTO/IMMO) intact."
+  }
+}

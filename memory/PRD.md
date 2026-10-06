@@ -1,5 +1,39 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-06) — FOODbakēd · Phase 3 Favourites — COMPLETE
+
+**Scope**: Login-required customer favourites for both restaurants and dishes with a single `food_favourites` table. Server-side only (per user choice 2a), 1-tap reorder opens the dish modal pre-selected (per choice 1b), entry point from FOODbakēd top nav + Profile menu (per choice 3b).
+
+**Backend**
+- Migration `0067_food_favourites.py` — `food_favourites (id, customer_id FK, target_type CHECK IN ('restaurant','dish'), target_id, created_at)` with `UNIQUE(customer_id, target_type, target_id)` + `(customer_id, created_at DESC)` index.
+- New module `modules/food/favourites.py` with 3 endpoints under `/api/food/customer/favourites`:
+  - `POST /toggle {target_type, target_id}` — validates target exists (404 if not), adds/removes atomically, returns `{favourited: bool}`.
+  - `GET /` — grouped `{restaurants:[…embedded…], dishes:[…with restaurant snapshot…]}` for the full page render.
+  - `GET /ids` — light `{restaurants:[id], dishes:[id]}` sets to hydrate heart state on cards.
+- Mounted in `server.py` → `food_favourites_customer_router`.
+- 6/6 pytest green in `tests/test_food_favourites.py` (auth guard, add/remove, dish persistence, 404/422 validation, per-customer isolation).
+
+**Frontend**
+- New `contexts/FoodFavouritesContext.jsx` — Provider holding in-memory id Sets, hydrated once per login via `/ids`. Toggle is optimistic with rollback on 4xx/5xx, triggers `openLogin()` for guests, and shows FR/EN toasts.
+- New `components/FavouriteButton.jsx` — reusable heart with 3 variants (`overlay`, `inline`, `chip`), FR/EN aria-labels, `data-fav-active` attribute for tests.
+- New `components/FoodReorderDishModal.jsx` — fetches the restaurant menu, resolves the saved dish by id, and reuses the exported `ItemModal` from `FoodRestaurantDetail.jsx` so the diner confirms variants/add-ons before adding to cart.
+- New `pages/FoodFavouritesPage.jsx` at `/foodbaked/favorites` (+ `/foodbaked/favourites` alias). Two tabs with count badges, empty states, restaurant grid links to the microsite, dish grid shows a `Commander à nouveau · Order again` CTA.
+- Wired into `CustomerApp.jsx`: new routes on both DesktopCustomerShell + MobileCustomerShell, `FoodFavouritesProvider` wrapping the shell.
+- FoodHome hero: new floating `Mes Favoris` pill (`data-testid=food-nav-favourites`) + replaced the dummy heart on each restaurant card with the live `FavouriteButton`.
+- `FoodRestaurantDetail.jsx`: dish cards now expose `food-fav-dish-<id>` hearts (card markup restructured — button → wrapping `<div>` + inner button to avoid button-in-button HTML). `ItemModal` exported for reuse.
+- `RestaurantMicrosite.jsx`: hero quick-actions row now includes a Favourite pill `microsite-action-favourite-<rid>` with FR/EN labels.
+- `MobileProfile.jsx`: new `m-prof-nav-food-favs` row (Heart icon, red tone) pointing at `/foodbaked/favorites`.
+- i18n: added FR + EN keys under `customer.json → food.*` (nav_favourites, favourites_title, tab_restaurants, tab_dishes, fav_empty_*, sold_out, reorder) and `profile.food_favourites` / `profile.food_favourites_sub`.
+
+**Verification (testing_agent iteration_105)** — 100% / 100%. Backend 6/6, zero regressions. Frontend 11/11 e2e scenarios pass: guest login prompt, authed toggle persistence, both tabs, 1-tap reorder opens the full ItemModal, nav pill + profile row, i18n toggle, microsite action, per-customer isolation.
+
+**Files touched (12)**:
+- Added `/app/backend/migrations/versions/0067_food_favourites.py`, `/app/backend/modules/food/favourites.py`, `/app/backend/tests/test_food_favourites.py`
+- Added `/app/frontend/src/contexts/FoodFavouritesContext.jsx`, `/app/frontend/src/apps/foodbaked/components/FavouriteButton.jsx`, `/app/frontend/src/apps/foodbaked/components/FoodReorderDishModal.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodFavouritesPage.jsx`
+- Edited `/app/backend/server.py`, `/app/frontend/src/apps/customer/CustomerApp.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodHome.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodRestaurantDetail.jsx`, `/app/frontend/src/apps/foodbaked/pages/RestaurantMicrosite.jsx`, `/app/frontend/src/pages/mobile/MobileProfile.jsx`, `/app/frontend/src/i18n/locales/fr/customer.json`, `/app/frontend/src/i18n/locales/en/customer.json`
+
+
+
 ## Latest (2026-10-02 Pass 3) — FOODbakēd · Menu CRUD · COMPLETE
 
 Discovery: backend CRUD (sections / items / variants / addons) was **already** fully built with tenant isolation. This pass added one backend endpoint (deep clone) and polished the frontend end-to-end.
