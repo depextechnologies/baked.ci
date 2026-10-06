@@ -1,0 +1,38 @@
+{
+  "summary": "Phase P0 Partner Wallet / Payouts — backend + frontend verification green. 35/35 backend tests pass: 6 original test_vendor_settlement.py (unchanged) + 6 new test_vendor_settlement_extra.py (effective_until history closure via DB check, payout-config upsert incl. method/destination/min, hold/release transitions, partner read endpoints, admin-endpoint 401/403 on partner JWT, refund-debit kind='refund' via /api/returns auto-approve) + 23 regression (test_returns_refunds.py + test_returns_refunds_extra.py + test_food_favourites.py). Partner UI at /partner/food/wallet renders [partner-wallet-page] with 4 KPIs, commercial-terms banner (Taux 12%, Hebdomadaire · Jeudi · 19:00), transactions table, Historique des virements, and sidebar entry 'Portefeuille' with Wallet2 icon. All FR words verified: Portefeuille, En attente, Solde, Payé, Prochain virement, Conditions commerciales, Taux de commission, Transactions. Admin UI at /admin/vendor-settlement renders [admin-vs-page] with Vendors + Payouts tabs; clicking Settlement opens drawer with rate editor, note field, History disclosure, Payout schedule editor (type/weekday/time/method/destination/min), Pause/Resume/Generate buttons. Payouts tab shows flat list with Pay + Hold actions on scheduled rows and Release on hold rows. Fixed minor data-testid gap on Hold/Release buttons.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PartnerWalletPage", "issue": "EN switch via setting localStorage.i18nextLng=en + reload swaps the sidebar label (Wallet) but inner page labels (e.g. 'Commission rate') don't flip until the react-i18next detector re-reads language. In practice an in-app language toggle works (uses i18n.changeLanguage); only direct localStorage mutation + hard reload is inconsistent. Low priority.", "selector": "[data-testid=partner-wallet-terms]", "priority": "LOW"},
+      {"component": "AdminVendorSettlement — Payouts tab", "issue": "Hold / Release buttons were missing data-testid (only 'Pay' had one). Added admin-vs-hold-{id} and admin-vs-release-{id}.", "selector": "admin-vs-hold-*, admin-vs-release-*", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_vendor_settlement.py",
+    "/app/backend/tests/test_vendor_settlement_extra.py",
+    "/app/test_reports/pytest/vendor_settlement_iter107.xml",
+    "/app/test_reports/pytest/vs_extra_iter107.xml",
+    "/app/test_reports/pytest/regression_iter107.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "modules/vendor_settlement.py (597 lines) — approaching the 700-line guideline; consider splitting admin endpoints vs partner endpoints vs settlement helpers into separate files if further features land.",
+    "settle_order_on_delivery writes commission_rate_snapshot/commission_amount/vendor_net_amount directly via raw SQL and then calls _wallet_write — all inside the same AsyncSession. Verified by test that a later commission rate change does NOT retro-update the snapshot (DB SELECT confirms 10% snapshot preserved after rate jumps to 25%). Good.",
+    "vendor_payout_config.schedule_cfg stored as JSONB (or TEXT) — admin GET returns it as a dict in practice (verified in test); if the serializer ever returns a string, the frontend editor should still parse it defensively. PayoutScheduleIn uses dict[str, Any] which is good.",
+    "AdminVendorSettlement.jsx — pay/hold/release button cluster was only 50% test-id'd. Fixed in this iteration (added admin-vs-hold-{id} and admin-vs-release-{id}). Future tabs with analogous row actions should get testids by default.",
+    "Partner wallet UI reads i18n language at a module scope in a few sibling files (PartnerApp.jsx: `const isFr = ... localStorage.getItem('i18nextLng')`). PartnerWalletPage.jsx itself uses the react-i18next hook (`i18n.language`) which is reactive — good. Consider unifying the pattern so all portal components react to in-app language changes."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_vendor_settlement_extra.py (new, 6 tests)",
+    "/app/frontend/src/pages/admin/AdminVendorSettlement.jsx (added data-testid to Hold / Release buttons)"
+  ],
+  "success_rate": {"backend": "100% (35/35)", "frontend": "100% (partner wallet + admin VS drawer + payouts tab verified)"},
+  "test_credentials": "Super admin depexopenai@gmail.com / baked@2026#!$@ ; FOOD partner qa-burger@test.example / QaBurger123! (restaurant_id=burger_hub_ci) ; dev-OTP customer via /api/auth/otp/request with {country_code:'+225', phone:'0XXXXXXXXX'} returning dev_code + challenge_id.",
+  "seed_data_creation": "Each new test seeds its own delivered food_orders row against burger_hub_ci (and food_order_items where needed). Commission rate re-set to 10%/12%/etc. between tests. Payout rows created by /payouts/generate; one was transitioned hold→scheduled→paid.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Phase P0 Partner Wallet tests are green end-to-end (12 wallet + 23 regression = 35 pytest cases). FOOD-specific wallet tables are food_restaurant_wallets + food_restaurant_wallet_txns. Partner token localStorage key is 'food_partner_token' (NOT baked_food_partner_token). Admin UI testids: admin-vs-page, admin-vs-tab-{vendors|payouts}, admin-vs-vendor-row-{rid}, admin-vs-vendor-open-{rid}, admin-vs-drawer, admin-vs-drawer-close, admin-vs-rate, admin-vs-note, admin-vs-save-rate, admin-vs-history, admin-vs-sched-type, admin-vs-sched-weekday, admin-vs-save-sched, admin-vs-pause, admin-vs-resume, admin-vs-generate, admin-vs-payouts-tab, admin-vs-payouts-filter, admin-vs-payouts-table, admin-vs-payout-{id}, admin-vs-pay-{id}, admin-vs-hold-{id} (new), admin-vs-release-{id} (new). Partner UI testids: partner-wallet-page, partner-wallet-paused, partner-wallet-kpis, partner-wallet-kpi-{pending|balance|paid|next}, partner-wallet-terms, partner-wallet-commission, partner-wallet-schedule, partner-wallet-txns-card, partner-wallet-txn-{id}, partner-wallet-payouts-card, partner-wallet-payout-{id}. For dev-OTP flow use {country_code:'+225', phone:random} → challenge_id + dev_code → verify by {challenge_id, code}.",
+  "rca of the issue": "N/A — no production bugs found this iteration. Only cosmetic test-id gap on Hold/Release buttons was discovered and self-fixed."
+}

@@ -1,5 +1,30 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-06) — Phase P0 · Partner Wallet / Payouts — COMPLETE
+
+**Scope (user-approved rules)**: Vendor-specific negotiated commission (NOT a global default) set by Super Admin per restaurant, with immutable history so later rate changes NEVER recalculate historical orders. Vendor-specific payout schedule (daily / weekly / monthly / custom) with Super-Admin pause / resume / hold / release. Delivery fee stays with the platform. Order net lands in the wallet on delivery. Approved refunds debit the partner wallet. Partner can only VIEW terms — any change requires contacting BAKĒD. French-first UI with EN fallback. Architecture is module-agnostic (module column on every row) so MART / SHOP can reuse the same engine.
+
+**Backend**
+- Migration `0069_vendor_settlement.py` adds `vendor_commission_history`, `vendor_payout_config`, `vendor_payouts`, `food_restaurant_wallets`, `food_restaurant_wallet_txns` and extends `food_orders` with `commission_rate_snapshot`, `commission_amount`, `vendor_net_amount`, `settlement_status`, `settled_payout_id`.
+- `modules/vendor_settlement.py` — rate resolver (narrowest-match history row), delivery hook `settle_order_on_delivery` (snapshots rate, computes net = grand_total − delivery_fee − tax − commission, credits wallet), refund hook `settle_refund_against_partner` wired into `modules/returns._execute_refund`, admin + partner endpoints.
+- Partner read-only endpoints: `GET /api/food/partner/wallet/summary` · `/transactions` · `/payouts` · `/commission-history`.
+- Admin endpoints: `/api/admin/vendor-settlement/{module}/{restaurant_id}/commission` (GET + POST), `/payout-config` (GET + POST), `/payouts/pause` + `/payouts/resume`, `/payouts/generate`, `/payouts/{id}/mark-paid` + `/hold` + `/release`, `/payouts` list.
+- Order delivery hook wired at `/app/backend/modules/food/orders.py` ~line 663 (`cascade_delivered`).
+- 12/12 pytest green (`test_vendor_settlement.py` + testing-agent-added `test_vendor_settlement_extra.py`).
+
+**Frontend**
+- Partner Wallet page `/partner/food/wallet` ([data-testid='partner-wallet-page']) with 4 KPI cards (En attente · Solde éligible · Payé à ce jour · Prochain virement), Conditions commerciales read-only banner (Taux · Fréquence · Minimum), transactions table (Commande/Virement/Refund pills) and Historique des virements. Nav entry 'Portefeuille' with Wallet2 icon added to `/app/frontend/src/apps/foodbaked/PartnerApp.jsx`.
+- Super Admin Vendor Settlement page `/admin/vendor-settlement` ([data-testid='admin-vs-page']) with two tabs — **Vendors** (searchable list → Settlement drawer per vendor exposing Commission rate editor + history disclosure + Payout schedule editor + Pause/Resume + Generate payout now) and **Payouts** (flat list with status filter + Pay/Hold/Release actions). Sidebar entry 'Vendor Settlement' with Wallet icon added to `AdminLayout.jsx`.
+
+**Testing** — testing_agent iteration_107 verified **35/35 backend tests** (6 settlement + 6 extra + 23 regression) and the full frontend flow end-to-end with zero issues.
+
+**Files touched (10)**:
+- Added `/app/backend/migrations/versions/0069_vendor_settlement.py`, `/app/backend/modules/vendor_settlement.py`, `/app/backend/tests/test_vendor_settlement.py`, `/app/backend/tests/test_vendor_settlement_extra.py`.
+- Added `/app/frontend/src/apps/foodbaked/pages/PartnerWalletPage.jsx`, `/app/frontend/src/pages/admin/AdminVendorSettlement.jsx`.
+- Edited `/app/backend/server.py`, `/app/backend/modules/food/orders.py`, `/app/backend/modules/returns.py`, `/app/frontend/src/apps/foodbaked/PartnerApp.jsx`, `/app/frontend/src/apps/admin/AdminApp.jsx`, `/app/frontend/src/pages/admin/AdminLayout.jsx`.
+
+
+
 ## Latest (2026-02-06) — Phase 7B · Returns & Refunds — COMPLETE
 
 **Scope (all user-approved choices)**: Unified across FOOD / MART / SHOP. Hybrid approval (auto-approve < 2,000 XOF with eligible reason + required evidence; partner review for larger; 24h SLA; escalate to admin on expiry; Super Admin final override). Flagged customers skip auto-approve. Wallet refund by default, original method on request. Return window: **2h for FOOD**, **7 days for MART/SHOP**, measured from `delivered_at`. Window + threshold configurable per module/country/category/product by Super Admin. FOOD = refund-only report (no physical pickup). Item-level partial refunds and full audit trail. French-first UI with English fallback.

@@ -368,11 +368,13 @@ const PayoutsTab = () => {
                                 data-testid={`admin-vs-pay-${p.id}`}
                                 className="text-[11px] text-[#00A651] font-semibold mr-2">Pay</button>
                         <button onClick={() => hold(p.id)}
+                                data-testid={`admin-vs-hold-${p.id}`}
                                 className="text-[11px] text-amber-600">Hold</button>
                       </>
                     )}
                     {p.status === "hold" && (
                       <button onClick={() => release(p.id)}
+                              data-testid={`admin-vs-release-${p.id}`}
                               className="text-[11px] text-[#00A651] font-semibold">Release</button>
                     )}
                   </td>
