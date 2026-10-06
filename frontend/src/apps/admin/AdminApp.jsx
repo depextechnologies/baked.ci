@@ -34,6 +34,7 @@ import { AdminSupplierDetail } from "@/pages/admin/AdminSupplierDetail";
 import { AdminMartAttributes } from "@/pages/admin/AdminMartAttributes";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
+import { AdminReturns } from "@/pages/admin/AdminReturns";
 import { AdminFoodRestaurants, AdminFoodCuisines, AdminFoodCategories } from "@/pages/admin/AdminFood";
 import { AdminFoodMenuManager } from "@/pages/admin/AdminFoodMenuManager";
 import { AdminFoodApplications } from "@/pages/admin/AdminFoodApplications";
@@ -96,6 +97,7 @@ export const AdminApp = () => (
       <Route path="driver-payouts" element={<AdminDriverPayouts />} />
       <Route path="driver-applications" element={<AdminDriverApplications />} />
       <Route path="homepage-management" element={<AdminHomepageManagement />} />
+      <Route path="returns" element={<AdminReturns />} />
       {/* Fixing_Prompt v5 — old duplicate routes redirect into the unified
           Suppliers workflow. Bookmarks keep working, one authoritative queue. */}
       <Route path="mart-partner-approvals" element={<Navigate to="/admin/modules/mart/approvals" replace />} />

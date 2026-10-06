@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth, useApp } from "../../contexts/BakedContexts";
 import { api } from "../../lib/api";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Wallet2, ClipboardList, MapPin, Gift, Users2, LifeBuoy, Settings2, ChevronRight, Moon, Sun, LogOut, ShieldCheck, Edit3, BadgeCheck, Heart } from "lucide-react";
+import { ArrowLeft, Wallet2, ClipboardList, MapPin, Gift, Users2, LifeBuoy, Settings2, ChevronRight, Moon, Sun, LogOut, ShieldCheck, Edit3, BadgeCheck, Heart, Receipt } from "lucide-react";
 import { MODULES } from "../../lib/modules";
 
 const Row = ({ icon: Icon, label, sub, onClick, tone = "#77BC1F", testid }) => (
@@ -124,6 +124,7 @@ export const MobileProfile = () => {
           <Row testid="m-prof-nav-wallet" icon={Wallet2} label={t("wallet.title")} sub={`${country?.currency_symbol || country?.currency || ""} 0.00 · ${t("wallet.coming_soon_title")}`} onClick={() => nav("/wallet")} tone="#1D9BF0" />
           <Row testid="m-prof-nav-activities" icon={ClipboardList} label={t("profile.activities")} sub="Orders, deliveries, property & vehicle inquiries" onClick={() => nav("/profile/activities")} tone="#A659FF" />
           <Row testid="m-prof-nav-food-favs" icon={Heart} label={t("profile.food_favourites", "Mes Favoris FOOD")} sub={t("profile.food_favourites_sub", "Vos restaurants et plats préférés")} onClick={() => nav("/foodbaked/favorites")} tone="#FF4C52" />
+          <Row testid="m-prof-nav-returns" icon={Receipt} label={t("profile.my_returns", "Mes Retours")} sub={t("profile.my_returns_sub", "Suivi des remboursements")} onClick={() => nav("/profile/returns")} tone="#00A651" />
           <Row testid="m-prof-nav-addresses" icon={MapPin} label={t("profile.addresses")} sub={`${stats.addresses} saved`} onClick={() => nav("/profile/addresses")} tone="#77BC1F" />
           <Row testid="m-prof-nav-rewards" icon={Gift} label={t("profile.rewards")} sub={`${points} points`} onClick={() => nav("/profile/rewards")} tone="#FCC44C" />
           <Row testid="m-prof-nav-refer" icon={Users2} label={t("profile.refer")} sub="Invite friends, both earn rewards" onClick={() => nav("/profile/refer")} tone="#FF4C52" />

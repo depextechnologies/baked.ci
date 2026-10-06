@@ -39,6 +39,7 @@ import {
 import FoodOrderTrackPage from "@/apps/foodbaked/pages/FoodOrderTrackPage";
 import { FoodFavouritesPage } from "@/apps/foodbaked/pages/FoodFavouritesPage";
 import { FoodFavouritesProvider } from "@/contexts/FoodFavouritesContext";
+import MyReturnsPage from "@/pages/MyReturnsPage";
 import GlobalSearchResultsPage from "@/pages/GlobalSearchResultsPage";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
@@ -164,6 +165,7 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/settings" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
       <Route path="/profile/help" element={<DesktopProfileShell><MobileHelpSupport /></DesktopProfileShell>} />
       <Route path="/profile/activities" element={<DesktopProfileShell><MobileActivities /></DesktopProfileShell>} />
+      <Route path="/profile/returns" element={<DesktopProfileShell><MyReturnsPage /></DesktopProfileShell>} />
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<FoodHome />} />
@@ -261,6 +263,7 @@ const MobileCustomerShell = () => (
       <Route path="/profile/settings" element={<MobileSettings />} />
       <Route path="/profile/help" element={<MobileHelpSupport />} />
       <Route path="/profile/activities" element={<MobileActivities />} />
+      <Route path="/profile/returns" element={<MyReturnsPage />} />
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<FoodHome />} />

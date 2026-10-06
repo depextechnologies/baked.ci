@@ -281,6 +281,8 @@
     "activities": "Activity",
     "food_favourites": "FOOD Favourites",
     "food_favourites_sub": "Saved restaurants and dishes",
+    "my_returns": "My Returns",
+    "my_returns_sub": "Refund tracking",
     "sign_out": "Sign out",
     "edit_profile": "Edit profile",
     "phone_number": "Phone number",

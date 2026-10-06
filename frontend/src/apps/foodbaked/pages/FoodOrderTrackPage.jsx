@@ -15,8 +15,9 @@ import axios from "axios";
 import { APIProvider, Map, AdvancedMarker } from "@vis.gl/react-google-maps";
 import {
   Loader2, MapPin, Clock, Phone, ChevronLeft, Utensils,
-  Receipt, CheckCircle2, Package, Bike, UserCheck, ChefHat, Store,
+  Receipt, CheckCircle2, Package, Bike, UserCheck, ChefHat, Store, AlertCircle,
 } from "lucide-react";
+import ReturnRequestModal from "../../../components/returns/ReturnRequestModal";
 
 const GREEN = "#00A651";
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -116,6 +117,7 @@ const FoodOrderTrackPage = () => {
   const [err, setErr]     = useState("");
   const [loading, setLoading] = useState(true);
   const [liveLoc, setLiveLoc] = useState(null); // real-time driver_location from WS
+  const [returnOpen, setReturnOpen] = useState(false);
   const wsRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -199,6 +201,7 @@ const FoodOrderTrackPage = () => {
   const activeIdx = Math.max(0, stages.findIndex((s) => s.key === order.status));
   const driverStatus = delivery?.status;
   const driverLabel  = driverStatus ? ((fr ? DRIVER_STATUS_FR : DRIVER_STATUS_EN)[driverStatus] || driverStatus) : null;
+  const isDelivered = order.status === "delivered";
 
   // Live-map geometry: pickup = restaurant, drop = customer address, driver
   // = live WS position (preferred) else last snapshot's driver_location.
@@ -307,6 +310,35 @@ const FoodOrderTrackPage = () => {
           </ol>
         </section>
 
+        {/* Return & Refund CTA — visible only once order is delivered. */}
+        {isDelivered && (
+          <section
+            className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between gap-3"
+            data-testid="food-track-return-cta"
+          >
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate">
+                  {fr ? "Un problème avec votre commande ?" : "An issue with your order?"}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {fr ? "Signalez-le dans les 2h et obtenez un remboursement."
+                      : "Report it within 2 hours and get a refund."}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setReturnOpen(true)}
+              data-testid="food-track-report-issue"
+              className="h-9 px-3 rounded-lg text-xs font-semibold text-black shrink-0"
+              style={{ backgroundColor: GREEN }}
+            >
+              {fr ? "Signaler" : "Report"}
+            </button>
+          </section>
+        )}
+
         {delivery && delivery.booking_id && (
           <section className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="food-track-driver">
             <div className="text-sm font-semibold flex items-center gap-2">
@@ -374,6 +406,16 @@ const FoodOrderTrackPage = () => {
           </Link>
         )}
       </main>
+
+      {returnOpen && (
+        <ReturnRequestModal
+          orderId={order.id}
+          orderModule="food"
+          orderNumber={order.order_number}
+          onClose={() => setReturnOpen(false)}
+          onCreated={() => setReturnOpen(false)}
+        />
+      )}
     </div>
   );
 };
