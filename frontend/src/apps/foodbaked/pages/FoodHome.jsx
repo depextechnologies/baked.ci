@@ -257,18 +257,26 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
   );
 };
 
-const CategoryStrip = ({ data, activeCategory, setActiveCategory, language }) => (
-  <section className="overflow-x-auto -mx-2 px-2" data-testid="food-section-categories">
-    <div className="flex gap-6 min-w-max py-1">
-      {data.categories.map((c) => (
-        <CategoryChip
-          key={c.code}
-          category={c}
-          isActive={activeCategory === c.code}
-          onClick={() => setActiveCategory(c.code)}
-          language={language}
-        />
-      ))}
+const CategoryStrip = ({ row, data, activeCategory, setActiveCategory, language, t }) => (
+  <section data-testid="food-section-categories">
+    <SectionHeader
+      row={row}
+      language={language}
+      defaultTitle={t("food.categories_title", { defaultValue: language === "fr" ? "Choisissez votre repas" : "Choose your meal" })}
+      defaultSubtitle={t("food.categories_subtitle", { defaultValue: language === "fr" ? "Inspiré par des commandes récentes" : "Inspired by recent orders" })}
+    />
+    <div className="overflow-x-auto -mx-2 px-2">
+      <div className="flex gap-6 min-w-max py-1">
+        {data.categories.map((c) => (
+          <CategoryChip
+            key={c.code}
+            category={c}
+            isActive={activeCategory === c.code}
+            onClick={() => setActiveCategory(c.code)}
+            language={language}
+          />
+        ))}
+      </div>
     </div>
   </section>
 );
@@ -504,7 +512,7 @@ export const FoodHome = () => {
           switch (row.section_type) {
             case "food_categories":
               return (
-                <CategoryStrip key={row.id} language={language}
+                <CategoryStrip key={row.id} row={row} language={language} t={t}
                                data={data}
                                activeCategory={activeCategory}
                                setActiveCategory={setActiveCategory} />
