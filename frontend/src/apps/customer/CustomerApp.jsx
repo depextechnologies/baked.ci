@@ -37,6 +37,8 @@ import {
   LegacyDetailRedirect,
 } from "@/apps/foodbaked/pages/RestaurantMicrosite";
 import FoodOrderTrackPage from "@/apps/foodbaked/pages/FoodOrderTrackPage";
+import { FoodFavouritesPage } from "@/apps/foodbaked/pages/FoodFavouritesPage";
+import { FoodFavouritesProvider } from "@/contexts/FoodFavouritesContext";
 import GlobalSearchResultsPage from "@/pages/GlobalSearchResultsPage";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
@@ -165,6 +167,8 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<FoodHome />} />
+      <Route path="/foodbaked/favorites" element={<FoodFavouritesPage />} />
+      <Route path="/foodbaked/favourites" element={<FoodFavouritesPage />} />
       <Route path="/search" element={<GlobalSearchResultsPage />} />
       <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
       <Route path="/foodbaked/orders/:orderId/track" element={<FoodOrderTrackPage />} />
@@ -260,6 +264,8 @@ const MobileCustomerShell = () => (
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<FoodHome />} />
+      <Route path="/foodbaked/favorites" element={<FoodFavouritesPage />} />
+      <Route path="/foodbaked/favourites" element={<FoodFavouritesPage />} />
       <Route path="/search" element={<GlobalSearchResultsPage />} />
       <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
       <Route path="/foodbaked/orders/:orderId/track" element={<FoodOrderTrackPage />} />
@@ -320,11 +326,13 @@ export const CustomerApp = () => (
   <AuthProvider>
     <AppProvider>
       <CartProvider>
-        <ExpressBookingProvider>
-          <MoversBookingProvider>
-            <CustomerShell />
-          </MoversBookingProvider>
-        </ExpressBookingProvider>
+        <FoodFavouritesProvider>
+          <ExpressBookingProvider>
+            <MoversBookingProvider>
+              <CustomerShell />
+            </MoversBookingProvider>
+          </ExpressBookingProvider>
+        </FoodFavouritesProvider>
       </CartProvider>
     </AppProvider>
   </AuthProvider>

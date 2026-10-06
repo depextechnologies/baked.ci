@@ -279,6 +279,8 @@
     "rewards": "Rewards",
     "refer": "Refer a friend",
     "activities": "Activity",
+    "food_favourites": "FOOD Favourites",
+    "food_favourites_sub": "Saved restaurants and dishes",
     "sign_out": "Sign out",
     "edit_profile": "Edit profile",
     "phone_number": "Phone number",
@@ -1134,6 +1136,17 @@
     "copy": "Copy",
     "loading": "Loading…",
     "not_found": "Restaurant not found.",
-    "share_copied": "Link copied"
+    "share_copied": "Link copied",
+    "sold_out": "Sold out",
+    "reorder": "Order again",
+    "nav_favourites": "Favourites",
+    "favourites_title": "My Favourites",
+    "favourites_subtitle": "Your go-to restaurants and dishes, one tap away.",
+    "tab_restaurants": "Restaurants",
+    "tab_dishes": "Dishes",
+    "fav_empty_rest_title": "No favourite restaurants yet",
+    "fav_empty_rest_hint": "Tap the heart on any restaurant to save it here.",
+    "fav_empty_dish_title": "No favourite dishes yet",
+    "fav_empty_dish_hint": "Tap the heart on any dish you love for a one-tap reorder."
   }
 }

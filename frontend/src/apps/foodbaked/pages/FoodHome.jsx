@@ -36,6 +36,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Search, Bike, ShoppingBag, Utensils, Star, Clock, Truck, Heart, ChevronRight, Shield, Tag, Sparkles } from "lucide-react";
+import FavouriteButton from "../components/FavouriteButton";
 import { useApp } from "../../../contexts/BakedContexts";
 import axios from "axios";
 import FoodSearchDropdown from "../components/FoodSearchDropdown";
@@ -125,9 +126,15 @@ const RestaurantCard = ({ r, currencySymbol = "CFA" }) => {
         <span className="absolute top-2 left-2 text-[10px] font-semibold bg-black/70 text-white px-2 py-1 rounded-full flex items-center gap-1">
           <Clock size={10} /> {r.prep_time_min}–{r.prep_time_max} min
         </span>
-        <button aria-label="Favourite" className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center hover:text-red-400 motion-fast">
-          <Heart size={14} />
-        </button>
+        <FavouriteButton
+          type="restaurant"
+          id={r.id}
+          name={r.name}
+          variant="overlay"
+          size={14}
+          testId={`food-fav-restaurant-${r.id}`}
+          className="absolute top-2 right-2 w-8 h-8"
+        />
       </div>
       <div className="p-3 space-y-1">
         <div className="text-sm font-semibold truncate">{r.name}</div>
@@ -208,6 +215,15 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
         }}
       >
         <div className="baked-container relative w-full">
+          {/* Floating top-right nav — Favourites entry (Phase 3 Favourites) */}
+          <Link
+            to="/foodbaked/favorites"
+            data-testid="food-nav-favourites"
+            className="absolute right-0 top-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-semibold bg-white/15 text-white backdrop-blur border border-white/25 hover:bg-white/25 motion-fast"
+          >
+            <Heart size={13} className="fill-red-500 text-red-500" />
+            {t("food.nav_favourites", { defaultValue: "Mes Favoris" })}
+          </Link>
           <div className="max-w-2xl text-white py-10 space-y-5">
             {cfg.eyebrow && (
               <div className="text-[11px] uppercase tracking-widest font-semibold text-white/70">{cfg.eyebrow}</div>

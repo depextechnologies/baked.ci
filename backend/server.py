@@ -104,6 +104,7 @@ from modules.food.reviews import (  # noqa: E402
     customer_router as food_reviews_customer_router,
 )
 from modules.food.search import public_router as food_search_public_router  # noqa: E402
+from modules.food.favourites import customer_router as food_favourites_customer_router  # noqa: E402
 from modules.search import router as global_search_router  # noqa: E402
 from modules.food.orders import (  # noqa: E402
     customer_router as food_orders_customer_router,
@@ -242,6 +243,7 @@ api_router.include_router(food_reviews_customer_router)           # /food/custom
 api_router.include_router(food_search_public_router)              # /food/search
 api_router.include_router(food_orders_customer_router)            # /food/customer/orders
 api_router.include_router(food_orders_partner_router)             # /food/manage/{rid}/orders
+api_router.include_router(food_favourites_customer_router)        # /food/customer/favourites
 
 # --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity

@@ -28,6 +28,7 @@ import {
 import { useApp } from "../../../contexts/BakedContexts";
 import FoodRestaurantDetail from "./FoodRestaurantDetail";
 import ReservationModal from "../../../components/food/ReservationModal";
+import FavouriteButton from "../components/FavouriteButton";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
 const GREEN = "#00A651";
@@ -240,6 +241,16 @@ const Hero = ({ restaurant, photos, reviews_summary, onOpenLightbox, onReserve }
           <QuickAction icon={MapPin}       label={t("food.direction", "Direction")}         onClick={openDirections} testId="microsite-action-direction" />
           <QuickAction icon={Share2}       label={t("food.share", "Share")}  onClick={share}          testId="microsite-action-share" />
           <QuickAction icon={Star}         label={t("food.reviews_action", "Reviews")}    onClick={goReviews}      testId="microsite-action-reviews" />
+          <FavouriteButton
+            type="restaurant"
+            id={restaurant.id}
+            name={restaurant.name}
+            variant="inline"
+            size={14}
+            testId={`microsite-action-favourite-${restaurant.id}`}
+            className="h-10 w-auto px-4 rounded-lg text-xs font-semibold border border-border bg-card hover:bg-secondary gap-2"
+            showLabel
+          />
           {restaurant.reservation_public && (
             <QuickAction icon={CalendarPlus}
                          label={t("food.book_a_table", "Book a table")}

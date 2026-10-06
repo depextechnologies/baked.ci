@@ -279,6 +279,8 @@
     "rewards": "Récompenses",
     "refer": "Parrainer un ami",
     "activities": "Activité",
+    "food_favourites": "Mes Favoris FOOD",
+    "food_favourites_sub": "Restaurants et plats préférés",
     "sign_out": "Se déconnecter",
     "edit_profile": "Modifier le profil",
     "phone_number": "Numéro de téléphone",
@@ -1133,6 +1135,17 @@
     "copy": "Copier",
     "loading": "Chargement…",
     "not_found": "Restaurant introuvable.",
-    "share_copied": "Lien copié"
+    "share_copied": "Lien copié",
+    "sold_out": "Épuisé",
+    "reorder": "Commander à nouveau",
+    "nav_favourites": "Mes Favoris",
+    "favourites_title": "Mes Favoris",
+    "favourites_subtitle": "Vos restaurants et plats préférés à portée de main.",
+    "tab_restaurants": "Restaurants",
+    "tab_dishes": "Plats",
+    "fav_empty_rest_title": "Aucun restaurant en favori",
+    "fav_empty_rest_hint": "Appuyez sur le cœur d'un restaurant pour l'enregistrer ici.",
+    "fav_empty_dish_title": "Aucun plat en favori",
+    "fav_empty_dish_hint": "Appuyez sur le cœur d'un plat pour le retrouver et le recommander en un tap."
   }
 }

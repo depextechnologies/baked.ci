@@ -22,6 +22,7 @@ import { useApp, useCart } from "../../../contexts/BakedContexts";
 import { toast } from "sonner";
 import axios from "axios";
 import ReservationModal from "../../../components/food/ReservationModal";
+import FavouriteButton from "../components/FavouriteButton";
 
 const API   = process.env.REACT_APP_BACKEND_URL;
 const GREEN = "#77BC1F";
@@ -34,7 +35,7 @@ const localised = (lang, obj, key) => (lang === "fr" ? obj[`${key}_fr`] : obj[`$
 // Item detail modal — variants + add-ons + qty + add-to-cart
 // -------------------------------------------------------------------------
 
-const ItemModal = ({ item, restaurant, onClose }) => {
+export const ItemModal = ({ item, restaurant, onClose }) => {
   const { t, i18n } = useTranslation("customer");
   const { addFoodItem, openCart } = useCart();
   const lang = i18n.language?.startsWith("fr") ? "fr" : "en";
@@ -377,40 +378,53 @@ export const FoodRestaurantDetail = () => {
             <h2 className="text-xl font-bold mb-4">{localised(lang, s, "name")}</h2>
             <div className="grid gap-3 md:grid-cols-2">
               {s.items.map((it) => (
-                <button
+                <div
                   key={it.id}
-                  onClick={() => setOpenItem(it)}
-                  data-testid={`food-item-card-${it.id}`}
-                  className="text-left rounded-2xl border border-border bg-card overflow-hidden flex gap-4 p-3 hover:border-[color:var(--green)] motion-fast"
+                  className="relative rounded-2xl border border-border bg-card overflow-hidden hover:border-[color:var(--green)] motion-fast"
                   style={{ "--green": GREEN }}
                 >
-                  <div className="w-24 h-24 rounded-xl bg-muted overflow-hidden shrink-0">
-                    {it.image && <img src={it.image} alt={it.name} className="w-full h-full object-cover" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-semibold truncate">{it.name}</div>
-                      {(it.tags || []).slice(0, 1).map((tag) => (
-                        <span key={tag} className="text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>
-                          {tag}
+                  <button
+                    onClick={() => setOpenItem(it)}
+                    data-testid={`food-item-card-${it.id}`}
+                    className="w-full text-left flex gap-4 p-3"
+                  >
+                    <div className="w-24 h-24 rounded-xl bg-muted overflow-hidden shrink-0">
+                      {it.image && <img src={it.image} alt={it.name} className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold truncate">{it.name}</div>
+                        {(it.tags || []).slice(0, 1).map((tag) => (
+                          <span key={tag} className="text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      {it.description && (
+                        <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{it.description}</div>
+                      )}
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="text-sm font-bold">{formatPrice(it.base_price, it.currency)}</div>
+                        <span
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-black font-bold"
+                          style={{ backgroundColor: GREEN }}
+                          aria-hidden="true"
+                        >
+                          <Plus size={16} />
                         </span>
-                      ))}
+                      </div>
                     </div>
-                    {it.description && (
-                      <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{it.description}</div>
-                    )}
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="text-sm font-bold">{formatPrice(it.base_price, it.currency)}</div>
-                      <span
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-black font-bold"
-                        style={{ backgroundColor: GREEN }}
-                        aria-hidden="true"
-                      >
-                        <Plus size={16} />
-                      </span>
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                  <FavouriteButton
+                    type="dish"
+                    id={it.id}
+                    name={it.name}
+                    variant="overlay"
+                    size={12}
+                    testId={`food-fav-dish-${it.id}`}
+                    className="absolute top-3 left-[88px] w-7 h-7"
+                  />
+                </div>
               ))}
               {s.items.length === 0 && (
                 <div className="text-sm text-muted-foreground">{t("food.section_empty", { defaultValue: "Nothing on the menu here yet." })}</div>
