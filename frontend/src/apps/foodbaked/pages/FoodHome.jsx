@@ -91,10 +91,10 @@ const CategoryChip = ({ category, isActive, onClick, language }) => {
     <button
       onClick={onClick}
       data-testid={`food-category-${category.code}`}
-      className="flex flex-col items-center gap-1.5 min-w-[64px] shrink-0"
+      className="flex flex-col items-center gap-1.5 min-w-[88px] shrink-0"
     >
       <div
-        className={`w-14 h-14 rounded-2xl overflow-hidden border-2 flex items-center justify-center transition-colors ${
+        className={`w-[5.5rem] h-[5.5rem] rounded-3xl overflow-hidden border-2 flex items-center justify-center transition-colors ${
           isActive ? "border-[color:var(--food-accent)]" : "border-border"
         }`}
         style={{ "--food-accent": GREEN }}
@@ -166,8 +166,8 @@ const RestaurantCard = ({ r, currencySymbol = "CFA" }) => {
 const CuisineTile = ({ c, language }) => {
   const name = language === "fr" ? (c.name_fr || c.name_en) : (c.name_en || c.name_fr);
   return (
-    <div className="flex flex-col items-center gap-2 min-w-[110px]" data-testid={`food-cuisine-${c.code}`}>
-      <div className="w-24 h-24 rounded-xl overflow-hidden bg-muted">
+    <div className="flex flex-col items-center gap-2 min-w-[88px]" data-testid={`food-cuisine-${c.code}`}>
+      <div className="w-[5.5rem] h-[5.5rem] rounded-3xl overflow-hidden bg-muted">
         <img src={c.image} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform" />
       </div>
       <span className="text-xs font-medium">{name}</span>
@@ -259,7 +259,7 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
 
 const CategoryStrip = ({ data, activeCategory, setActiveCategory, language }) => (
   <section className="overflow-x-auto -mx-2 px-2" data-testid="food-section-categories">
-    <div className="flex gap-3 min-w-max py-1">
+    <div className="flex gap-6 min-w-max py-1">
       {data.categories.map((c) => (
         <CategoryChip
           key={c.code}
@@ -361,7 +361,7 @@ const CuisineCarousel = ({ row, data, language, t }) => {
                      defaultTitle={t("food.cuisines_title", { defaultValue: "Cuisines You'll Love" })}
                      language={language} />
       <div className="overflow-x-auto -mx-2 px-2">
-        <div className="flex gap-4 min-w-max">
+        <div className="flex gap-6 min-w-max">
           {xs.map((c) => <CuisineTile key={c.code} c={c} language={language} />)}
         </div>
       </div>
