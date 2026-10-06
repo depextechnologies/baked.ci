@@ -250,8 +250,8 @@ api_router.include_router(food_search_public_router)              # /food/search
 api_router.include_router(food_orders_customer_router)            # /food/customer/orders
 api_router.include_router(food_orders_partner_router)             # /food/manage/{rid}/orders
 api_router.include_router(food_favourites_customer_router)        # /food/customer/favourites
+api_router.include_router(returns_partner_router)                 # /returns/partner  (must come first — else /returns/{id} shadows it)
 api_router.include_router(returns_customer_router)                # /returns
-api_router.include_router(returns_partner_router)                 # /returns/partner
 api_router.include_router(returns_admin_router)                   # /admin/returns
 api_router.include_router(returns_policy_router)                  # /admin/return-policies
 

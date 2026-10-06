@@ -1,5 +1,35 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-06) — Phase 7B · Returns & Refunds — COMPLETE
+
+**Scope (all user-approved choices)**: Unified across FOOD / MART / SHOP. Hybrid approval (auto-approve < 2,000 XOF with eligible reason + required evidence; partner review for larger; 24h SLA; escalate to admin on expiry; Super Admin final override). Flagged customers skip auto-approve. Wallet refund by default, original method on request. Return window: **2h for FOOD**, **7 days for MART/SHOP**, measured from `delivered_at`. Window + threshold configurable per module/country/category/product by Super Admin. FOOD = refund-only report (no physical pickup). Item-level partial refunds and full audit trail. French-first UI with English fallback.
+
+**Backend** (`/app/backend/modules/returns.py` + migration `0068_returns_refunds.py`)
+- Tables: `return_policies`, `returns`, `return_items`, `return_evidence`, `return_audit`, `customer_refund_flags`, `customer_wallet_balances`, `customer_wallet_transactions`.
+- Seeded default policies for food (2h), mart (168h), shop (168h), all 2,000 XOF threshold.
+- Customer endpoints: `GET /api/returns/eligibility`, `POST /api/returns`, `GET /api/returns`, `GET /api/returns/{id}`, `POST /api/returns/{id}/cancel`.
+- Partner endpoints (FOOD partner JWT): `GET /api/returns/partner`, `POST /api/returns/partner/{id}/decision` (approve/partial/dispute/reject with mandatory reasons).
+- Admin endpoints (Admin JWT): `GET /api/admin/returns`, `GET /api/admin/returns/{id}`, `POST /api/admin/returns/{id}/decision`, `POST /api/admin/returns/escalate-stale`, `POST /api/admin/returns/flag/{customer_id}`, `DELETE /api/admin/returns/flag/{customer_id}`, `/api/admin/return-policies` list / upsert / delete.
+- Wallet credit ledger on auto-approval; `approved_pending_payout` state for original-method refunds that await a manual gateway payout.
+
+**Frontend**
+- `ReturnRequestModal.jsx` — reusable wizard (reason grid, photo URL, destination picker, auto-approve hint, submit). Shows the "Contacter l'assistance / Contact Support" fallback when the window has closed.
+- `MyReturnsPage.jsx` at `/profile/returns` — list + status pills + detail drawer with full audit timeline + cancel.
+- `AdminReturns.jsx` at `/admin/returns` — tabs for Requests (filterable table + Escalate-stale) and Policies (editor + delete-protected defaults); drawer with audit, flag/unflag, and approve/partial/reject decision.
+- Entry points: 
+  - FOOD order track page shows **"Un problème avec votre commande ? · Signaler"** CTA when delivered.
+  - Mobile Profile row `m-prof-nav-returns` ("Mes Retours · Suivi des remboursements").
+  - Admin sidebar shows **"Returns & Refunds"**.
+
+**Testing** — 23/23 pytest green (8 in `test_returns_refunds.py` + 9 in testing-agent-added `test_returns_refunds_extra.py` covering evidence rules, partner JWT flows, dispute → admin, admin filters, protected defaults + 6 favourites). testing_agent iteration_106 verified both backend and frontend end-to-end with zero outstanding issues.
+
+**Files touched (14)**:
+- Added `/app/backend/migrations/versions/0068_returns_refunds.py`, `/app/backend/modules/returns.py`, `/app/backend/tests/test_returns_refunds.py`, `/app/backend/tests/test_returns_refunds_extra.py`.
+- Added `/app/frontend/src/components/returns/ReturnRequestModal.jsx`, `/app/frontend/src/pages/MyReturnsPage.jsx`, `/app/frontend/src/pages/admin/AdminReturns.jsx`.
+- Edited `/app/backend/server.py`, `/app/frontend/src/apps/customer/CustomerApp.jsx`, `/app/frontend/src/apps/admin/AdminApp.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodOrderTrackPage.jsx`, `/app/frontend/src/pages/admin/AdminLayout.jsx`, `/app/frontend/src/pages/mobile/MobileProfile.jsx`, FR/EN `customer.json`.
+
+
+
 ## Latest (2026-02-06) — FOODbakēd · Phase 3 Favourites — COMPLETE
 
 **Scope**: Login-required customer favourites for both restaurants and dishes with a single `food_favourites` table. Server-side only (per user choice 2a), 1-tap reorder opens the dish modal pre-selected (per choice 1b), entry point from FOODbakēd top nav + Profile menu (per choice 3b).
