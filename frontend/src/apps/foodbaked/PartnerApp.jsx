@@ -11,7 +11,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks, Package, Bell, TrendingUp, Clock } from "lucide-react";
+import { LogIn, LogOut, Utensils, LayoutDashboard, Store, Loader2, AlertTriangle, BarChart3, CalendarClock, Settings, Image as ImgIcon, LayoutGrid, ListChecks, Package, Bell, TrendingUp, Clock, Wallet2 } from "lucide-react";
 import { FoodPartnerProvider, useFoodPartner, partnerApi } from "../../contexts/FoodPartnerContext";
 import MenuManager, { DashboardSoldOutPanel } from "../../components/food/MenuManager";
 import RestaurantAnalytics from "../../components/food/RestaurantAnalytics";
@@ -27,6 +27,7 @@ import PartnerReservationsDashboard from "./pages/PartnerReservationsDashboard";
 import PartnerFloorTablesPage from "./pages/PartnerFloorTablesPage";
 import PartnerOrdersPage from "./pages/PartnerOrdersPage";
 import PartnerRestaurantProfilePage from "./pages/PartnerRestaurantProfilePage";
+import PartnerWalletPage from "./pages/PartnerWalletPage";
 
 const GREEN = "#00A651";
 const API_BASE = process.env.REACT_APP_BACKEND_URL || "";
@@ -111,6 +112,7 @@ const PartnerLayout = () => {
     { to: "/partner/food/reservations", key: "reservations",  label: isFr ? "Réservations" : "Reservations",     icon: CalendarClock },
     { to: "/partner/food/profile",      key: "profile",       label: isFr ? "Profil" : "Profile",                icon: ImgIcon },
     { to: "/partner/food/analytics",    key: "analytics",     label: "Analytics",                                 icon: BarChart3 },
+    { to: "/partner/food/wallet",       key: "wallet",        label: isFr ? "Portefeuille" : "Wallet",            icon: Wallet2 },
     { to: "/partner/food/menu",         key: "menu",          label: "Menu",                                      icon: Utensils },
     { to: "/partner/food/settings",     key: "settings",      label: isFr ? "Paramètres" : "Settings",            icon: Settings },
   ];
@@ -393,6 +395,7 @@ export const FoodPartnerApp = () => (
         <Route path="menu" element={<PartnerMenuPage />} />
         <Route path="orders" element={<PartnerOrdersPage />} />
         <Route path="analytics" element={<PartnerAnalyticsPage />} />
+        <Route path="wallet"    element={<PartnerWalletPage />} />
         <Route path="reservations" element={<ReservationsHubLayout />}>
           <Route index element={<PartnerReservationsDashboard />} />
           <Route path="bookings" element={<PartnerReservationsPage />} />

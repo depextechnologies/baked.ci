@@ -426,6 +426,21 @@ async def _execute_refund(session: AsyncSession, return_id: str, customer_id: st
                      "approved", "approved_pending_payout",
                      "Awaiting manual gateway payout")
 
+    # Partner-pays model: debit the vendor wallet when a refund settles against
+    # a FOOD partner. Non-food modules currently don't have a partner wallet,
+    # so we silently skip them.
+    ret = (await session.execute(text(
+        "SELECT partner_id, order_module FROM returns WHERE id = :id"
+    ), {"id": return_id})).fetchone()
+    if ret and ret.order_module == "food" and ret.partner_id:
+        try:
+            from modules.vendor_settlement import settle_refund_against_partner
+            await settle_refund_against_partner(
+                session, return_id, ret.partner_id, amount, currency,
+            )
+        except Exception:
+            pass
+
 
 # ---------------------------------------------------------------------------
 # Customer: list + detail + cancel

@@ -27,6 +27,7 @@ const GOVERNANCE = [
   { to: "/admin/finance", icon: DollarSign, label: "Finance" },
   { to: "/admin/homepage-management", icon: HomeIcon2, label: "Homepage" },
   { to: "/admin/returns", icon: ClipboardCheck, label: "Returns & Refunds" },
+  { to: "/admin/vendor-settlement", icon: Wallet, label: "Vendor Settlement" },
   { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
   { to: "/admin/api-management", icon: Plug, label: "API Management" },

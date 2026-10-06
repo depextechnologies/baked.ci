@@ -659,6 +659,12 @@ async def cascade_delivered_from_express(session: AsyncSession,
     await _log_event(session, food_order_id, to_status="delivered",
                      from_status=row.status, actor_role="system",
                      notes=f"booking={booking_id}")
+    # Settlement — snapshot commission + credit vendor wallet.
+    try:
+        from modules.vendor_settlement import settle_order_on_delivery
+        await settle_order_on_delivery(session, food_order_id)
+    except Exception as e:  # noqa: BLE001
+        log.warning("vendor settlement on delivery failed: %s", e)
     await session.commit()
     try:
         await _publish(row.restaurant_id, {
