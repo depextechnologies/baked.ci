@@ -115,6 +115,10 @@ from modules.vendor_settlement import (  # noqa: E402
     partner_router as settlement_partner_router,
     admin_router   as settlement_admin_router,
 )
+from modules.vendor_settlement_cron import (  # noqa: E402
+    cron_router    as settlement_cron_router,
+    admin_router   as settlement_cron_admin_router,
+)
 from modules.search import router as global_search_router  # noqa: E402
 from modules.food.orders import (  # noqa: E402
     customer_router as food_orders_customer_router,
@@ -260,6 +264,8 @@ api_router.include_router(returns_admin_router)                   # /admin/retur
 api_router.include_router(returns_policy_router)                  # /admin/return-policies
 api_router.include_router(settlement_partner_router)              # /food/partner/wallet
 api_router.include_router(settlement_admin_router)                # /admin/vendor-settlement
+api_router.include_router(settlement_cron_admin_router)           # /admin/vendor-settlement/{preview,run-now,...}
+api_router.include_router(settlement_cron_router)                 # /cron/vendor-settlement/run
 
 # --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity

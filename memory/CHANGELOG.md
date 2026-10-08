@@ -1462,3 +1462,11 @@ _(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer
 
 ### Phase 8 — P2
 - Real Stripe payment gateway integration for Wallet & Checkout
+
+## 2026-10-08 — Cron-Scheduled Vendor Payouts (P0)
+- Added `.emergent/crons.yml` with hourly fire; each vendor's own schedule (daily / weekly Thursday / monthly / custom) decides if they are due in **Africa/Abidjan** time.
+- Migration 0070: `vendor_payout_config.timezone`, `last_payout_run_at`, `last_payout_period_end`; `vendor_payouts.trigger` ("manual"|"cron") + `period_end_date`; new `vendor_payout_runs` audit table; unique index `ux_vp_cron_daily` for DB-level idempotency.
+- New module `modules/vendor_settlement_cron.py` with pure schedule evaluator, bundler reusing the existing settlement engine, HTTP cron webhook (Bearer `WEBHOOK_CRON_SECRET`), Super Admin preview / run-now / runs log endpoints.
+- Settlement engine strictly separated from money transfer: cron creates `scheduled` payouts, Super Admin still must `mark-paid`.
+- Super Admin "Scheduled Payouts" tab under FOODbakēd Vendor Settlement with per-vendor table (commission, schedule, TZ, last payout, next scheduled, pending, eligible, would-pay, status) + Preview next payout run dry-run button + Run scheduler now override.
+- Pytest coverage: 12 new tests — timezone math (Abidjan), monthly day clamping (31→28 in Feb), paused, below min, already-generated-today, dry-run never writes, webhook auth. All 24 vendor-settlement tests green.

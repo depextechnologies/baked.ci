@@ -237,6 +237,7 @@ async def partner_wallet_summary(
             "config": cfg.schedule_cfg if cfg else None,
             "is_paused": cfg.is_paused if cfg else False,
             "min_payout_amount": float(cfg.min_payout_amount) if cfg else 0,
+            "timezone": (getattr(cfg, "timezone", None) if cfg else None) or "Africa/Abidjan",
         },
         "balance":        float(_d2(balance)),
         "pending_amount": float(_d2(pending)),
@@ -355,6 +356,7 @@ class PayoutScheduleIn(BaseModel):
     payout_destination: Optional[str] = None
     min_payout_amount: float = 0
     notes: Optional[str] = None
+    timezone: Optional[str] = None  # IANA, defaults to Africa/Abidjan at DB level
 
 
 @admin_router.get("/{module}/{restaurant_id}/payout-config")
@@ -379,11 +381,13 @@ async def admin_set_payout_config(
     admin = Depends(get_current_admin),
 ):
     pid = f"vpc_{uuid.uuid4().hex[:12]}"
+    tz = (payload.timezone or "Africa/Abidjan").strip() or "Africa/Abidjan"
     await session.execute(text("""
         INSERT INTO vendor_payout_config
           (id, module, restaurant_id, schedule_type, schedule_cfg,
-           payout_method, payout_destination, min_payout_amount, notes, last_changed_by)
-        VALUES (:id, :m, :r, :st, :cfg, :pm, :pd, :mn, :n, :by)
+           payout_method, payout_destination, min_payout_amount, notes,
+           timezone, last_changed_by)
+        VALUES (:id, :m, :r, :st, :cfg, :pm, :pd, :mn, :n, :tz, :by)
         ON CONFLICT (module, restaurant_id) DO UPDATE
           SET schedule_type = EXCLUDED.schedule_type,
               schedule_cfg = EXCLUDED.schedule_cfg,
@@ -391,12 +395,14 @@ async def admin_set_payout_config(
               payout_destination = EXCLUDED.payout_destination,
               min_payout_amount = EXCLUDED.min_payout_amount,
               notes = EXCLUDED.notes,
+              timezone = EXCLUDED.timezone,
               last_changed_by = EXCLUDED.last_changed_by,
               updated_at = now()
     """), {"id": pid, "m": module, "r": restaurant_id,
            "st": payload.schedule_type, "cfg": __dumps(payload.schedule_cfg),
            "pm": payload.payout_method, "pd": payload.payout_destination,
-           "mn": payload.min_payout_amount, "n": payload.notes, "by": admin.id})
+           "mn": payload.min_payout_amount, "n": payload.notes,
+           "tz": tz, "by": admin.id})
     await session.commit()
     return {"status": "ok"}
 

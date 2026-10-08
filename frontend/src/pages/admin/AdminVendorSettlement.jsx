@@ -14,7 +14,7 @@ import { adminApi } from "../../contexts/AdminContext";
 import { toast } from "sonner";
 import {
   Loader2, Percent, CalendarClock, Pause, Play, Check, X, History,
-  AlertTriangle, Search, PlayCircle, Clock,
+  AlertTriangle, Search, PlayCircle, Clock, Eye, Globe, RefreshCw,
 } from "lucide-react";
 
 const fmt = (v, c = "XOF") =>
@@ -27,6 +27,13 @@ const SCHEDULES = [
   { value: "custom",  label: "Custom" },
 ];
 
+// Keep the list short — the vendor payout engine operates in the vendor's own
+// IANA zone. For Côte d'Ivoire we default to Africa/Abidjan (UTC+0).
+const TIMEZONES = [
+  "Africa/Abidjan", "Africa/Dakar", "Africa/Lagos", "Africa/Casablanca",
+  "Europe/Paris", "UTC",
+];
+
 // -------------------------------------------------------------------------
 // Settlement drawer for a single restaurant
 // -------------------------------------------------------------------------
@@ -37,7 +44,8 @@ const RestaurantDrawer = ({ restaurant, onClose }) => {
   const [note, setNote]   = useState("");
   const [cfgDraft, setCfgDraft] = useState({
     schedule_type: "weekly",
-    schedule_cfg: { weekday: 3, time_hhmm: "19:00" },
+    schedule_cfg: { weekday: 3, time_hhmm: "18:00" },
+    timezone: "Africa/Abidjan",
     payout_method: "mobile_money",
     payout_destination: "",
     min_payout_amount: 0,
@@ -58,6 +66,7 @@ const RestaurantDrawer = ({ restaurant, onClose }) => {
       setCfgDraft({
         schedule_type: p.data.config.schedule_type,
         schedule_cfg: p.data.config.schedule_cfg || {},
+        timezone: p.data.config.timezone || "Africa/Abidjan",
         payout_method: p.data.config.payout_method || "",
         payout_destination: p.data.config.payout_destination || "",
         min_payout_amount: Number(p.data.config.min_payout_amount || 0),
@@ -228,7 +237,19 @@ const RestaurantDrawer = ({ restaurant, onClose }) => {
                   <input value={cfgDraft.schedule_cfg.time_hhmm || "19:00"}
                          onChange={(e) => setCfgDraft({ ...cfgDraft,
                            schedule_cfg: { ...cfgDraft.schedule_cfg, time_hhmm: e.target.value } })}
+                         data-testid="admin-vs-sched-time"
                          className="h-9 w-full rounded border border-border bg-background px-2 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase text-muted-foreground flex items-center gap-1">
+                    <Globe size={10} /> Timezone
+                  </label>
+                  <select value={cfgDraft.timezone || "Africa/Abidjan"}
+                          onChange={(e) => setCfgDraft({ ...cfgDraft, timezone: e.target.value })}
+                          data-testid="admin-vs-sched-tz"
+                          className="h-9 w-full rounded border border-border bg-background px-2 text-xs">
+                    {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[10px] uppercase text-muted-foreground">Method</label>
@@ -281,6 +302,189 @@ const RestaurantDrawer = ({ restaurant, onClose }) => {
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+// -------------------------------------------------------------------------
+// Scheduled Payouts tab — per-vendor cron overview + dry-run preview
+// -------------------------------------------------------------------------
+const scheduleLabel = (row) => {
+  if (!row.schedule_type) return "—";
+  const t = row.schedule_cfg?.time_hhmm || "—";
+  if (row.schedule_type === "daily") return `Daily @ ${t}`;
+  if (row.schedule_type === "weekly") {
+    const wd = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][row.schedule_cfg?.weekday ?? 3] || "?";
+    return `Weekly ${wd} @ ${t}`;
+  }
+  if (row.schedule_type === "monthly") return `Monthly day ${row.schedule_cfg?.day_of_month ?? 1} @ ${t}`;
+  return `Custom @ ${t}`;
+};
+
+const reasonBadge = (reason) => {
+  const map = {
+    due: ["Due", "bg-amber-100 text-amber-800"],
+    not_due: ["Not due", "bg-muted text-muted-foreground"],
+    paused: ["Paused", "bg-red-100 text-red-700"],
+    already_generated_today: ["Already run today", "bg-sky-100 text-sky-800"],
+    no_config: ["No schedule", "bg-muted text-muted-foreground"],
+    bad_tz: ["Bad TZ", "bg-red-100 text-red-700"],
+  };
+  const [label, cls] = map[reason] || [reason || "—", "bg-muted"];
+  return <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
+};
+
+const ScheduledTab = () => {
+  const [rows, setRows]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState(null);   // dry-run summary
+  const [previewing, setPreviewing] = useState(false);
+  const [running, setRunning] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await adminApi.get("/admin/vendor-settlement/scheduled-overview");
+      setRows(data.items || []);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Error");
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const runPreview = async () => {
+    setPreviewing(true);
+    try {
+      const { data } = await adminApi.get("/admin/vendor-settlement/preview-next-run");
+      setPreview(data);
+      toast.success(`Preview: ${data.created} would be created, ${data.skipped} skipped`);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+    finally { setPreviewing(false); }
+  };
+
+  const runNow = async () => {
+    if (!window.confirm("Run the scheduler immediately? This creates real payout records for every due vendor (money is still not disbursed until you mark each one paid).")) return;
+    setRunning(true);
+    try {
+      const { data } = await adminApi.post("/admin/vendor-settlement/run-now", {});
+      toast.success(`Created ${data.created}, skipped ${data.skipped}`);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+    finally { setRunning(false); }
+  };
+
+  const dueCount    = rows.filter((r) => r.due_reason === "due").length;
+  const pausedCount = rows.filter((r) => r.is_paused).length;
+  const noCfgCount  = rows.filter((r) => !r.schedule_type).length;
+
+  return (
+    <div className="space-y-4" data-testid="admin-vs-scheduled-tab">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold px-3 py-1">
+          {dueCount} due today
+        </div>
+        <div className="rounded-full bg-red-100 text-red-700 text-[11px] font-semibold px-3 py-1">
+          {pausedCount} paused
+        </div>
+        <div className="rounded-full bg-muted text-[11px] font-semibold px-3 py-1">
+          {noCfgCount} without schedule
+        </div>
+        <div className="flex-1" />
+        <button onClick={runPreview} disabled={previewing}
+                data-testid="admin-vs-preview-next-run"
+                className="h-9 px-3 rounded bg-card border border-border text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+          {previewing ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
+          Preview next payout run
+        </button>
+        <button onClick={runNow} disabled={running}
+                data-testid="admin-vs-run-now"
+                className="h-9 px-3 rounded bg-amber-500 text-black text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+          {running ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={12} />}
+          Run scheduler now
+        </button>
+        <button onClick={load}
+                data-testid="admin-vs-refresh"
+                className="h-9 w-9 rounded bg-card border border-border inline-flex items-center justify-center">
+          <RefreshCw size={12} />
+        </button>
+      </div>
+
+      {preview && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs" data-testid="admin-vs-preview-result">
+          <div className="font-semibold mb-1">Dry-run result · {preview.run_id}</div>
+          <div className="text-muted-foreground mb-2">
+            scanned {preview.scanned} · would create {preview.created} · skipped {preview.skipped} · errors {preview.errors}
+          </div>
+          <ul className="space-y-0.5 max-h-40 overflow-auto">
+            {preview.detail.map((d, i) => (
+              <li key={i} className="font-mono">
+                <span className="text-foreground/70">{d.restaurant_id}</span>
+                <span className="mx-1 text-muted-foreground">→</span>
+                <span className={d.action === "would_create" ? "text-[#00A651] font-semibold" : "text-amber-800"}>{d.action}</span>
+                {d.reason && <span className="text-muted-foreground"> ({d.reason})</span>}
+                {d.net != null && <span className="ml-2">net {fmt(d.net)}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {loading && <div className="py-6 flex justify-center"><Loader2 className="animate-spin" /></div>}
+      {!loading && (
+        <div className="rounded-2xl border border-border overflow-hidden">
+          <table className="w-full text-xs" data-testid="admin-vs-scheduled-table">
+            <thead className="bg-card">
+              <tr className="text-left text-[10px] uppercase text-muted-foreground">
+                <th className="p-2">Vendor</th>
+                <th className="p-2">Commission</th>
+                <th className="p-2">Schedule</th>
+                <th className="p-2">TZ</th>
+                <th className="p-2">Last payout</th>
+                <th className="p-2">Next scheduled</th>
+                <th className="p-2 text-right">Pending</th>
+                <th className="p-2 text-right">Eligible</th>
+                <th className="p-2 text-right">Would pay</th>
+                <th className="p-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.restaurant_id} className="border-t border-border"
+                    data-testid={`admin-vs-sched-row-${r.restaurant_id}`}>
+                  <td className="p-2 font-semibold">{r.name}
+                    <div className="text-[10px] font-mono text-muted-foreground">{r.restaurant_id}</div>
+                  </td>
+                  <td className="p-2">{r.commission_rate != null ? `${r.commission_rate}%` : "—"}</td>
+                  <td className="p-2">{scheduleLabel(r)}</td>
+                  <td className="p-2 text-muted-foreground">{r.timezone}</td>
+                  <td className="p-2 text-muted-foreground">
+                    {r.last_payout ? (
+                      <>
+                        <div>{new Date(r.last_payout.created_at).toLocaleDateString()}</div>
+                        <div className="text-[10px]">{r.last_payout.status} · {fmt(r.last_payout.net, r.currency)}</div>
+                      </>
+                    ) : "—"}
+                  </td>
+                  <td className="p-2 text-muted-foreground">
+                    {r.next_scheduled_at ? new Date(r.next_scheduled_at).toLocaleString() : "—"}
+                  </td>
+                  <td className="p-2 text-right font-mono">{fmt(r.pending_balance, r.currency)}</td>
+                  <td className="p-2 text-right font-mono">{fmt(r.wallet_balance, r.currency)}</td>
+                  <td className="p-2 text-right font-mono font-semibold">
+                    {r.would_pay_now != null ? fmt(r.would_pay_now, r.currency) : "—"}
+                  </td>
+                  <td className="p-2">
+                    {r.is_paused ? reasonBadge("paused") : reasonBadge(r.due_reason)}
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">No vendors.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
@@ -467,13 +671,14 @@ export const AdminVendorSettlement = () => {
         <div>
           <h1 className="text-xl font-bold">Vendor Settlement</h1>
           <p className="text-xs text-muted-foreground">
-            Negotiated commissions and payout schedules per restaurant. Changes never recalculate historical orders.
+            Negotiated commissions, timezone-aware payout schedules, and automatic cron settlement per restaurant. Changes never recalculate historical orders.
           </p>
         </div>
         <div className="flex gap-2">
           {[
-            { k: "vendors", l: "Vendors" },
-            { k: "payouts", l: "Payouts" },
+            { k: "vendors",   l: "Vendors" },
+            { k: "scheduled", l: "Scheduled Payouts" },
+            { k: "payouts",   l: "Payouts" },
           ].map((t) => (
             <button key={t.k} onClick={() => setTab(t.k)}
                     data-testid={`admin-vs-tab-${t.k}`}
@@ -485,8 +690,9 @@ export const AdminVendorSettlement = () => {
           ))}
         </div>
       </div>
-      {tab === "vendors" && <VendorsTab />}
-      {tab === "payouts" && <PayoutsTab />}
+      {tab === "vendors"   && <VendorsTab />}
+      {tab === "scheduled" && <ScheduledTab />}
+      {tab === "payouts"   && <PayoutsTab />}
     </div>
   );
 };
