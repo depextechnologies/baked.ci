@@ -222,6 +222,20 @@ const SECTION_SCHEMAS = {
       F.num("limit", "Nombre de cartes · Card limit"),
     ],
   },
+  food_top_brands: {
+    label: "FOOD · Top Brands For You (location-aware carousel)",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title (FR par défaut)"),
+          F.text("subtitle", "Sous-titre · Subtitle (FR par défaut)")],
+    config: [
+      F.text("title_fr", "Titre FR (optionnel — remplace le titre ci-dessus en FR)"),
+      F.text("title_en", "Title EN (shown when English is selected)"),
+      F.text("subtitle_fr", "Sous-titre FR (optionnel)"),
+      F.text("subtitle_en", "Subtitle EN (optional)"),
+      F.num("limit", "Nombre de marques · Max brands (default 10)"),
+      F.text("selection", "Mode de sélection · Selection: auto (default) | curated"),
+    ],
+  },
   food_promos: {
     label: "FOOD · Bandeaux promotionnels · Promo banners",
     modules: ["food"],

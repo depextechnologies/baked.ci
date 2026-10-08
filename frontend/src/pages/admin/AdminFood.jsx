@@ -69,6 +69,9 @@ const emptyRestaurant = () => ({
   name: "", slug: "", country: "CI", cuisines: [], rating: 4.5, review_count: 0,
   prep_time_min: 20, prep_time_max: 30, delivery_fee: 0, is_open: true,
   featured: false, sort_order: 10, image: "", status: "active",
+  // P0 Discovery — delivery zone & coordinates
+  delivery_enabled: true, delivery_radius_km: 5, pickup_enabled: false,
+  latitude: null, longitude: null, address: "",
 });
 
 const RestaurantForm = ({ initial, onSave, saving }) => {
@@ -153,6 +156,63 @@ const RestaurantForm = ({ initial, onSave, saving }) => {
           <input type="checkbox" checked={f.featured} onChange={(e) => set("featured", e.target.checked)} data-testid="rest-form-featured" />
           Mis en avant · Featured
         </label>
+      </div>
+
+      {/* P0 Discovery — Location & Delivery Zone */}
+      <div className="rounded-xl border border-border p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase text-muted-foreground">
+            Zone de livraison · Delivery zone
+          </div>
+          {!f.latitude && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800"
+                  data-testid="rest-form-coord-warning">
+              ⚠ Coordonnées manquantes · Set address
+            </span>
+          )}
+          {f.delivery_radius_km == null && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+              ⚠ Rayon non défini · Set radius
+            </span>
+          )}
+        </div>
+        <Field label="Adresse · Address">
+          <Input value={f.address || ""} onChange={(e) => set("address", e.target.value)}
+                 placeholder="Rue, quartier, ville"
+                 data-testid="rest-form-address" />
+        </Field>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Latitude">
+            <Input type="number" step="0.000001" value={f.latitude ?? ""}
+                   onChange={(e) => set("latitude", e.target.value === "" ? null : parseFloat(e.target.value))}
+                   data-testid="rest-form-lat" />
+          </Field>
+          <Field label="Longitude">
+            <Input type="number" step="0.000001" value={f.longitude ?? ""}
+                   onChange={(e) => set("longitude", e.target.value === "" ? null : parseFloat(e.target.value))}
+                   data-testid="rest-form-lng" />
+          </Field>
+          <Field label="Rayon de livraison (km) · Delivery radius">
+            <Input type="number" step="0.5" min="0" max="50" value={f.delivery_radius_km ?? ""}
+                   onChange={(e) => set("delivery_radius_km", e.target.value === "" ? null : parseFloat(e.target.value))}
+                   placeholder="5"
+                   data-testid="rest-form-radius" />
+          </Field>
+        </div>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={f.delivery_enabled ?? true}
+                   onChange={(e) => set("delivery_enabled", e.target.checked)}
+                   data-testid="rest-form-delivery-enabled" />
+            Livraison active · Delivery enabled
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={f.pickup_enabled ?? false}
+                   onChange={(e) => set("pickup_enabled", e.target.checked)}
+                   data-testid="rest-form-pickup-enabled" />
+            À emporter · Pickup enabled
+          </label>
+        </div>
       </div>
 
       <button

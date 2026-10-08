@@ -102,6 +102,9 @@ async def search(
     q:       str = Query(..., min_length=1, max_length=64),
     mode:    Optional[str] = Query(None, pattern="^(delivery|pickup|dine_in)$"),
     country: Optional[str] = Query(None, max_length=4),
+    lat:     Optional[float] = Query(None, ge=-90, le=90),
+    lng:     Optional[float] = Query(None, ge=-180, le=180),
+    only_eligible: bool = Query(False, description="When true + lat/lng supplied, out-of-zone rows are hidden"),
     limit:   int = Query(8, ge=1, le=25),
     session: AsyncSession = Depends(get_session),
 ):
@@ -140,7 +143,11 @@ async def search(
 
     restaurants_rows = (await session.execute(text(f"""
         SELECT id, slug, name, image, country, cuisines, rating, review_count,
-               is_open, reservations_enabled, reservation_public
+               is_open, reservations_enabled, reservation_public,
+               latitude, longitude, delivery_enabled, delivery_radius_km,
+               pickup_enabled, prep_time_min, prep_time_max, delivery_fee,
+               status, featured, sort_order,
+               delivery_paused_until, pickup_paused_until
           FROM food_restaurants r
          WHERE {where}
          ORDER BY featured DESC NULLS LAST, rating DESC NULLS LAST, sort_order ASC
@@ -148,7 +155,7 @@ async def search(
     """), rest_params)).fetchall()
 
     def _rest_card(r: Any) -> dict:
-        return {
+        card = {
             "id": r.id, "slug": r.slug, "name": r.name,
             "image": r.image, "country": r.country,
             "cuisines": r.cuisines or [],
@@ -157,8 +164,24 @@ async def search(
             "is_open":  bool(r.is_open),
             "reservable": bool(r.reservations_enabled and r.reservation_public),
         }
+        # Enrich with distance/ETA + mode eligibility whenever the caller
+        # supplies coordinates. Mode "dine_in" maps to reservation here.
+        if lat is not None and lng is not None:
+            from .discovery import _serialize
+            disc_mode = {"dine_in": "reservation"}.get(mode or "", mode or "delivery")
+            s = _serialize(r, lat=lat, lng=lng, mode=disc_mode)
+            card.update({
+                "distance_km":        s["distance_km"],
+                "eta_min":            s["eta_min"],
+                "eta_max":            s["eta_max"],
+                "mode_eligible":      s["mode_eligible"],
+                "delivery_eligible":  s["delivery_eligible"],
+            })
+        return card
 
     restaurants = [_rest_card(r) for r in restaurants_rows]
+    if only_eligible and lat is not None and lng is not None:
+        restaurants = [r for r in restaurants if r.get("mode_eligible")]
 
     # -----------------------------------------------------------------
     # DISHES bucket

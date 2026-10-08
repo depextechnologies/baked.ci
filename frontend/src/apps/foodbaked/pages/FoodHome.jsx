@@ -32,10 +32,10 @@
  * The platform shell (global header, cart, location, search) is OUTSIDE
  * this file and remains untouched.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Search, Bike, ShoppingBag, Utensils, Star, Clock, Truck, Heart, ChevronRight, Shield, Tag, Sparkles } from "lucide-react";
+import { Search, Bike, ShoppingBag, Utensils, Star, Clock, Truck, Heart, ChevronRight, ChevronLeft, Shield, Tag, Sparkles, MapPin } from "lucide-react";
 import FavouriteButton from "../components/FavouriteButton";
 import { useApp } from "../../../contexts/BakedContexts";
 import axios from "axios";
@@ -428,12 +428,145 @@ const TestimonialBanner = ({ row, language, t }) => {
 };
 
 // -------------------------------------------------------------------------
+// Top Brands For You — premium horizontal carousel (P0 Discovery)
+// Reference inspiration provided by product; we match the circular logo +
+// vertical name/ETA layout but keep BAKĒD's own chrome:
+//   * BLACK bg in dark mode, WHITE bg in light mode (user-confirmed)
+//   * Circular logo tile with 1px ring so logos never bleed into bg
+//   * Name + ETA stacked below each logo
+//   * Snap-scroll on mobile, nav arrows on desktop
+//   * Brand grouping is backend-driven — one card per brand name, nearest
+//     eligible branch wins (confirmed with product)
+// -------------------------------------------------------------------------
+const TopBrandsCarousel = ({ row, country, lat, lng, mode, language, t }) => {
+  const scrollerRef = useRef(null);
+  const [brands, setBrands]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const limit = row?.config?.limit || 10;
+        const params = new URLSearchParams({ country, mode, limit });
+        if (lat !== undefined && lat !== null && lng !== undefined && lng !== null) {
+          params.set("lat", lat); params.set("lng", lng);
+        }
+        const { data } = await axios.get(`${API}/api/food/brands/top?${params}`);
+        if (!cancel) setBrands(data?.items || []);
+      } catch { if (!cancel) setBrands([]); }
+      finally { if (!cancel) setLoading(false); }
+    })();
+    return () => { cancel = true; };
+  }, [country, lat, lng, mode, row?.id]);
+
+  const title    = bilingual(row, "title", language)
+                  || (language === "fr" ? "Les meilleures enseignes près de chez vous" : "Top brands for you");
+  const subtitle = bilingual(row, "subtitle", language)
+                  || (language === "fr" ? "Vos marques préférées à portée de clic" : "Your favourite brands, delivered");
+
+  const scrollBy = (dir) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * (el.clientWidth * 0.75), behavior: "smooth" });
+  };
+
+  // Hide the whole section cleanly when nothing nearby serves this address.
+  if (!loading && brands.length === 0) {
+    // When customer hasn't picked a location yet, still show nothing —
+    // the FoodHome will render the address CTA banner above.
+    if (!lat && !lng) return null;
+    return (
+      <section data-testid="food-section-top-brands-empty"
+               className="rounded-2xl bg-[rgb(var(--color-card))] border border-border p-6 text-center">
+        <SectionHeader row={row} language={language}
+                       defaultTitle={title} defaultSubtitle={subtitle} />
+        <div className="text-sm text-muted-foreground flex items-center justify-center gap-2 py-6">
+          <MapPin size={14} />
+          {language === "fr"
+            ? "Aucune enseigne ne livre encore à votre adresse. Essayez une autre adresse ou le mode à emporter."
+            : "No brands deliver to this address yet. Try another address or pickup mode."}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section data-testid="food-section-top-brands"
+             className="rounded-3xl p-5 md:p-6 bg-white dark:bg-black text-foreground">
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight">{title}</h2>
+          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+        </div>
+        <div className="hidden md:flex gap-2">
+          <button onClick={() => scrollBy(-1)}
+                  data-testid="top-brands-prev"
+                  aria-label="Previous"
+                  className="h-9 w-9 rounded-full bg-card border border-border inline-flex items-center justify-center hover:scale-105 motion-fast">
+            <ChevronLeft size={16} />
+          </button>
+          <button onClick={() => scrollBy(1)}
+                  data-testid="top-brands-next"
+                  aria-label="Next"
+                  className="h-9 w-9 rounded-full bg-card border border-border inline-flex items-center justify-center hover:scale-105 motion-fast">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div ref={scrollerRef}
+           className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar -mx-5 px-5 pb-2"
+           data-testid="top-brands-scroller">
+        {(loading ? Array.from({ length: 6 }) : brands).map((b, i) => (
+          loading ? (
+            <div key={`sk-${i}`} className="snap-start shrink-0 w-28 flex flex-col items-center gap-2">
+              <div className="h-24 w-24 rounded-full bg-muted animate-pulse" />
+              <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+              <div className="h-2 w-14 bg-muted animate-pulse rounded" />
+            </div>
+          ) : (
+            <Link key={b.restaurant_id}
+                  to={`/foodbaked/restaurants/${b.slug}`}
+                  data-testid={`top-brand-card-${b.restaurant_id}`}
+                  className="snap-start shrink-0 w-28 flex flex-col items-center gap-2 group">
+              <div className="relative h-24 w-24 rounded-full overflow-hidden ring-1 ring-border/60 bg-white shadow-sm transition-transform group-hover:scale-105 motion-fast">
+                {b.image ? (
+                  <img src={absImg(b.image)}
+                       alt={b.brand}
+                       className="h-full w-full object-cover"
+                       loading="lazy" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-muted-foreground">
+                    {(b.brand || "?").slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="text-xs font-semibold text-center line-clamp-1 w-full px-1">
+                {b.brand}
+              </div>
+              <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                <Clock size={10} />
+                {b.eta_min && b.eta_max
+                  ? `${b.eta_min}–${b.eta_max} min`
+                  : (language === "fr" ? "— min" : "— min")}
+              </div>
+            </Link>
+          )
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// -------------------------------------------------------------------------
 // Page
 // -------------------------------------------------------------------------
 
 export const FoodHome = () => {
   const { t, i18n } = useTranslation("customer");
-  const { country, countryCode } = useApp() || {};
+  const { country, countryCode, activeAddress, openAddressSelector } = useApp() || {};
   const language = (i18n?.language || "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
   const [mode, setMode] = useState("delivery");
   const [activeCategory, setActiveCategory] = useState("all");
@@ -441,6 +574,9 @@ export const FoodHome = () => {
   const [homepage, setHomepage] = useState({ sections: [] });
   const [loading, setLoading] = useState(true);
   const currencySymbol = country?.currency_symbol || (countryCode === "IN" ? "₹" : "CFA");
+
+  const lat = activeAddress?.lat ?? null;
+  const lng = activeAddress?.lng ?? null;
 
   useEffect(() => {
     let cancel = false;
@@ -452,8 +588,12 @@ export const FoodHome = () => {
         const url = new URL(window.location.href);
         const previewCc = url.searchParams.get("preview_country");
         const cc = encodeURIComponent(previewCc || countryCode || "CI");
+        const homeParams = new URLSearchParams({ country: cc, mode });
+        if (lat !== null && lng !== null) {
+          homeParams.set("lat", lat); homeParams.set("lng", lng);
+        }
         const [homeRes, hpRes] = await Promise.all([
-          axios.get(`${API}/api/food/home?country=${cc}`),
+          axios.get(`${API}/api/food/home?${homeParams}`),
           axios.get(`${API}/api/homepage?country=${cc}&module=food`).catch(() => ({ data: { sections: [] } })),
         ]);
         if (!cancel) { setData(homeRes.data); setHomepage(hpRes.data); }
@@ -462,7 +602,7 @@ export const FoodHome = () => {
       }
     })();
     return () => { cancel = true; };
-  }, [countryCode]);
+  }, [countryCode, lat, lng, mode]);
 
   // ---------------------------------------------------------------------
   // Build the ORDERED section list. Each admin row is honoured — including
@@ -508,6 +648,29 @@ export const FoodHome = () => {
       <HeroSection row={heroRow} mode={mode} setMode={setMode} countryCode={countryCode} language={language} t={t} />
 
       <div className="baked-container py-8 space-y-10">
+        {/* No-address banner — nudges customers to pick a delivery location
+            so distance/ETA/eligibility can be computed. Appears above the
+            CMS rails and never when a lat/lng is already set. */}
+        {(lat === null || lng === null) && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:border-amber-400/40 dark:text-amber-200 p-4 flex items-center justify-between gap-3"
+               data-testid="food-home-set-address">
+            <div className="flex items-center gap-3 min-w-0">
+              <MapPin size={18} />
+              <div className="text-sm">
+                {language === "fr"
+                  ? "Choisissez votre adresse de livraison pour voir uniquement les restaurants qui livrent chez vous."
+                  : "Set your delivery address to see only restaurants that deliver to you."}
+              </div>
+            </div>
+            <button type="button"
+                    onClick={() => openAddressSelector && openAddressSelector()}
+                    data-testid="food-home-set-address-btn"
+                    className="h-9 px-3 rounded-full text-xs font-semibold bg-amber-500 text-black whitespace-nowrap">
+              {language === "fr" ? "Choisir l'adresse" : "Set address"}
+            </button>
+          </div>
+        )}
+
         {bodyRows.map((row) => {
           switch (row.section_type) {
             case "food_categories":
@@ -516,6 +679,13 @@ export const FoodHome = () => {
                                data={data}
                                activeCategory={activeCategory}
                                setActiveCategory={setActiveCategory} />
+              );
+            case "food_top_brands":
+              return (
+                <TopBrandsCarousel key={row.id} row={row}
+                                   country={countryCode || "CI"}
+                                   lat={lat} lng={lng} mode={mode}
+                                   language={language} t={t} />
               );
             case "food_featured_restaurants":
               return (

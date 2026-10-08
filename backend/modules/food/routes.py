@@ -93,6 +93,14 @@ def _restaurant_row(r) -> dict:
         "status": r.status,
         "delivery_paused": _p(getattr(r, "delivery_paused_until", None)),
         "pickup_paused":   _p(getattr(r, "pickup_paused_until", None)),
+        # Phase P0 Discovery — delivery zone exposure
+        "delivery_enabled":    bool(getattr(r, "delivery_enabled", True)),
+        "delivery_radius_km":  float(r.delivery_radius_km) if getattr(r, "delivery_radius_km", None) is not None else None,
+        "pickup_enabled":      bool(getattr(r, "pickup_enabled", False)),
+        "latitude":            float(r.latitude)  if getattr(r, "latitude",  None) is not None else None,
+        "longitude":           float(r.longitude) if getattr(r, "longitude", None) is not None else None,
+        "address":             getattr(r, "address", None),
+        "needs_coords":        getattr(r, "latitude", None) is None or getattr(r, "longitude", None) is None,
     }
 
 
@@ -123,6 +131,9 @@ async def list_restaurants(
     featured: Optional[bool] = Query(None),
     cuisine: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lng: Optional[float] = Query(None, ge=-180, le=180),
+    mode: Optional[str] = Query(None, pattern="^(delivery|pickup|reservation)$"),
     limit: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ):
@@ -142,25 +153,66 @@ async def list_restaurants(
 
     q = f"SELECT * FROM food_restaurants WHERE {' AND '.join(where)} ORDER BY sort_order, name LIMIT :limit"
     res = await session.execute(text(q), params)
-    return [_restaurant_row(r) for r in res.fetchall()]
+    rows = res.fetchall()
+
+    # When lat/lng are supplied, pipe through the discovery serialiser so
+    # cards gain distance_km / eta / mode_eligible. We still return the
+    # same shape for callers that just want a plain restaurant list.
+    if lat is not None and lng is not None:
+        from .discovery import _serialize
+        items = [_serialize(r, lat=lat, lng=lng, mode=(mode or "delivery")) for r in rows]
+        if mode:
+            items = [i for i in items if i["mode_eligible"]]
+        items.sort(key=lambda i: (
+            0 if i["distance_km"] is not None else 1,
+            i["distance_km"] if i["distance_km"] is not None else 0,
+            -i["rating"],
+        ))
+        return items
+    return [_restaurant_row(r) for r in rows]
 
 
 @router.get("/home")
 async def food_home(
     country: str = Query(..., min_length=2, max_length=4),
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lng: Optional[float] = Query(None, ge=-180, le=180),
+    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation)$"),
     session: AsyncSession = Depends(get_session),
 ):
-    """One-shot payload for the FoodHome page (categories + cuisines + featured)."""
+    """One-shot payload for the FoodHome page (categories + cuisines + featured).
+
+    When the customer has selected a delivery address (``lat``/``lng``),
+    ``featured_restaurants`` is filtered to only vendors whose configured
+    delivery zone covers that point, and each card gains ``distance_km`` +
+    ``eta_min``/``eta_max``. Without coords it falls back to the previous
+    country-only behaviour so first-visit guests still see something.
+    """
     cats  = await session.execute(text("SELECT * FROM food_categories WHERE is_active = TRUE ORDER BY sort_order"))
     cuis  = await session.execute(text("SELECT * FROM food_cuisines   WHERE is_active = TRUE ORDER BY sort_order"))
-    feat  = await session.execute(text(
+    feat_rows = (await session.execute(text(
         "SELECT * FROM food_restaurants WHERE country = :country AND featured = TRUE AND status = 'active' "
-        "ORDER BY sort_order, name LIMIT 12"
-    ), {"country": country.upper()})
+        "ORDER BY sort_order, name LIMIT 24"
+    ), {"country": country.upper()})).fetchall()
+
+    if lat is not None and lng is not None:
+        from .discovery import _serialize
+        featured_restaurants = [_serialize(r, lat=lat, lng=lng, mode=mode) for r in feat_rows]
+        featured_restaurants = [i for i in featured_restaurants if i["mode_eligible"]]
+        featured_restaurants.sort(key=lambda i: (
+            0 if i["distance_km"] is not None else 1,
+            i["distance_km"] if i["distance_km"] is not None else 0,
+            -i["rating"],
+        ))
+        featured_restaurants = featured_restaurants[:12]
+    else:
+        featured_restaurants = [_restaurant_row(r) for r in feat_rows[:12]]
+
     return {
         "categories":          [_category_row(r) for r in cats.fetchall()],
         "cuisines":            [_cuisine_row(r) for r in cuis.fetchall()],
-        "featured_restaurants":[_restaurant_row(r) for r in feat.fetchall()],
+        "featured_restaurants": featured_restaurants,
+        "has_customer_coords": lat is not None and lng is not None,
     }
 
 
@@ -352,6 +404,13 @@ class RestaurantIn(BaseModel):
     sort_order: int = 0
     image: Optional[str] = None
     status: str = "active"
+    # P0 Discovery
+    delivery_enabled:    Optional[bool]  = True
+    delivery_radius_km:  Optional[float] = None   # None → UI shows "Set radius" warning
+    pickup_enabled:      Optional[bool]  = False
+    latitude:            Optional[float] = None
+    longitude:           Optional[float] = None
+    address:             Optional[str]   = None
 
 
 class RestaurantPatch(BaseModel):
@@ -369,6 +428,12 @@ class RestaurantPatch(BaseModel):
     status: Optional[str] = None
     sort_order: Optional[int] = None
     image: Optional[str] = None
+    delivery_enabled:    Optional[bool]  = None
+    delivery_radius_km:  Optional[float] = None
+    pickup_enabled:      Optional[bool]  = None
+    latitude:            Optional[float] = None
+    longitude:           Optional[float] = None
+    address:             Optional[str]   = None
 
 
 @admin_router.get("/restaurants")
@@ -406,11 +471,15 @@ async def admin_create_restaurant(
         INSERT INTO food_restaurants (
             id, name, slug, country, cuisines, rating, review_count,
             prep_time_min, prep_time_max, delivery_fee, is_open, featured,
-            sort_order, image, status
+            sort_order, image, status,
+            delivery_enabled, delivery_radius_km, pickup_enabled,
+            latitude, longitude, address
         ) VALUES (
             :id, :name, :slug, :country, CAST(:cuisines AS JSONB), :rating, :review_count,
             :prep_time_min, :prep_time_max, :delivery_fee, :is_open, :featured,
-            :sort_order, :image, :status
+            :sort_order, :image, :status,
+            :delivery_enabled, :delivery_radius_km, :pickup_enabled,
+            :latitude, :longitude, :address
         )
     """), {
         "id": rid, "name": payload.name, "slug": slug, "country": country,
@@ -419,6 +488,12 @@ async def admin_create_restaurant(
         "prep_time_max": payload.prep_time_max, "delivery_fee": payload.delivery_fee,
         "is_open": payload.is_open, "featured": payload.featured,
         "sort_order": payload.sort_order, "image": payload.image, "status": payload.status,
+        "delivery_enabled":   payload.delivery_enabled if payload.delivery_enabled is not None else True,
+        "delivery_radius_km": payload.delivery_radius_km,
+        "pickup_enabled":     payload.pickup_enabled if payload.pickup_enabled is not None else False,
+        "latitude":           payload.latitude,
+        "longitude":          payload.longitude,
+        "address":            payload.address,
     })
     await session.commit()
     row = (await session.execute(text("SELECT * FROM food_restaurants WHERE id = :id"), {"id": rid})).fetchone()

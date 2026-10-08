@@ -104,6 +104,7 @@ from modules.food.reviews import (  # noqa: E402
     customer_router as food_reviews_customer_router,
 )
 from modules.food.search import public_router as food_search_public_router  # noqa: E402
+from modules.food.discovery import router as food_discovery_router  # noqa: E402
 from modules.food.favourites import customer_router as food_favourites_customer_router  # noqa: E402
 from modules.returns import (  # noqa: E402
     customer_router as returns_customer_router,
@@ -234,6 +235,7 @@ api_router.include_router(realtime_router)
 # Public /food/* + admin /admin/food/* routes for the FoodHome + admin
 # workspace under /admin/modules/food.
 api_router.include_router(food_router, prefix="/food")
+api_router.include_router(food_discovery_router)                 # /food/discovery + /brands/top
 api_router.include_router(food_admin_router)
 api_router.include_router(food_partner_router)
 api_router.include_router(food_manage_router)
