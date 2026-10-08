@@ -1470,3 +1470,15 @@ _(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer
 - Settlement engine strictly separated from money transfer: cron creates `scheduled` payouts, Super Admin still must `mark-paid`.
 - Super Admin "Scheduled Payouts" tab under FOODbakēd Vendor Settlement with per-vendor table (commission, schedule, TZ, last payout, next scheduled, pending, eligible, would-pay, status) + Preview next payout run dry-run button + Run scheduler now override.
 - Pytest coverage: 12 new tests — timezone math (Abidjan), monthly day clamping (31→28 in Feb), paused, below min, already-generated-today, dry-run never writes, webhook auth. All 24 vendor-settlement tests green.
+
+## 2026-10-08 — P0 Core Customer Discovery (location-aware FOODbakēd)
+- Migration 0071: `food_restaurants.delivery_enabled`, `delivery_radius_km` (nullable, 5 km default surfaced by the API), `pickup_enabled`, `polygon_zone`; coord-partial index; seeds the new `food_top_brands` CMS section for CI + IN.
+- New module `backend/modules/food/discovery.py` — haversine helper + ETA engine (prep + distance / 25 km/h) + three endpoints:
+  - `GET /api/food/discovery?country&lat&lng&mode&cuisine` (location-aware list)
+  - `GET /api/food/brands/top` (one card per brand, nearest open branch wins)
+  - `GET /api/food/discovery/check` (single-restaurant eligibility probe for checkout)
+- `/api/food/home`, `/api/food/restaurants` and `/api/food/search` all take optional `lat` / `lng` / `mode` and enrich rows with `distance_km`, `eta_min/max`, `mode_eligible`. Country-only fallback preserved when the customer hasn't picked an address yet.
+- Admin restaurant form (`AdminFood.jsx`) gained Address + Latitude / Longitude / Delivery radius / Delivery-enabled / Pickup-enabled fields with "Set address" & "Set radius" warnings when missing.
+- Super Admin Homepage Management supports the new `food_top_brands` section type (title/subtitle in FR + EN, limit, auto|curated selection).
+- Frontend FoodHome (`/food`): new `TopBrandsCarousel` renders black-on-dark / white-on-light (per product), reads `activeAddress`, snap-scroll + desktop arrows + swipe mobile; new amber banner nudges customers to pick an address when none is set; home refetches on `lat/lng/mode` change.
+- Pytest `tests/test_food_discovery.py` 13/13 pass (haversine, ETA, Scenarios A/C/D/E, pickup wider radius, no-coords fallback, brand ETA, seeded section, search distance). Full discovery + favourites + cron settlement suites 31/31 pass. Frontend testing_agent verified all 15 feature scenarios green.
