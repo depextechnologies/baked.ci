@@ -99,7 +99,11 @@ export const AdminApp = () => (
       <Route path="driver-applications" element={<AdminDriverApplications />} />
       <Route path="homepage-management" element={<AdminHomepageManagement />} />
       <Route path="returns" element={<AdminReturns />} />
-      <Route path="vendor-settlement" element={<AdminVendorSettlement />} />
+      {/* Legacy `/admin/vendor-settlement` — this workspace is FOODbakēd-only
+          (every API call targets `/admin/vendor-settlement/food/*`) so it now
+          lives under the FOOD module workspace. Keep the old URL as a
+          redirect so existing bookmarks keep working. */}
+      <Route path="vendor-settlement" element={<Navigate to="/admin/modules/food/finance" replace />} />
       {/* Fixing_Prompt v5 — old duplicate routes redirect into the unified
           Suppliers workflow. Bookmarks keep working, one authoritative queue. */}
       <Route path="mart-partner-approvals" element={<Navigate to="/admin/modules/mart/approvals" replace />} />
@@ -150,7 +154,10 @@ export const AdminApp = () => (
         <Route path="cuisines" element={<AdminFoodCuisines />} />
         <Route path="categories" element={<AdminFoodCategories />} />
         {/* Applications route is handled above via ApplicationsSwitch */}
-        <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
+        {/* FOODbakēd — Finance & Settlements lives here (not in the main
+            admin menu) because every API call it makes is scoped to the
+            FOOD module. */}
+        <Route path="finance" element={<AdminVendorSettlement />} />
         <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
         <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />
         <Route path="promotions" element={<ModuleComingSoon title="Promotions & Marketing" />} />

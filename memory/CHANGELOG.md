@@ -1490,3 +1490,9 @@ _(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer
 - `RestaurantCard` is mode-aware: pickup-eligible cards show a green "Commander à emporter" CTA, dine-in cards show "Réserver une table" and link straight to `/foodbaked/restaurants/{slug}/reservations`.
 - `RestaurantCarousel` renders mode-specific empty states; carousel + TopBrands refetch instantly when the toggle flips (`useEffect([lat,lng,mode])`).
 - Pytest coverage: +2 tests (dine_in alias ↔ reservation, dine_in hidden when `reservation_public=FALSE`). All 15 discovery tests pass.
+
+## 2026-10-09 — Vendor Settlement relocated under FOODbakēd Finance
+- Removed "Vendor Settlement" from the main admin sidebar — it's a FOOD-only workspace (every API call targets `/admin/vendor-settlement/food/*`) so it belongs with the module it serves.
+- `/admin/modules/food/finance` now mounts `AdminVendorSettlement` (replaced the previous "Coming Soon" placeholder).
+- `/admin/vendor-settlement` auto-redirects to `/admin/modules/food/finance` so existing bookmarks keep working.
+- FOOD module sub-nav Finance tab drops the "soon" badge; MART/SHOP/EXPRESS still show it (their Finance workspaces aren't live yet).

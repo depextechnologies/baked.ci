@@ -52,7 +52,10 @@ const MODULE_NAV = [
   // from the URL. FOODbakēd homepage lives at /admin/modules/food/homepage-management.
   { seg: "homepage-management", label: "Homepage Management", icon: LayoutDashboard, shopOrMartOrFoodOnly: true, note: "Landing-page composer" },
   { seg: "pricing", label: "Pricing", icon: Tag, expressOnly: true },
-  { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true },
+  // Finance — "Coming Soon" for every module EXCEPT FOODbakēd, where it
+  // hosts the full Vendor Settlement workspace (commissions, scheduled
+  // payouts, mark-paid, dry-run preview).
+  { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true, foodLive: true, note: "Commissions, payout schedule & settlements" },
   { seg: "ai", label: "AI Operations", icon: Sparkles, comingSoon: true },
   { seg: "analytics", label: "Analytics", icon: BarChart3, comingSoon: true },
   { seg: "promotions", label: "Promotions", icon: Megaphone, comingSoon: true },
@@ -108,7 +111,8 @@ export const ModuleWorkspace = () => {
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium motion-fast whitespace-nowrap ${isAct ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
                 style={isAct ? { backgroundColor: meta.color, color: "#0a1200" } : {}}>
                 <IconEl size={14} /> {n.label}
-                {n.comingSoon && <span className="text-[9px] uppercase tracking-wider opacity-60">soon</span>}
+                {n.comingSoon && !(n.foodLive && code === "food") &&
+                  <span className="text-[9px] uppercase tracking-wider opacity-60">soon</span>}
               </NavLink>
             );
           })}
