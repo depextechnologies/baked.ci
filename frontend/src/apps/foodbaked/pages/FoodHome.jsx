@@ -191,12 +191,20 @@ const RestaurantCard = ({ r, currencySymbol = "CFA", mode = "delivery", language
 const CuisineTile = ({ c, language }) => {
   const name = language === "fr" ? (c.name_fr || c.name_en) : (c.name_en || c.name_fr);
   return (
-    <div className="flex flex-col items-center gap-2 min-w-[88px]" data-testid={`food-cuisine-${c.code}`}>
-      <div className="w-[5.5rem] h-[5.5rem] rounded-3xl overflow-hidden bg-muted">
-        <img src={c.image} alt={name} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+    <Link
+      to={`/food/restaurants?cuisines=${encodeURIComponent(c.code)}`}
+      className="flex flex-col items-center gap-2 min-w-[88px] group outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--food-accent)] rounded-3xl"
+      style={{ "--food-accent": GREEN }}
+      data-testid={`food-cuisine-${c.code}`}
+      aria-label={language === "fr" ? `Voir les restaurants ${name}` : `See ${name} restaurants`}
+    >
+      <div className="w-[5.5rem] h-[5.5rem] rounded-3xl overflow-hidden bg-muted ring-1 ring-border/60 transition-transform motion-fast group-hover:scale-105 group-active:scale-95">
+        <img src={c.image} alt={name} className="w-full h-full object-cover" loading="lazy" />
       </div>
-      <span className="text-xs font-medium">{name}</span>
-    </div>
+      <span className="text-xs font-medium transition-colors group-hover:text-[color:var(--food-accent)]">
+        {name}
+      </span>
+    </Link>
   );
 };
 
@@ -316,15 +324,26 @@ const CategoryStrip = ({ row, data, activeCategory, setActiveCategory, language,
   );
 };
 
-const SectionHeader = ({ row, defaultTitle, defaultSubtitle, language }) => {
+const SectionHeader = ({ row, defaultTitle, defaultSubtitle, language, viewAll }) => {
   const title = bilingual(row, "title", language) || defaultTitle;
   const subtitle = bilingual(row, "subtitle", language) || defaultSubtitle;
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div>
+    <div className="flex items-end justify-between mb-4 gap-4">
+      <div className="min-w-0">
         <h2 className="text-xl font-bold">{title}</h2>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
+      {viewAll && (
+        <Link
+          to={viewAll.to}
+          data-testid={viewAll.testId || "section-view-all"}
+          className="shrink-0 inline-flex items-center gap-1 text-xs md:text-sm font-semibold text-[color:var(--food-accent)] hover:underline motion-fast outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--food-accent)] rounded-full px-2 py-1"
+          style={{ "--food-accent": GREEN }}
+          aria-label={viewAll.ariaLabel || viewAll.label}
+        >
+          {viewAll.label} <ChevronRight size={14} />
+        </Link>
+      )}
     </div>
   );
 };
@@ -343,7 +362,13 @@ const RestaurantCarousel = ({ row, data, activeCategory, loading, currencySymbol
     <section data-testid={`food-section-featured-${row?.id || "default"}`}>
       <SectionHeader row={row}
                      defaultTitle={t("food.featured_title", { defaultValue: "Featured Restaurants" })}
-                     language={language} />
+                     language={language}
+                     viewAll={{
+                       to: "/food/restaurants",
+                       label: t("food.view_all", { defaultValue: language === "fr" ? "Voir tout" : "View All" }),
+                       testId: `food-featured-view-all-${row?.id || "default"}`,
+                       ariaLabel: language === "fr" ? "Voir tous les restaurants" : "View all restaurants",
+                     }} />
       <div className="overflow-x-auto -mx-2 px-2">
         <div className="flex gap-4 min-w-max">
           {loading && [1, 2, 3, 4].map((i) => (
@@ -445,22 +470,179 @@ const USPGrid = ({ row, language, t }) => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// Testimonials — two premium cards side-by-side on desktop, swipeable
+// one-at-a-time carousel on mobile. Admin-driven via `config.items[]`.
+// Legacy single-quote rows (config.quote_fr/en + meta_fr/en) auto-convert
+// into one item so existing data keeps rendering.
+// ---------------------------------------------------------------------------
+const TestimonialCard = ({ item, language }) => {
+  const quote  = language === "fr"
+    ? (item.quote_fr || item.quote_en || item.quote || "")
+    : (item.quote_en || item.quote_fr || item.quote || "");
+  const author = language === "fr"
+    ? (item.author_fr || item.author_en || item.author || "")
+    : (item.author_en || item.author_fr || item.author || "");
+  const role   = language === "fr"
+    ? (item.role_fr || item.role_en || item.role || "")
+    : (item.role_en || item.role_fr || item.role || "");
+  const bgUrl  = absImg(item.background_image);
+  const photo  = absImg(item.customer_image);
+  return (
+    <article
+      data-testid={`food-testimonial-card-${item._key || item.id || "x"}`}
+      className="relative h-full rounded-3xl overflow-hidden border border-white/10 bg-neutral-950 flex flex-col justify-between p-6 md:p-7 min-h-[220px]"
+      style={bgUrl ? {
+        background: `linear-gradient(135deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.6) 100%), url("${bgUrl}") center/cover no-repeat, #0a0a0a`,
+      } : undefined}
+    >
+      <span
+        className="absolute -top-2 left-5 text-7xl font-serif leading-none opacity-30 select-none"
+        style={{ color: GREEN }}
+        aria-hidden="true"
+      >
+        &ldquo;
+      </span>
+      <blockquote className="relative text-white text-sm md:text-base leading-relaxed pt-6">
+        {quote}
+      </blockquote>
+      <div className="flex items-center gap-3 pt-5 mt-4 border-t border-white/10">
+        {photo ? (
+          <img
+            src={photo}
+            alt={author}
+            loading="lazy"
+            className="w-10 h-10 rounded-full object-cover ring-1 ring-white/20"
+          />
+        ) : (
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-black"
+            style={{ background: GREEN }}
+          >
+            {(author || "?").trim().charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-white truncate">
+            {author || (language === "fr" ? "Client vérifié" : "Verified customer")}
+          </div>
+          {role && <div className="text-[11px] text-white/60 truncate">{role}</div>}
+        </div>
+        <div className="flex" style={{ color: GREEN }} aria-label="5 stars">
+          {[1,2,3,4,5].map((i) => <Star key={i} size={13} className="fill-current" />)}
+        </div>
+      </div>
+    </article>
+  );
+};
+
 const TestimonialBanner = ({ row, language, t }) => {
-  const quote  = bilingual(row, "quote", language)  || t("food.testimonial_quote",  { defaultValue: "FOODbakēd makes it so easy to discover amazing food near me. Great variety and super fast!" });
-  const meta   = bilingual(row, "meta",  language)  || t("food.testimonial_meta",   { defaultValue: "4.8/5 from 10,000+ happy food lovers" });
-  const bgUrl  = absImg(row?.config?.background_image) || "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1400&h=400&fit=crop";
+  // Build the ordered list of enabled testimonials. Legacy rows (single
+  // quote_fr/en + meta_fr/en at the config root) become one item so no
+  // existing admin content is lost.
+  const items = useMemo(() => {
+    const cfg = row?.config || {};
+    const authored = Array.isArray(cfg.items) ? cfg.items : [];
+    const normalised = authored
+      .map((it, i) => ({ ...it, _key: it.id || `i${i}` }))
+      .filter((it) => it.enabled !== false && (it.quote_fr || it.quote_en || it.quote));
+    normalised.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const legacyQuote = cfg.quote_fr || cfg.quote_en || cfg.quote;
+    if (normalised.length === 0 && legacyQuote) {
+      normalised.push({
+        _key: "legacy",
+        quote_fr: cfg.quote_fr,
+        quote_en: cfg.quote_en,
+        author_fr: cfg.author_fr,
+        author_en: cfg.author_en,
+        role_fr: cfg.role_fr,
+        role_en: cfg.role_en,
+        background_image: cfg.background_image,
+      });
+    }
+    return normalised;
+  }, [row?.config]);
+
+  // Admin preview escape hatch — show a soft placeholder so admins can see
+  // the layout even when no items are enabled. Hidden in production.
+  const isAdminPreview = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).has("preview_country");
+
+  const title = bilingual(row, "title", language)
+    || t("food.testimonials_title", { defaultValue: language === "fr" ? "Avis de nos clients" : "Customer Reviews" });
+
+  const sheetRef = useRef(null);
+  const [mobileIdx, setMobileIdx] = useState(0);
+
+  if (items.length === 0) {
+    if (!isAdminPreview) return null;
+    return (
+      <section
+        data-testid={`food-section-testimonial-${row?.id || "default"}-empty`}
+        className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"
+      >
+        {language === "fr"
+          ? "Aucun témoignage activé. Ajoutez-en dans l'admin pour qu'ils apparaissent ici."
+          : "No testimonials enabled. Add some from Admin to show them here."}
+      </section>
+    );
+  }
+
+  // Pick the first 2 for the desktop grid; the rest overflow into the mobile
+  // carousel (which cycles through ALL items so admins can author >2).
+  const desktopItems = items.slice(0, 2);
+  const mobileItems  = items;
+
+  const onScroll = () => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== mobileIdx) setMobileIdx(idx);
+  };
+
   return (
     <section data-testid={`food-section-testimonial-${row?.id || "default"}`}
-             className="rounded-2xl overflow-hidden relative min-h-[160px] flex items-center"
-             style={{ background: `linear-gradient(90deg, rgba(0,0,0,0.85), rgba(0,0,0,0.55)), url("${bgUrl}") center/cover no-repeat` }}>
-      <div className="px-8 py-10 text-white max-w-3xl">
-        <p className="text-lg md:text-xl italic leading-snug">&ldquo;{quote}&rdquo;</p>
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          <div className="flex" style={{ color: GREEN }}>
-            {[1,2,3,4,5].map((i) => <Star key={i} size={14} className="fill-current" />)}
-          </div>
-          <span className="text-white/80">{meta}</span>
+             className="space-y-4">
+      <h2 className="text-xl font-bold">{title}</h2>
+
+      {/* Desktop — 2 cards side-by-side (3 cols on very wide screens if 3+ items) */}
+      <div
+        className="hidden md:grid gap-4 md:grid-cols-2"
+        data-testid={`food-testimonials-desktop-${row?.id || "default"}`}
+      >
+        {desktopItems.map((it) => (
+          <TestimonialCard key={it._key} item={it} language={language} />
+        ))}
+      </div>
+
+      {/* Mobile — single card, swipeable carousel with pagination dots */}
+      <div className="md:hidden">
+        <div
+          ref={sheetRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar -mx-4 px-4 gap-4"
+          data-testid={`food-testimonials-mobile-${row?.id || "default"}`}
+        >
+          {mobileItems.map((it) => (
+            <div key={it._key} className="snap-start shrink-0 w-full">
+              <TestimonialCard item={it} language={language} />
+            </div>
+          ))}
         </div>
+        {mobileItems.length > 1 && (
+          <div
+            className="flex justify-center gap-1.5 mt-3"
+            data-testid={`food-testimonials-dots-${row?.id || "default"}`}
+          >
+            {mobileItems.map((_, i) => (
+              <span
+                key={i}
+                className="h-1.5 w-1.5 rounded-full transition-colors"
+                style={{ background: i === mobileIdx ? GREEN : "rgba(255,255,255,0.25)" }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
