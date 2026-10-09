@@ -1496,3 +1496,23 @@ _(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer
 - `/admin/modules/food/finance` now mounts `AdminVendorSettlement` (replaced the previous "Coming Soon" placeholder).
 - `/admin/vendor-settlement` auto-redirects to `/admin/modules/food/finance` so existing bookmarks keep working.
 - FOOD module sub-nav Finance tab drops the "soon" badge; MART/SHOP/EXPRESS still show it (their Finance workspaces aren't live yet).
+
+## 2026-10-09 — P0 Cart Pricing Fix (Mobile + Desktop + Backend)
+### Root cause (RCA)
+- **Mobile MART label bug** — `MobileCart.jsx:28` filtered FOOD items into `martItems` (`i.module !== "shop"`), rendered MART badges on FOOD lines, and used `cart.mart.subtotal=0` + MART min-order gate → total showed only the MART delivery fee (₹29) instead of ₹478+₹29.
+- **Desktop missing FOOD fee** — `CartDrawer.jsx:101` set `total = foodSubtotal` (no fee); FOOD delivery row rendered the placeholder "Added at checkout".
+- **No shared source of truth** — Mobile and Desktop each did their own math, so the two surfaces diverged.
+- **Backend** — `food/orders.create_order` hardcoded `delivery_fee=0.0` ("Pass-1 free delivery") → even corrected UIs would have been wrong at checkout.
+
+### Fix
+- NEW `/api/cart/quote` endpoint (`modules/cart_quote.py`) — single pricing engine shared by every surface. Backend reprices every line from `food_menu_items.base_price` / `mart_products.price` / `shop_variants.price` (never trusts client numbers), applies per-restaurant `food_restaurants.delivery_fee` for delivery mode (pickup/dine-in get fee=0), reads MART min-order & fee from `countries` (v1.1 — no min-order block), surfaces `unavailable_item_ids` instead of silently charging for them, uses `Decimal` arithmetic throughout.
+- `CartProvider` fetches `/cart/quote` on every `cart.items` / `activeAddress` / `foodMode` / `country` change; exposes `cart.quote` on context.
+- `MobileCart.jsx`, `CartDrawer.jsx`, `CartPage.jsx` all read **only** from `quote` — fallbacks only run until first quote lands.
+- `hydrateGuest()` and authed `load()` carry both `menu_item_id` and `restaurant_id` through so the quote-builder useEffect finds them regardless of persistence shape.
+- Per-line badge logic now reads `i.module` directly (FOOD→red / MART→green / SHOP→gold).
+- Minimum-order banners removed from Mobile + Desktop + Drawer (v1.1 rule — no min-order).
+- Backend `food/orders.create_order` now charges `food_restaurants.delivery_fee` for delivery orders instead of 0.
+
+### Tests
+- `backend/tests/test_cart_quote.py` 10/10 pass covering TC-01 through TC-29 (₹478 subtotal, ₹29 FOOD fee, ₹507 total; pickup waives fee; multi-restaurant fees summed per restaurant; unavailable items excluded; INR vs XOF; no min-order).
+- Testing agent iter 112: 100% backend + 100% frontend. Desktop drawer & mobile `/cart` both render ₹478 / ₹29 / ₹507, FOOD red badges, exactly 1 POST /cart/quote per cart change. MART-only & SHOP-only regressions unaffected.
