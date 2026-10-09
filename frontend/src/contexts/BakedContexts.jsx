@@ -362,12 +362,14 @@ export const CartProvider = ({ children }) => {
           items.push({
             id: it.id, product_id: it.product_id, quantity: it.quantity,
             module: mod, product: s, line_total: line,
-            // Keep the restaurant_id at the top level of the row so the
-            // /cart/quote request builder can pick it up without digging
-            // into the per-line snapshot. Previously the FOOD snapshot
-            // owned the ID but the quote caller looked at `i.restaurant_id`
-            // first and never found it → food subtotal silently empty.
-            restaurant_id: s.restaurant_id,
+            // Carry BOTH identifier shapes through so the quote-builder
+            // useEffect can find a menu_item_id regardless of how the row
+            // was persisted (production addFoodItem uses `product_id`,
+            // test / API-driven adds use `menu_item_id`). Same for the
+            // restaurant pointer — snapshot wins when present, otherwise
+            // the raw guest line's restaurant_id.
+            menu_item_id:  it.menu_item_id,
+            restaurant_id: s.restaurant_id || it.restaurant_id,
           });
         } else {
           try {
@@ -460,7 +462,10 @@ export const CartProvider = ({ children }) => {
             module: "food",
             product: s,
             line_total: line,
-            restaurant_id: s.restaurant_id,
+            // Mirror hydrateGuest so authed users on this path get the
+            // same identifier coverage.
+            menu_item_id:  it.menu_item_id,
+            restaurant_id: s.restaurant_id || it.restaurant_id,
           };
         });
         const foodSubtotal = foodItems.reduce((s, it) => s + (it.line_total || 0), 0);
