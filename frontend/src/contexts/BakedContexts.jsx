@@ -138,6 +138,18 @@ export const AppProvider = ({ children }) => {
   const [addressSelectorOpen, setAddressSelectorOpen] = useState(false);
   const [addressSelectorClosing, setAddressSelectorClosing] = useState(false);
   const [addressSelectorMode, setAddressSelectorMode] = useState({ callback: null, title: null });
+
+  // Active FOODbakēd service mode (delivery / pickup / dine_in). Persisted
+  // across page navigation so a diner picking "À emporter" on the home page
+  // stays in pickup when they bounce into a restaurant and come back.
+  const [foodServiceMode, _setFoodServiceMode] = useState(() => {
+    try { return localStorage.getItem("baked_food_mode") || "delivery"; } catch { return "delivery"; }
+  });
+  const setFoodServiceMode = useCallback((m) => {
+    const normalised = (m === "dine-in" ? "dine_in" : m) || "delivery";
+    _setFoodServiceMode(normalised);
+    try { localStorage.setItem("baked_food_mode", normalised); } catch { /* ignore quota */ }
+  }, []);
   const openAddressSelector = useCallback((opts) => {
     // opts.onPick(address) — when provided, invoked with the picked address INSTEAD of updating global activeAddress.
     // opts.title — override modal title (e.g. "Pickup location")
@@ -258,7 +270,7 @@ export const AppProvider = ({ children }) => {
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const setLanguage = (lng) => setLanguageState(lng === "en" ? "en" : "fr");
 
-  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode]);
+  const value = useMemo(() => ({ activeModule, setActiveModule, countryCode, setCountryCode, detectCountryByLocation, country, countries, modules, theme, toggleTheme, language, setLanguage, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode, foodServiceMode, setFoodServiceMode }), [activeModule, countryCode, detectCountryByLocation, country, countries, modules, theme, language, uiLocale, activeAddress, setActiveAddress, addressSelectorOpen, addressSelectorClosing, openAddressSelector, closeAddressSelector, addressSelectorMode, foodServiceMode, setFoodServiceMode]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 };
 export const useApp = () => useContext(AppCtx);

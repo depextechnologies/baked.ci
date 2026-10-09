@@ -91,6 +91,10 @@ def compute_eta_minutes(distance_km: Optional[float], prep_min: int, prep_max: i
 # Serialiser — same keys as _restaurant_row + distance/eta/eligibility
 # ---------------------------------------------------------------------------
 def _serialize(row, *, lat: Optional[float], lng: Optional[float], mode: str) -> dict[str, Any]:
+    # "dine_in" is the UI label used by the hero toggle; map it to the
+    # canonical "reservation" mode used by the eligibility logic.
+    if mode == "dine_in":
+        mode = "reservation"
     r_lat = float(row.latitude)  if row.latitude  is not None else None
     r_lng = float(row.longitude) if row.longitude is not None else None
     distance = (haversine_km(lat, lng, r_lat, r_lng)
@@ -196,7 +200,7 @@ async def discovery(
     country: str = Query(..., min_length=2, max_length=4),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
-    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation)$"),
+    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation|dine_in)$"),
     cuisine: Optional[str] = Query(None),
     featured: Optional[bool] = Query(None),
     only_eligible: bool = Query(True, description="Set FALSE to see out-of-zone rows too"),
@@ -234,7 +238,7 @@ async def top_brands(
     country: str = Query(..., min_length=2, max_length=4),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
-    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation)$"),
+    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation|dine_in)$"),
     limit: int = Query(10, ge=1, le=30),
     session: AsyncSession = Depends(get_session),
 ):
@@ -300,7 +304,7 @@ async def check_eligibility(
     restaurant_id: str = Query(...),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
-    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation)$"),
+    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation|dine_in)$"),
     session: AsyncSession = Depends(get_session),
 ):
     row = (await session.execute(text(

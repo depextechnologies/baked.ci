@@ -133,7 +133,7 @@ async def list_restaurants(
     category: Optional[str] = Query(None),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
-    mode: Optional[str] = Query(None, pattern="^(delivery|pickup|reservation)$"),
+    mode: Optional[str] = Query(None, pattern="^(delivery|pickup|reservation|dine_in)$"),
     limit: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ):
@@ -177,7 +177,7 @@ async def food_home(
     country: str = Query(..., min_length=2, max_length=4),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
-    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation)$"),
+    mode: str = Query("delivery", pattern="^(delivery|pickup|reservation|dine_in)$"),
     session: AsyncSession = Depends(get_session),
 ):
     """One-shot payload for the FoodHome page (categories + cuisines + featured).

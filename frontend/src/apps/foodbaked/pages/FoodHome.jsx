@@ -56,12 +56,16 @@ const bilingual = (row, field, lang) => {
 // Shared presentational pieces
 // -------------------------------------------------------------------------
 
-const ServiceToggle = ({ value, onChange }) => {
-  const { t } = useTranslation("customer");
+const ServiceToggle = ({ value, onChange, language }) => {
+  // French-default labels (per product): Livraison / À emporter / Sur place.
+  // English swap in only when EN is active.
   const opts = [
-    { code: "delivery",  label: t("food.mode_delivery",  { defaultValue: "Delivery" }),  icon: Bike },
-    { code: "pickup",    label: t("food.mode_pickup",    { defaultValue: "Pickup" }),    icon: ShoppingBag },
-    { code: "dine_in",   label: t("food.mode_dine_in",   { defaultValue: "Dine-in / Reserve" }), icon: Utensils },
+    { code: "delivery", icon: Bike,
+      label: language === "en" ? "Delivery" : "Livraison" },
+    { code: "pickup",   icon: ShoppingBag,
+      label: language === "en" ? "Pickup"   : "À emporter" },
+    { code: "dine_in",  icon: Utensils,
+      label: language === "en" ? "Dine-in"  : "Sur place" },
   ];
   return (
     <div className="flex flex-wrap gap-2" data-testid="food-service-toggle">
@@ -72,6 +76,7 @@ const ServiceToggle = ({ value, onChange }) => {
             key={code}
             onClick={() => onChange(code)}
             data-testid={`food-mode-${code}`}
+            aria-pressed={on}
             className={`px-4 h-10 rounded-full flex items-center gap-2 text-xs font-semibold border motion-fast ${
               on ? "text-black" : "bg-card text-foreground border-border hover:bg-secondary"
             }`}
@@ -112,19 +117,29 @@ const CategoryChip = ({ category, isActive, onClick, language }) => {
   );
 };
 
-const RestaurantCard = ({ r, currencySymbol = "CFA" }) => {
+const RestaurantCard = ({ r, currencySymbol = "CFA", mode = "delivery", language = "fr" }) => {
   const { t } = useTranslation("customer");
   const cuisines = (r.cuisines || []).slice(0, 2).join(" · ");
   const rating = Number(r.rating || 0).toFixed(1);
+  // Mode-aware CTA label. Backend tags each card with `reservations_enabled`
+  // so we never render a Book-a-Table button on a venue that disabled it.
+  const isDineIn = mode === "dine_in" && r.reservations_enabled;
+  const isPickup = mode === "pickup"  && (r.pickup_enabled || r.pickup_eligible);
+  const ctaLabel = isDineIn
+    ? (language === "fr" ? "Réserver une table" : "Book a table")
+    : isPickup
+      ? (language === "fr" ? "Commander à emporter" : "Order pickup")
+      : null;
   return (
-    <Link to={`/food/r/${r.slug}`}
+    <Link to={isDineIn ? `/foodbaked/restaurants/${r.slug}/reservations` : `/food/r/${r.slug}`}
           className="block min-w-[240px] w-[240px] shrink-0 rounded-2xl border border-border bg-card overflow-hidden motion-fast hover:border-[color:var(--food-accent)]"
           style={{ "--food-accent": GREEN }}
           data-testid={`food-restaurant-${r.id}`}>
       <div className="relative aspect-[4/3] bg-muted">
         <img src={r.image} alt={r.name} className="w-full h-full object-cover" />
         <span className="absolute top-2 left-2 text-[10px] font-semibold bg-black/70 text-white px-2 py-1 rounded-full flex items-center gap-1">
-          <Clock size={10} /> {r.prep_time_min}–{r.prep_time_max} min
+          <Clock size={10} />
+          {r.eta_min && r.eta_max ? `${r.eta_min}–${r.eta_max} min` : `${r.prep_time_min}–${r.prep_time_max} min`}
         </span>
         <FavouriteButton
           type="restaurant"
@@ -153,11 +168,21 @@ const RestaurantCard = ({ r, currencySymbol = "CFA" }) => {
             {r.is_open ? t("food.open") : t("food.closed")}
           </span>
         </div>
-        <div className="text-[11px] text-muted-foreground pt-1">
-          {r.delivery_fee === 0
-            ? t("food.free_delivery", { defaultValue: "Free delivery" })
-            : t("food.delivery_fee_line", { defaultValue: "{{fee}} {{cur}} delivery", fee: r.delivery_fee, cur: currencySymbol })}
-        </div>
+        {ctaLabel ? (
+          <div className="pt-2">
+            <span data-testid={`food-restaurant-cta-${r.id}`}
+                  className="inline-flex items-center justify-center w-full h-8 rounded-full text-[11px] font-semibold text-black"
+                  style={{ backgroundColor: GREEN }}>
+              {ctaLabel}
+            </span>
+          </div>
+        ) : (
+          <div className="text-[11px] text-muted-foreground pt-1">
+            {r.delivery_fee === 0
+              ? t("food.free_delivery", { defaultValue: "Free delivery" })
+              : t("food.delivery_fee_line", { defaultValue: "{{fee}} {{cur}} delivery", fee: r.delivery_fee, cur: currencySymbol })}
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -241,7 +266,7 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
               placeholder={t("food.search_placeholder", { defaultValue: "Search for restaurants, cuisines or dishes…" })}
               ctaLabel={t("food.search_btn", { defaultValue: "Search" })}
             />
-            <ServiceToggle value={mode} onChange={setMode} />
+            <ServiceToggle value={mode} onChange={setMode} language={language} />
             {cfg.cta_label && cfg.cta_link && (
               <a href={cfg.cta_link}
                  className="inline-flex items-center gap-2 px-4 h-10 rounded-full text-xs font-semibold text-black"
@@ -294,7 +319,7 @@ const SectionHeader = ({ row, defaultTitle, defaultSubtitle, language }) => {
   );
 };
 
-const RestaurantCarousel = ({ row, data, activeCategory, loading, currencySymbol, language, t }) => {
+const RestaurantCarousel = ({ row, data, activeCategory, loading, currencySymbol, language, t, mode }) => {
   const cuisineFilter = row?.config?.cuisine_filter;
   const limit = row?.config?.limit;
   const list = useMemo(() => {
@@ -315,11 +340,15 @@ const RestaurantCarousel = ({ row, data, activeCategory, loading, currencySymbol
             <div key={i} className="min-w-[240px] w-[240px] h-[280px] rounded-2xl bg-muted animate-pulse" />
           ))}
           {!loading && list.length === 0 && (
-            <div className="text-sm text-muted-foreground py-8">
-              {t("food.no_restaurants", { defaultValue: "No restaurants match this category yet." })}
+            <div className="text-sm text-muted-foreground py-8" data-testid={`food-section-featured-empty-${row?.id || "default"}`}>
+              {mode === "pickup"
+                ? (language === "fr" ? "Aucun restaurant à emporter à proximité." : "No pickup restaurants nearby.")
+                : mode === "dine_in"
+                ? (language === "fr" ? "Aucun restaurant avec réservation ouverte à proximité." : "No dine-in restaurants with open reservations nearby.")
+                : t("food.no_restaurants", { defaultValue: "No restaurants match this category yet." })}
             </div>
           )}
-          {!loading && list.map((r) => <RestaurantCard key={r.id} r={r} currencySymbol={currencySymbol} />)}
+          {!loading && list.map((r) => <RestaurantCard key={r.id} r={r} currencySymbol={currencySymbol} mode={mode} language={language} />)}
         </div>
       </div>
     </section>
@@ -566,9 +595,14 @@ const TopBrandsCarousel = ({ row, country, lat, lng, mode, language, t }) => {
 
 export const FoodHome = () => {
   const { t, i18n } = useTranslation("customer");
-  const { country, countryCode, activeAddress, openAddressSelector } = useApp() || {};
+  const { country, countryCode, activeAddress, openAddressSelector,
+          foodServiceMode, setFoodServiceMode } = useApp() || {};
   const language = (i18n?.language || "fr").toLowerCase().startsWith("fr") ? "fr" : "en";
-  const [mode, setMode] = useState("delivery");
+  // Mode is now owned by the global context so it survives navigation to a
+  // restaurant microsite and back; dine_in is the UI label, backend treats
+  // it as "reservation".
+  const mode = foodServiceMode || "delivery";
+  const setMode = setFoodServiceMode;
   const [activeCategory, setActiveCategory] = useState("all");
   const [data, setData] = useState({ categories: [], cuisines: [], featured_restaurants: [] });
   const [homepage, setHomepage] = useState({ sections: [] });
@@ -640,7 +674,7 @@ export const FoodHome = () => {
   const heroRow = sections.find((s) => s.section_type === "food_hero");
   const bodyRows = sections.filter((s) => s.section_type !== "food_hero");
 
-  const commonProps = { data, language, t, loading, currencySymbol };
+  const commonProps = { data, language, t, loading, currencySymbol, mode };
 
   return (
     <div className="min-h-screen" data-testid="food-home">

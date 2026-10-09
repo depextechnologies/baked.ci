@@ -222,11 +222,47 @@ def test_homepage_section_food_top_brands_is_seeded_for_ci_and_in():
     assert "food_top_brands" in [s["section_type"] for s in r_in.json()["sections"]]
 
 
+def test_dine_in_mode_is_alias_for_reservation():
+    """UI sends `mode=dine_in` from the hero toggle; backend must accept it
+    and treat it identically to `mode=reservation`."""
+    rid = _run(_mk_restaurant(lat=5.3485, lng=-4.0018, name=f"Rsv_{uuid.uuid4().hex[:4]}"))
+    try:
+        # Flip the restaurant into "reservation-public" so eligibility passes.
+        _run(_db_exec("""
+            UPDATE food_restaurants SET reservations_enabled=TRUE, reservation_public=TRUE
+             WHERE id = :r
+        """, r=rid))
+        for mode in ("dine_in", "reservation"):
+            r = requests.get(f"{BASE_URL}/api/food/discovery",
+                             params={"country": "CI", "lat": ABIDJAN_LAT, "lng": ABIDJAN_LNG,
+                                     "mode": mode, "limit": 30}, timeout=10)
+            assert r.status_code == 200, f"{mode}: {r.text}"
+            ids = [i["id"] for i in r.json()["items"]]
+            assert rid in ids, f"{mode} did not surface {rid}"
+    finally:
+        _run(_cleanup([rid]))
+
+
+def test_dine_in_hides_restaurant_without_reservation_public():
+    rid = _run(_mk_restaurant(lat=5.3485, lng=-4.0018, name=f"NoRs_{uuid.uuid4().hex[:4]}"))
+    try:
+        # Reservations enabled but kept PRIVATE — must be hidden from dine_in.
+        _run(_db_exec("""
+            UPDATE food_restaurants SET reservations_enabled=TRUE, reservation_public=FALSE
+             WHERE id = :r
+        """, r=rid))
+        r = requests.get(f"{BASE_URL}/api/food/discovery",
+                         params={"country": "CI", "lat": ABIDJAN_LAT, "lng": ABIDJAN_LNG,
+                                 "mode": "dine_in", "limit": 30}, timeout=10)
+        ids = [i["id"] for i in r.json()["items"]]
+        assert rid not in ids
+    finally:
+        _run(_cleanup([rid]))
+
+
 def test_search_endpoint_accepts_lat_lng_and_computes_distance():
     rid = _run(_mk_restaurant(lat=5.3485, lng=-4.0018, name=f"SRCH_{uuid.uuid4().hex[:4]}"))
     try:
-        q = rid.split("_")[1] if "_" in rid else rid[:6]
-        # Search by the exact restaurant name
         rows = requests.get(f"{BASE_URL}/api/food/search",
                             params={"q": "SRCH", "country": "CI",
                                     "lat": ABIDJAN_LAT, "lng": ABIDJAN_LNG, "limit": 25},
