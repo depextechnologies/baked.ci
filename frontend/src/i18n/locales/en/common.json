@@ -89,12 +89,25 @@
     "free_delivery_over": "Free delivery on orders over {{amount}}",
     "popular_near_you": "Popular near you",
     "shop_by_category": "Shop by category",
-    "shop_by_department": "Shop by department"
+    "shop_by_department": "Shop by department",
+    "partner_login": "Partner's Login"
   },
   "trust": {
-    "fast":    { "title": "Super fast delivery",   "desc": "10-15 min average" },
-    "range":   { "title": "Wide range of products", "desc": "Everything you need" },
-    "prices":  { "title": "Best prices & offers",   "desc": "Save more every day" },
-    "returns": { "title": "Easy returns",           "desc": "Hassle-free refunds" }
+    "fast": {
+      "title": "Super fast delivery",
+      "desc": "10-15 min average"
+    },
+    "range": {
+      "title": "Wide range of products",
+      "desc": "Everything you need"
+    },
+    "prices": {
+      "title": "Best prices & offers",
+      "desc": "Save more every day"
+    },
+    "returns": {
+      "title": "Easy returns",
+      "desc": "Hassle-free refunds"
+    }
   }
 }

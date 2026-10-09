@@ -23,8 +23,11 @@ const MODULE_LOGO = {
     light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/ms4tx02n_WhatsApp%20Image%202026-05-31%20at%208.26.50%20PM%20%281%29.jpeg",
   },
   food: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/awqz7sza_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%282%29.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/nxicofue_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%283%29.jpeg",
+    // FOODbakēd — official brand assets uploaded 2026-02-05 (dark on black,
+    // light on white). Stored under /public/logos so they're served from
+    // our own origin (fast cache, no cross-domain latency).
+    dark: "/logos/foodbaked-dark.jpeg",
+    light: "/logos/foodbaked-light.jpeg",
   },
   shop: {
     dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/e6t06vzj_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%281%29.jpeg",

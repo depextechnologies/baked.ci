@@ -1,0 +1,50 @@
+{
+  "summary": "FOODbakēd Pass 1 Live Orders E2E — Backend 24/24 (6 test_food_orders + 16 test_food_reservations_e2e + 2 new test_food_order_ws_fanout). Frontend verified live via Playwright: partner auth login works (after seeding qa-burger partner via admin API), portal-wide notification engine fires on /partner/food (DASHBOARD) when a customer order is POSTed → modal data-testid=partner-order-modal appears without refresh, Accept closes modal and server-side status becomes 'accepted', PATCH preparing/ready transitions persist (200 OK), modal also appears on fresh /partner/food/orders page. P0.1 confirmed — /api/food/restaurants/burger_hub_ci/menu returns is_available:true on all 9 items. Order flow end-to-end works. CRITICAL ISSUE: the FR/EN parity requirement is violated across the entire Partner Portal — all strings are hardcoded as bilingual concatenation 'Accepter · Accept', 'Refuser · Reject', 'Nouvelle commande · New order', 'À emporter · Pickup', '1 article(s) · item(s)', nav items ('Tableau de bord · Dashboard', 'Commandes · Orders', 'Se déconnecter · Sign out'), 'Activer les alertes · Enable alerts', etc. — directly contradicting the spec's 'No bilingual concatenation like Accepter · Accept allowed'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "N/A — seeding", "issue": "qa-burger@test.example partner user had to be re-created via admin API before UI tests (login returned 401). The seed_food_microsite_demo.py script does NOT recreate the QA partner account. Add partner create/upsert to the seed to prevent regression."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "RestaurantNotificationEngine.jsx (IncomingOrderModal + IncomingModal) + PartnerApp.jsx sidebar + Orders page tabs/CTA + CartDrawer.jsx FOOD CTA fallback", "issue": "ALL Partner Portal strings are hardcoded bilingual concatenations ('Accepter · Accept', 'Refuser · Reject', 'Nouvelle commande · New order', 'À emporter · Pickup', 'Livraison · Delivery', '1 article(s) · item(s)', 'autre(s) en attente · more waiting', 'Activer les alertes · Enable alerts', sidebar 'Tableau de bord · Dashboard', 'Commandes · Orders', 'Réservations · Reservations', 'Profil · Profile', 'Paramètres · Settings', 'Se déconnecter · Sign out', 'Motif · Reason', 'Confirmer le refus', cart fallback 'Commander FOOD · Place food order'). Spec explicitly bans this and requires react-i18next FR/EN switching.", "selector": "data-testid=partner-order-modal", "priority": "CRITICAL"},
+      {"component": "RestaurantNotificationEngine.jsx IncomingOrderModal reject input", "issue": "Reject reason uses a <select> dropdown (data-testid=partner-order-modal-reason) with 5 bilingual options ('Restaurant trop occupé · Too busy' etc.). Spec names 'reject-reason-input' suggesting a free-text input. Functionally OK but non-standard testid name and bilingual option labels.", "selector": "[data-testid=partner-order-modal-reason]", "priority": "LOW"},
+      {"component": "RestaurantNotificationEngine.jsx testid", "issue": "Modal data-testid is 'partner-order-modal' but spec expected 'new-food-order-modal' or 'incoming-order-popup'. Not blocking since testid is still unique and works.", "selector": "[data-testid=partner-order-modal]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Entire /partner/food/* portal", "issues": ["No language toggle visible on the Partner Portal — strings are hardcoded bilingual. The customer side correctly uses react-i18next (confirmed in iteration_95) but the Partner Portal has none. Introduce t()-based i18n and remove the '·' bilingual pattern."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_orders.py",
+    "/app/backend/tests/test_food_order_ws_fanout.py",
+    "/app/backend/tests/test_food_reservations_e2e.py",
+    "/app/test_reports/pytest/food_orders_iter96.xml",
+    "/app/test_reports/pytest/iter96_full.xml"
+  ],
+  "action_items": [
+    "P0: Migrate Partner Portal strings (RestaurantNotificationEngine.jsx, PartnerApp.jsx sidebar/login, PartnerOrdersPage.jsx tab labels + action buttons, PartnerReservations*.jsx, CartDrawer FOOD fallback) to react-i18next. Replace every 'FR · EN' concatenated literal with t(key) and add FR + EN locale entries. Spec: 'No bilingual concatenation allowed.' This is the headline P1 blocker — backend + wiring are correct, UX layer is not.",
+    "P1: Fix stale-closure bug in RestaurantNotificationEngine WS onmessage handler — audioReady and settings are captured once at mount (useEffect deps [restaurantId, token] with eslint-disable). If a user clicks 'Enable alerts' AFTER WS has already connected, the chime will never play even though modal displays. Fix with a ref (audioReadyRef.current / settingsRef.current) read inside onmessage instead of captured values.",
+    "P1: Add qa-burger@test.example partner to seed_food_microsite_demo.py (or create a dedicated seed step) so re-running the seed does not break UI auth after a DB reset. Idempotent upsert expected.",
+    "P2: Consider renaming data-testid to 'new-food-order-modal' and the reject-reason input to 'reject-reason-input' to match spec conventions. Also consider using a text <input> or a <select>+'Autre' fallback to a textarea for the reason, since the current <select> is bilingual-labeled."
+  ],
+  "critical_code_review_comments": [
+    "RestaurantNotificationEngine.jsx line 183-186: `// eslint-disable-next-line react-hooks/exhaustive-deps` with deps [restaurantId, token] intentionally omits audioReady/settings — bug: onmessage uses stale closure of audioReady. Modal shows but chime never plays after user arms audio post-connect. Use refs.",
+    "RestaurantNotificationEngine.jsx entire JSX: hardcoded bilingual strings ('Accepter · Accept' etc.) — violates spec and prevents true FR/EN switching.",
+    "Backend orders.py line 273-282 fan-out payload is correct, includes id/order_number/status/order_type/grand_total/currency/items_count/placed_at. Matches frontend's IncomingOrderModal expectations. Verified via WS fanout test.",
+    "Backend orders.py: PATCH endpoint correctly rejects empty reason with 422 and enforces state machine (bad transition → 409). Verified by test_full_state_machine_accept_prepare_ready and test_reject_requires_reason_and_closes_order.",
+    "Partner WS auth: /api/food/manage/{rid}/ws?token=... accepts partner token — verified end-to-end. Tenant isolation enforced at REST level (admin bypass path verified; partner token must match restaurant_id, see _get_menu_writer line 709-710)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_food_order_ws_fanout.py (new)"
+  ],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "70% — core flow works, i18n parity broken"},
+  "test_credentials": "Super admin: depexopenai@gmail.com / baked@2026#!$@. Partner: qa-burger@test.example / QaBurger123! (restaurant burger_hub_ci) — recreated by this testing agent via POST /api/admin/food/restaurants/burger_hub_ci/partners because seed had wiped it.",
+  "seed_data_creation": "Recreated QA partner food_restaurant_partners row (id=fp_e531e9c04b7b4eba) via admin API. Also re-ran /app/backend/scripts/seed_food_microsite_demo.py (photos_inserted=10, settings_upserted=17, reservations_enabled=17) per handoff instruction. Order history has accumulated 20+ test FOOD orders on burger_hub_ci; harmless but visible in Nouvelles tab.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend Pass 1 is fully green (24/24 incl. new WS fanout + tenant isolation). Live UI: dashboard+orders both receive new_food_order modal via WS without refresh. Core flow (place → accept → preparing → ready, reject with reason) works. The P1 blocker is i18n parity — Partner Portal has zero react-i18next usage, all strings are 'FR · EN' concatenations. Also the WS onmessage stale closure means audio chime won't fire if user arms audio AFTER the WebSocket already connected (modal still shows, so visual is OK — audio is affected). Testids: partner-order-modal, partner-order-modal-accept, partner-order-modal-reject, partner-order-modal-reject-confirm, partner-order-modal-reason, partner-order-modal-number, partner-order-modal-total, partner-arm-audio. If you need the partner creds again and 401 appears, POST to /api/admin/food/restaurants/burger_hub_ci/partners with admin JWT to upsert.",
+  "rca of the issue": "FR/EN parity: Partner Portal was authored with bilingual concatenated literals as a quick way to serve both languages without wiring i18n. The spec mandates proper react-i18next locale switching (as the customer side has). RCA: lack of i18n plumbing on PartnerApp.jsx subtree. Mitigation: wrap PartnerApp in the existing i18n provider (already present at app root), add partner.json locale namespaces for FR and EN, replace every '·' literal with t('partner.foo.bar'). Stale closure RCA: eslint-disable with intentional omission of audioReady/settings — bug introduced to avoid WS churn. Mitigation: use useRef() to track latest audioReady/settings and read ref.current inside onmessage."
+}

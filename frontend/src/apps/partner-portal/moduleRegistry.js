@@ -14,12 +14,16 @@
  */
 
 export const PARTNER_MODULES = {
-  martbaked:  { code: "mart",    label: "MARTbakēd",  color: "#77BC1F", isLive: true,  backendModule: "mart" },
-  shopbaked:  { code: "shop",    label: "SHOPbakēd",  color: "#3B82F6", isLive: false, backendModule: "shop" },
-  foodbaked:  { code: "food",    label: "FOODbakēd",  color: "#F97316", isLive: false, backendModule: "food" },
-  autobaked:  { code: "auto",    label: "AUTObakēd",  color: "#9B87F5", isLive: false, backendModule: "auto" },
-  immobaked:  { code: "immo",    label: "IMMObakēd",  color: "#EC4899", isLive: false, backendModule: "immo" },
-  sendbaked:  { code: "express", label: "SENDbakēd",  color: "#FCC44C", isLive: false, backendModule: "express" },
+  // `ownerLoginHref` — if present, the module hub links straight to that
+  // dedicated login page instead of the generic /partner-portal/{slug}/login
+  // shell. Used for modules whose portals live outside the partner-portal
+  // app (FOOD, SHOP, SEND).
+  martbaked:  { code: "mart",    label: "MARTbakēd",  color: "#77BC1F", isLive: true,  backendModule: "mart"    },
+  shopbaked:  { code: "shop",    label: "SHOPbakēd",  color: "#FCC44C", isLive: true,  backendModule: "shop",    ownerLoginHref: "/shopbaked/sellers/login" },
+  foodbaked:  { code: "food",    label: "FOODbakēd",  color: "#00A651", isLive: true,  backendModule: "food",    ownerLoginHref: "/partner/food/login" },
+  autobaked:  { code: "auto",    label: "AUTObakēd",  color: "#9B87F5", isLive: false, backendModule: "auto"    },
+  immobaked:  { code: "immo",    label: "IMMObakēd",  color: "#EC4899", isLive: false, backendModule: "immo"    },
+  sendbaked:  { code: "express", label: "SENDbakēd",  color: "#F3B300", isLive: true,  backendModule: "express", ownerLoginHref: "/driver/login" },
 };
 
 // The list order used by module-selector pages.

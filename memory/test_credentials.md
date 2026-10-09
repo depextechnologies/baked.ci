@@ -5,6 +5,15 @@
 - Password: `baked@2026#!$@`
 - Path: `/admin/login`
 
+## 🍔 FOODbakēd Restaurant Partner — ALWAYS AVAILABLE
+- URL: `https://baked-platform.preview.emergentagent.com/partner/food/login`
+- Email: `qa-burger@test.example`
+- Password: `QaBurger123!`
+- Restaurant: **Burger Hub** (`burger_hub_ci`, slug `burger-hub`), Abidjan · XOF
+- Auto-provisioned on every backend boot via `seed.run_seed()` → `seed_qa_partner()`. Password hash is reset each boot — this account **cannot** be locked out by an operator-rotated password.
+- Scope: Orders · Reservations · Menu · Analytics · Floor plan (Main Hall T01-T04, Terrace T05-T06, reservation_public=true).
+
+
 ## Partner (Store Manager / Owner)
 - Email: `partner-alpha-store@test.example`
 - Password: `Alpha1234!Beta`
@@ -59,6 +68,47 @@
   4. Continue with Apple — currently a "Coming soon" stub (Apple Services Key not provided yet)
 - **Driver forgot-password** (2026-02): 6-digit code emailed via Gmail SMTP (`groupbaked@gmail.com`) using `core.mailer`. Env vars `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` (app-password, never logged), `SMTP_FROM_NAME`, `SMTP_FROM_EMAIL` in `backend/.env` (gitignored). `dev_hint` in the response only when `APP_ENV != production`.
 - Test email driver (idempotent): `test.driver@baked.dev` / `driverPass123!` — created 2026-02-26. Onboarding status, no phone attached (KYC will collect it).
+
+## FOODbakēd Restaurant Partner (2026-02-23)
+- Portal: `/partner/food/login`
+- **QA Partner (2026-02-26 · Reservations activation)**: `qa-burger@test.example` / `QaBurger123!` — restaurant `burger_hub_ci` (slug `burger-hub`). Areas + tables already seeded (Main Hall T01-T04, Terrace T05-T06); reservation_public=true.
+- **QA Partner (2026-02-24 · Reservations feature)**: `qa-burger@test.example` / `QaBurger123!` — restaurant `burger_hub_ci` (slug `burger-hub`)
+- Super Admin creates accounts at `/admin/modules/food/restaurants` → row → **Partners** icon (Users)
+- Endpoints:
+  - `POST /api/food/partner/auth/login` — email + password (JWT `role="food_partner"`)
+  - `GET  /api/food/partner/auth/me`
+  - `POST /api/admin/food/restaurants/{rid}/partners` (super-admin creates account)
+  - `PATCH /api/food/partner/restaurant` — partner can toggle open, prep times, cover image only
+  - Menu CRUD: `/api/food/manage/{rid}/{sections|items|items/{iid}/variants|items/{iid}/addons}` — super-admin OR partner-of-that-rid
+- Cross-restaurant isolation: partners get **403** when hitting another restaurant's routes.
+
+## FOODbakēd Restaurant Onboarding (2026-02-23)
+- Applicant portal: `/foodbaked/sellers`
+  - `/foodbaked/sellers/apply`  → signup with dual OTP (email + phone)
+  - `/foodbaked/sellers/login`  → phone + OTP (returning applicants)
+  - `/foodbaked/sellers/dashboard` → status + wizard entry
+  - `/foodbaked/sellers/apply/step-1..6` → resumable wizard
+- Post-approval activation: `/partner/food/activate?token=…` (set password)
+- OTP infra is in `OTP_PROVIDER=dev` (default) so `dev_code` is returned in the API response for QA. **Never** exposed in production (`APP_ENV=prod`).
+- Admin queue: `/admin/modules/food/applications`
+- Endpoints:
+  - `POST /api/food/apply/otp/request` `{channel: phone|email, target, purpose: signup_email|signup_phone|login_phone}` → `{delivered, dev_code}` (dev mode)
+  - `POST /api/food/apply/otp/verify` — advisory only
+  - `POST /api/food/apply/signup` — creates draft + applicant JWT
+  - `POST /api/food/apply/login/{request-otp,verify-otp}` — phone-only sign-in
+  - `GET /api/food/apply/me` — full application (bound to token's sub)
+  - `PUT /api/food/apply/step/{1|3|4}` — save JSONB step data (`advance:true` bumps `current_step`)
+  - `PUT /api/food/apply/bank` — upsert country-scoped payout details
+  - `POST /api/food/apply/documents?doc_type=...` — multipart upload
+  - `DELETE /api/food/apply/documents/{id}`
+  - `GET /api/food/apply/documents/{key:path}` — authenticated download (applicant-owner OR super-admin)
+  - `POST /api/food/apply/submit` — enforces required docs + name + address + bank
+  - Admin: `/api/admin/food/applications` GET list, `/{id}` GET detail, `PATCH /{id}` `{action: start_review|request_correction|reject|approve, reason, notes}`, `PATCH /{id}/documents/{docId}`
+  - Public: `GET /api/food/apply/doc-requirements?country=…` (label_en/fr + is_required per country)
+  - `POST /api/food/partner/activate {token, password}` — first-login set-password after approval
+- Tenant isolation invariants (see `test_food_application_flow.py::test_applicant_cannot_touch_another_application`):
+  - Every applicant route resolves the application from the JWT `sub` — never from URL params.
+  - Uploaded documents are scoped to `/applications/{app_id}/` in object storage; downloads reject if the path prefix does not match the caller's app_id.
 
 ## Seeded Driver Applications (for Admin queue QA)
 - `drv_seed_onb1` — Rahul Onboarding · IN · onboarding

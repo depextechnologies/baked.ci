@@ -1,0 +1,43 @@
+{
+  "summary": "E2E regression on FOODbakēd CMS loop (super-admin HomepageManagement -> /food customer render). All 12 review scenarios PASS. Main bug (duplicate section_type collapse + hardcoded order) is confirmed fixed: /food?preview_country=CI now renders hero + BOTH food_promos rows (Best ever + Best Deal/best+fgh) in admin display_order. Backend regression suite test_food_homepage_cms.py: 11/11 PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/food mobile 390px", "issues": ["Minor: hero image slightly overlaps bottom edge of 'Rechercher' CTA button so the label is clipped to 'Reche' at 390px. Hero text 'evryday / nous rassemble' also sits in front of the vegetable image which reduces readability. Non-blocking cosmetic issue, not caused by this CMS change."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_homepage_cms.py",
+    "/app/test_reports/pytest/food_homepage_cms_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminHomepageManagement.jsx uses window.confirm() for delete (line 330) — functional, but switching to a shadcn AlertDialog would be more on-brand with the rest of the app.",
+    "Country isolation on admin is clean (IN returns [] both in table and API). Good.",
+    "Preview button generates correct /food?preview_country=<cc> URL — verified new-tab open.",
+    "food_testimonial section_type correctly whitelisted in /app/backend/core/models/homepage.py and renders bilingual via quote_fr/quote_en/meta_fr/meta_en."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created a test food_testimonial row 'Nos clients' (quote_fr='Super service', quote_en='Great service', meta_fr='5/5 Clients heureux') and DELETED it at end of test — no residual seed data left in CI homepage.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "FOODbakēd CMS loop fully verified end-to-end on 2026-01-05. Admin UI testids: hp-table, hp-country-select, hp-preview-btn, hp-add-btn, hp-editor-type, hp-editor-enabled, hp-field-<key>, hp-toggle-<id>, hp-up-<id>, hp-down-<id>, hp-edit-<id>, hp-delete-<id>. Customer-page testids: food-section-hero, food-section-promos-<id>, food-section-testimonial-<id>, etc. Backend API: GET /api/homepage?country=CI&module=food is public (no auth) and returns {sections:[...sorted asc by display_order, only is_enabled=true]}. Both food_promos rows are preserved (no duplicate-type collapse). Country IN is isolated (empty). Note: urllib default UA gets 403 from ingress; use User-Agent header or curl.",
+  "verified_scenarios": {
+    "AUTH_ADMIN_LIST": "PASS — 3 rows visible: Best Deal Ever (10, food_promos, Enabled), Best Festive Offer (20, food_promos, Enabled), evryday (30, food_hero, Enabled)",
+    "RENDER_REGRESSION": "PASS — /food?preview_country=CI renders food-section-hero (evryday) + food-section-promos-<id1> (Best ever) + food-section-promos-<id2> (Best Deal/best+fgh). All 3 admin rows render; duplicate-collapse bug is FIXED.",
+    "ORDER_DRIVES_FRONTEND": "PASS — clicking hp-down on Best Deal Ever swapped to [Best Festive Offer=10, Best Deal Ever=20, evryday=30]; hp-up restored original. Verified via /api/homepage.",
+    "ENABLE_DISABLE": "PASS — Toggling Best Deal Ever off removed it from /api/homepage response; toggling back restored it.",
+    "ADD_NEW_SECTION": "PASS — Created food_testimonial 'Nos clients' with background_image, quote_fr/en, meta_fr/en. Rendered on /food with 'Super service' + '5/5 Clients heureux'.",
+    "LANGUAGE": "PASS — EN toggle shows 'Great service' with NO FR leak; FR toggle restores 'Super service'.",
+    "COUNTRY_ISOLATION": "PASS — IN admin shows 'No sections yet'; IN API returns sections=[]; CI content does NOT leak.",
+    "DELETE_SAFETY": "PASS — window.confirm() dialog present (line 330 in AdminHomepageManagement.jsx), delete handler accepts, section removed from admin list and /api/homepage.",
+    "PREVIEW_LINK": "PASS — hp-preview-btn opens new tab at /food?preview_country=CI.",
+    "GLOBAL_SHELL": "PASS — header, bakēd logo, CI location pill, 'Rechercher des produits, marques...' search input, cart badge (0 CFA), FR/EN toggle, theme toggle, user icon, and MART/FOOD(active)/SHOP/SEND/AUTO/IMMO module tabs all present.",
+    "RESPONSIVE": "PASS — 390x844 viewport: bodyScrollW==390 (no horizontal overflow), hero visible, 2 promos stacked.",
+    "BACKEND_SMOKE": "PASS — GET /api/homepage?country=CI&module=food returns 3 sections sorted asc by display_order with both food_promos preserved."
+  }
+}

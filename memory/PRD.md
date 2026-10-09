@@ -1,5 +1,494 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-09) — FOODbakēd · Homepage UX (P1: Cuisines + Testimonials + View All) — COMPLETE
+
+**Scope (user-approved)**: 3 P1 improvements to the FOODbakēd customer home. (1) Make "Cuisines You'll Love" tiles clickable → navigate to the existing discovery page filtered by that cuisine code using the restaurant-cuisine mapping. (2) Redesign testimonials from one wide banner to two premium cards side-by-side on desktop + swipeable one-at-a-time carousel on mobile; admin-driven; drop the fabricated "10,000+ happy food lovers" claim. (3) Add a "Voir tout → / View All →" link on the Featured Restaurants header that opens the discovery page with no pre-filter. Preserve FR-first + mobile responsiveness + dark theme.
+
+**Frontend**
+- `/app/frontend/src/apps/foodbaked/pages/FoodHome.jsx`:
+  - `CuisineTile` is now a `<Link to={/food/restaurants?cuisines=<code>}>` with keyboard focus ring + hover scale. The `FoodDiscoveryPage` already parses `?cuisines=` and pre-selects the filter.
+  - `SectionHeader` gained an optional `viewAll` prop. `RestaurantCarousel` passes `viewAll={{ to:"/food/restaurants", label: t("food.view_all") }}` so the Featured section shows a "Voir tout →" / "View All →" link on both desktop and mobile.
+  - `TestimonialBanner` rewritten: renders a desktop grid of 2 premium cards (`md:grid-cols-2`) and a mobile swipe carousel (`md:hidden` with pagination dots). Each card: decorative quote glyph, quote text, author/role, always 5 green stars. Legacy single-quote rows auto-convert into one card. In-prod empty state hides the whole section; `?preview_country=` admin preview shows a soft dashed placeholder.
+- `/app/frontend/src/pages/admin/AdminHomepageManagement.jsx`: `food_testimonial` schema now uses an `F.list("items", …)` repeater — Super Admin can add / edit / reorder / enable / disable testimonials from `/admin/modules/food/homepage-management`. Each item: `enabled`, `sort_order`, `quote_fr/en`, `author_fr/en`, `role_fr/en`, `customer_image`, `background_image`.
+- i18n: dropped the fabricated `testimonial_meta` keys; added `testimonials_title` (FR "Avis de nos clients" / EN "Customer Reviews"). `food.view_all` already existed as "Voir tout" / "View All".
+
+**Backend / data**
+- `/app/backend/modules/homepage/seed.py` — CI + IN `food_testimonial` seed rows now use the new `config.items[]` shape with 2 demo testimonials each. Fabricated meta fields removed.
+- One-off DB migration (`/tmp/migrate_testimonials.py`) ran against the preview DB to convert the 2 existing legacy rows (CI + IN) to the new 2-item shape so the live homepage shows two cards immediately. Idempotent (skips rows that already have `items[]`).
+
+**Testing**
+- 51/51 backend regression tests GREEN (`test_food_homepage_cms.py`, `test_food_homepage_sections.py`, `test_food_search.py`, `test_food_search_filters.py`, `test_food_admin_crud.py`).
+- testing_agent iteration_114 verified all 14 explicit test cases on both backend and frontend (desktop + mobile 390×844). **0 bugs**.
+
+**Files touched (6)**
+- Edited `/app/frontend/src/apps/foodbaked/pages/FoodHome.jsx`, `/app/frontend/src/pages/admin/AdminHomepageManagement.jsx`, `/app/frontend/src/i18n/locales/fr/customer.json`, `/app/frontend/src/i18n/locales/en/customer.json`, `/app/backend/modules/homepage/seed.py`.
+- Added `/tmp/migrate_testimonials.py` (one-off DB migration, idempotent).
+
+
+
+
+## Latest (2026-02-09) — FOODbakēd · Search Results Parity with Category Discovery — COMPLETE
+
+**Scope (user-approved)**: Bring the full Filter UX from the category Discovery page onto the global search results page so typing "burger" delivers the same experience as clicking the Burgers category chip. Filters apply to both Restaurants and Dishes groups. Enforce the 15 km flat discovery radius and delivery-zone eligibility banner consistently across hero, category chips and search.
+
+**Backend** (`/app/backend/modules/food/search.py` rewritten)
+- `GET /api/food/search` now accepts: `sort` (popularity | rating_desc | price_asc | price_desc | delivery_time_asc), `cuisines` (comma-separated), `min_rating`, `min_price`, `max_price`, `vegetarian` (all | veg_options | pure_veg), `open_now`, `lat`, `lng`, `radius_km` (default 15), `only_eligible`.
+- Restaurants bucket: query matches name/slug/cuisines OR any available dish name — so "burgers" surfaces every venue serving burgers (matching the category page). Filters apply at SQL level; 15 km radius enforced in Python when `lat/lng` supplied.
+- Delivery mode keeps rows inside the 15 km radius but marks `delivery_eligible=false` + `delivery_unavailable_reason` (outside_zone | closed | disabled) so the UI can render the "Livraison indisponible à votre adresse" banner.
+- Pickup / dine_in modes exclude ineligible rows (same as `/api/food/restaurants/discover`).
+- Dishes bucket inherits the same eligibility fields (so a dish from an out-of-zone restaurant shows the "no delivery" chip) and respects min_rating/open_now/cuisines of its parent restaurant plus min_price/max_price/pure_veg on the dish itself.
+- Reservations bucket is radius-filtered when `lat/lng` supplied.
+- Shared helpers from `modules/food/discovery.py` (haversine, compute_eta_minutes, DEFAULT_RADIUS_KM, PICKUP_DISCOVERY_KM).
+
+**Frontend**
+- Extracted `FoodFilterSheet` into `/app/frontend/src/apps/foodbaked/components/FoodFilterSheet.jsx` and refactored `FoodDiscoveryPage.jsx` to import it (single source of truth for the filter sheet).
+- Rewrote `FoodSearchResultsPage.jsx`:
+  - Filters button (`results-filter-btn`) + badge count + Pure Végé chip (`results-chip-veg`) in the toolbar.
+  - Mode toggle now writes to **global** `foodServiceMode` so switching modes here persists back to the hero and vice versa.
+  - 15 km radius hint under the toolbar; "Choisir l'adresse" prompt when no address is set.
+  - Restaurant cards render ETA chip, dim + banner "Livraison indisponible à votre adresse" when `delivery_eligible=false` in delivery mode.
+  - Dish cards show a "Livraison indispo." pill when their parent restaurant can't deliver.
+  - Filters + sort + query sync to the URL (shareable / refresh-safe).
+
+**Testing** — testing_agent iteration_113 verified **20/20 backend tests GREEN** (10 new in `test_food_search_filters.py` + 10 regression in `test_food_search.py`). Frontend verified end-to-end (desktop + mobile 390×844), all data-testids present, filter sheet opens, apply updates URL, mode toggle re-queries. **0 bugs**.
+
+**Files touched (5)**:
+- Added `/app/frontend/src/apps/foodbaked/components/FoodFilterSheet.jsx`, `/app/backend/tests/test_food_search_filters.py`.
+- Rewrote `/app/backend/modules/food/search.py`, `/app/frontend/src/apps/foodbaked/pages/FoodSearchResultsPage.jsx`.
+- Edited `/app/frontend/src/apps/foodbaked/pages/FoodDiscoveryPage.jsx` to import the shared FilterSheet.
+
+
+
+
+## Latest (2026-02-06) — Phase P0 · Partner Wallet / Payouts — COMPLETE
+
+**Scope (user-approved rules)**: Vendor-specific negotiated commission (NOT a global default) set by Super Admin per restaurant, with immutable history so later rate changes NEVER recalculate historical orders. Vendor-specific payout schedule (daily / weekly / monthly / custom) with Super-Admin pause / resume / hold / release. Delivery fee stays with the platform. Order net lands in the wallet on delivery. Approved refunds debit the partner wallet. Partner can only VIEW terms — any change requires contacting BAKĒD. French-first UI with EN fallback. Architecture is module-agnostic (module column on every row) so MART / SHOP can reuse the same engine.
+
+**Backend**
+- Migration `0069_vendor_settlement.py` adds `vendor_commission_history`, `vendor_payout_config`, `vendor_payouts`, `food_restaurant_wallets`, `food_restaurant_wallet_txns` and extends `food_orders` with `commission_rate_snapshot`, `commission_amount`, `vendor_net_amount`, `settlement_status`, `settled_payout_id`.
+- `modules/vendor_settlement.py` — rate resolver (narrowest-match history row), delivery hook `settle_order_on_delivery` (snapshots rate, computes net = grand_total − delivery_fee − tax − commission, credits wallet), refund hook `settle_refund_against_partner` wired into `modules/returns._execute_refund`, admin + partner endpoints.
+- Partner read-only endpoints: `GET /api/food/partner/wallet/summary` · `/transactions` · `/payouts` · `/commission-history`.
+- Admin endpoints: `/api/admin/vendor-settlement/{module}/{restaurant_id}/commission` (GET + POST), `/payout-config` (GET + POST), `/payouts/pause` + `/payouts/resume`, `/payouts/generate`, `/payouts/{id}/mark-paid` + `/hold` + `/release`, `/payouts` list.
+- Order delivery hook wired at `/app/backend/modules/food/orders.py` ~line 663 (`cascade_delivered`).
+- 12/12 pytest green (`test_vendor_settlement.py` + testing-agent-added `test_vendor_settlement_extra.py`).
+
+**Frontend**
+- Partner Wallet page `/partner/food/wallet` ([data-testid='partner-wallet-page']) with 4 KPI cards (En attente · Solde éligible · Payé à ce jour · Prochain virement), Conditions commerciales read-only banner (Taux · Fréquence · Minimum), transactions table (Commande/Virement/Refund pills) and Historique des virements. Nav entry 'Portefeuille' with Wallet2 icon added to `/app/frontend/src/apps/foodbaked/PartnerApp.jsx`.
+- Super Admin Vendor Settlement page `/admin/vendor-settlement` ([data-testid='admin-vs-page']) with two tabs — **Vendors** (searchable list → Settlement drawer per vendor exposing Commission rate editor + history disclosure + Payout schedule editor + Pause/Resume + Generate payout now) and **Payouts** (flat list with status filter + Pay/Hold/Release actions). Sidebar entry 'Vendor Settlement' with Wallet icon added to `AdminLayout.jsx`.
+
+**Testing** — testing_agent iteration_107 verified **35/35 backend tests** (6 settlement + 6 extra + 23 regression) and the full frontend flow end-to-end with zero issues.
+
+**Files touched (10)**:
+- Added `/app/backend/migrations/versions/0069_vendor_settlement.py`, `/app/backend/modules/vendor_settlement.py`, `/app/backend/tests/test_vendor_settlement.py`, `/app/backend/tests/test_vendor_settlement_extra.py`.
+- Added `/app/frontend/src/apps/foodbaked/pages/PartnerWalletPage.jsx`, `/app/frontend/src/pages/admin/AdminVendorSettlement.jsx`.
+- Edited `/app/backend/server.py`, `/app/backend/modules/food/orders.py`, `/app/backend/modules/returns.py`, `/app/frontend/src/apps/foodbaked/PartnerApp.jsx`, `/app/frontend/src/apps/admin/AdminApp.jsx`, `/app/frontend/src/pages/admin/AdminLayout.jsx`.
+
+
+
+## Latest (2026-02-06) — Phase 7B · Returns & Refunds — COMPLETE
+
+**Scope (all user-approved choices)**: Unified across FOOD / MART / SHOP. Hybrid approval (auto-approve < 2,000 XOF with eligible reason + required evidence; partner review for larger; 24h SLA; escalate to admin on expiry; Super Admin final override). Flagged customers skip auto-approve. Wallet refund by default, original method on request. Return window: **2h for FOOD**, **7 days for MART/SHOP**, measured from `delivered_at`. Window + threshold configurable per module/country/category/product by Super Admin. FOOD = refund-only report (no physical pickup). Item-level partial refunds and full audit trail. French-first UI with English fallback.
+
+**Backend** (`/app/backend/modules/returns.py` + migration `0068_returns_refunds.py`)
+- Tables: `return_policies`, `returns`, `return_items`, `return_evidence`, `return_audit`, `customer_refund_flags`, `customer_wallet_balances`, `customer_wallet_transactions`.
+- Seeded default policies for food (2h), mart (168h), shop (168h), all 2,000 XOF threshold.
+- Customer endpoints: `GET /api/returns/eligibility`, `POST /api/returns`, `GET /api/returns`, `GET /api/returns/{id}`, `POST /api/returns/{id}/cancel`.
+- Partner endpoints (FOOD partner JWT): `GET /api/returns/partner`, `POST /api/returns/partner/{id}/decision` (approve/partial/dispute/reject with mandatory reasons).
+- Admin endpoints (Admin JWT): `GET /api/admin/returns`, `GET /api/admin/returns/{id}`, `POST /api/admin/returns/{id}/decision`, `POST /api/admin/returns/escalate-stale`, `POST /api/admin/returns/flag/{customer_id}`, `DELETE /api/admin/returns/flag/{customer_id}`, `/api/admin/return-policies` list / upsert / delete.
+- Wallet credit ledger on auto-approval; `approved_pending_payout` state for original-method refunds that await a manual gateway payout.
+
+**Frontend**
+- `ReturnRequestModal.jsx` — reusable wizard (reason grid, photo URL, destination picker, auto-approve hint, submit). Shows the "Contacter l'assistance / Contact Support" fallback when the window has closed.
+- `MyReturnsPage.jsx` at `/profile/returns` — list + status pills + detail drawer with full audit timeline + cancel.
+- `AdminReturns.jsx` at `/admin/returns` — tabs for Requests (filterable table + Escalate-stale) and Policies (editor + delete-protected defaults); drawer with audit, flag/unflag, and approve/partial/reject decision.
+- Entry points: 
+  - FOOD order track page shows **"Un problème avec votre commande ? · Signaler"** CTA when delivered.
+  - Mobile Profile row `m-prof-nav-returns` ("Mes Retours · Suivi des remboursements").
+  - Admin sidebar shows **"Returns & Refunds"**.
+
+**Testing** — 23/23 pytest green (8 in `test_returns_refunds.py` + 9 in testing-agent-added `test_returns_refunds_extra.py` covering evidence rules, partner JWT flows, dispute → admin, admin filters, protected defaults + 6 favourites). testing_agent iteration_106 verified both backend and frontend end-to-end with zero outstanding issues.
+
+**Files touched (14)**:
+- Added `/app/backend/migrations/versions/0068_returns_refunds.py`, `/app/backend/modules/returns.py`, `/app/backend/tests/test_returns_refunds.py`, `/app/backend/tests/test_returns_refunds_extra.py`.
+- Added `/app/frontend/src/components/returns/ReturnRequestModal.jsx`, `/app/frontend/src/pages/MyReturnsPage.jsx`, `/app/frontend/src/pages/admin/AdminReturns.jsx`.
+- Edited `/app/backend/server.py`, `/app/frontend/src/apps/customer/CustomerApp.jsx`, `/app/frontend/src/apps/admin/AdminApp.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodOrderTrackPage.jsx`, `/app/frontend/src/pages/admin/AdminLayout.jsx`, `/app/frontend/src/pages/mobile/MobileProfile.jsx`, FR/EN `customer.json`.
+
+
+
+## Latest (2026-02-06) — FOODbakēd · Phase 3 Favourites — COMPLETE
+
+**Scope**: Login-required customer favourites for both restaurants and dishes with a single `food_favourites` table. Server-side only (per user choice 2a), 1-tap reorder opens the dish modal pre-selected (per choice 1b), entry point from FOODbakēd top nav + Profile menu (per choice 3b).
+
+**Backend**
+- Migration `0067_food_favourites.py` — `food_favourites (id, customer_id FK, target_type CHECK IN ('restaurant','dish'), target_id, created_at)` with `UNIQUE(customer_id, target_type, target_id)` + `(customer_id, created_at DESC)` index.
+- New module `modules/food/favourites.py` with 3 endpoints under `/api/food/customer/favourites`:
+  - `POST /toggle {target_type, target_id}` — validates target exists (404 if not), adds/removes atomically, returns `{favourited: bool}`.
+  - `GET /` — grouped `{restaurants:[…embedded…], dishes:[…with restaurant snapshot…]}` for the full page render.
+  - `GET /ids` — light `{restaurants:[id], dishes:[id]}` sets to hydrate heart state on cards.
+- Mounted in `server.py` → `food_favourites_customer_router`.
+- 6/6 pytest green in `tests/test_food_favourites.py` (auth guard, add/remove, dish persistence, 404/422 validation, per-customer isolation).
+
+**Frontend**
+- New `contexts/FoodFavouritesContext.jsx` — Provider holding in-memory id Sets, hydrated once per login via `/ids`. Toggle is optimistic with rollback on 4xx/5xx, triggers `openLogin()` for guests, and shows FR/EN toasts.
+- New `components/FavouriteButton.jsx` — reusable heart with 3 variants (`overlay`, `inline`, `chip`), FR/EN aria-labels, `data-fav-active` attribute for tests.
+- New `components/FoodReorderDishModal.jsx` — fetches the restaurant menu, resolves the saved dish by id, and reuses the exported `ItemModal` from `FoodRestaurantDetail.jsx` so the diner confirms variants/add-ons before adding to cart.
+- New `pages/FoodFavouritesPage.jsx` at `/foodbaked/favorites` (+ `/foodbaked/favourites` alias). Two tabs with count badges, empty states, restaurant grid links to the microsite, dish grid shows a `Commander à nouveau · Order again` CTA.
+- Wired into `CustomerApp.jsx`: new routes on both DesktopCustomerShell + MobileCustomerShell, `FoodFavouritesProvider` wrapping the shell.
+- FoodHome hero: new floating `Mes Favoris` pill (`data-testid=food-nav-favourites`) + replaced the dummy heart on each restaurant card with the live `FavouriteButton`.
+- `FoodRestaurantDetail.jsx`: dish cards now expose `food-fav-dish-<id>` hearts (card markup restructured — button → wrapping `<div>` + inner button to avoid button-in-button HTML). `ItemModal` exported for reuse.
+- `RestaurantMicrosite.jsx`: hero quick-actions row now includes a Favourite pill `microsite-action-favourite-<rid>` with FR/EN labels.
+- `MobileProfile.jsx`: new `m-prof-nav-food-favs` row (Heart icon, red tone) pointing at `/foodbaked/favorites`.
+- i18n: added FR + EN keys under `customer.json → food.*` (nav_favourites, favourites_title, tab_restaurants, tab_dishes, fav_empty_*, sold_out, reorder) and `profile.food_favourites` / `profile.food_favourites_sub`.
+
+**Verification (testing_agent iteration_105)** — 100% / 100%. Backend 6/6, zero regressions. Frontend 11/11 e2e scenarios pass: guest login prompt, authed toggle persistence, both tabs, 1-tap reorder opens the full ItemModal, nav pill + profile row, i18n toggle, microsite action, per-customer isolation.
+
+**Files touched (12)**:
+- Added `/app/backend/migrations/versions/0067_food_favourites.py`, `/app/backend/modules/food/favourites.py`, `/app/backend/tests/test_food_favourites.py`
+- Added `/app/frontend/src/contexts/FoodFavouritesContext.jsx`, `/app/frontend/src/apps/foodbaked/components/FavouriteButton.jsx`, `/app/frontend/src/apps/foodbaked/components/FoodReorderDishModal.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodFavouritesPage.jsx`
+- Edited `/app/backend/server.py`, `/app/frontend/src/apps/customer/CustomerApp.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodHome.jsx`, `/app/frontend/src/apps/foodbaked/pages/FoodRestaurantDetail.jsx`, `/app/frontend/src/apps/foodbaked/pages/RestaurantMicrosite.jsx`, `/app/frontend/src/pages/mobile/MobileProfile.jsx`, `/app/frontend/src/i18n/locales/fr/customer.json`, `/app/frontend/src/i18n/locales/en/customer.json`
+
+
+
+## Latest (2026-10-02 Pass 3) — FOODbakēd · Menu CRUD · COMPLETE
+
+Discovery: backend CRUD (sections / items / variants / addons) was **already** fully built with tenant isolation. This pass added one backend endpoint (deep clone) and polished the frontend end-to-end.
+
+**Backend — new**
+- `POST /api/food/manage/{rid}/items/{iid}/duplicate` — deep clones an item + all its variants + all its addons as fresh rows with new ids. Clone lands as `is_available=FALSE` with name suffixed `(Copie)` (FR header `X-Lang: fr` or default) or `(Copy)` (`X-Lang: en`). Fully transactional.
+- `/app/backend/tests/test_food_partner_menu_pass3.py` — 4 tests: deep-clone with children, EN suffix via header, 404 on unknown item, section reorder affects public menu immediately.
+
+**Frontend — rewritten `MenuManager.jsx`**
+- Zero `·` bilingual concatenations — all strings use `detectFr()` ternary. Switch EN and the whole surface flips.
+- `Épuisé` (FR) / `Sold Out` (EN) badge replaces the old "Indisponible · Unavailable" badge.
+- Section reorder: drag handle (GripVertical) + explicit ↑ / ↓ buttons; writes new `sort_order` via existing section PATCH, public menu reflects the new order on next read.
+- `Par défaut` (FR) / `Default` (EN) badge on the one default variant — now a filled primary pill instead of invisible text.
+- `Dupliquer` / `Duplicate` button on every item row (Copy icon). Calls the new backend endpoint and sends `X-Lang` so the suffix matches the partner's language.
+- Exported new `DashboardSoldOutPanel` component — a horizontally-scrollable one-tap "Remettre en stock / Restock" strip. Rendered on both the Partner Dashboard home AND the Menu page. Collapses to a compact "All items available" tile when nothing is sold out.
+
+**Verification (testing_agent iteration_100)** — 100% / 100%. Backend 26/26 pytest green (new 4 + regression 22). Frontend: all P0 + P1 flows pass including mobile 390×844, FR/EN monolingual check, section reorder persistence, default variant exclusivity, Restock → public microsite reflects instantly.
+
+**Files touched** (3):
+- `/app/backend/modules/food/routes.py` (+90 lines — duplicate endpoint)
+- `/app/backend/tests/test_food_partner_menu_pass3.py` (new, 4 tests)
+- `/app/frontend/src/components/food/MenuManager.jsx` (full rewrite, +Dashboard panel export)
+- `/app/frontend/src/apps/foodbaked/PartnerApp.jsx` (wire DashboardSoldOutPanel)
+
+
+
+## Latest (2026-10-02 PM) — Partner Portal Hub + Footer Link — COMPLETE
+
+**`/partner-portal/login` hub** — SHOP, FOOD and SEND tiles are now LIVE (previously stale "SOON" placeholders) and link straight to each module's real sign-in page:
+- MARTbakēd → `/partner-portal/martbaked/login` (inline owner sign-in, unchanged)
+- FOODbakēd → `/partner/food/login`
+- SHOPbakēd → `/shopbaked/sellers/login`
+- SENDbakēd → `/driver/login`
+
+Only AUTO + IMMO keep the "SOON" badge. External links use `<a>` instead of `<Link>` so the target app's own BrowserRouter mounts cleanly.
+
+**Footer link** — new "Partner's Login" item under the Opportunities column, pointing at the hub:
+- FR → `Connexion partenaire`
+- EN → `Partner's Login`
+- Added to both locale files (`footer.partner_login`) + `Footer.jsx` OPPORTUNITIES array.
+
+**Files touched** (3):
+- `/app/frontend/src/apps/partner-portal/moduleRegistry.js` — `isLive: true` + `ownerLoginHref` on FOOD/SHOP/SEND; module colours aligned to brand (SHOP→#FCC44C, FOOD→#00A651, SEND→#F3B300)
+- `/app/frontend/src/apps/partner-portal/ModuleSelectorPage.jsx` — honours `ownerLoginHref`; external modules use `<a>` for a fresh BrowserRouter mount
+- `/app/frontend/src/components/layout/Footer.jsx` + `i18n/locales/{fr,en}/common.json` — new footer entry
+
+Verified live: all 4 hrefs correct, FR shows "Connexion partenaire", EN shows "Partner's Login" after language toggle.
+
+
+
+## Latest (2026-10-02) — FOODbakēd · Live Driver Map (Pass 2.5) — COMPLETE
+
+Added a Google Map hero to `/foodbaked/orders/{orderId}/track`. Zero backend changes — reuses the SEND `/api/express/ws/bookings/{booking_id}` WebSocket because `food_delivery` is an `express_bookings` row with `source_module='food'`.
+
+**Behaviour**
+- Map renders only when GMAPS key + pickup/drop coords + (driver assigned OR driver_location) — before dispatch, the stages + driver chip still show, no empty map.
+- Three markers: `food-track-pickup-pin` (restaurant), `food-track-drop-pin` (customer), `food-track-driver-pin` (live). FOOD-themed green pulse on the driver pin (same visual grammar as SEND's yellow).
+- WS lifecycle mirrors SEND's: snapshot on open, `type:location` frames move the pin without a refresh, 3-s auto-reconnect on close.
+- Pickup PIN still hidden from the customer. Legend FR = "Livreur · Restaurant · Vous", EN = "Driver · Restaurant · You" — no bilingual concatenation.
+
+**Verification (testing_agent iteration_99)** — 100% on P0+P1 scope, zero issues. Backend regression 16/16 pass. SEND tracking untouched.
+
+**File touched**: `/app/frontend/src/apps/foodbaked/pages/FoodOrderTrackPage.jsx` (single file).
+
+
+
+## Latest (2026-10-01 PM) — FOODbakēd · Pass 2 Driver Dispatch Bridge — COMPLETE
+
+**Scope — Pass 2**: Food order `preparing` transition kicks off driver dispatch through the existing SEND pipeline; Partner Live Driver card + 4-digit Pickup PIN handover; cascade on `delivered` back to `food_orders`. Customer gets a FOOD-themed `/foodbaked/orders/{id}/track` page. Zero rewrite of SEND dispatch — just a glue layer.
+
+**Backend — new**
+- `migrations/versions/0062_food_delivery_bridge.py` — adds `source_module`, `food_order_id`, `pickup_pin` columns to `express_bookings`; new `booking_type='food_delivery'` enum value; partial UNIQUE index `(food_order_id) WHERE status <> 'cancelled'` prevents duplicate dispatch rows. Fully reversible via `downgrade()`.
+- `core/models/express.py` — ORM mirrors new nullable columns.
+- `modules/food/dispatch_bridge.py` — `create_delivery_job_for_order()` (idempotent, validates coords + customer, generates PIN) + `food_delivery_public()` serializer with `include_pin` flag.
+- `modules/food/orders.py` — hook on `accept → preparing` transition; new endpoints:
+  - `GET /api/food/manage/{rid}/orders/{oid}/delivery` (partner, PIN visible)
+  - `GET /api/food/customer/orders/{oid}/track` (customer, PIN hidden)
+  - `POST /api/food/manage/{rid}/orders/{oid}/confirm-pickup` (partner enters PIN → status flips)
+  - `cascade_delivered_from_express()` helper
+- `modules/express/tracking.py` — on `transition_status('delivered')` for a `source_module='food'` booking, cascades to `food_orders.status='delivered'` + fires WS. Idempotent.
+
+**Dynamic vehicle selection** (user-requested — no hardcoded `bike`): items ≤8 → bike, 9-20 → scooter, 21+ → three_wheeler. Lives in one function; Super Admin can later swap thresholds without touching dispatch.
+
+**Frontend — new**
+- `apps/foodbaked/pages/PartnerOrdersPage.jsx` — `LiveDriverCard` sub-component rendered under each delivery order in preparing/ready/out_for_delivery/delivered. Shows status label (FR/EN mono), driver chip (photo, name, vehicle, plate, rating), Call button, and the 4-digit Pickup PIN with input + confirm button.
+- `apps/foodbaked/pages/FoodOrderTrackPage.jsx` — customer-facing `/foodbaked/orders/:orderId/track`. 6-stage pipeline (placed → accepted → preparing → ready → out_for_delivery → delivered), live driver sub-card without the PIN, order summary, "Leave a review" CTA at delivered.
+- `apps/customer/CustomerApp.jsx` — registers the new route in both mobile + desktop route sets.
+- `pages/mobile/MobileActivities.jsx` — FOOD orders now navigate to the new track page.
+
+**Verification (testing_agent iteration_98)**
+- Backend: **16/16 pass** (test_food_dispatch_bridge 7 + test_food_dispatch_bridge_pass2_ext 9). Zero issues.
+- Frontend: 100% on P1 scope — partner Live Driver cards render (36 inline), customer tracking page shows all 6 stages with monolingual FR/EN parity, Pickup PIN hidden from customer, dynamic vehicle 1→bike / 10→scooter / 25→three_wheeler verified.
+- Backward compatibility: existing EXPRESS parcel/mover bookings untouched; `/api/express/vehicles?country=CI` still 200; parcel delivered cascade does NOT touch food_orders.
+
+**Open — Pass 3**
+- Menu Partner CRUD (sections, items, variants, Sold-Out quick toggle)
+- Partner Dashboard upgrade + Pause mode
+- Favourites
+
+
+
+## Latest (2026-10-01) — FOODbakēd · Live Order Workflow Pass 1 (Customer → Partner, pre-driver) — COMPLETE
+
+**Scope — Pass 1 only**: Customer picks an available menu item on the restaurant microsite → Global Cart → Checkout → `food_orders` + `food_order_items` + `food_order_events` persisted → `food.order.created` WebSocket broadcast → Partner Portal receives real-time 10-s audio alarm + modal → Accept / Reject (with mandatory reason) / Preparing / Ready. Driver dispatch deferred to Pass 2.
+
+**Backend fix (P0 root cause)**
+- `/api/food/restaurants/{rid}/menu` was filtering `is_available=TRUE` in SQL but DROPPING the field from the response. Added `is_available: it.is_available` to the public menu item serializer (`/app/backend/modules/food/routes.py` ~line 258). All downstream consumers (customer UI "Sold Out" state, automated tests, future partner sold-out toggles) now get the real DB value.
+- All 6 tests in `tests/test_food_orders.py` now pass (create → full state machine → reject with reason → idempotency → cross-restaurant rejection → tenant isolation). Combined FOOD regression: 21/21 across orders + reviews + search + reservations + onboarding.
+
+**Frontend — Partner Portal i18n cleanup (P0)**
+- `/app/frontend/src/apps/foodbaked/components/RestaurantNotificationEngine.jsx` — rewrote `IncomingOrderModal` and `IncomingModal` to use `detectFr()` ternary pattern. Zero `·`-concatenated bilingual strings remain. New `data-testid`s: `new-food-order-modal` (was `partner-order-modal`), `reject-reason-input` (was `partner-order-modal-reason`). Z-index of arm-audio pill raised to `z-[150]` so partners can enable alerts while a modal is open.
+- `/app/frontend/src/apps/foodbaked/PartnerApp.jsx` — Login screen, PartnerLayout sidebar nav (+ `key`-based testids for stable `partner-nav-dashboard`), logout button, and PartnerDashboard labels all now switch on `detectFr()`. Example FR sidebar: "Tableau de bord · Commandes · Réservations · Profil · Analytics · Menu · Paramètres · Se déconnecter". EN: "Dashboard · Orders · Reservations · Profile · Analytics · Menu · Settings · Sign out".
+- `/app/frontend/src/components/cart/CartDrawer.jsx` — FOOD checkout CTA now reads `t('cart.food_checkout_cta')` (no bilingual defaultValue fallback). Keys added to `/app/frontend/src/i18n/locales/{fr,en}/customer.json` → FR="Commander", EN="Place food order".
+
+**Frontend — WS robustness (P1)**
+- Stale-closure bug fixed: `audioReadyRef` + `settingsRef` written on every state change and read inside `ws.onmessage`. Previously, if a partner clicked "Enable alerts" AFTER the WS already connected, chimes never played because the handler captured `audioReady=false` at mount.
+- Duplicate-event dedupe: `seenEventIdsRef` (Set, 500-entry cap) keyed on `frame.event_id` or `type:entity_id` prevents the same order/reservation from re-ringing after WS reconnect or React rerender.
+
+**Seed hardening**
+- `/app/backend/scripts/seed_food_microsite_demo.py` — new `seed_qa_partner()` idempotently upserts `qa-burger@test.example / QaBurger123!` on `burger_hub_ci`. Re-running the seed restores the QA partner's auth; previously a DB reset silently broke E2E.
+
+**Verification matrix** (testing_agent iterations 96 → 97)
+- ✅ Backend: 24/24 FOOD tests (incl. new `test_food_order_ws_fanout`)
+- ✅ P0.1 — public menu returns `is_available: true`
+- ✅ P0 — zero bilingual concatenations across Partner Portal (FR & EN visual spot-check + grep confirms only one `·` left and it's in a code comment)
+- ✅ Customer → Global Cart → Checkout → food_orders persistence
+- ✅ Partner receives `food.order.created` modal without page refresh
+- ✅ Accept early-stops the chime; auto-stop at ~10 s leaves order in `placed`
+- ✅ State machine: placed → accepted → preparing → ready (persisted server-side on each PATCH)
+- ✅ Reject requires non-empty reason (422 without, 200 with)
+- ✅ Portal-wide notification engine (works on Dashboard, Orders, Menu, Reservations, Analytics — provider wraps PartnerLayout `<Outlet />`)
+- ✅ Dedupe across WS reconnect / rerender
+- ✅ Multi-order queue (A pending while B arrives — both actionable)
+- ✅ FR default + EN switch (no bilingual leaks)
+- ✅ Tenant isolation (super-admin bypass works both ways; anon → 401)
+- ✅ Global cart regression: FOOD CTA keyed on `hasFood`, MART/SHOP paths untouched
+
+**Known open items (Pass 2+)**
+- Pass 2 — READY → `driver_jobs` bridge, extend `dispatch_next_offer`, Partner "Live Driver" card
+- Pass 3 — Menu Partner CRUD + Sold-Out quick toggle (now that `is_available` is exposed)
+- Pass 4 — Partner Dashboard upgrade, Notification Center, Pause mode
+
+
+
+## Latest (2026-02-26) — FOODbakēd · Unified Discovery Search + FR-first Homepage — COMPLETE
+
+**P0 fix #1 — Unified search**
+- New endpoint `GET /api/food/search?q=&mode=&country=&limit=` in `modules/food/search.py`. Returns 4 grouped buckets: `restaurants`, `dishes`, `cuisines`, `reservations`.
+- Real DB queries: parameterised ILIKE against `food_restaurants.name/slug`, `food_menu_items.name/description/tags`, and JSONB `cuisines`. Country-aware. Only `status='active'` restaurants and `is_available=TRUE` menu items surfaced.
+- Cross-language cuisine expansion — a FR query like "indien" resolves to the canonical EN code `indian` so DB rows still match.
+- Reservation bucket is strictly gated by `reservations_enabled AND reservation_public`. `mode=dine_in` ranks reservable restaurants first.
+- Frontend `FoodSearchDropdown.jsx` — debounced 280 ms, stale-response protection via AbortController, group headers via i18n (`food.search_group_*`), localised empty/error states, uses the GLOBAL `useApp().countryCode`.
+- Results page `FoodSearchResultsPage.jsx` mounted at `/foodbaked/search?q=&mode=&group=` with Tout / Restaurants / Plats / Cuisines / Réservations tabs.
+- Wired into both mobile + desktop switchboards in `CustomerApp.jsx`.
+- Click behaviour: restaurant → `/foodbaked/restaurants/{slug}` (canonical), dish → same route with `?order=1&item={id}`, cuisine → results page filtered, reservation → `?reserve=1`. No duplicate microsite pages.
+
+**P0 fix #2 — FR-first homepage**
+- Added the full set of missing FR + EN keys to `i18n/locales/{fr,en}/customer.json`:
+  - Hero: `food.hero_line1`, `hero_line2`, `hero_subtitle`, `search_placeholder`, `search_btn`, `mode_delivery`, `mode_pickup`, `mode_dine_in`.
+  - Featured / cuisines / why sections: `featured_title`, `view_all`, `cuisines_title`, `why_title`, `no_restaurants`.
+  - Promo tiles: `promo1_line1/line2/sub/cta`, `promo2_title/sub/note/cta`.
+  - USPs 1-4: `usp{1..4}_title` and `usp{1..4}_sub`.
+  - Testimonial: `testimonial_quote`, `testimonial_meta`.
+  - Search groups & states: `search_group_restaurants/dishes/cuisines/reservations`, `search_view_all`, `search_empty_title`, `search_empty_hint`, `search_error`, `search_all_tab`, `search_reservable_pill`, `search_verified_pill`.
+  - Delivery status labels: `free_delivery`, `delivery_fee_line`.
+- FoodHome.jsx now uses `t()` everywhere — no bilingual concatenation, no hardcoded English. Global FR/EN switch flips the whole page live.
+- Global-context safety: FoodHome sources `countryCode` from `useApp()` (no new FOODbakēd-only selector).
+
+**Cleanup**
+- Deleted 2 leftover QA test restaurants (`no-res-qa-*`, `bistro-qa-*`) that were polluting search results.
+
+**Tests** (`tests/test_food_search.py`, 9/9 pass):
+- burger / spice / cheeseburger / indien / table / dine_in ranking / country isolation / empty q → 422 / zzzz → empty buckets.
+
+**Verified live** — screenshots confirm:
+- FR default hero copy ("La bonne cuisine / nous rassemble"), FR placeholder + button, FR service toggle.
+- Debounced dropdown groups Restaurants/Plats/Cuisines/Réservations with thumbnails, rating, "Réservable" pill.
+- Enter routes to `/foodbaked/search?q=burger&mode=delivery` with Tout(23)/Restaurants(3)/Plats(18)/Cuisines(1)/Réservations(1) tabs and card grids.
+- Every section below the hero (Cuisines à découvrir · Pourquoi choisir FOODbakēd · USP tiles · testimonial) is fully French.
+
+**Testing agent iteration_95**: 100% backend / 95% frontend, no P0 bugs, only outstanding item was missing FR keys below the hero — now fixed.
+
+
+## Latest (2026-02-26) — FOODbakēd · Reviews Publication (verified-order & verified-visit) — COMPLETE
+
+**Schema**
+- Migration `0061_food_reviews_extras.py` — adds `reservation_id` FK, `flagged_reason`, `moderation_notes` to `food_reviews`. Partial `UNIQUE(reservation_id, customer_id)` when both non-null so one review per booking per customer.
+
+**Backend** (`modules/food/reviews.py`)
+- `POST /api/food/customer/reviews` — customer publishes a review. MUST reference either an `order_id` (order.status='delivered' + owned) or a `reservation_id` (reservation.status='completed' + owned). One review per order OR per reservation (enforced by unique indices). Automated moderation `_moderate()` deterministically flags contains_email / contains_link / contains_phone / prohibited_content / possible_shouting — flagged rows are stored with `status='reported'` and NOT shown publicly (super-admin can moderate later). Genuine 1★ reviews are never hidden. Publishing recomputes `food_restaurants.review_count` + `rating` in the same commit.
+- `GET /api/food/customer/reviews/eligible` — lists delivered orders + completed reservations still awaiting a review (feeds the "Laisser un avis" prompt).
+- `GET /api/food/restaurants/{slug}/reviews?page=&size=&sort=recent|top|low` — paginated public list (published only) with rating distribution + average. Author is normalised to "Prénom N." for privacy. Each review carries `verified_order`/`verified_visit` booleans.
+- Microsite endpoint keeps its aggregated `reviews_summary` shape untouched — dashboards + hero rating chip auto-refresh.
+
+**Frontend**
+- New `apps/foodbaked/components/ReviewModal.jsx` — 5★ overall + optional 4 sub-ratings (Cuisine · Service · Ambiance · Rapport qualité-prix) + text (1000 char cap). Shows "Commande vérifiée" / "Visite vérifiée" pill up-front. On success, renders a thank-you card that adapts if the review was auto-published vs held for moderation.
+- `MyReservationsPage.jsx` — fetches `/reviews/eligible` on load; on completed reservations, renders a green "Laisser un avis" chip that opens the modal. After publish, chip becomes "Avis publié" (data-testid `reservation-reviewed-{id}`).
+- `RestaurantMicrosite.jsx` — Reviews tab now fetches the full paginated list (not just `.recent`), renders sort pills (Plus récents / Meilleures notes / Notes les plus basses), individual review cards with "Prénom N.", verified pill, star row, and partner response block when present.
+
+**Seed** — 6 demo reviews stamped on `burger_hub_ci` via `seed_food_microsite_demo.py` (rating avg 4.3, mixed sub-ratings, "Prénom N." authors encoded in `moderation_notes` for the demo). Aggregates recomputed on the restaurant row.
+
+**Tests** (`tests/test_food_reviews.py`, 4/4 pass; existing onboarding tests 2/2 still green — 6/6 overall):
+- `test_public_reviews_list_reads_seeded_demo` — validates seeded reviews surface with normalised authors + distribution sum.
+- `test_reviews_sort_switches_result_order` — top vs low sorts return in the right order.
+- `test_review_moderation_flags_urls_emails_phones` — unit test on `_moderate()` covering the 5 rules.
+- `test_reviews_write_requires_bearer_token` — anonymous POST → 401/403.
+
+**Verified live** — customer microsite `/foodbaked/restaurants/burger-hub/reviews` shows 4.3 ★ · 6 avis · full breakdown bars · 6 review cards with author + date + stars + text; sort pills switch order; hero rating chip reflects the new count.
+
+
+## Latest (2026-02-26) — FOODbakēd · Onboarding Reservation Toggle + Areas/Tables + Activation — COMPLETE
+
+**New split-flag model**
+- `food_restaurants.reservations_enabled` — capability enabled by admin (partner accepted reservations option during onboarding).
+- `food_restaurants.reservation_public` — partner has completed minimum config + hit **"Activer les réservations"**. Only when BOTH are `true` does the customer see the "Réserver une table" quick action + Réserver tab on the microsite.
+
+**Backend**
+- Migration `0060_food_res_public_tables.py` — adds `reservation_public` to `food_restaurants`, `offers_reservations` + `reservations_seating_capacity` to `food_partner_applications`, plus 2 new tables: `food_reservation_areas` (id, restaurant_id, name, sort_order, is_active) and `food_reservation_tables` (id, restaurant_id, area_id, code, seats, is_active, pos_x, pos_y, sort_order — with `UNIQUE(restaurant_id, code)` and `seats BETWEEN 1 AND 40`).
+- New module `modules/food/reservation_config.py`:
+  - `GET /api/food/manage/{rid}/reservation-status` — checklist `{hours, slots, party, capacity}` + counts + `enabled/public`.
+  - `POST /api/food/manage/{rid}/reservation-activate` — validates all_ok; else 400 with `{detail:"incomplete", checklist:{…}}`.
+  - `POST /api/food/manage/{rid}/reservation-deactivate`.
+  - Areas CRUD `GET/POST/PATCH/DELETE /reservation-areas[/{aid}]`.
+  - Tables CRUD `GET/POST/PATCH/DELETE /reservation-tables[/{tid}]` — 409 on duplicate code.
+- `applications.py`:
+  - `PUT /food/apply/step/1` extracts `offers_reservations` + `reservations_seating_capacity` from the data payload and persists them on dedicated columns.
+  - `admin approve` action now sets `reservations_enabled=true, reservation_public=false` on the newly-created restaurant AND seeds default `food_reservation_settings` (60-min lead, 30-min slots, capacity derived from applicant's hint) when `offers_reservations=true`.
+- `reservations.py` — public endpoints (`reservation-config`, `reservation-slots`, `POST /reservations`) now require BOTH `reservations_enabled=true AND reservation_public=true`. Partner endpoints unchanged (capability-only).
+- `microsite.py` — `_restaurant_profile` now also returns `reservation_public`.
+
+**Frontend**
+- `SellersApp.jsx` Step 1 wizard — new "Proposez-vous la réservation de tables ?" question with Oui/Non pill toggle + optional seating-capacity input. Labels via `react-i18next` (`t("apply.reservations.*")`); no bilingual concatenation on this block. `translate="no"` wrapper preserved.
+- `RestaurantMicrosite.jsx` — swapped 4 sites from `restaurants_enabled` → `reservation_public`: sticky tabs, quick-action reserve CTA, overview teaser, dedicated Réserver tab.
+- New `PartnerReservationsDashboard.jsx` — hub page (`/partner/food/reservations`) with:
+  - Post-approval banner "Configurez les réservations" (green highlight + CTA → Settings) when `enabled && !public`.
+  - Active-state banner "Réservations en ligne actives" when public=true.
+  - Live checklist (4 items) + counts + Activate/Deactivate CTA + 3 QuickCards.
+- New `PartnerFloorTablesPage.jsx` — full areas + tables CRUD with visual per-area chip preview (color-coded by seat count) and inline row edit. Foundation for a future graphical drag-and-drop floor plan (already carries `pos_x`/`pos_y` fields).
+- `PartnerApp.jsx` — added Reservations sub-tab pills (Aperçu · Demandes · Espaces & tables · Paramètres) via nested `<Outlet />`. Old top-level `/partner/food/reservations` now renders the new Dashboard by default.
+- i18n: added `apply.reservations.{question, help, yes, no, capacity_label, capacity_hint}` to `fr/seller.json` + `en/seller.json`.
+
+**Seed**
+- `/app/backend/scripts/seed_food_microsite_demo.py` extended with `seed_demo_layout()`:
+  - Configures **Main Hall** (T01-2 · T02-4 · T03-4 · T04-6) + **Terrace** (T05-2 · T06-4) for `burger_hub_ci`.
+  - Sets `reservation_public=true` only for the demo restaurant.
+  - Bumps slot_capacity to match total seats.
+
+**Tests** — `tests/test_food_reservations_onboarding.py` (2/2 pass):
+- `test_reservations_onboarding_and_activation_end_to_end` — signup → apply with reservations=YES + capacity=24 → docs → bank → submit → admin approve → verify restaurant created with `reservations_enabled=true, reservation_public=false` → public config closed → status checklist all_ok → activate 200 → public config now open → areas/tables CRUD + duplicate-code 409 + patch/delete → deactivate closes public flow.
+- `test_reservations_onboarding_no_does_not_enable` — same funnel with reservations=NO → after approval both flags are false.
+
+**Verified live**
+- Customer visibility rule: `burger-hub` shows "Réserver une table" CTA + Réserver tab; `pizza-palace` (public=false) shows neither.
+- Partner Reservations Dashboard renders green "Réservations en ligne actives" banner with 4-item green checklist + Deactivate CTA + counts + 3 QuickCards.
+- Floor & Tables page renders Main Hall + Terrace with T01-T06 chip preview + inline CRUD rows.
+
+
+## Latest (2026-02-24) — FOODbakēd · Restaurant Analytics + Real Order Foundation — COMPLETE
+- ✅ **`food_orders` production schema** (migration `0057_food_orders.py`) — not analytics-only. Status enum spans the full future workflow: `placed → accepted → preparing → ready → assigned → out_for_delivery → delivered` plus terminal `rejected · cancelled · refunded`. Also seeds:
+  - `food_order_items` — with `item_name_snapshot`, `variant_snapshot`, `addons_snapshot` (JSONB) so **historical orders never mutate when menus later change**.
+  - `food_order_events` — full status history (from_status, to_status, actor, actor_role, notes, created_at) — powers the future partner "Live orders" view.
+  - All timestamps (accepted_at, ready_at, assigned_at, out_for_delivery_at, delivered_at, cancelled_at) as nullable columns so the pipeline can fill them incrementally.
+- ✅ **Reusable `<RestaurantAnalytics restaurantId api testId/>`** component — mounted BOTH at `/admin/modules/food/restaurants/:id/analytics` (adminApi) AND `/partner/food/analytics` (partnerApi). Same component, different token — server enforces isolation.
+- ✅ **Analytics endpoint** `GET /api/food/manage/{rid}/analytics?range=7d|30d|90d`:
+  - KPIs: total/delivered/cancelled orders, gross revenue (delivered only), net earnings (after commission + delivery fee + tax), average order value, average prep-time min.
+  - Daily series: orders + revenue + earnings + avg prep-time (filled with zeros on empty days).
+  - Top items (10) with qty + revenue.
+  - Distributions: status mix, order type mix (delivery/pickup), payment method mix.
+  - Hourly volume (24-bucket peak-hour bar chart).
+  - Guarded by `_get_menu_writer(rid)` — super-admin OR partner-of-restaurant only. Cross-tenant partner → **403**.
+- ✅ **Dev-only seed helper** `POST /api/admin/food/restaurants/{rid}/seed-orders?days=&daily_avg=&clear=` — realistic 90-day history:
+  - Order volumes vary 60–140% + weekend surge x1.35.
+  - Lunch (11–14h) + dinner (18–22h) hourly peaks via weighted hour picker.
+  - 1–4 items per order with variant + add-on rolls, popularity weights favouring cheaper items.
+  - Status distribution: ~88% delivered, 6% cancelled, 4% rejected, 2% out-for-delivery.
+  - Payment methods scale to country (CI: cash/mobile_money/card; IN: upi/card/cash/wallet).
+  - 12% orders get a promo code + 10% discount; 5% tax; 15% platform commission — everything totals up to a plausible `restaurant_earnings` that matches the sum-of-daily-earnings shown in the dashboard.
+  - Production-guarded (`APP_ENV=production` → 403). Super-admin only.
+- ✅ **UI wiring**: BarChart3 icon added to each admin restaurant row (→ analytics). Partner sidebar gained an "Analytics" nav item. Admin analytics page also carries a "Générer données démo · Seed demo" button (clears + regenerates).
+- ✅ **Recharts** already in `package.json`; used AreaChart (orders+revenue), LineChart (avg prep min), PieCharts (status/type/payment), BarChart (peak hours), plus a bespoke horizontal-bar Top-Items list.
+- ✅ **Tests** — `tests/test_food_analytics.py` — 7 tests (auth guard, partner cross-tenant 403, KPI shape+cross-check, range independence 7d/30d/90d, partner-own analytics, seed clear behaviour). **43/43 FOOD backend tests pass** together.
+- ✅ **E2E** (testing_agent iteration_91) — admin + partner dashboards render every KPI + chart + range switch + seed button; partner isolation confirmed (403 on other restaurants, no restaurant selector); admin restaurant row action icons all present; no regressions.
+
+
+## Latest (2026-02-24) — FOODbakēd · Restaurant Onboarding Portal — COMPLETE
+- ✅ **Public applicant portal** at `/foodbaked/sellers` (FR-first) — landing, dual-OTP signup (email + phone), phone+OTP login, resumable 6-step wizard, applicant dashboard with progress bar + status banner + correction notes surface.
+- ✅ **6-step wizard**: Restaurant details → Documents → Timing → Menu & Cuisines → Bank Details → Review & Submit. Each step auto-saves as a draft; explicit "Suivant · Next" advances the flow.
+- ✅ **Configurable document framework** — `food_doc_requirements` table (country_code, doc_type, label_fr/en, is_required, sort_order). Seeded with 5 docs (3 required, 2 optional). Backend enforces required docs at `POST /submit`.
+- ✅ **Country-scoped bank details** — CI = bank_account (IBAN + SWIFT) OR mobile_money (Orange/MTN/Wave/Moov); IN = bank_account (IFSC + Account # with confirm) OR UPI. Non-sensitive fields as columns, sensitive numbers inside a JSONB blob for future at-rest encryption.
+- ✅ **OTP infra** reused from existing provider abstraction — dev mode returns `dev_code` in the API response; production-guarded (`APP_ENV=production` → no dev hint).
+- ✅ **Admin queue** at `/admin/modules/food/applications` — list with search + status/country filters; right-side detail drawer with all 5 sections, per-document review (Verify / Reject with mandatory reason / Reset-to-pending), and admin actions (Start review · Request correction · Reject · Approve). Approval side-effects: create `food_restaurants` row + shell `food_restaurant_partners` (no password yet) + one-time activation token + welcome/activation email via SMTP.
+- ✅ **Partner activation** at `/partner/food/activate?token=…` — partner sets their own password (min 8), activation token single-use, then signs into existing `/partner/food/login`.
+- ✅ **Tenant isolation** enforced end-to-end — every applicant route resolves the application from the JWT `sub`, never URL params. Uploaded documents are scoped to `/applications/{app_id}/` in object storage; downloads reject when the caller's app_id doesn't match. Partner tokens still cannot touch another restaurant's data.
+- ✅ **/Sell-on-baked** FOOD card now links to `/foodbaked/sellers` (was external URL `food.partner.baked.ci`).
+- ✅ **Routing collision fix** (via testing_agent) — introduced `ApplicationsSwitch` in `AdminApp.jsx` so `/admin/modules/food/applications` renders the new queue while `/admin/modules/mart|shop/applications` continues to render `ModulePartnerApplications`. Same idiomatic pattern as existing `CatalogSwitch` / `ApprovalsSwitch`.
+- ✅ **Tests** — new `tests/test_food_application_flow.py` (9 tests: dual-OTP signup, phone login (+ silent 200 for unknown numbers), duplicate email/phone 409, doc upload + admin per-doc review, cross-application isolation for /me + delete + raw file fetch, submit gating (docs + name/address + bank), lifecycle start_review → request_correction → resubmit → reject, approve → activation token → set-password → partner login → activation token reuse rejected). **36/36 FOOD backend tests pass** together.
+- ✅ **E2E** (testing agent iteration_90) — every UI flow verified: signup → wizard → submit → admin queue → doc review → request correction → applicant resubmit → admin approve → activation email → set-password → partner-portal login. Regression on `/partner/food/login`, `/food` customer page, MART/SHOP homepage & applications queues all clean.
+
+
+## Latest (2026-02-23) — FOODbakēd · Menu CRUD + Restaurant Partner Portal — COMPLETE
+- ✅ **Reusable `<MenuManager restaurantId api/>` component** (`/app/frontend/src/components/food/MenuManager.jsx`) — mounted BOTH by super-admin at `/admin/modules/food/restaurants/:id/menu` and by the new partner portal. Full CRUD for sections, items, variants and add-ons + FR-first inline dialogs + FoodImageUploader for menu-item photos.
+- ✅ **Restaurant Partner Portal** (`/partner/food/*`) — new isolated app:
+  - `/partner/food/login` — email + password
+  - `/partner/food` — dashboard (Statut/Note/Prépa tiles + self-service: open/close toggle, prep-time inputs, cover-photo uploader)
+  - `/partner/food/menu` — MenuManager scoped to the partner's own restaurant
+  - Sign-out clears the JWT, protected routes redirect logged-out users to /login
+- ✅ **Backend**:
+  - Migration `0055_food_partners.py` — `food_restaurant_partners` table (id, restaurant_id, email, password_hash, name, is_active, last_login_at, timestamps). Case-insensitive unique index on email.
+  - New routers: `partner_router` (`/api/food/partner/auth/login`, `/auth/me`, `PATCH /restaurant`) + `manage_router` (`/api/food/manage/{rid}/menu` + CRUD for sections/items/variants/addons). Both mounted in `server.py`.
+  - Shared writer dependency `_get_menu_writer(rid)` — accepts EITHER a super-admin JWT (role=admin|super_admin) OR a food-partner JWT whose `restaurant_id` matches the route. Cross-restaurant partner access → **403**.
+  - Super-admin partner management: `POST /api/admin/food/restaurants/{rid}/partners` (create), `GET /partners` (list per restaurant), `PATCH /api/admin/food/partners/{pid}` (name/is_active/password reset), `DELETE /partners/{pid}`.
+  - Partner self-service `PATCH /api/food/partner/restaurant` — allow-list of `is_open / prep_time_min / prep_time_max / image` only; everything else stays in super-admin's hands.
+  - Reuses existing `hash_password/verify_password/create_access_token/decode_token` (bcrypt + PyJWT). JWT claim shape: `{sub: partner_id, role: "food_partner", email, restaurant_id}`.
+- ✅ **Admin UI upgrades** (`AdminFood.jsx`):
+  - Restaurant row actions now: **Menu** (routes to menu manager), **Partners** (opens PartnersModal), **Edit**, **Delete**.
+  - `PartnersModal` — list partners for the restaurant, add / toggle-active / password-reset / delete accounts.
+- ✅ **Tests** — `tests/test_food_partner_menu.py` — 9 new tests (partner login/me, wrong password 401, duplicate email 409, disabled account 403, admin password reset works + old password fails, full menu CRUD roundtrip with admin token, partner cross-restaurant isolation 403, partner-self-service restaurant patch, unauthenticated routes 401). All 27 FOOD backend tests pass together (10 admin CRUD + 8 homepage + 9 partner-menu).
+- ✅ **Live smoke** (testing agent iteration_89) — every UI flow verified: admin Menu + Partners buttons, PartnersModal CRUD, admin MenuManager full lifecycle (section→item with tag→variant→addon→reverse-delete), partner portal login+dashboard+menu, partner isolation, self-service toggles, logout+protected-route redirects. No regressions on MART/SHOP homepage management or /food customer page.
+
+
+## Latest (2026-02-23) — FOODbakēd · Admin CRUD + Homepage Management + Reusable Image Uploader — COMPLETE
+- ✅ **Full admin CRUD** for `food_restaurants` / `food_categories` / `food_cuisines` (`POST`/`PATCH`/`DELETE` on `/api/admin/food/*`). Restaurant create auto-generates a deterministic `id` (`<slug>_<country>`) and 409s on duplicates.
+- ✅ **Reusable image uploader** — new `POST /api/admin/food/uploads?kind=<asset>` (kinds: restaurant_logo, restaurant_cover, gallery, category, cuisine, menu_item, banner, misc). Backed by the shared `object_storage` provider; validates image mime + ≤ 8 MB; served publicly via `GET /api/food/uploads/{key}`. Frontend widget `/app/frontend/src/apps/foodbaked/components/FoodImageUploader.jsx` provides drop/pick + preview + replace + delete + client-side downscale (max 1600 px, JPEG q=0.85). Used by all 3 admin FOOD workspaces — no more external URLs.
+- ✅ **`/admin/modules/food/homepage-management`** — the shared `AdminHomepageManagement` component now reads the module from the URL (`/admin/modules/<code>/homepage-management`). When scoped:
+  - Module toggle hidden; FOODbakēd badge visible in the header.
+  - "Add section" dropdown filters `SECTION_SCHEMAS` — only FOOD-tagged sections render on the FOOD workspace, only non-FOOD (legacy MART/SHOP) sections render elsewhere. Unscoped `/admin/homepage-management` still shows all 3 modules in the toggle.
+- ✅ **6 new FOOD section types** added to `HOMEPAGE_SECTION_TYPES` + `SECTION_SCHEMAS`: `food_hero`, `food_categories`, `food_cuisines`, `food_featured_restaurants`, `food_promos`, `food_usps`. Every schema is French-first / English-second.
+- ✅ **FoodHome.jsx overlays** — `/food` fetches `/api/homepage?country=X&module=food` in parallel with `/api/food/home` and lets admin-managed sections override the seed:
+  - `food_hero` → hero eyebrow / title / subtitle / background image
+  - `food_featured_restaurants` / `food_cuisines` → section title + subtitle
+  - `food_promos` → replaces the promo strip cards
+  - `food_usps` → replaces the "Why choose FOODbakēd?" tiles
+  When no admin section exists, the page renders the existing i18n defaults with zero visible change (verified by testing agent — deleted the food_hero and `/food` fell back cleanly to i18n defaults).
+- ✅ **French-first admin FOOD screens** — all labels ("Nom · Name", "Pays · Country", "Actif · Active", "Ajouter · Add", "Supprimer · Delete") FR primary, EN secondary; add/edit modals same pattern.
+- ✅ **Tests** — 2 new files, 18 tests, all pass:
+  - `tests/test_food_admin_crud.py` — 10 tests: auth guards on categories/cuisines/restaurants/uploads (401), category / cuisine / restaurant create → patch → delete roundtrips, restaurant duplicate id → 409, image upload + public serve roundtrip, non-image rejected (400).
+  - `tests/test_food_homepage_sections.py` — 8 tests: each of the 6 FOOD section types validates on create, public GET scopes by module (food_hero appears in `?module=food` but NOT in `?module=mart`), disabling a section hides it publicly.
+- ✅ **Live smoke** (testing agent iteration_88) — end-to-end verified: created food_hero via API → `/food` picked it up on next load (eyebrow + custom H1 + custom subtitle + custom background); deleted → clean fallback to `Good Food / Brings People Together`; MART/SHOP scoped homepage management shows only the 8 legacy section types (no FOOD leakage); admin CRUD tables render with data-testids and add buttons as spec'd. No regressions.
+
+
 ## Latest (2026-02-15) — SENDbakēd · Multiple Shipments 2-Step Booking Flow — COMPLETE
 - ✅ **Migration `0051_send_product_types`** — new `send_product_types` catalogue table (code · name_fr · name_en · is_default · sort_order · active · timestamps) with a partial unique index enforcing at most one default row. Seeded with the 8 canonical rows from the redesign prompt (`general_product` (default) → Documents → Aliments → Électronique → Vêtements → Meubles → Produits frais → Autre).
 - ✅ **New endpoint `GET /api/express/product-types`** — returns active rows ordered by sort_order with FR + EN labels + `is_default`. Frontend hydrates the Multiple-Shipments product-type dropdown dynamically; no hard-coded list.

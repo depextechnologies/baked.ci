@@ -13,6 +13,14 @@
     "step_documents": "Documents",
     "step_review": "Review",
     "step_status": "Status",
-    "submit_cta": "Submit application"
+    "submit_cta": "Submit application",
+    "reservations": {
+      "question": "Do you offer table reservations?",
+      "help": "We'll enable the capability. You'll configure hours, tables and availability from your partner portal after approval.",
+      "yes": "Yes",
+      "no": "No",
+      "capacity_label": "Approximate seating capacity",
+      "capacity_hint": "Optional — you can adjust after approval."
+    }
   }
 }

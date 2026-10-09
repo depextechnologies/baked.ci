@@ -1,0 +1,50 @@
+{
+  "summary": "Frontend-only end-to-end verification of the BAKED Global Search & Discovery engine. All 16 user-provided scenarios PASSED including the 3 originally-reported bugs. Default UI language is French. The header global-search dropdown correctly groups MART/FOOD/SHOP/SEND results, respects destination_url/destination routing, honors trigram fuzzy matching for typos, and is NOT scoped to the currently-active module tab. The /search?q=... results page renders intent cards + entity groups and empty states correctly. Legacy MART-only /products?search=... still works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "GlobalSearchDropdown (EN language)", "issues": ["When UI language is EN, the 'Voir tous les résultats pour \"...\"' footer link in the dropdown is still rendered in French. Only cosmetic - the dropdown still works and returns the right data. Group header 'MARTBAKĒD/FOODBAKĒD/SHOPBAKĒD/SENDBAKĒD' are brand labels and acceptable in either language."]},
+      {"screen": "GlobalSearchDropdown food group (pizza query)", "issues": ["Pizza Palace restaurant row renders a secondary line '0 restaurants' which looks like placeholder/debug text under the cuisine tags ('pizza, italian'). Non-blocking cosmetic. Burger Hub row does not show this, so looks like a data/branch issue in Pizza Palace entity only."]}
+    ]
+  },
+  "test_scenarios_executed": [
+    {"name": "Home loads in French with header search input", "status": "PASS", "evidence": "html[lang]=fr, placeholder 'Rechercher des produits, marques...'"},
+    {"name": "Dropdown: 'Lait Frais' shows MARTBAKĒD(1) with Lait Frais/Bridel", "status": "PASS"},
+    {"name": "Dropdown: click Lait Frais hit navigates to /produits/prd_a97cc643beca4fa4 and renders MART product detail (title, price 750 CFA, +Ajouter au panier)", "status": "PASS"},
+    {"name": "Dropdown: 'Lai' (3 chars) returns 6 MART products all starting with Lait (Lait Bébé, Lait Chocolaté, Lait Frais, Lait UHT, Lait de Coco, Lait Écrémé) — no SHOP noise", "status": "PASS"},
+    {"name": "Dropdown: typo 'lait fris' still returns Lait Frais (trigram fuzzy)", "status": "PASS"},
+    {"name": "Dropdown: 'Send Parcel' shows SENDBAKĒD intent 'Envoyer un colis'", "status": "PASS"},
+    {"name": "Dropdown: click send_parcel intent → /send/parcel with 'Étape 1 sur 4 - Lieu de ramassage & livraison' wizard (NOT MART)", "status": "PASS"},
+    {"name": "Dropdown: 'courier' → same send_parcel intent", "status": "PASS"},
+    {"name": "Dropdown: 'shift home' → shift_home intent, click → /send/movers", "status": "PASS"},
+    {"name": "Dropdown: 'book truck' → book_truck intent 'Réserver un véhicule', click → /send/book/vehicle", "status": "PASS"},
+    {"name": "/search?q=Send%20Parcel results page shows SEND intent card; click → /send/parcel", "status": "PASS"},
+    {"name": "/search?q=Signature%20Car%20Parts shows SHOPBAKĒD group; click → /shop/p/shpprd_demo_pieces-voiture renders real SHOP product (title 'Signature Pièces pour voiture', price 9,900 XOF, 'Ajouter au panier' button, SKU)", "status": "PASS"},
+    {"name": "Dropdown: 'pizza' → FOODBAKĒD group with Pizza Palace, click → /foodbaked/restaurants/pizza-palace", "status": "PASS"},
+    {"name": "Dropdown: 'burger' → FOODBAKĒD(6) with Burger Hub + 5 burger dishes (Double Bacon, Garden Veggie, Classic Cheeseburger etc.)", "status": "PASS"},
+    {"name": "FR→EN toggle: 'Lait Frais' still returns MART Lait Frais product (DB-only French name preserved)", "status": "PASS"},
+    {"name": "From /foodbaked page, header search 'Lait Frais' still returns MARTBAKĒD results (global search NOT restricted by active module)", "status": "PASS"},
+    {"name": "Legacy /products?search=Lait returns 7 MART results including Lait Frais (backward compat)", "status": "PASS"},
+    {"name": "/search?q=xyzzzqq shows localized empty state 'Aucun résultat pour « xyzzzqq ».'", "status": "PASS"}
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "(Minor i18n) Translate dropdown footer link 'Voir tous les résultats pour ...' to English when i18n language is EN in GlobalSearchDropdown.jsx.",
+    "(Cosmetic) Investigate Pizza Palace restaurant entity in search results — it renders a '0 restaurants' secondary line that looks like debug/placeholder text. Likely stale 'results_count'/'subtitle' field in SearchHit payload for that specific restaurant row."
+  ],
+  "critical_code_review_comments": [
+    "Search dropdown correctly uses data-testid attributes (global-search-input, global-search-dropdown, global-search-group-<module>, global-search-intent-<code>, global-search-hit-<module>-<idx>) — excellent for automated testing.",
+    "Routing contract is clean: SEND intent destinations map to real React routes (/send/parcel, /send/movers, /send/book/vehicle). MART uses /produits/:id, SHOP uses /shop/p/:productId, FOOD uses /foodbaked/restaurants/:slug — all verified live.",
+    "Global search is correctly module-agnostic (verified by searching 'Lait Frais' from /foodbaked and still receiving MART results).",
+    "Trigram fuzzy ('lait fris' → Lait Frais) and prefix ('Lai' → 6 Lait* products) both work, confirming pg_trgm + unaccent extensions are now live in the DB and that migration 0064 landed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "100% (16/16 scenarios PASS)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Global search is fully operational end-to-end. All 3 originally-reported critical bugs are confirmed FIXED: (1) Send Parcel intent card now routes to /send/parcel and the 4-step SENDbakēd wizard renders — no MART bleed-through. (2) 'Lait Frais' returns MART product; detail page at /produits/prd_a97cc643beca4fa4 renders correctly. (3) 'Signature Car Parts' returns a SHOP hit; /shop/p/shpprd_demo_pieces-voiture renders a real product page with title/price/add-to-cart. Minor non-blocking items: dropdown 'Voir tous les résultats' footer not translated to EN, and Pizza Palace entity shows a '0 restaurants' subtitle line that looks like leaking debug text.",
+  "rca_of_the_issue": "Previously reported RCA (missing unaccent/pg_trgm extensions and SEND intent destinations pointing to non-existent routes) is confirmed resolved. Live UI verification matches the 29-test backend regression suite."
+}

@@ -123,6 +123,19 @@ async def transition_status(
     now = datetime.now(timezone.utc)
     session.add(ExpressBookingTimeline(booking_id=booking_id, code=new_status, label=resolved_label, at=now))
     await session.commit()
+
+    # Pass 2 — FOODbakēd cascade: if this is a food_delivery booking and
+    # the SEND side just flipped to 'delivered', mirror the state onto the
+    # originating food_orders row + broadcast. Idempotent inside the helper.
+    if new_status == "delivered" and booking.food_order_id and booking.source_module == "food":
+        try:
+            from modules.food.orders import cascade_delivered_from_express
+            await cascade_delivered_from_express(session, booking.food_order_id, booking_id)
+        except Exception as e:  # noqa: BLE001
+            # Never let the FOOD cascade fail the SEND side — log + move on.
+            logger.warning("food cascade failed booking=%s order=%s err=%s",
+                           booking_id, booking.food_order_id, e)
+
     data = await booking_to_dict(session, booking)
     await manager.broadcast(booking_id, {"type": "snapshot", **public_booking_fields(data)})
     return data

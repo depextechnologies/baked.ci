@@ -23,6 +23,25 @@ import { CartRouteDrawerRedirect } from "@/components/cart/CartRouteDrawerRedire
 import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
+import { FoodHome } from "@/apps/foodbaked/pages/FoodHome";
+import { FoodDiscoveryPage } from "@/apps/foodbaked/pages/FoodDiscoveryPage";
+import { FoodSearchResultsPage } from "@/apps/foodbaked/pages/FoodSearchResultsPage";
+import { FoodRestaurantDetail } from "@/apps/foodbaked/pages/FoodRestaurantDetail";
+import {
+  RestaurantMicrosite,
+  RestaurantOverview,
+  RestaurantOrderTab,
+  RestaurantMenuTab,
+  RestaurantPhotosTab,
+  RestaurantReviewsTab,
+  RestaurantReservationsTab,
+  LegacyDetailRedirect,
+} from "@/apps/foodbaked/pages/RestaurantMicrosite";
+import FoodOrderTrackPage from "@/apps/foodbaked/pages/FoodOrderTrackPage";
+import { FoodFavouritesPage } from "@/apps/foodbaked/pages/FoodFavouritesPage";
+import { FoodFavouritesProvider } from "@/contexts/FoodFavouritesContext";
+import MyReturnsPage from "@/pages/MyReturnsPage";
+import GlobalSearchResultsPage from "@/pages/GlobalSearchResultsPage";
 import { ComingSoonLanding } from "@/pages/ComingSoonLanding";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
 import { TermsOfService } from "@/pages/legal/TermsOfService";
@@ -147,9 +166,25 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/settings" element={<DesktopProfileShell><MobileSettings /></DesktopProfileShell>} />
       <Route path="/profile/help" element={<DesktopProfileShell><MobileHelpSupport /></DesktopProfileShell>} />
       <Route path="/profile/activities" element={<DesktopProfileShell><MobileActivities /></DesktopProfileShell>} />
+      <Route path="/profile/returns" element={<DesktopProfileShell><MyReturnsPage /></DesktopProfileShell>} />
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
-      <Route path="/food" element={<ComingSoonPage />} />
+      <Route path="/food" element={<FoodHome />} />
+      <Route path="/food/restaurants" element={<FoodDiscoveryPage />} />
+      <Route path="/foodbaked/favorites" element={<FoodFavouritesPage />} />
+      <Route path="/foodbaked/favourites" element={<FoodFavouritesPage />} />
+      <Route path="/search" element={<GlobalSearchResultsPage />} />
+      <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
+      <Route path="/foodbaked/orders/:orderId/track" element={<FoodOrderTrackPage />} />
+      <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
+      <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
+        <Route index element={<RestaurantOverview />} />
+        <Route path="order" element={<RestaurantOrderTab />} />
+        <Route path="menu" element={<RestaurantMenuTab />} />
+        <Route path="photos" element={<RestaurantPhotosTab />} />
+        <Route path="reviews" element={<RestaurantReviewsTab />} />
+        <Route path="reservations" element={<RestaurantReservationsTab />} />
+      </Route>
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
@@ -230,9 +265,25 @@ const MobileCustomerShell = () => (
       <Route path="/profile/settings" element={<MobileSettings />} />
       <Route path="/profile/help" element={<MobileHelpSupport />} />
       <Route path="/profile/activities" element={<MobileActivities />} />
+      <Route path="/profile/returns" element={<MyReturnsPage />} />
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
-      <Route path="/food" element={<ComingSoonPage />} />
+      <Route path="/food" element={<FoodHome />} />
+      <Route path="/food/restaurants" element={<FoodDiscoveryPage />} />
+      <Route path="/foodbaked/favorites" element={<FoodFavouritesPage />} />
+      <Route path="/foodbaked/favourites" element={<FoodFavouritesPage />} />
+      <Route path="/search" element={<GlobalSearchResultsPage />} />
+      <Route path="/foodbaked/search" element={<FoodSearchResultsPage />} />
+      <Route path="/foodbaked/orders/:orderId/track" element={<FoodOrderTrackPage />} />
+      <Route path="/food/r/:slug" element={<LegacyDetailRedirect />} />
+      <Route path="/foodbaked/restaurants/:slug" element={<RestaurantMicrosite />}>
+        <Route index element={<RestaurantOverview />} />
+        <Route path="order" element={<RestaurantOrderTab />} />
+        <Route path="menu" element={<RestaurantMenuTab />} />
+        <Route path="photos" element={<RestaurantPhotosTab />} />
+        <Route path="reviews" element={<RestaurantReviewsTab />} />
+        <Route path="reservations" element={<RestaurantReservationsTab />} />
+      </Route>
       <Route path="/shop" element={<ShopHome basePath="/shop" />} />
       <Route path="/shop/categories" element={<ShopCategoriesIndex basePath="/shop" />} />
       <Route path="/shop/c/:categorySlug" element={<ShopCategory basePath="/shop" />} />
@@ -281,11 +332,13 @@ export const CustomerApp = () => (
   <AuthProvider>
     <AppProvider>
       <CartProvider>
-        <ExpressBookingProvider>
-          <MoversBookingProvider>
-            <CustomerShell />
-          </MoversBookingProvider>
-        </ExpressBookingProvider>
+        <FoodFavouritesProvider>
+          <ExpressBookingProvider>
+            <MoversBookingProvider>
+              <CustomerShell />
+            </MoversBookingProvider>
+          </ExpressBookingProvider>
+        </FoodFavouritesProvider>
       </CartProvider>
     </AppProvider>
   </AuthProvider>

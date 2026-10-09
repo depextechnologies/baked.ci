@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 7B Returns & Refunds — full backend regression + partner-flow + admin UI verification. All 8 existing tests in test_returns_refunds.py still pass. Added 9 new tests in test_returns_refunds_extra.py (evidence rule x3 reasons + happy path, partner list+approve via food-partner JWT, partner partial reason/amount validation, partner dispute → admin, admin inbox module filter, pol_default_* protection). 17/17 pass. Admin UI at /admin/returns renders table + status/module filters + Escalate stale (SLA) + row drawer with audit trail and approve/partial/reject decision form; sidebar link highlights 'Returns & Refunds'. Guest /profile/returns shows FR login prompt with auth-open-login-btn. Found and fixed one real backend route-ordering bug.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/returns/partner", "issue": "Was shadowed by customer GET /api/returns/{return_id} because customer_router was mounted first → 401 'Not authenticated' for valid food-partner JWTs. Fixed by swapping include_router order in /app/backend/server.py (partner_router now mounts before customer_router)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminReturns", "issue": "Missing data-testid on status filter, module filter, Escalate stale (SLA) button, and policies tab button. Only admin-returns-page / admin-returns-table / admin-ret-drawer / admin-ret-drawer-close / admin-ret-audit exposed.", "selector": "admin-returns-filter-status, admin-returns-filter-module, admin-returns-escalate-stale, admin-returns-policies-tab", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_returns_refunds.py",
+    "/app/backend/tests/test_returns_refunds_extra.py",
+    "/app/test_reports/pytest/returns_full_iter106.xml"
+  ],
+  "action_items": [
+    "(optional) add data-testid attributes to AdminReturns status/module selects, 'Escalate stale (SLA)' button, and 'policies' tab toggle so future testing is deterministic."
+  ],
+  "critical_code_review_comments": [
+    "server.py router registration order matters: when two routers share a prefix (/returns and /returns/partner), the more-specific sub-router MUST be included first — otherwise FastAPI matches /returns/partner against /returns/{return_id} with the wrong auth dependency. Fixed in this iteration.",
+    "returns.py customer_router.get('/{return_id}') is unprefixed by any guard against reserved paths — long-term consider renaming the dynamic path to /detail/{return_id} to be defensive against future sub-routes clashing.",
+    "AdminReturns.jsx uses raw HTML buttons for 'requests'/'policies' tab switch without data-testid; also the policies tab click did not toggle testids in automation (may rely on inner state; worth verifying there's no onClick regression)."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (swap partner_router before customer_router)",
+    "/app/backend/tests/test_returns_refunds_extra.py (new, 9 tests)"
+  ],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "90% (admin UI + guest flow verified; mobile/customer OTP flow not re-run)"},
+  "test_credentials": "Super admin depexopenai@gmail.com / baked@2026#!$@ ; food partner qa-burger@test.example / QaBurger123! ; dev-OTP customer via /api/auth/otp/request → dev_code.",
+  "seed_data_creation": "Each test creates its own FOOD order against burger_hub_ci using _seed_food_order() (direct INSERT into food_orders + food_order_items). ~15 TEST* orders created during the run (small, isolated).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Returns & Refunds backend is now green end-to-end (17 pytest tests). Partner JWT list endpoint (/api/returns/partner) was 401-ing until server.py router order was fixed — keep that in mind if future routes land. Admin UI testids present: admin-returns-page, admin-returns-table, admin-ret-drawer, admin-ret-drawer-close, admin-ret-audit. Testids NOT present (recommend adding): admin-returns-filter-status, admin-returns-filter-module, admin-returns-escalate-stale, admin-returns-policies-tab, policy-row-*. Guest /profile/returns renders FR login prompt + auth-open-login-btn (no my-returns-page testid until logged in). Dev-OTP flow still works (iter105 context).",
+  "rca of the issue": "GET /api/returns/partner was returning 401 for valid food-partner JWTs. Root cause: server.py included customer_router (prefix /returns, containing GET /{return_id}) BEFORE partner_router (prefix /returns/partner). FastAPI matches routes in order, so /returns/partner hit customer_router.get_return(return_id='partner') which uses get_current_customer dependency → 401 for the food-partner bearer. Reproduction: curl -H 'Authorization: Bearer <food_partner_jwt>' $URL/api/returns/partner. Mitigation (applied): swap include_router order so partner_router is registered first. Verified fix with pytest (17/17 pass incl. test_partner_lists_and_approves_pending_return)."
+}

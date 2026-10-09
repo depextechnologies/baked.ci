@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 88 — regression + integration for the FOODbakēd admin CRUD + homepage-management scoping work. All 18 backend tests (test_food_admin_crud.py + test_food_homepage_sections.py) pass (auth guards, categories/cuisines/restaurants CRUD roundtrips, restaurant duplicate 409, image upload + public serve + non-image 400, all 6 food section types accepted, module scoping and is_enabled hide/show). MART & SHOP homepage regression clean (/api/homepage?country=CI&module=mart returns 200 with 9 sections; shop=5; food=0). Frontend: admin login OK; /admin/modules/food/restaurants|categories|cuisines all render tables with add buttons and data-testids as specified. /admin/modules/food/homepage-management shows FOODbakēd badge, module toggle is hidden (scoped), and the Add-section dropdown lists EXACTLY the 6 FOOD types ('FOOD · Hero Banner', 'FOOD · Catégories chips', 'FOOD · Cuisines tiles', 'FOOD · Restaurants mis en avant', 'FOOD · Bandeaux promotionnels · Promo banners', 'FOOD · Points forts (USP Strip)'). MART scoped HP (/admin/modules/mart/homepage-management) hides module toggle and dropdown lists only the 8 legacy non-FOOD section types (Hero Banner, Category Grid, Promo, Banner Trio, Product Carousel, Brand Carousel, App Promo, CTA Strip) — no leakage of FOOD types. Unscoped /admin/homepage-management shows all 3 modules in toggle. End-to-end: created a food_hero section (title 'Great Food, Faster', subtitle 'Delivered to your door', eyebrow 'NEW') via API — /food consumed all three on next load. Deleted the section — /food falls back to i18n defaults ('Good Food / Brings People Together') and Featured Restaurants, category chips (Burgers/Pizza/Poulet/…), FR-first labels all still render. No frontend or backend regressions detected.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/food hero overlay", "issues": ["When an admin food_hero exists, the section renders as a plain text block on top of the default image hero rather than replacing the hero background/CTA cluster — the two heroes stack visually. Consider suppressing the default hero when an admin food_hero is active, or at least applying admin config.background_image_url as the hero backdrop. (Not covered explicitly in the acceptance list — flag only.)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_admin_crud.py",
+    "/app/backend/tests/test_food_homepage_sections.py",
+    "/app/test_reports/pytest/food_admin_iter88.xml"
+  ],
+  "action_items": [
+    "(optional/polish) Decide whether admin food_hero should replace the default /food hero background+CTA cluster or overlay it — current behaviour stacks both. All acceptance-criteria checks still pass (title/subtitle/eyebrow are consumed and fallback works)."
+  ],
+  "critical_code_review_comments": [
+    "SectionEditor correctly filters section-type options by scoped module — verified in the UI dropdown for /admin/modules/food/homepage-management (6 FOOD types only) and /admin/modules/mart/homepage-management (8 legacy types only). Good isolation.",
+    "hp-module-toggle is correctly hidden on scoped routes and correctly shown (all 3 modules) on the unscoped /admin/homepage-management route.",
+    "Backend upload endpoint returns file_url in the /api/food/uploads/{key} shape and the public GET serves image with correct content-type — no auth needed on the read path, admin auth enforced on write. Non-image rejected 400.",
+    "food_hero admin override successfully surfaces on the customer /food page via /api/homepage?module=food and cleanly falls back to i18n defaults on delete — no cache-stall observed."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100% (18/18)", "frontend": "100% of acceptance checks" },
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Transient food_hero homepage section created via /api/admin/homepage-sections and deleted at end of test. Backend CRUD tests self-cleanup (create+delete in same test).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 18 food-scope backend tests + all UI acceptance checks in iteration 88 pass. The only observation is a minor visual polish: when an admin food_hero override is active, the /food page currently stacks the admin text block over the existing default image hero rather than replacing it. If E1 tightens this, verify that (a) admin config.background_image_url is used, (b) removing the admin section returns to the current default hero, and (c) the two never render simultaneously. MART/SHOP module scoping and unscoped-toggle behaviour are all correct. Public /api/homepage?module=mart|shop|food all 200.",
+  "rca of the issue": "N/A — no failures."
+}

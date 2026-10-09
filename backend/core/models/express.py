@@ -118,6 +118,16 @@ class ExpressBooking(Base, TimestampMixin):
     time_slot_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     labour_movers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
+    # --- Pass 2 (0062): FOODbakēd dispatch bridge ---
+    # `source_module` identifies non-EXPRESS originators (currently only
+    # 'food'). `food_order_id` back-references food_orders.id so cascades
+    # (delivered → food_orders.status) can look up the right FOOD row.
+    # `pickup_pin` is a 4-digit code shown to the partner for driver
+    # pickup verification — mirrors the SEND drop-PIN pattern.
+    source_module: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    food_order_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    pickup_pin:    Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+
 
 class ExpressBookingTimeline(Base):
     __tablename__ = "express_booking_timeline"

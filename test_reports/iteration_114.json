@@ -1,0 +1,47 @@
+{
+  "summary": "FOODbakēd homepage P1 slice (clickable cuisines, 2-card testimonials, Featured 'Voir tout' link) verified GREEN on both backend and frontend. All 14 explicit test cases from the review request pass.",
+  "backend_checks": {
+    "GET /api/homepage?country=CI&module=food": "food_testimonial row id=hps_food_ci_070_food_testimonial, is_enabled=true, config.items.length=2 (Awa K./Abidjan, Yao N./Cocody), both enabled=true with FR+EN quote/author/role + background_image + sort_order. Legacy quote_fr/quote_en/background_image fields also present at config root for backward compat — confirmed migration ran idempotently.",
+    "GET /api/food/home?country=CI": "Returns categories, cuisines[indian,chinese,italian,african,continental,fast_food,healthy,desserts], featured_restaurants, has_customer_coords. Shape unchanged.",
+    "GET /api/food/restaurants/discover?cuisines=indian&country=CI": "Returns exactly 1 restaurant (Spice Nation, cuisines=['indian']) — JSONB cuisines-array match, NOT substring over name. Verified: chinese→0, italian→1 (Pizza Palace), african→1 (Grill House), continental→1 (Le Gourmet), fast_food→1 (Burger Hub), healthy→1 (Le Gourmet), desserts→0."
+  },
+  "frontend_checks": {
+    "/food renders": "food-home testid present. Pre-existing section testids food-section-featured-*, food-section-cuisines-*, food-section-testimonial-hps_food_ci_070_food_testimonial all resolve.",
+    "cuisine tiles are <a> Links": "All 8 tiles indian/chinese/italian/african/continental/fast_food/healthy/desserts expose data-testid=food-cuisine-<code> tag=A href=/food/restaurants?cuisines=<code>.",
+    "indian tile click": "Navigates to /food/restaurants?cuisines=indian. Discovery page fires GET /api/food/restaurants/discover?country=CI&fulfillment_mode=delivery&sort=popularity&page=1&limit=24&radius_km=15&cuisines=indian. Filter badge shows 1, '1 restaurant trouvé' heading, only Spice Nation card rendered.",
+    "chinese tile click": "Navigates to /food/restaurants?cuisines=chinese (backend returns 0 for CI — correct cuisine-array match).",
+    "View All link on Featured heading": "data-testid=food-featured-view-all-hps_food_ci_040_food_featured_restaurants, tag=A, href=/food/restaurants, text='Voir tout' in FR / 'View All' in EN. Click navigates to /food/restaurants with no cuisines/category param; 6 restaurants rendered, filter badge empty.",
+    "testimonials desktop": "food-testimonials-desktop-<row_id> wrapper present. Two cards food-testimonial-card-i0 and food-testimonial-card-i1 rendered side-by-side (md:grid-cols-2). Each card has 5 SVG stars, quote text, author name (Awa K./Yao N.), role (Abidjan/Cocody), decorative quote glyph, and background image.",
+    "no fabricated meta": "'10,000+' / '10 000+' happy food lovers text NOT present on page.",
+    "testimonials mobile 390x844": "food-testimonials-mobile-<row_id> wrapper + food-testimonials-dots-<row_id> both present. Both cards in DOM, one visible at a time, 2 pagination dots visible (rendered as spans/divs, see minor note).",
+    "FR default / EN toggle": "FR default shows 'Voir tout', 'Avis de nos clients', 'Cuisines du monde', 'Indien', 'Chinois', 'Italien', 'Africain', 'Continental', 'Fast Food', 'Sain', 'Desserts'. EN toggle swaps to 'View All', 'Customer Reviews', 'Cuisines You'll Love', 'Indian', 'Chinese', 'Italian', 'African', 'Continental', 'Fast Food', 'Healthy', 'Desserts'. Verified by text diff.",
+    "admin repeater at /admin/modules/food/homepage-management": "Super admin login OK with depexopenai@gmail.com / baked@2026#!$@. Testimonial section edit drawer exposes 'Témoignages (2 recommandés) · Testimonials (2 recommended)' repeater with + ADD button, per-item fields: Enabled toggle, Quote FR, Quote EN, Customer display name FR+EN, Role/location FR+EN, Customer photo (upload), Background image (upload), Sort order, Remove button. Both items visible and editable."
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "FoodHome mobile testimonials carousel", "issues": ["Pagination dots inside food-testimonials-dots-<row_id> are rendered as <div>/<span>, not <button>. They are visually correct and the carousel auto-advances / is swipeable, but the dots are not keyboard-focusable or clickable — minor a11y nit. Not blocking."]},
+      {"screen": "/food (console)", "issues": ["Pre-existing i18n warning (unrelated to this slice): missing key customer:food.categories_title and customer:food.categories_subtitle for fr. The visible labels fall back to the DB-driven section title/subtitle so the UI looks fine, but the i18n keys should be added or the fallback made silent."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Optional, non-blocking) Make mobile testimonial pagination dots real <button> elements with aria-label and onClick to jump to a specific slide — currently they only reflect the auto-advance state.",
+    "(Optional, unrelated) Add the missing fr i18n keys customer:food.categories_title / customer:food.categories_subtitle, or silence the console warning for this intentional DB-driven fallback."
+  ],
+  "critical_code_review_comments": [
+    "FoodHome.jsx — CuisineTile correctly uses <Link> with to=`/food/restaurants?cuisines=${code}`; FoodDiscoveryPage reads cuisines from URL and passes to GET /discover, so round-trip is pure URL state and refresh-safe.",
+    "The food_testimonial section intentionally keeps legacy config.quote_fr/quote_en/background_image at config root alongside the new config.items[] after migration, enabling safe rollback. The frontend auto-converts legacy single-quote rows into one items[] entry — good.",
+    "Discovery /api/food/restaurants/discover uses the JSONB cuisines column with array containment, which matches the required restaurant-cuisine mapping (not menu-item synonym expansion). Verified across 8 cuisine codes."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (homepage items[]+legacy fallback OK, cuisine filter OK across 8 codes, /food/home OK)", "frontend": "100% functional (14/14 review-request test cases); 2 minor non-blocking a11y/i18n notes"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ (NOTE: review-request listed depex12345 which is WRONG — real password lives in /app/memory/test_credentials.md). Login verified.",
+  "seed_data_creation": "None — used existing seeded CI testimonials (migrated to items[2]) and seeded CI restaurants (Spice Nation=indian, Pizza Palace=pizza+italian, Grill House=african+chicken, Le Gourmet=continental+healthy, Burger Hub=burgers+fast_food, Sushi Central=seafood).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Food homepage CMS payload now has items[] on food_testimonial rows (preserved legacy quote_fr/en/background_image at root for rollback). Admin editor /admin/modules/food/homepage-management → food_testimonial Edit opens a repeater (F.list) with + ADD and Remove per item. Public page /food renders TWO desktop testimonial cards (md:grid-cols-2) via food-testimonials-desktop-<row_id>, and ONE-at-a-time mobile carousel via food-testimonials-mobile-<row_id> + dots food-testimonials-dots-<row_id>. Cuisine tiles are <Link> with data-testid=food-cuisine-<code> and href=/food/restaurants?cuisines=<code>. Featured Restaurants heading has data-testid=food-featured-view-all-<row_id> → /food/restaurants (no filter). Super admin password is baked@2026#!$@ (not depex12345 as request claimed).",
+  "rca of the issue": "N/A — feature verification run, no bugs found."
+}

@@ -23,6 +23,17 @@ HOMEPAGE_SECTION_TYPES = [
     "brand_carousel",
     "app_promotion",
     "cta_strip",
+    # FOODbakēd (Feb 2026) — customer FoodHome sections. Full CMS wiring —
+    # each row maps to a distinct block in FoodHome. Multiple rows of the
+    # SAME type are rendered in `display_order` so admins can e.g. ship
+    # two promo strips above and below the cuisines rail.
+    "food_hero",
+    "food_categories",
+    "food_cuisines",
+    "food_featured_restaurants",
+    "food_promos",
+    "food_usps",
+    "food_testimonial",
 ]
 
 

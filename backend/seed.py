@@ -954,8 +954,9 @@ async def run_seed():
         from shared.suppliers.seed import seed_demo_suppliers
         await seed_demo_suppliers(session)
         # Homepage CMS default stack (CI + IN) — insert-only, admin edits preserved.
-        from modules.homepage.seed import seed_homepage
+        from modules.homepage.seed import seed_homepage, seed_food_homepage
         await seed_homepage(session)
+        await seed_food_homepage(session)
         # SHOPbakēd catalogue (Slice 2) — 19 categories × subcategory tree per country.
         from modules.shop.seed import seed_shop_catalogue
         await seed_shop_catalogue(session)
@@ -975,3 +976,34 @@ async def run_seed():
     # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars
     await seed_express()
+
+    # Global Search — intent dictionary (idempotent).
+    try:
+        from scripts.seed_search_intents import seed_intents
+        async with SessionLocal() as session:
+            await seed_intents(session)
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("baked.seed").warning("search intents seed skipped: %s", e)
+
+    # FOODbakēd — demo microsite + QA partner. Guarantees the restaurant
+    # login (qa-burger@test.example / QaBurger123!) is always valid on a
+    # fresh pod. Idempotent: coords use COALESCE, password_hash is reset
+    # every boot so an operator-rotated password never locks QA out.
+    try:
+        from scripts.seed_food_microsite_demo import (
+            seed as seed_food_microsite,
+            seed_demo_layout,
+            seed_demo_reviews,
+            seed_qa_partner,
+        )
+        async with SessionLocal() as session:
+            await seed_food_microsite(session)
+            await seed_demo_layout(session)
+            await seed_demo_reviews(session)
+            await seed_qa_partner(session)
+    except Exception as e:  # noqa: BLE001
+        # Never fail the whole boot if the demo seed hiccups — it is QA data,
+        # not production critical. Log loudly so Ops can investigate.
+        import logging
+        logging.getLogger("baked.seed").exception("food demo seed failed err=%s", e)
