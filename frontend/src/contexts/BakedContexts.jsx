@@ -689,10 +689,15 @@ export const CartProvider = ({ children }) => {
         return { module: "shop", variant_id: i.variant?.id || i.product_id, quantity: i.quantity };
       }
       if (i.module === "food") {
+        // Accept BOTH persisted shapes:
+        //   - production: addFoodItem writes `product_id` on the line
+        //   - testing / API-driven: `menu_item_id` straight on the line
+        // Previously only `product_id` was read → quote never fired for the
+        // review-spec payload.
         return {
           module: "food",
-          restaurant_id: i.product?.restaurant_id || i.restaurant_id,
-          menu_item_id:  i.product_id || i.product?.id,
+          restaurant_id: i.restaurant_id || i.product?.restaurant_id,
+          menu_item_id:  i.menu_item_id || i.product_id || i.product?.id,
           quantity: i.quantity,
         };
       }

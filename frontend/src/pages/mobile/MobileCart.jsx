@@ -179,20 +179,20 @@ export const MobileCart = () => {
           <div className="text-sm font-bold mb-3">{t("checkout.order_summary")}</div>
           <div className="space-y-2 text-xs">
             {hasMart && (
-              <Row label={<span>MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-mart-subtotal" label={<span>MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
             )}
             {hasFood && (
-              <Row label={<span>FOOD {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({foodItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(foodSubtotal, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-food-subtotal" label={<span>FOOD {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({foodItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(foodSubtotal, country?.currency, ccy)} />
             )}
             {hasShop && (
-              <Row label={<span>SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-shop-subtotal" label={<span>SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
             )}
             <Row label={t("cart.subtotal")} value={formatMoney(subtotal, country?.currency, ccy)} />
             {hasMart && (
-              <Row label={`${t("cart.delivery_fee")} (MART)`} value={martDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(martDelivery, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-mart-delivery" label={`${t("cart.delivery_fee")} (MART)`} value={martDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(martDelivery, country?.currency, ccy)} />
             )}
             {hasFood && (
-              <Row label={`${t("cart.delivery_fee")} (FOOD)`} value={foodDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(foodDelivery, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-food-delivery" label={`${t("cart.delivery_fee")} (FOOD)`} value={foodDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(foodDelivery, country?.currency, ccy)} />
             )}
             {hasShop && (
               <Row label={`${t("cart.delivery_fee")} (SHOP)`} value={<span className="text-[10px] text-muted-foreground">{t("cart.delivery_shop_note")}</span>} />
@@ -200,8 +200,10 @@ export const MobileCart = () => {
             {savings > 0 && <Row label="Discount" value={<span style={{ color: "#77BC1F" }}>- {formatMoney(savings, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
-              <span>{t("cart.total")}</span><span data-testid="m-cart-total">{formatMoney(total, country?.currency, ccy)}</span>
+              <span>{t("cart.total")}</span>
+              <span data-testid="m-cart-total">{formatMoney(total, country?.currency, ccy)}</span>
             </div>
+            <div data-testid="cart-summary-total" className="sr-only">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
         </div>
       </div>
@@ -234,8 +236,8 @@ export const MobileCart = () => {
   );
 };
 
-const Row = ({ label, value }) => (
-  <div className="flex items-center justify-between">
+const Row = ({ label, value, "data-testid": testId }) => (
+  <div className="flex items-center justify-between" data-testid={testId}>
     <span className="text-muted-foreground">{label}</span>
     <span className="font-semibold">{value}</span>
   </div>
