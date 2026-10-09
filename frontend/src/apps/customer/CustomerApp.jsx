@@ -24,6 +24,7 @@ import { CheckoutPage } from "@/pages/CheckoutPage";
 import { OrderDetailPage, OrdersListPage } from "@/pages/OrderPages";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { FoodHome } from "@/apps/foodbaked/pages/FoodHome";
+import { FoodDiscoveryPage } from "@/apps/foodbaked/pages/FoodDiscoveryPage";
 import { FoodSearchResultsPage } from "@/apps/foodbaked/pages/FoodSearchResultsPage";
 import { FoodRestaurantDetail } from "@/apps/foodbaked/pages/FoodRestaurantDetail";
 import {
@@ -169,6 +170,7 @@ const DesktopCustomerShell = () => (
       <Route path="/profile/rewards" element={<DesktopProfileShell><MobileRewards /></DesktopProfileShell>} />
       <Route path="/profile/refer" element={<DesktopProfileShell><MobileRefer /></DesktopProfileShell>} />
       <Route path="/food" element={<FoodHome />} />
+      <Route path="/food/restaurants" element={<FoodDiscoveryPage />} />
       <Route path="/foodbaked/favorites" element={<FoodFavouritesPage />} />
       <Route path="/foodbaked/favourites" element={<FoodFavouritesPage />} />
       <Route path="/search" element={<GlobalSearchResultsPage />} />
@@ -267,6 +269,7 @@ const MobileCustomerShell = () => (
       <Route path="/profile/rewards" element={<MobileRewards />} />
       <Route path="/profile/refer" element={<MobileRefer />} />
       <Route path="/food" element={<FoodHome />} />
+      <Route path="/food/restaurants" element={<FoodDiscoveryPage />} />
       <Route path="/foodbaked/favorites" element={<FoodFavouritesPage />} />
       <Route path="/foodbaked/favourites" element={<FoodFavouritesPage />} />
       <Route path="/search" element={<GlobalSearchResultsPage />} />

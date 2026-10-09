@@ -33,7 +33,7 @@
  * this file and remains untouched.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Search, Bike, ShoppingBag, Utensils, Star, Clock, Truck, Heart, ChevronRight, ChevronLeft, Shield, Tag, Sparkles, MapPin } from "lucide-react";
 import FavouriteButton from "../components/FavouriteButton";
@@ -282,29 +282,39 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
   );
 };
 
-const CategoryStrip = ({ row, data, activeCategory, setActiveCategory, language, t }) => (
-  <section data-testid="food-section-categories">
-    <SectionHeader
-      row={row}
-      language={language}
-      defaultTitle={t("food.categories_title", { defaultValue: language === "fr" ? "Choisissez votre repas" : "Choose your meal" })}
-      defaultSubtitle={t("food.categories_subtitle", { defaultValue: language === "fr" ? "Inspiré par des commandes récentes" : "Inspired by recent orders" })}
-    />
-    <div className="overflow-x-auto -mx-2 px-2">
-      <div className="flex gap-6 min-w-max py-1">
-        {data.categories.map((c) => (
-          <CategoryChip
-            key={c.code}
-            category={c}
-            isActive={activeCategory === c.code}
-            onClick={() => setActiveCategory(c.code)}
-            language={language}
-          />
-        ))}
+const CategoryStrip = ({ row, data, activeCategory, setActiveCategory, language, t }) => {
+  const nav = useNavigate();
+  // Spec §2 — clicking a FOOD category must navigate to the dedicated
+  // discovery page (NOT filter the Featured carousel in place). The "All"
+  // chip stays on the home and resets the local category state.
+  const onClick = (code) => {
+    if (code === "all") { setActiveCategory("all"); return; }
+    nav(`/food/restaurants?category=${encodeURIComponent(code)}`);
+  };
+  return (
+    <section data-testid="food-section-categories">
+      <SectionHeader
+        row={row}
+        language={language}
+        defaultTitle={t("food.categories_title", { defaultValue: language === "fr" ? "Choisissez votre repas" : "Choose your meal" })}
+        defaultSubtitle={t("food.categories_subtitle", { defaultValue: language === "fr" ? "Inspiré par des commandes récentes" : "Inspired by recent orders" })}
+      />
+      <div className="overflow-x-auto -mx-2 px-2">
+        <div className="flex gap-6 min-w-max py-1">
+          {data.categories.map((c) => (
+            <CategoryChip
+              key={c.code}
+              category={c}
+              isActive={activeCategory === c.code}
+              onClick={() => onClick(c.code)}
+              language={language}
+            />
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const SectionHeader = ({ row, defaultTitle, defaultSubtitle, language }) => {
   const title = bilingual(row, "title", language) || defaultTitle;

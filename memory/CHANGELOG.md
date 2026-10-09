@@ -1516,3 +1516,18 @@ _(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer
 ### Tests
 - `backend/tests/test_cart_quote.py` 10/10 pass covering TC-01 through TC-29 (₹478 subtotal, ₹29 FOOD fee, ₹507 total; pickup waives fee; multi-restaurant fees summed per restaurant; unavailable items excluded; INR vs XOF; no min-order).
 - Testing agent iter 112: 100% backend + 100% frontend. Desktop drawer & mobile `/cart` both render ₹478 / ₹29 / ₹507, FOOD red badges, exactly 1 POST /cart/quote per cart change. MART-only & SHOP-only regressions unaffected.
+
+## 2026-10-09 — P0 Category-Based Restaurant Discovery (FOODbakēd)
+### Root cause
+- FOOD category chips were filtering the Featured carousel in place (`FoodHome.setActiveCategory`) rather than opening a dedicated page — restaurants with matching menu items but a non-matching cuisine were hidden.
+
+### Fix (menu-item centric discovery)
+- NEW `GET /api/food/restaurants/discover` (`modules/food/discover.py`) — reads `food_menu_items` via the existing `ix_food_menu_items_name_trgm` trigram index + a per-category synonym registry; dedups by restaurant_id; enforces **flat 15 km haversine**; marks each card with `delivery_eligible` + `delivery_unavailable_reason` so a venue inside 15 km but outside its own radius renders with the dimmed "Livraison indisponible à votre adresse" banner and a disabled delivery CTA.
+- NEW `GET /api/food/categories[?include_synonyms=1]` — FR+EN chip labels + synonym payload for the UI/filter modal.
+- NEW `modules/food/category_synonyms.py` — centralised FR+EN synonym + cuisine-hint registry (hard-coded for v1; shape matches a future `food_category_synonyms` table so Super Admin management is a drop-in later).
+- NEW route `/food/restaurants?category=…` → `FoodDiscoveryPage.jsx` with filter toolbar + bottom-sheet modal (Sort / Cuisines / Rating / Cost per person / Dietary / Availability), URL-driven filter state, mode toggle (Livraison / À emporter / Sur place) that refetches instantly, FR default + EN swap, dark theme preserved, mobile 390×844 single-column + large touch controls.
+- Wired `CategoryStrip` on `FoodHome` to navigate instead of filtering in place.
+
+### Tests
+- `backend/tests/test_food_discover_page.py` 11/11 pass covering spec §3 (Indian venue with Pizza item surfaces), sold-out exclusion, 15 km cutoff, **inside 15 km / outside own delivery zone marked non-deliverable**, pickup-mode gating, dedup, cuisine-hint fallback, rating filter, veg preview filter, categories endpoint.
+- Browser smoke: desktop 1920×1100 + mobile 390×844 both render results with FR-default copy and the Burger Hub FR example card.

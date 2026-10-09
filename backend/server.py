@@ -105,6 +105,7 @@ from modules.food.reviews import (  # noqa: E402
 )
 from modules.food.search import public_router as food_search_public_router  # noqa: E402
 from modules.food.discovery import router as food_discovery_router  # noqa: E402
+from modules.food.discover  import router as food_discover_page_router  # noqa: E402
 from modules.cart_quote import router as cart_quote_router  # noqa: E402
 from modules.food.favourites import customer_router as food_favourites_customer_router  # noqa: E402
 from modules.returns import (  # noqa: E402
@@ -235,8 +236,11 @@ api_router.include_router(realtime_router)
 # --- FOODbakēd (Phase 1 — 2026-02) ---
 # Public /food/* + admin /admin/food/* routes for the FoodHome + admin
 # workspace under /admin/modules/food.
+api_router.include_router(food_discover_page_router)             # /food/restaurants/discover + /food/categories (MUST be before food_router so /restaurants/discover isn't captured by the /restaurants/{slug} route)
 api_router.include_router(food_router, prefix="/food")
 api_router.include_router(food_discovery_router)                 # /food/discovery + /brands/top
+# food_discover_page_router registered earlier (above food_router) to avoid
+# the /food/restaurants/{slug} capture; comment left here for discoverability.
 api_router.include_router(cart_quote_router)                     # /cart/quote — unified pricing engine
 api_router.include_router(food_admin_router)
 api_router.include_router(food_partner_router)
