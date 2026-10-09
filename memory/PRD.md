@@ -1,5 +1,38 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-09) — FOODbakēd · Search Results Parity with Category Discovery — COMPLETE
+
+**Scope (user-approved)**: Bring the full Filter UX from the category Discovery page onto the global search results page so typing "burger" delivers the same experience as clicking the Burgers category chip. Filters apply to both Restaurants and Dishes groups. Enforce the 15 km flat discovery radius and delivery-zone eligibility banner consistently across hero, category chips and search.
+
+**Backend** (`/app/backend/modules/food/search.py` rewritten)
+- `GET /api/food/search` now accepts: `sort` (popularity | rating_desc | price_asc | price_desc | delivery_time_asc), `cuisines` (comma-separated), `min_rating`, `min_price`, `max_price`, `vegetarian` (all | veg_options | pure_veg), `open_now`, `lat`, `lng`, `radius_km` (default 15), `only_eligible`.
+- Restaurants bucket: query matches name/slug/cuisines OR any available dish name — so "burgers" surfaces every venue serving burgers (matching the category page). Filters apply at SQL level; 15 km radius enforced in Python when `lat/lng` supplied.
+- Delivery mode keeps rows inside the 15 km radius but marks `delivery_eligible=false` + `delivery_unavailable_reason` (outside_zone | closed | disabled) so the UI can render the "Livraison indisponible à votre adresse" banner.
+- Pickup / dine_in modes exclude ineligible rows (same as `/api/food/restaurants/discover`).
+- Dishes bucket inherits the same eligibility fields (so a dish from an out-of-zone restaurant shows the "no delivery" chip) and respects min_rating/open_now/cuisines of its parent restaurant plus min_price/max_price/pure_veg on the dish itself.
+- Reservations bucket is radius-filtered when `lat/lng` supplied.
+- Shared helpers from `modules/food/discovery.py` (haversine, compute_eta_minutes, DEFAULT_RADIUS_KM, PICKUP_DISCOVERY_KM).
+
+**Frontend**
+- Extracted `FoodFilterSheet` into `/app/frontend/src/apps/foodbaked/components/FoodFilterSheet.jsx` and refactored `FoodDiscoveryPage.jsx` to import it (single source of truth for the filter sheet).
+- Rewrote `FoodSearchResultsPage.jsx`:
+  - Filters button (`results-filter-btn`) + badge count + Pure Végé chip (`results-chip-veg`) in the toolbar.
+  - Mode toggle now writes to **global** `foodServiceMode` so switching modes here persists back to the hero and vice versa.
+  - 15 km radius hint under the toolbar; "Choisir l'adresse" prompt when no address is set.
+  - Restaurant cards render ETA chip, dim + banner "Livraison indisponible à votre adresse" when `delivery_eligible=false` in delivery mode.
+  - Dish cards show a "Livraison indispo." pill when their parent restaurant can't deliver.
+  - Filters + sort + query sync to the URL (shareable / refresh-safe).
+
+**Testing** — testing_agent iteration_113 verified **20/20 backend tests GREEN** (10 new in `test_food_search_filters.py` + 10 regression in `test_food_search.py`). Frontend verified end-to-end (desktop + mobile 390×844), all data-testids present, filter sheet opens, apply updates URL, mode toggle re-queries. **0 bugs**.
+
+**Files touched (5)**:
+- Added `/app/frontend/src/apps/foodbaked/components/FoodFilterSheet.jsx`, `/app/backend/tests/test_food_search_filters.py`.
+- Rewrote `/app/backend/modules/food/search.py`, `/app/frontend/src/apps/foodbaked/pages/FoodSearchResultsPage.jsx`.
+- Edited `/app/frontend/src/apps/foodbaked/pages/FoodDiscoveryPage.jsx` to import the shared FilterSheet.
+
+
+
+
 ## Latest (2026-02-06) — Phase P0 · Partner Wallet / Payouts — COMPLETE
 
 **Scope (user-approved rules)**: Vendor-specific negotiated commission (NOT a global default) set by Super Admin per restaurant, with immutable history so later rate changes NEVER recalculate historical orders. Vendor-specific payout schedule (daily / weekly / monthly / custom) with Super-Admin pause / resume / hold / release. Delivery fee stays with the platform. Order net lands in the wallet on delivery. Approved refunds debit the partner wallet. Partner can only VIEW terms — any change requires contacting BAKĒD. French-first UI with EN fallback. Architecture is module-agnostic (module column on every row) so MART / SHOP can reuse the same engine.
