@@ -1,5 +1,32 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-02-09) — FOODbakēd · Homepage UX (P1: Cuisines + Testimonials + View All) — COMPLETE
+
+**Scope (user-approved)**: 3 P1 improvements to the FOODbakēd customer home. (1) Make "Cuisines You'll Love" tiles clickable → navigate to the existing discovery page filtered by that cuisine code using the restaurant-cuisine mapping. (2) Redesign testimonials from one wide banner to two premium cards side-by-side on desktop + swipeable one-at-a-time carousel on mobile; admin-driven; drop the fabricated "10,000+ happy food lovers" claim. (3) Add a "Voir tout → / View All →" link on the Featured Restaurants header that opens the discovery page with no pre-filter. Preserve FR-first + mobile responsiveness + dark theme.
+
+**Frontend**
+- `/app/frontend/src/apps/foodbaked/pages/FoodHome.jsx`:
+  - `CuisineTile` is now a `<Link to={/food/restaurants?cuisines=<code>}>` with keyboard focus ring + hover scale. The `FoodDiscoveryPage` already parses `?cuisines=` and pre-selects the filter.
+  - `SectionHeader` gained an optional `viewAll` prop. `RestaurantCarousel` passes `viewAll={{ to:"/food/restaurants", label: t("food.view_all") }}` so the Featured section shows a "Voir tout →" / "View All →" link on both desktop and mobile.
+  - `TestimonialBanner` rewritten: renders a desktop grid of 2 premium cards (`md:grid-cols-2`) and a mobile swipe carousel (`md:hidden` with pagination dots). Each card: decorative quote glyph, quote text, author/role, always 5 green stars. Legacy single-quote rows auto-convert into one card. In-prod empty state hides the whole section; `?preview_country=` admin preview shows a soft dashed placeholder.
+- `/app/frontend/src/pages/admin/AdminHomepageManagement.jsx`: `food_testimonial` schema now uses an `F.list("items", …)` repeater — Super Admin can add / edit / reorder / enable / disable testimonials from `/admin/modules/food/homepage-management`. Each item: `enabled`, `sort_order`, `quote_fr/en`, `author_fr/en`, `role_fr/en`, `customer_image`, `background_image`.
+- i18n: dropped the fabricated `testimonial_meta` keys; added `testimonials_title` (FR "Avis de nos clients" / EN "Customer Reviews"). `food.view_all` already existed as "Voir tout" / "View All".
+
+**Backend / data**
+- `/app/backend/modules/homepage/seed.py` — CI + IN `food_testimonial` seed rows now use the new `config.items[]` shape with 2 demo testimonials each. Fabricated meta fields removed.
+- One-off DB migration (`/tmp/migrate_testimonials.py`) ran against the preview DB to convert the 2 existing legacy rows (CI + IN) to the new 2-item shape so the live homepage shows two cards immediately. Idempotent (skips rows that already have `items[]`).
+
+**Testing**
+- 51/51 backend regression tests GREEN (`test_food_homepage_cms.py`, `test_food_homepage_sections.py`, `test_food_search.py`, `test_food_search_filters.py`, `test_food_admin_crud.py`).
+- testing_agent iteration_114 verified all 14 explicit test cases on both backend and frontend (desktop + mobile 390×844). **0 bugs**.
+
+**Files touched (6)**
+- Edited `/app/frontend/src/apps/foodbaked/pages/FoodHome.jsx`, `/app/frontend/src/pages/admin/AdminHomepageManagement.jsx`, `/app/frontend/src/i18n/locales/fr/customer.json`, `/app/frontend/src/i18n/locales/en/customer.json`, `/app/backend/modules/homepage/seed.py`.
+- Added `/tmp/migrate_testimonials.py` (one-off DB migration, idempotent).
+
+
+
+
 ## Latest (2026-02-09) — FOODbakēd · Search Results Parity with Category Discovery — COMPLETE
 
 **Scope (user-approved)**: Bring the full Filter UX from the category Discovery page onto the global search results page so typing "burger" delivers the same experience as clicking the Burgers category chip. Filters apply to both Restaurants and Dishes groups. Enforce the 15 km flat discovery radius and delivery-zone eligibility banner consistently across hero, category chips and search.
