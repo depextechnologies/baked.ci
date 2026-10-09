@@ -18,7 +18,9 @@ import { ChevronLeft, Plus, Minus, Trash2, ShoppingCart } from "lucide-react";
 import { useApp, useCart, useAuth } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { useLocalePath } from "../../i18n/routes";
-import { checkOrderEligibility } from "../../lib/checkout";
+// checkOrderEligibility — removed in v1.1. The backend /cart/quote owns
+// min-order + delivery-fee logic now. The import stays commented so
+// future contributors see the migration note.
 import { getCartTheme } from "../../lib/cartTheme";
 import { CART } from "../../constants/testIds";
 import { Button } from "../ui/button";
@@ -76,7 +78,7 @@ const rowFacade = (it) => {
 export const CartDrawer = () => {
   const { t } = useTranslation("customer");
   const { country } = useApp();
-  const { cart, updateItem, removeItem, drawerOpen, closeCart } = useCart();
+  const { cart, quote, updateItem, removeItem, drawerOpen, closeCart } = useCart();
   const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
   const path = useLocalePath();
@@ -85,20 +87,23 @@ export const CartDrawer = () => {
 
   const items = cart.items || [];
   const theme = getCartTheme(cart);
-  // MART totals — filter must exclude BOTH shop AND food so a FOOD-only
-  // cart doesn't inherit MART's delivery fee / min-order gate. Guest cart
-  // path uses this fallback (hydrateGuest doesn't split by module yet).
-  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop" && i.module !== "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
-  const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
-  const foodSubtotal = cart.food?.subtotal ?? items.filter((i) => i.module === "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  // Backend quote is the SINGLE source of truth (fixing_prompt P0).
+  // The fallbacks below only run before the first quote lands so the UI
+  // never flashes stale numbers.
+  const martSubtotal = quote?.mart?.subtotal ?? cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop" && i.module !== "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const shopSubtotal = quote?.shop?.subtotal ?? cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
+  const foodSubtotal = quote?.food?.subtotal ?? cart.food?.subtotal ?? items.filter((i) => i.module === "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
   const hasMart = (cart.mart?.item_count ?? items.filter((i) => i.module !== "shop" && i.module !== "food").length) > 0;
   const hasShop = (cart.shop?.item_count ?? items.filter((i) => i.module === "shop").length) > 0;
   const hasFood = (cart.food?.item_count ?? items.filter((i) => i.module === "food").length) > 0;
-  const elig = checkOrderEligibility(martSubtotal, country);
-  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
-  const minOrderOk = hasMart ? martEligible : true;
-  const subtotal = martSubtotal + shopSubtotal + foodSubtotal;
-  const total = (hasMart ? elig.total : 0) + shopSubtotal + foodSubtotal;
+  // Per-module delivery fees come from the quote — the drawer no longer
+  // computes anything financial locally. SHOP ships from seller so its fee
+  // isn't finalised until checkout.
+  const martDelivery = quote?.mart?.delivery_fee ?? 0;
+  const foodDelivery = quote?.food?.delivery_fee ?? 0;
+  const minOrderOk   = true;             // v1.1 — no minimum-order rule
+  const subtotal     = quote?.subtotal   ?? (martSubtotal + shopSubtotal + foodSubtotal);
+  const total        = quote?.total      ?? (subtotal + martDelivery + foodDelivery);
 
   // ESC to close (Fixing_Prompt §5, §28).
   useEffect(() => {
@@ -366,8 +371,8 @@ export const CartDrawer = () => {
               {hasMart && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.delivery_fee")} (MART)</span>
-                  <span className="font-medium">
-                    {deliveryFee === 0 ? t("cart.delivery_free") : formatMoney(deliveryFee, country?.currency, country?.currency_symbol)}
+                  <span className="font-medium" data-testid="cart-drawer-delivery-mart">
+                    {martDelivery === 0 ? t("cart.delivery_free") : formatMoney(martDelivery, country?.currency, country?.currency_symbol)}
                   </span>
                 </div>
               )}
@@ -382,8 +387,10 @@ export const CartDrawer = () => {
               {hasFood && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("cart.delivery_fee")} (FOOD)</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {t("cart.delivery_food_note", { defaultValue: "Added at checkout" })}
+                  <span className="font-medium" data-testid="cart-drawer-delivery-food">
+                    {foodDelivery === 0
+                      ? t("cart.delivery_free")
+                      : formatMoney(foodDelivery, country?.currency, country?.currency_symbol)}
                   </span>
                 </div>
               )}
@@ -395,14 +402,9 @@ export const CartDrawer = () => {
                 </span>
               </div>
             </div>
-            {!minOrderOk && hasMart && (
-              <div className="text-[11px] mt-3 p-2 rounded-lg bg-yellow-500/10 text-yellow-500" data-testid="cart-drawer-min-order-warning">
-                {t("cart.min_order_short", {
-                  amount: formatMoney(shortfall, country?.currency, country?.currency_symbol),
-                  min: formatMoney(minOrder, country?.currency, country?.currency_symbol),
-                })}
-              </div>
-            )}
+            {/* Min-order banner removed in v1.1 — pricing engine
+                authoritatively enforces eligibility and no minimum is
+                applied to FOOD / MART / SHOP. */}
             <Button
               data-testid="cart-drawer-checkout"
               onClick={proceedToCheckout}

@@ -229,7 +229,11 @@ async def create_order(
             "notes": it.notes, "image": base.image,
         })
 
-    delivery_fee = 0.0  # Pass-1: free delivery; priced in P2 via driver_jobs.
+    # Delivery fee — pulled from the restaurant's configured `delivery_fee`
+    # column (same source as the /api/cart/quote endpoint, so the amount a
+    # customer sees in cart matches what we actually charge). Pickup orders
+    # are never billed a delivery fee.
+    delivery_fee = float(r.delivery_fee or 0) if payload.order_type == "delivery" else 0.0
     tax = 0.0
     grand_total = subtotal + delivery_fee + tax
     currency = (rows[0].currency if rows else None) or "XOF"

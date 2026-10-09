@@ -105,6 +105,7 @@ from modules.food.reviews import (  # noqa: E402
 )
 from modules.food.search import public_router as food_search_public_router  # noqa: E402
 from modules.food.discovery import router as food_discovery_router  # noqa: E402
+from modules.cart_quote import router as cart_quote_router  # noqa: E402
 from modules.food.favourites import customer_router as food_favourites_customer_router  # noqa: E402
 from modules.returns import (  # noqa: E402
     customer_router as returns_customer_router,
@@ -236,6 +237,7 @@ api_router.include_router(realtime_router)
 # workspace under /admin/modules/food.
 api_router.include_router(food_router, prefix="/food")
 api_router.include_router(food_discovery_router)                 # /food/discovery + /brands/top
+api_router.include_router(cart_quote_router)                     # /cart/quote — unified pricing engine
 api_router.include_router(food_admin_router)
 api_router.include_router(food_partner_router)
 api_router.include_router(food_manage_router)

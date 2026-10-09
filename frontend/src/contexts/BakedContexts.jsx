@@ -300,7 +300,9 @@ const writeGuest = (c) => localStorage.setItem(GUEST_KEY, JSON.stringify(c));
 
 export const CartProvider = ({ children }) => {
   const { customer } = useAuth() || {};
+  const app = useContext(AppCtx);          // optional — may be null in test harnesses
   const [cart, setCart] = useState({ items: [], subtotal: 0, item_count: 0 });
+  const [quote, setQuote] = useState(null);
   const [loaded, setLoaded] = useState(false);
   // Drawer state lives on the cart context so ANY component (top-nav,
   // add-to-cart callbacks, /cart route redirect, etc.) can open/close
@@ -360,6 +362,12 @@ export const CartProvider = ({ children }) => {
           items.push({
             id: it.id, product_id: it.product_id, quantity: it.quantity,
             module: mod, product: s, line_total: line,
+            // Keep the restaurant_id at the top level of the row so the
+            // /cart/quote request builder can pick it up without digging
+            // into the per-line snapshot. Previously the FOOD snapshot
+            // owned the ID but the quote caller looked at `i.restaurant_id`
+            // first and never found it → food subtotal silently empty.
+            restaurant_id: s.restaurant_id,
           });
         } else {
           try {
@@ -452,6 +460,7 @@ export const CartProvider = ({ children }) => {
             module: "food",
             product: s,
             line_total: line,
+            restaurant_id: s.restaurant_id,
           };
         });
         const foodSubtotal = foodItems.reduce((s, it) => s + (it.line_total || 0), 0);
@@ -663,7 +672,58 @@ export const CartProvider = ({ children }) => {
     await load();
   }, [load]);
 
-  const value = useMemo(() => ({ cart, loaded, addItem, addShopVariant, addFoodItem, updateItem, removeItem, clear, reload: load, drawerOpen, openCart, closeCart }), [cart, loaded, addItem, addShopVariant, addFoodItem, updateItem, removeItem, clear, load, drawerOpen, openCart, closeCart]);
+  // --- Authoritative pricing quote --------------------------------------
+  // Posts the current cart lines + the globally-selected delivery address
+  // and service mode to the backend `/cart/quote` engine, which is the ONE
+  // place that owns subtotal / delivery_fee / total math across the three
+  // modules. Both Mobile and Desktop UIs render straight from the response,
+  // so the two surfaces can no longer diverge the way the FOOD-mislabelled
+  // ₹29 mobile total used to.
+  const address = app?.activeAddress || null;
+  const country = app?.country?.code || app?.countryCode || "CI";
+  const foodMode = app?.foodServiceMode || "delivery";
+  useEffect(() => {
+    let cancelled = false;
+    const items = (cart.items || []).map((i) => {
+      if (i.module === "shop") {
+        return { module: "shop", variant_id: i.variant?.id || i.product_id, quantity: i.quantity };
+      }
+      if (i.module === "food") {
+        return {
+          module: "food",
+          restaurant_id: i.product?.restaurant_id || i.restaurant_id,
+          menu_item_id:  i.product_id || i.product?.id,
+          quantity: i.quantity,
+        };
+      }
+      return { module: "mart", product_id: i.product_id || i.product?.id, quantity: i.quantity };
+    }).filter((row) => row.quantity > 0 && (row.product_id || row.menu_item_id || row.variant_id));
+
+    if (items.length === 0) { setQuote(null); return; }
+
+    (async () => {
+      try {
+        const { data } = await api.post("/cart/quote", {
+          items, country,
+          mode: foodMode,
+          delivery_address: address?.lat != null && address?.lng != null
+            ? { lat: address.lat, lng: address.lng } : null,
+        });
+        if (!cancelled) setQuote(data);
+      } catch (err) {
+        // Quote failures must never block the UI — keep displaying the last
+        // known values and surface the error for ops to pick up.
+        console.warn("[cart.quote] failed", err?.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [cart.items, country, foodMode, address?.lat, address?.lng]);
+
+  const value = useMemo(() => ({
+    cart, quote, loaded, addItem, addShopVariant, addFoodItem, updateItem,
+    removeItem, clear, reload: load, drawerOpen, openCart, closeCart,
+  }), [cart, quote, loaded, addItem, addShopVariant, addFoodItem, updateItem, removeItem, clear, load, drawerOpen, openCart, closeCart]);
+
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 };
 export const useCart = () => useContext(CartCtx);
