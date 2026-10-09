@@ -1,0 +1,56 @@
+{
+  "summary": "Iteration 109 — tested FOODbakēd Pickup/Dine-in hero toggle (backend + frontend). 9/9 backend pytest cases pass and 9/9 frontend scenarios green. All review-spec acceptance criteria verified: dine_in alias accepted (no 422), canonical to reservation, same IDs as mode=reservation; pickup/dine_in restaurant counts match seed data (2/3); FR default toggle labels; EN toggle labels; instant carousel refetch without reload on mode switch; Commander à emporter + Réserver une table CTAs; dine_in card routes to /reservations; localStorage baked_food_mode persists on reload AND cross-page nav; Top Brands carousel refetches on mode change (6→2→3 brands).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_mode_toggle.py",
+    "/app/test_reports/pytest/iter109_mode.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "discovery.py _serialize elegantly maps the UI alias dine_in → reservation at the top of the function so every downstream filter (home/discovery/brands/top/check) inherits the behaviour from one place — clean single-source-of-truth.",
+    "FoodHome.jsx RestaurantCard CTA label is derived from (mode === 'dine_in' && r.reservations_enabled) rather than reservation_eligible — safe because backend already filters at only_eligible layer, but switching to r.reservation_eligible would make the component self-contained and defensive against caller mistakes.",
+    "FoodHome lat/lng are passed into useEffect as deps but 'mode' and 'activeAddress' can both change between renders; current implementation correctly refetches /food/home AND propagates mode to TopBrandsCarousel so it re-fetches /food/brands/top — verified working.",
+    "Minor: RestaurantCard renders CTA badge styled as a span inside the parent <Link>; semantically the entire card is already a link to /reservations, so no double-nav risk."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_food_mode_toggle.py (new)",
+    "/app/test_reports/iteration_109.json (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (9/9)"},
+  "test_credentials": "N/A for this feature",
+  "seed_data_creation": "None — relied on existing CI seed (delivery=5, pickup=2 [Burger Hub+Pizza Palace], dine_in=3 [Burger Hub+Sushi Central+Le Gourmet])",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "FOODbakēd service mode toggle fully covered. Backend tests at /app/backend/tests/test_food_mode_toggle.py (9 cases). Dine_in dine_in is a canonical alias for reservation at discovery.py:96. Mode is persisted in localStorage key 'baked_food_mode' via BakedContexts.AppProvider and threaded to RestaurantCard + TopBrandsCarousel. Dine_in cards route to /foodbaked/restaurants/<slug>/reservations.",
+  "verified_scenarios": {
+    "backend": [
+      "GET /api/food/home?mode=dine_in → 200 (no 422); all items reservation_eligible=true",
+      "GET /api/food/home?mode=pickup → all items pickup_eligible=true",
+      "GET /api/food/discovery mode=dine_in == mode=reservation (same IDs sorted)",
+      "GET /api/food/discovery?mode=pickup only returns pickup_enabled items",
+      "GET /api/food/brands/top?mode=pickup returns only pickup-eligible brands",
+      "GET /api/food/brands/top?mode=dine_in returns reservation-public brands",
+      "Different brand sets per mode (delivery vs pickup vs dine_in)"
+    ],
+    "frontend": [
+      "FR default labels: Livraison / À emporter / Sur place",
+      "EN labels after switch: Delivery / Pickup / Dine-in",
+      "Delivery baseline shows 5 restaurants on /food with Abidjan activeAddress",
+      "Pickup click → 2 restaurants (burger_hub_ci + pizza_palace_ci), 'Commander à emporter' CTA on both",
+      "Dine_in click → 3 restaurants (burger_hub_ci + sushi_central_ci + le_gourmet_ci), 'Réserver une table' CTA on all",
+      "No reload on mode switch (carousels refetch via useEffect dep on mode)",
+      "Dine_in card href = /foodbaked/restaurants/<slug>/reservations",
+      "localStorage key baked_food_mode = 'dine_in' persists after full page reload",
+      "Mode persists across navigation (/food → /foodbaked/favorites → /food still dine_in)",
+      "Top Brands count changes: delivery=6, pickup=2, dine_in=3 (confirms carousel refetches on mode change)"
+    ]
+  }
+}

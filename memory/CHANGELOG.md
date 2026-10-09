@@ -1482,3 +1482,11 @@ _(all five UX polish issues shipped: #12 mobile menu, #13 top header, #14 footer
 - Super Admin Homepage Management supports the new `food_top_brands` section type (title/subtitle in FR + EN, limit, auto|curated selection).
 - Frontend FoodHome (`/food`): new `TopBrandsCarousel` renders black-on-dark / white-on-light (per product), reads `activeAddress`, snap-scroll + desktop arrows + swipe mobile; new amber banner nudges customers to pick an address when none is set; home refetches on `lat/lng/mode` change.
 - Pytest `tests/test_food_discovery.py` 13/13 pass (haversine, ETA, Scenarios A/C/D/E, pickup wider radius, no-coords fallback, brand ETA, seeded section, search distance). Full discovery + favourites + cron settlement suites 31/31 pass. Frontend testing_agent verified all 15 feature scenarios green.
+
+## 2026-10-09 — Pickup / Dine-in Hero Toggle (P1 Mode Switching)
+- Backend `/api/food/{discovery,home,restaurants,search,brands/top}` now accept `mode=dine_in` as a canonical alias for `reservation`; `_serialize` normalises on the way in.
+- Global `foodServiceMode` lives in `BakedContexts` with `localStorage` persistence (`baked_food_mode`) so a diner picking "À emporter" stays in pickup when they bounce into a restaurant microsite and back.
+- `ServiceToggle` labels are French-default (Livraison / À emporter / Sur place) with EN swap (Delivery / Pickup / Dine-in) tied to i18n.
+- `RestaurantCard` is mode-aware: pickup-eligible cards show a green "Commander à emporter" CTA, dine-in cards show "Réserver une table" and link straight to `/foodbaked/restaurants/{slug}/reservations`.
+- `RestaurantCarousel` renders mode-specific empty states; carousel + TopBrands refetch instantly when the toggle flips (`useEffect([lat,lng,mode])`).
+- Pytest coverage: +2 tests (dine_in alias ↔ reservation, dine_in hidden when `reservation_public=FALSE`). All 15 discovery tests pass.
