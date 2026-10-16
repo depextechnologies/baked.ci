@@ -17,7 +17,7 @@ export function AddressBar({ accent = colors.accent }: { accent?: string }) {
       <View style={{ flex: 1 }}>
         <AppText weight="semibold" size={16} numberOfLines={1} testID="address-bar-title">{title}</AppText>
         <View style={styles.sub}>
-          <AppText size={13} color={colors.textMuted}>{t('addr.delivering_to')}</AppText>
+          <AppText size={13} color={colors.textMuted}>{address ? t('addr.delivering_to') : t('addr.tap_to_set')}</AppText>
           {address && country?.delivery_eta_min ? (
             <View style={[styles.eta, { backgroundColor: `${accent}26` }]}>
               <AppText weight="semibold" size={12} color={accent}>{country.delivery_eta_min}</AppText>

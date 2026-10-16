@@ -56,5 +56,5 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
   field: { flexDirection: 'row', alignItems: 'center', height: 60, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   cc: { paddingHorizontal: 16, height: '100%', justifyContent: 'center', borderRightWidth: 1, borderRightColor: colors.border },
-  input: { flex: 1, height: '100%', paddingHorizontal: 16, color: colors.text, fontFamily: fonts.semibold, fontSize: 18, letterSpacing: 1 },
+  input: { flex: 1, minWidth: 0, height: '100%', paddingHorizontal: 16, color: colors.text, fontFamily: fonts.semibold, fontSize: 18, letterSpacing: 1, outlineStyle: 'none' } as any,
 });

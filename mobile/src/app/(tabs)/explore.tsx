@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   title: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12, letterSpacing: -0.6 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 18, paddingHorizontal: 16, height: 54, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  input: { flex: 1, color: colors.text, fontFamily: fonts.regular, fontSize: 16, height: '100%' },
+  input: { flex: 1, minWidth: 0, color: colors.text, fontFamily: fonts.regular, fontSize: 16, height: '100%', outlineStyle: 'none' } as any,
   filters: { gap: 8, paddingHorizontal: 18, paddingVertical: 14 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   caption: { paddingHorizontal: 18, marginTop: 10, marginBottom: 10, letterSpacing: 1 },

@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAccountSummary } from '@/hooks/useAccountSummary';
@@ -16,7 +16,8 @@ import { BellButton } from '../home/MainHeader';
 import { Logo } from '../Logo';
 import { AppText } from '../ui/AppText';
 import { ErrorView, Skeleton } from '../ui/StateView';
-import { categoryEndpoint, toTiles } from './moduleData';
+import { ModuleIcon } from '../ModuleIcon';
+import { categoryEndpoint, toTiles, type Tile } from './moduleData';
 
 export function ModuleHome({ code }: { code: ModuleCode }) {
   const { t, lang, country } = useApp();
@@ -53,13 +54,7 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
         <View style={styles.grid} testID="module-categories">
           {loading ? Array.from({ length: 8 }).map((_, i) => <View key={i} style={styles.tile}><Skeleton h={76} r={18} /></View>)
             : tiles.slice(0, 12).map((c) => (
-              <View key={c.id} style={styles.tile} testID={`module-cat-${c.id}`}>
-                <View style={[styles.tileImg, { backgroundColor: hexA(m.color, 0.12) }]}>
-                  {c.image ? <Image source={c.image as any} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
-                    : <AppText weight="black" size={22} color={m.color}>{c.name.slice(0, 1)}</AppText>}
-                </View>
-                <AppText weight="medium" size={12} align="center" numberOfLines={2}>{c.name}</AppText>
-              </View>
+              <CategoryTile key={c.id} tile={c} color={m.color} icon={m.icon} />
             ))}
         </View>
       )}
@@ -69,6 +64,20 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
         <AppText size={13} color={colors.textMuted} style={{ flex: 1 }}>{t('module.next_phase')}</AppText>
       </View>
     </ScrollView>
+  );
+}
+
+function CategoryTile({ tile, color, icon }: { tile: Tile; color: string; icon: any }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <View style={styles.tile} testID={`module-cat-${tile.id}`}>
+      <View style={[styles.tileImg, { backgroundColor: hexA(color, 0.12) }]}>
+        {tile.image && !failed
+          ? <Image source={tile.image as any} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} onError={() => setFailed(true)} />
+          : <ModuleIcon icon={icon} color={color} size={26} />}
+      </View>
+      <AppText weight="medium" size={12} align="center" numberOfLines={2}>{tile.name}</AppText>
+    </View>
   );
 }
 

@@ -1,0 +1,41 @@
+{
+  "summary": "Tested BAKĒD Super App Phase B (Expo Web export at /api/app-preview/, 390x844) end-to-end plus the new backend notification endpoints. Backend: 14/14 pytest tests pass (OTP request/verify, wrong-code rejection, notifications list/read-all/read-one, 401 gating, wallet, /auth/me, MART/FOOD/SHOP/SEND category APIs, app-preview mount, website smoke). Frontend: every flow in the review list passes. Covered: splash, onboarding in FR/EN (language persists), Skip, location skip/manual/current (geolocation denied shows location-message), Google Places 'Cocody' (5 results), welcome as guest, persistence on reload (address/context/onboarding), 6 module cards in order, AUTO alert with no navigation, MART/FOOD/SHOP/SEND homes with their own API categories, switcher (ACTIF badge, AUTO/IMMO aria-disabled, close/backdrop), context-aware Home tab, logo back to main home, Explore (lait→mart group, send_parcel intent, filters, empty state, hit→MART), guest gating, OTP login (+225, dev code, wrong-code error), redirect preservation (header-wallet→login→wallet-screen), logged-in wallet chip 0 CFA, notifications empty, activity empty with filters, rewards, session persistence, logout. Found and fixed 1 UI bug: the +225 country prefix was hidden on the login screen on web.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/otp/request (core/utils/phone.py to_e164)", "issue": "Strips the leading 0 from CI numbers: 0700000001 becomes +225700000001 (9 digits). Since 2021, Côte d'Ivoire numbers are 10 digits including the leading 0 (+2250700000001), as the function's own docstring says. Real SMS delivery to CI numbers would fail or go to the wrong number. The website flow shares this code."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "login.tsx phone field (web)", "issue": "FIXED by testing agent. The TextInput (flex:1) kept the web <input>'s intrinsic min-width, so the row overflowed (scrollWidth 418 > 342). autoFocus then scrolled the overflow:hidden row 78px and hid the '🇨🇮 +225' prefix (only '5' showed). Added minWidth:0 to the input style and rebuilt with npm run export:web. Verified: scrollLeft 0, prefix fully visible.", "selector": "[data-testid='login-country-code']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Address search / Explore search inputs (web)", "issues": ["The browser's default white focus outline draws a rectangle inside the rounded search field. Add outlineStyle:'none' (web) to those TextInputs."]},
+      {"screen": "FOOD module home", "issues": ["The 'Poulet' cuisine tile renders an empty image (broken or missing image_url)."]},
+      {"screen": "SHOP module home", "issues": ["Categories show only letter placeholders (M, B, S...). No images, so it looks unfinished next to MART/FOOD/SEND."]},
+      {"screen": "Explore MART hits", "issues": ["Seed data: 'Lait de Coco' shows an eggplant image and 'Lait Bébé 1er Âge' has no image."]},
+      {"screen": "Header address bar (no address)", "issues": ["Shows 'Choisir une adresse' with the subtitle 'Livraison à', which reads oddly when nothing is chosen."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_phase_b.py", "/app/test_reports/pytest/mobile_phase_b.xml"],
+  "action_items": [
+    "Decide on the CI phone normalisation in core/utils/phone.py (lstrip('0') drops the significant leading 0 of 10-digit CI numbers). Fix it carefully because the website and existing customers share it.",
+    "Optional: add an SPA fallback for /api/app-preview/* so that refreshing on a sub-route serves index.html instead of a 404 {detail: Not Found}.",
+    "Remove the web focus outline on the search TextInputs; fix the FOOD 'Poulet' image; add SHOP category images.",
+    "The notifications screen never calls POST /customers/me/notifications/{id}/read (items aren't tappable). Wire it up when notifications become actionable."
+  ],
+  "critical_code_review_comments": [
+    "SessionContext: if /auth/me fails offline, the token is kept but customer stays null, so the user looks like a guest until the next launch. Consider caching the customer profile.",
+    "Static mount (StaticFiles html=True) has no deep-link fallback, so reloads on sub-routes 404.",
+    "Onboarding Skip is hidden on the last slide (fine by design). The last-slide CTA correctly reads 'Commencer'."
+  ],
+  "updated_files": ["/app/mobile/src/app/login.tsx (minWidth:0 on input) + rebuilt /app/mobile/dist", "/app/backend/tests/test_mobile_phase_b.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% of requested flows (after 1 minor UI fix)"},
+  "seed_data_creation": "Test customers created via OTP: +225700000001, +2250700000002-style random numbers from pytest.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The app is at /api/app-preview/ (static Expo export from /app/mobile/dist). Each browser_automation run is a fresh context, so onboard every time: onboarding-skip → location-skip → welcome-guest. Don't page.reload() on sub-routes (404); use goto(root). The AUTO module card fires window.alert, so register a dialog handler. Disabled switcher cards are outside the viewport, so use dispatch_event('click'). The OTP dev code appears in otp-dev-code. Rebuild after source edits: cd /app/mobile && npm run export:web.",
+  "rca of the issue": "Login prefix hidden: on RN-web a TextInput renders <input>, which has an intrinsic min-width. With flex:1 and no minWidth:0 it overflowed the overflow:hidden row, and autoFocus's scroll-into-view shifted the row left by 78px. Mitigation: minWidth:0 on the input."
+}

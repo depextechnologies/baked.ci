@@ -45,6 +45,7 @@ const fr = {
   'addr.pin_web': 'La sélection sur carte est disponible dans l’application mobile.',
   'addr.choose': 'Choisir une adresse',
   'addr.delivering_to': 'Livraison à',
+  'addr.tap_to_set': 'Définissez votre adresse de livraison',
 
   'welcome.title': 'Tout BAKĒD, avec un seul compte',
   'welcome.body': 'Connectez-vous avec votre numéro de mobile pour commander, payer et suivre vos livraisons.',
@@ -210,6 +211,7 @@ const en: Record<Key, string> = {
   'addr.pin_web': 'Map selection is available in the mobile app.',
   'addr.choose': 'Choose an address',
   'addr.delivering_to': 'Delivering to',
+  'addr.tap_to_set': 'Set your delivery address',
 
   'welcome.title': 'All of BAKĒD, one account',
   'welcome.body': 'Log in with your mobile number to order, pay and track your deliveries.',

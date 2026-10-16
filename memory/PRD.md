@@ -1,5 +1,15 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-10-16) — BAKĒD Super App · Mobile Phase A + Phase B (foundation) — COMPLETE, awaiting user review
+
+**Scope (user-approved)**: New React Native + Expo SDK 58 + TypeScript + Expo Router app in `/app/mobile` (NOT a WebView), consuming the existing FastAPI/Postgres backend. Website untouched. Phase B = first-launch journey (splash → 3 intro slides → location explainer → welcome/login or guest → Main Home), Main Home matching `MainHome.png`, switcher matching `Image (29).png`, 5-item bottom nav (Accueil | Explorer | Apps | Activité | Profil), context-aware Home, logo → Main Home, phone OTP login with redirect preservation, FR default / EN, wallet/rewards/notifications widgets, Explore (global search), Activity (cross-module orders), Profile. Module homes show only their own real categories; full MART/FOOD/SHOP/SEND journeys = Phase C/D (NOT started — wait for approval).
+- Backend additive: `GET/POST /api/customers/me/notifications[/read-all|/{id}/read]`; static mount `/api/app-preview` → `/app/mobile/dist` (Expo Web export).
+- Preview: web `https://<preview>/api/app-preview/`; Expo Go QR at `/api/app-preview/expo-go-qr.png` (tunnel `exp://foz5nuc-anonymous-8081.exp.direct`, supervisor program `expo-mobile`). Rebuild web with `npm run export:web` (regenerate QR after export).
+- Audit / API reuse report + gaps: `/app/mobile/README.md`.
+- Testing: iteration_115 — backend 14/14, frontend all requested flows pass (1 login prefix fix by tester; follow-ups fixed: web focus outline, empty-address subtitle, broken category image fallback).
+- Known gaps: push notifications (Phase E, needs EAS project), wallet not activated (balance 0 real), CI phone leading-0 normalisation in `core/utils/phone.py` (needs owner decision), SHOP categories have no images in DB, Node 20 < Expo-recommended 22.13 (works).
+- Next: user reviews Phase B → Phase C (MART + FOOD native journeys: listing, PDP, restaurant, cart via `/api/cart/quote`, checkout, tracking).
+
 ## Latest (2026-02-09) — FOODbakēd · Homepage UX (P1: Cuisines + Testimonials + View All) — COMPLETE
 
 **Scope (user-approved)**: 3 P1 improvements to the FOODbakēd customer home. (1) Make "Cuisines You'll Love" tiles clickable → navigate to the existing discovery page filtered by that cuisine code using the restaurant-cuisine mapping. (2) Redesign testimonials from one wide banner to two premium cards side-by-side on desktop + swipeable one-at-a-time carousel on mobile; admin-driven; drop the fabricated "10,000+ happy food lovers" claim. (3) Add a "Voir tout → / View All →" link on the Featured Restaurants header that opens the discovery page with no pre-filter. Preserve FR-first + mobile responsiveness + dark theme.
