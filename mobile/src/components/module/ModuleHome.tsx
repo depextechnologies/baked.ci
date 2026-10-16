@@ -1,0 +1,85 @@
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Sparkles } from 'lucide-react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+
+import { useAccountSummary } from '@/hooks/useAccountSummary';
+import { useFetch } from '@/hooks/useFetch';
+import { useModuleNav } from '@/hooks/useModuleNav';
+import { MODULES, type ModuleCode } from '@/lib/modules';
+import { useApp } from '@/state/AppContext';
+import { colors, hexA, radius } from '@/theme';
+import { BrandName } from '../BrandName';
+import { AddressBar, SearchBar } from '../home/AddressBar';
+import { BellButton } from '../home/MainHeader';
+import { Logo } from '../Logo';
+import { AppText } from '../ui/AppText';
+import { ErrorView, Skeleton } from '../ui/StateView';
+import { categoryEndpoint, toTiles } from './moduleData';
+
+export function ModuleHome({ code }: { code: ModuleCode }) {
+  const { t, lang, country } = useApp();
+  const { goMainHome } = useModuleNav();
+  const { unread } = useAccountSummary();
+  const m = MODULES[code];
+  const { data, loading, error, reload } = useFetch<any>(categoryEndpoint(code, country?.code || 'CI'), [code]);
+  const tiles = toTiles(code, data, lang, t, m.image);
+
+  return (
+    <ScrollView testID={`module-home-${code}`} contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        <Logo height={30} onPress={goMainHome} testID="module-logo-home" />
+        <View style={[styles.chip, { borderColor: hexA(m.color, 0.5) }]}><BrandName code={code} size={14} /></View>
+        <View style={{ flex: 1 }} />
+        <BellButton unread={unread} />
+      </View>
+      <AddressBar accent={m.color} />
+      <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} />
+
+      <View style={[styles.hero, { borderColor: hexA(m.color, 0.45) }]} testID="module-hero">
+        <LinearGradient colors={[hexA(m.color, 0.32), hexA(m.color, 0.05), '#000']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <View style={{ flex: 1, zIndex: 1 }}>
+          <BrandName code={code} size={26} />
+          <AppText weight="semibold" size={17} style={{ marginTop: 8 }}>{t(`module.hero.${code}` as any)}</AppText>
+        </View>
+        <Image source={m.image} style={styles.heroImg} contentFit="contain" />
+      </View>
+
+      <AppText weight="bold" size={19} style={styles.section}>
+        {code === 'food' ? t('module.cuisines') : code === 'express' ? t('module.services') : t('module.categories')}
+      </AppText>
+      {error ? <ErrorView onRetry={reload} /> : (
+        <View style={styles.grid} testID="module-categories">
+          {loading ? Array.from({ length: 8 }).map((_, i) => <View key={i} style={styles.tile}><Skeleton h={76} r={18} /></View>)
+            : tiles.slice(0, 12).map((c) => (
+              <View key={c.id} style={styles.tile} testID={`module-cat-${c.id}`}>
+                <View style={[styles.tileImg, { backgroundColor: hexA(m.color, 0.12) }]}>
+                  {c.image ? <Image source={c.image as any} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+                    : <AppText weight="black" size={22} color={m.color}>{c.name.slice(0, 1)}</AppText>}
+                </View>
+                <AppText weight="medium" size={12} align="center" numberOfLines={2}>{c.name}</AppText>
+              </View>
+            ))}
+        </View>
+      )}
+
+      <View style={[styles.note, { borderColor: hexA(m.color, 0.3) }]} testID="module-next-phase-note">
+        <Sparkles color={m.color} size={18} />
+        <AppText size={13} color={colors.textMuted} style={{ flex: 1 }}>{t('module.next_phase')}</AppText>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 6, paddingBottom: 14 },
+  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, backgroundColor: colors.surface },
+  hero: { marginHorizontal: 18, height: 150, borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', padding: 18 },
+  heroImg: { width: '46%', height: '100%' },
+  section: { paddingHorizontal: 18, marginTop: 24, marginBottom: 12 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12 },
+  tile: { width: '25%', paddingHorizontal: 6, marginBottom: 14, alignItems: 'center', gap: 6 },
+  tileImg: { width: '100%', aspectRatio: 1, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  note: { flexDirection: 'row', gap: 10, marginHorizontal: 18, marginTop: 10, padding: 14, borderRadius: radius.md, borderWidth: 1, backgroundColor: colors.surface },
+});

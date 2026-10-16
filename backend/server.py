@@ -56,6 +56,7 @@ from shared.notifications.routes import (  # noqa: E402
     supplier_router as notif_supplier_router,
     partner_router as notif_partner_router,
     admin_router as notif_admin_router,
+    customer_router as notif_customer_router,
 )
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
@@ -198,6 +199,7 @@ api_router.include_router(inv_admin_router)
 api_router.include_router(notif_supplier_router)
 api_router.include_router(notif_partner_router)
 api_router.include_router(notif_admin_router)
+api_router.include_router(notif_customer_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)
@@ -306,6 +308,11 @@ from pathlib import Path as _Path  # noqa: E402
 _uploads_root = _Path(os.environ.get("STORAGE_LOCAL_PATH") or "/app/backend/uploads").resolve()
 _uploads_root.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(_uploads_root)), name="uploads")
+
+# BAKĒD mobile app — Expo Web export for design review (built from /app/mobile).
+_app_preview_root = _Path("/app/mobile/dist")
+if _app_preview_root.is_dir():
+    app.mount("/api/app-preview", StaticFiles(directory=str(_app_preview_root), html=True), name="app-preview")
 
 # ---- Postgres-outage-friendly middleware ----
 # When Postgres goes briefly unreachable (container restart, VM reschedule),

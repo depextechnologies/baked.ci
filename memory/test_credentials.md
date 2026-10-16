@@ -116,3 +116,8 @@
 - `drv_seed_pend1` — Priya Kumar · IN · pending_review (full KYC — approve me)
 - `drv_seed_pend2` — Kouame Bakayoko · CI · pending_review (full KYC)
 - `drv_seed_appr1` — Existing Driver · IN · approved
+
+## BAKĒD Mobile Super App (Expo, /app/mobile) — customer phone OTP
+- Web preview: `https://baked-platform.preview.emergentagent.com/api/app-preview/` (open root, then navigate in-app; use a mobile viewport ~390x844)
+- Any CI mobile number, e.g. country `+225`, phone `0700000001` (8+ digits). OTP_PROVIDER=dev → the code is shown on the OTP screen ("Code de test") and returned as `dev_code` from `POST /api/auth/otp/request`.
+- Expo Go: scan `https://baked-platform.preview.emergentagent.com/api/app-preview/expo-go-qr.png` (tunnel served by supervisor program `expo-mobile`).

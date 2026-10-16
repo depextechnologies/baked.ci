@@ -202,3 +202,38 @@ async def adm_read_all(session: AsyncSession = Depends(get_session),
     await _mark_read(session, recipient_kind="admin", recipient_id=admin.id)
     await session.commit()
     return {"ok": True}
+
+
+# ------- Customer surface (BAKĒD mobile app + website bell) -------
+
+def _customer_dep():
+    from core.deps import get_current_customer
+    return get_current_customer
+
+
+customer_router = APIRouter(prefix="/customers/me/notifications", tags=["customer-notifications"])
+
+
+@customer_router.get("")
+async def cus_list(unread: int = 0, limit: int = Query(40, le=100),
+                   session: AsyncSession = Depends(get_session),
+                   customer=Depends(_customer_dep())):  # noqa: B008
+    return await _list(session, recipient_kind="customer", recipient_id=customer.id,
+                       unread_only=bool(unread), limit=limit)
+
+
+@customer_router.post("/{notif_id}/read")
+async def cus_read(notif_id: str,
+                   session: AsyncSession = Depends(get_session),
+                   customer=Depends(_customer_dep())):  # noqa: B008
+    await _mark_read(session, recipient_kind="customer", recipient_id=customer.id, notif_id=notif_id)
+    await session.commit()
+    return {"ok": True}
+
+
+@customer_router.post("/read-all")
+async def cus_read_all(session: AsyncSession = Depends(get_session),
+                       customer=Depends(_customer_dep())):  # noqa: B008
+    await _mark_read(session, recipient_kind="customer", recipient_id=customer.id)
+    await session.commit()
+    return {"ok": True}
