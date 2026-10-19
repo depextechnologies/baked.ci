@@ -61,7 +61,7 @@ export default function SendTrack() {
   const ds = b?.driver_snapshot;
 
   const cancel = async () => {
-    if (!(await confirmAsk(t('trk.cancel_confirm'), t(mv ? 'mv.cancel' : 'send.cancel'), t('common.cancel')))) return;
+    if (!(await confirmAsk(t(mv ? 'mv.cancel_confirm' : 'trk.cancel_confirm'), t(mv ? 'mv.cancel' : 'send.cancel'), t('common.cancel')))) return;
     try { await api(`/express/bookings/${id}/cancel`, { method: 'POST', body: {} }); notify(t(mv ? 'mv.cancelled' : 'send.cancelled')); refresh(); } catch (e: any) { notify(e?.message || t('common.network_error')); }
   };
 

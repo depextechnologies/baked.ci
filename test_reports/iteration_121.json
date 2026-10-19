@@ -1,0 +1,32 @@
+{
+  "summary": "Retest of the iteration_120 fixes. Backend: 43 passed, 1 skipped (-n 0). I added 15 validation tests to test_mobile_send_movers.py. Quote returns 422 for labour 0, 11 or -5 and for negative floors_pickup/floors_drop. Booking returns 422 for a negative pickup/drop_building.floor and for labour 0 or 11. It returns 400 with codes invalid_move_type, invalid_time_slot, invalid_date and no_items. A booking with only custom_items works. Extra pickup_building keys (lift, parking) are saved in the DB column movers_pickup_access (checked with psql) but are not included in the booking API response. Mobile web preview at 390x844: the SEND tile now reads 'Déménager' on one line (16px tall, no break). On the type step, size chips show only for house and mini_labour (0 chips for office and single_item). Picking a size with an empty inventory asks nothing. Picking a size with a filled inventory shows the confirm 'Remplacer votre inventaire par celui de ce logement ?': dismiss keeps 11 items, accept replaces them with 29. The all chip reads 'Tous'. The full movers booking works (advance 5 000, total 35 140). The track screen shows the header 'Suivi du déménagement' and all 6 movers timeline labels, 'Total · Déménagement' and 'Annuler le déménagement'. Cancel shows the message 'Déménagement annulé' and the status becomes 'Annulée'. Single-drop SEND regression passes and keeps the parcel wording (Suivi de livraison, Livreur assigné, Colis récupéré, Livré, Total · Livraison, Annuler la livraison); cancel works. With images blocked, the SHOP product page fallback shows the category icon: the Car icon for automobile, confirmed by its svg path, not ShoppingBag.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/express/quote/movers", "issue": "time_slot_surcharge is client-supplied and unbounded. time_slot_surcharge=-999999 returns 200 with total=-984999. Bookings are safe because they read the surcharge from the DB slot, so only the displayed quote is wrong. Add Field(ge=0) or accept time_slot_code and look up the surcharge on the server."},
+      {"endpoint": "GET /api/express/bookings/{id}", "issue": "booking_to_dict does not return movers_pickup_access or movers_drop_access, so floor, elevator and extra access info never reach the client. This is informational; the current UI does not need it."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Movers track screen", "issues": ["When the 'En direct' pill is shown, the header title is cut off as 'Suivi du déménagem…' at 390px. Use a shorter title or a smaller pill.", "The cancel confirm text is the generic 'Voulez-vous vraiment annuler cette commande ?'. A movers-specific message would read better (optional)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_send_movers.py", "/app/backend/tests/test_mobile_phase_d_shop_send.py", "/app/test_reports/pytest/pytest_iter121.xml"],
+  "action_items": [
+    "Optional: bound time_slot_surcharge in MoversQuoteIn (ge=0), or derive it on the server from time_slot_code.",
+    "Optional: shorten the movers track header or the live pill so the title is not cut off at 390px."
+  ],
+  "critical_code_review_comments": [
+    "movers.tsx: switching from house (with a size preset) to office keeps the preset inventory. That is acceptable; custom_items size: is only sent for house and mini_labour.",
+    "Quote and booking compute surcharges differently: the client sends the surcharge to the quote, while the booking looks it up in the DB. These should be unified."
+  ],
+  "updated_files": ["/app/backend/tests/test_mobile_send_movers.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Movers and parcel bookings were created and then cancelled for customer 0700000001.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0 (pytest.ini adds xdist, and the tests share state). Log in on the web preview at /api/app-preview/login with 0700000001 and read the OTP from otp-dev-code. On web, confirmAsk/notify use window.confirm/alert, so handle them with page.on('dialog'). To test image fallbacks, abort image requests with page.route. Product shpprd_demo_outils-entretien is in the automobile category (Car icon)."
+}

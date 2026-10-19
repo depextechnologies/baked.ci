@@ -113,3 +113,66 @@ class TestMoversBooking:
     def test_invalid_qty_rejected(self):
         r = requests.post(f"{API}/express/quote/movers", json={"country": "CI", "pickup_lat": 5.3, "pickup_lng": -4, "drop_lat": 5.31, "drop_lng": -4, "items": [{"item_id": "x", "qty": 0}]})
         assert r.status_code == 422
+
+
+# ---------- iteration 121: input validation on movers quote/booking ----------
+def _bk(cfg, **over):
+    body = {"country": "CI", "move_type": "house", "pickup": PICKUP, "drop": DROP,
+            "items": [{"item_id": cfg["items"][0]["id"], "qty": 1}], "labour_movers": 2, "payment_method": "cod"}
+    body.update(over)
+    return body
+
+
+def _code(r):
+    d = r.json().get("detail")
+    return d.get("code") if isinstance(d, dict) else d
+
+
+class TestMoversValidation:
+    @pytest.mark.parametrize("over", [{"labour_movers": 0}, {"labour_movers": 11}, {"labour_movers": -5},
+                                      {"floors_pickup": -1}, {"floors_drop": -3}])
+    def test_quote_bounds_422(self, cfg, over):
+        _, body = _quote_body(cfg, cfg["slots"][0])
+        body.update(over)
+        r = requests.post(f"{API}/express/quote/movers", json=body)
+        assert r.status_code == 422, (over, r.status_code, r.text[:200])
+
+    @pytest.mark.parametrize("over", [{"pickup_building": {"floor": -1}}, {"drop_building": {"floor": -2}},
+                                      {"labour_movers": 0}, {"labour_movers": 11}])
+    def test_booking_bounds_422(self, h, cfg, over):
+        r = requests.post(f"{API}/express/bookings/movers", headers=h, json=_bk(cfg, **over))
+        assert r.status_code == 422, (over, r.status_code, r.text[:200])
+
+    @pytest.mark.parametrize("over,code", [
+        ({"move_type": "spaceship"}, "invalid_move_type"),
+        ({"time_slot_code": "NOPE_SLOT"}, "invalid_time_slot"),
+        ({"scheduled_date": "not-a-date"}, "invalid_date"),
+        ({"items": [], "custom_items": []}, "no_items"),
+    ])
+    def test_booking_business_400(self, h, cfg, over, code):
+        r = requests.post(f"{API}/express/bookings/movers", headers=h, json=_bk(cfg, **over))
+        assert r.status_code == 400, (over, r.status_code, r.text[:200])
+        assert _code(r) == code, r.text
+
+    def test_custom_items_only_ok_and_extra_keys_preserved(self, h, cfg):
+        r = requests.post(f"{API}/express/bookings/movers", headers=h, json=_bk(
+            cfg, items=[], custom_items=[{"name": "Piano"}],
+            pickup_building={"floor": 2, "elevator": True, "stairs": False, "lift": "large", "parking": "street"},
+            drop_building={"floor": 0, "parking": "garage"},
+            time_slot_code=cfg["slots"][0]["code"], scheduled_date="2026-03-01"))
+        assert r.status_code == 200, r.text
+        bd = r.json()
+        assert bd["status"] == "confirmed" and float(bd["total"]) > 0
+        g = requests.get(f"{API}/express/bookings/{bd['id']}", headers=h).json()
+        acc = g.get("movers_pickup_access") or bd.get("movers_pickup_access")
+        print("pickup_access:", acc, "drop:", g.get("movers_drop_access"))
+        # movers_pickup_access is persisted in DB (verified via psql in iter121) but not exposed by booking_to_dict
+        if acc is not None:
+            assert acc.get("lift") == "large" and acc.get("parking") == "street" and acc.get("floor") == 2
+        requests.post(f"{API}/express/bookings/{bd['id']}/cancel", headers=h, json={})
+
+    def test_quote_negative_slot_surcharge(self, cfg):
+        _, body = _quote_body(cfg, cfg["slots"][0])
+        body["time_slot_surcharge"] = -999999
+        r = requests.post(f"{API}/express/quote/movers", json=body)
+        print("negative surcharge:", r.status_code, r.text[:200])

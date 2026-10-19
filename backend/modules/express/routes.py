@@ -276,7 +276,7 @@ class MoversQuoteIn(BaseModel):
     stairs_pickup: bool = False
     stairs_drop: bool = False
     declared_value: Optional[float] = None
-    time_slot_surcharge: float = 0.0
+    time_slot_surcharge: float = Field(0.0, ge=0)
 
 
 @router.post("/quote/movers")

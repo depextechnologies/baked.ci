@@ -1909,3 +1909,12 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
     - **Testing**: main agent Playwright smoke-tested the full flow (onboarding → login IN +91 → OTP verify → KYC step 1 → step 2 → dashboard). All test-ids in place. Admin driver-directory curl passes with 4 drivers · correct bucket counts.
     - **Not in this slice** (parked for Slice 2+): incoming delivery request card, pickup/delivery navigation, OTP/QR delivery verification, earnings dashboard, wallet withdraw, incentives, chat, live location broadcast.
 
+
+- ✅ **Mobile Phase D — Packers & Movers + SEND FR fixes + SHOP icons (2026-06)**
+    - `/app/mobile/src/app/send/movers.tsx`: 6-step native flow (addresses → move type + home size presets studio/1-4 pièces → inventory by category → floors/elevator + labour → date + time slot → quote review with advance/remaining) → `POST /express/bookings/movers` → `/send/track/{id}` with movers wording + summary card.
+    - SEND tile `packers_movers` ("Déménager") added on SEND module home. FR labels for English-only catalogue rows in `lib/i18n-send-data.ts` (package types, preferences, move types, categories, items, slots).
+    - Track screen: searching hint replaces duplicated subtitle.
+    - SHOP: per-category lucide icons (`SHOP_ICONS`), `Thumb` image fallback on category grid + product page.
+    - Backend: movers quote/booking validation (labour 1-10, floors ≥0, slot surcharge ≥0, typed buildings, move_type/time_slot/date/items checks).
+    - Redis runs under supervisor `redis-local`.
+    - Testing: iteration_120 + iteration_121 PASS (backend 43 tests incl. `test_mobile_send_movers.py`).
