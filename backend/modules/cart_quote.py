@@ -249,6 +249,10 @@ async def _price_mart(
           FROM mart_products WHERE id = ANY(:ids)
     """), {"ids": pids})).fetchall()}
 
+    # Same partner-price overlay as /mart/products, eligibility and POST /orders.
+    from modules.mart_partner.allocation import effective_partner_price
+    partner_prices = await effective_partner_price(session, list(products.keys()), country=country.upper(), module="mart")
+
     sub = Decimal("0")
     unavailable: list[str] = []
     currency: Optional[str] = None
@@ -258,7 +262,8 @@ async def _price_mart(
             if it.product_id:
                 unavailable.append(it.product_id)
             continue
-        sub += _d(p.price) * it.quantity
+        pp = partner_prices.get(p.id)
+        sub += _d(pp["partner_price"] if pp else p.price) * it.quantity
         currency = currency or (p.currency or None)
 
     # Country rules — reads the same `countries` columns the frontend

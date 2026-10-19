@@ -1,0 +1,51 @@
+{
+  "summary": "Phase C (native MART + FOOD ordering) tested on the web preview at 390x844, plus backend pytest. Backend: 18/18 pass (variant/add-on quote pricing, FOOD delivery/pickup order create, server repricing that ignores tampered prices, customer cancel as owner, 404 for other customers, 401 without login, 409 after accept, cancel idempotent, app-preview SPA fallback). Frontend flows that work: MART home (offers, categories, popular, add/stepper, header count, cart bar); category screen (sub chips, sort, search, empty state, deep link survives refresh); product page; home-search opens the category screen with the search focused; FOOD home, discover filters and modes; restaurant page with add-ons/variants (3500->3700->7400, Large 5300); dine-in shows reserve button; reservation lands on Activity; favourites (guest goes to login, logged-in toggle, Profile and the Heart link); guest cart -> login -> OTP -> checkout with redirect kept and guest MART merged; checkout (slots, COD, Stripe/Mobile Money show 'Bientôt disponible'); MART+FOOD orders created; tracking (timeline, auto-refresh label, driver card, track-map-web); MART and FOOD cancel + reorder; Activity reorder; Explore 'lait' opens the product. Bugs found: (1) cart totals go stale after changing MART qty when logged in, (2) /cart/quote prices MART at the master price instead of the partner price, (3) FOOD 'placed' status is not translated, plus a few smaller UI/wording issues.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/cart/quote (modules/cart_quote.py _price_mart)", "issue": "MART lines are priced at the master price (mart_products.price) without the effective_partner_price overlay that /mart/products, /mart/cart/eligibility and POST /orders apply. Example: Banane Cavendish prd_ab810bec2a114ba0 shows 900 CFA on its card and is charged 900, but the quote says 800. Guest cart shows subtotal 800 next to a 900 line; after login the total jumps from 4500 to 4600.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/food/customer/orders", "issue": "Does not check the restaurant's pickup_enabled / delivery_enabled / delivery radius. A pickup order was created for burger_hub_ci, which has pickup_enabled=false (the quote marks it eligible=false). Only the cart screen blocks this; a direct /checkout deep link or API call gets around it."},
+      {"endpoint": "GET /api/mart/delivery-slots?country=CI", "issue": "Slot labels are in English ('Tue 09:00 - 11:00', 'Wed ...') inside the French UI."},
+      {"endpoint": "GET /api/food/restaurants/discover", "issue": "Restaurants that can't serve the chosen mode are filtered out instead of returned with mode_eligible=false, so the app never shows the 'dimmed / Indisponible en ...' state. Pickup returns 0 restaurants in CI because none has pickup_enabled (data). Category 'burgers' matches all 6 CI restaurants because the seeded menus are duplicated across restaurants (data)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "hooks/useCartTotals.ts + CartContext.setMartQty", "issue": "Race when logged in: setMart(nextLocal) changes `sig` right away, so GET /mart/cart/eligibility runs before the PATCH/POST to /carts/me finishes and returns the old subtotal. reload() then sets the same quantities, so `sig` doesn't change and nothing refetches. Seen twice: qty 1->2 shows a 1800 line but cart-subtotal 900 and total 1400 (server says 1800/2300); 2->1 shows a 900 line but subtotal 1800. Fix: refetch totals after the server sync (e.g. a cart version counter in sig, bumped after reload) or skip eligibility while the mutation is in flight.", "selector": "[data-testid=cart-subtotal], [data-testid=cart-total]", "priority": "HIGH"},
+      {"component": "lib/i18n.ts statusLabel", "issue": "FOOD statuses have no French label: 'status.placed' (also rejected, collected, picked_up) is missing, so the raw word 'placed' appears in order-status and the Activity badge.", "selector": "[data-testid=order-status]", "priority": "MEDIUM"},
+      {"component": "cart.tsx not-eligible warning", "issue": "In pickup mode it still says 'Ce restaurant ne livre pas à votre adresse. Choisissez « À emporter »…' while 'À emporter' is already selected. The message should depend on the mode (e.g. 'Ce restaurant ne propose pas la vente à emporter').", "selector": "[data-testid=cart-food-not-eligible-burger_hub_ci]", "priority": "MEDIUM"},
+      {"component": "useReorder (FOOD)", "issue": "Reordered FOOD lines have no image (blank thumbnail in the cart).", "selector": "[data-testid^=cart-food-line-]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cart", "issues": ["cart-checkout looks enabled (opacity 1, bright green) when it is disabled (aria-disabled=true because a group is ineligible). Add a disabled look."]},
+      {"screen": "FOOD home", "issues": ["The 'Poulet' cuisine tile has no image (placeholder icon only)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_phase_c_commerce.py", "/app/test_reports/pytest/pytest_phase_c.xml"],
+  "action_items": [
+    "Apply effective_partner_price in cart_quote._price_mart so guest MART totals match the card price and the eligibility/order price",
+    "Fix the useCartTotals race: refetch totals after the /carts/me mutation and reload finish",
+    "Add the French and English status.placed / rejected / collected labels in lib/i18n.ts",
+    "Make the cart not-eligible message depend on the mode (delivery vs pickup)",
+    "Give a disabled Button a visible disabled style",
+    "Optional: check pickup_enabled / delivery_enabled in POST /food/customer/orders, and check eligibility on the checkout screen too",
+    "Optional: localise MART slot labels; keep the image when reordering FOOD",
+    "Run `cd /app/mobile && npm run export:web` after mobile fixes"
+  ],
+  "critical_code_review_comments": [
+    "CartContext.reload: the guest MART merge swallows POST errors (.catch(() => {})) and then removes guest_mart_cart anyway, so items can be lost silently. Two reload() calls at the same time could also post the guest items twice.",
+    "checkout.tsx: the MART POST /orders has no idempotency key (FOOD uses client_order_id). If the request fails after the server has created the order and the user retries, a duplicate order can be created.",
+    "checkout.tsx: dine_in foodMode is sent as a pickup order. That is fine, but checkout does not re-check totals.groups eligibility (only the cart screen blocks).",
+    "create_order silently drops variant/add-on ids that are unknown or belong to another item (falls back to the base price) instead of returning 422. Safe, but the client gets no signal."
+  ],
+  "updated_files": ["/app/backend/tests/test_mobile_phase_c_commerce.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "~88% (core flows pass; 1 high bug on cart totals, 1 high backend pricing bug, 2 medium UI bugs)"},
+  "test_credentials": "Customer OTP +225 0713538911 (dev_code from /api/auth/otp/request); partner qa-burger@test.example / QaBurger123!",
+  "seed_data_creation": "Test customers created via OTP (random 07xxxxxxxx / 05xxxxxxxx numbers plus 0713538911). Several FOOD orders on burger_hub_ci (some cancelled, one accepted via partner), 2 MART orders (ord_d07b03a79b68443e status preparing, ord_bcd873e5dbdd4e13 cancelled), 1 reservation rsv_24c91398e7b741fe, burger_hub_ci favourite for 0713538911.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use page.request OTP and set localStorage baked_access_token, baked_onboarding_done and baked_active_address to inject a session. On expo-router web, earlier stack screens stay in the DOM, so scope selectors (e.g. [data-testid=mart-product-grid] or [data-testid=food-discover-screen]) or use .last. Native confirm/alert become browser dialogs, so accept them with page.on('dialog'). Not tested: the rating flow (needs a delivered MART or FOOD order; MART stays at 'preparing') and the FOOD driver card (no driver assigned).",
+  "rca of the issue": "Stale cart totals: setMartQty calls setMart(nextLocal) before awaiting the API. useCartTotals reacts to the new sig and fires GET /mart/cart/eligibility while the PATCH is still in flight, so it returns the old subtotal. reload() then sets an identical cart, so sig doesn't change and nothing refetches. Steps: log in, add 1 MART product, open /cart, tap plus; the line shows 1800 but subtotal shows 900. Fix: bump a version after reload and include it in sig. Quote mismatch: cart_quote._price_mart reads mart_products.price directly, while mart routes/orders overlay modules.mart_partner.allocation.effective_partner_price."
+}

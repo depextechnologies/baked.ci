@@ -21,7 +21,7 @@ import { useCart, type FoodLine } from '@/state/CartContext';
 import { useSession } from '@/state/SessionContext';
 import { colors, fonts, hexA, radius } from '@/theme';
 
-type Slot = { id: string; label: string; kind: string };
+type Slot = { id: string; label: string; kind: string; start_at: string; end_at: string };
 type Method = { code: string; label: string; label_fr: string; enabled: boolean };
 
 export default function Checkout() {
@@ -45,6 +45,14 @@ export default function Checkout() {
   if (!isAuthed) return <Redirect href="/login?redirect=/checkout" />;
   if (!hasMart && !food.length) return <Redirect href="/cart" />;
 
+  const slotLabel = (s: Slot) => {
+    if (s.kind === 'asap') return t('co.asap');
+    const loc = lang === 'fr' ? 'fr-FR' : 'en-GB';
+    const a = new Date(s.start_at); const b = new Date(s.end_at);
+    const time = (d: Date) => d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+    const sameDay = a.toDateString() === new Date().toDateString();
+    return `${sameDay ? '' : `${a.toLocaleDateString(loc, { weekday: 'short', day: 'numeric' })} `}${time(a)} – ${time(b)}`;
+  };
   const money = (n: number) => formatMoney(n, totals?.currency || 'XOF', undefined, lang);
   const addressOk = !needsAddress || (address && address.latitude != null);
 
@@ -112,7 +120,7 @@ export default function Checkout() {
             <AppText weight="bold" size={15}>{t('co.slot')}</AppText>
             {slots.loading ? <Skeleton h={40} /> : (
               <View style={styles.wrap}>
-                {(slots.data || []).map((s) => <Chip key={s.id} testID={`checkout-slot-${s.id}`} label={s.label} on={slot === s.id} color={MODULES.mart.color} onPress={() => setSlot(s.id)} />)}
+                {(slots.data || []).map((s) => <Chip key={s.id} testID={`checkout-slot-${s.id}`} label={slotLabel(s)} on={slot === s.id} color={MODULES.mart.color} onPress={() => setSlot(s.id)} />)}
               </View>
             )}
           </View>

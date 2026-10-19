@@ -20,7 +20,7 @@ export const foodUnitPrice = (l: FoodLine) =>
   l.base_price + (l.variant?.price_delta || 0) + l.addons.reduce((s, a) => s + (a.price || 0), 0);
 
 type CartState = {
-  mart: MartLine[]; food: FoodLine[]; count: number; ready: boolean;
+  mart: MartLine[]; food: FoodLine[]; count: number; ready: boolean; version: number;
   foodMode: FoodMode; setFoodMode: (m: FoodMode) => void;
   martQty: (productId: string) => number;
   setMartQty: (product: MartProduct, qty: number) => Promise<void>;
@@ -40,6 +40,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [food, setFood] = useState<FoodLine[]>([]);
   const [foodMode, _setFoodMode] = useState<FoodMode>('delivery');
   const [ready, setReady] = useState(false);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     prefs.get<FoodLine[]>('food_cart', []).then(setFood);
@@ -61,6 +62,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setMart((c.items || []).filter((i) => i.module !== 'shop').map((i) => ({ id: i.id, product_id: i.product_id, quantity: i.quantity, product: i.product })));
     } catch { /* keep last known */ }
     setReady(true);
+    setVersion((v) => v + 1);
   }, [isAuthed]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -73,7 +75,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       : existing ? mart.map((l) => (l.product_id === product.id ? { ...l, quantity: qty } : l))
         : [...mart, { product_id: product.id, quantity: qty, product }];
     setMart(nextLocal);
-    if (!isAuthed) { await prefs.set('guest_mart_cart', nextLocal); return; }
+    if (!isAuthed) { await prefs.set('guest_mart_cart', nextLocal); setVersion((v) => v + 1); return; }
     try {
       if (existing?.id && qty <= 0) await api(`/carts/me/items/${existing.id}`, { method: 'DELETE' });
       else if (existing?.id) await api(`/carts/me/items/${existing.id}`, { method: 'PATCH', body: { quantity: qty } });
@@ -96,8 +98,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const count = mart.reduce((s, l) => s + l.quantity, 0) + food.reduce((s, l) => s + l.quantity, 0);
   const value = useMemo(() => ({
-    mart, food, count, ready, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload,
-  }), [mart, food, count, ready, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload]);
+    mart, food, count, ready, version, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload,
+  }), [mart, food, count, ready, version, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

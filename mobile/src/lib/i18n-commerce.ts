@@ -13,6 +13,7 @@ export const frC = {
   'cart.login_to_checkout': 'Se connecter pour commander',
   'cart.unavailable': 'Indisponible',
   'cart.not_deliverable': 'Ce restaurant ne livre pas à votre adresse. Choisissez « À emporter » ou retirez ces articles.',
+  'cart.no_pickup': 'Ce restaurant ne propose pas la vente à emporter. Choisissez « Livraison » ou retirez ces articles.',
   'cart.clear': 'Vider',
   'cart.added': 'Ajouté au panier',
   'cart.mart_section': 'Courses MART',
@@ -104,6 +105,7 @@ export const frC = {
   'co.success': 'Commande confirmée !',
   'co.partial': 'Une partie de la commande a échoué : {msg}',
   'co.need_slot': 'Choisissez un créneau de livraison.',
+  'co.asap': 'Dès que possible',
 
   'trk.title': 'Suivi de commande',
   'trk.order': 'Commande #{n}',
@@ -149,6 +151,7 @@ export const enC: Record<keyof typeof frC, string> = {
   'cart.login_to_checkout': 'Log in to checkout',
   'cart.unavailable': 'Unavailable',
   'cart.not_deliverable': 'This restaurant doesn’t deliver to your address. Choose “Pickup” or remove these items.',
+  'cart.no_pickup': 'This restaurant doesn’t offer pickup. Choose “Delivery” or remove these items.',
   'cart.clear': 'Clear',
   'cart.added': 'Added to cart',
   'cart.mart_section': 'MART groceries',
@@ -240,6 +243,7 @@ export const enC: Record<keyof typeof frC, string> = {
   'co.success': 'Order confirmed!',
   'co.partial': 'Part of the order failed: {msg}',
   'co.need_slot': 'Choose a delivery slot.',
+  'co.asap': 'As soon as possible',
 
   'trk.title': 'Order tracking',
   'trk.order': 'Order #{n}',

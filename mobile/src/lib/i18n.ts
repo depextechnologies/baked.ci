@@ -162,6 +162,10 @@ const frBase = {
   'status.delivered': 'Livrée',
   'status.completed': 'Terminée',
   'status.cancelled': 'Annulée',
+  'status.placed': 'Passée',
+  'status.rejected': 'Refusée',
+  'status.collected': 'Retirée',
+  'status.picked_up': 'Récupérée',
 };
 
 const fr = { ...frBase, ...frC };
@@ -329,6 +333,10 @@ const enBase: Record<keyof typeof frBase, string> = {
   'status.delivered': 'Delivered',
   'status.completed': 'Completed',
   'status.cancelled': 'Cancelled',
+  'status.placed': 'Placed',
+  'status.rejected': 'Rejected',
+  'status.collected': 'Collected',
+  'status.picked_up': 'Picked up',
 };
 
 const en: Record<Key, string> = { ...enBase, ...enC };

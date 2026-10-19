@@ -169,10 +169,14 @@ async def create_order(
 
     # ---- Validate restaurant
     r = (await session.execute(text(
-        "SELECT id, country, status, delivery_fee, delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
+        "SELECT id, country, status, delivery_fee, delivery_enabled, pickup_enabled, delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
     ), {"id": payload.restaurant_id})).fetchone()
     if not r or r.status != "active":
         raise HTTPException(404, "Restaurant unavailable")
+    if payload.order_type == "pickup" and not r.pickup_enabled:
+        raise HTTPException(409, "Ce restaurant ne propose pas la vente à emporter.")
+    if payload.order_type == "delivery" and not r.delivery_enabled:
+        raise HTTPException(409, "Ce restaurant ne propose pas la livraison.")
 
     # ---- Phase 4: service pause check. Reject the order with a clear
     # payload the customer-side UI can act on (e.g. offer the OTHER service

@@ -15,7 +15,7 @@ export function Touchable({ style, scale = 0.97, onPress, children, ...rest }: P
     <Pressable
       {...rest}
       onPress={(e) => { tap(); onPress?.(e); }}
-      style={({ pressed }) => [style, { transform: [{ scale: pressed ? scale : 1 }], opacity: pressed ? 0.92 : 1 }]}
+      style={({ pressed }) => [style, { transform: [{ scale: pressed ? scale : 1 }] }, pressed && { opacity: 0.92 }]}
     >
       {children as React.ReactNode}
     </Pressable>

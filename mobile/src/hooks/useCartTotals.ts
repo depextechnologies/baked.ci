@@ -14,13 +14,13 @@ export type Totals = {
 // All money comes from the backend: FOOD from /cart/quote (repriced incl. options), MART from the
 // same eligibility engine that POST /orders uses (quote for guests, who have no account cart yet).
 export function useCartTotals() {
-  const { mart, food, foodMode } = useCart();
+  const { mart, food, foodMode, version } = useCart();
   const { address, country } = useApp();
   const { isAuthed } = useSession();
   const [totals, setTotals] = useState<Totals | null>(null);
   const [loading, setLoading] = useState(false);
   const cc = country?.code || 'CI';
-  const sig = JSON.stringify([mart.map((l) => [l.product_id, l.quantity]), food.map((l) => [l.key, l.quantity]), foodMode, address?.latitude, isAuthed]);
+  const sig = JSON.stringify([version, mart.map((l) => [l.product_id, l.quantity]), food.map((l) => [l.key, l.quantity]), foodMode, address?.latitude, isAuthed]);
 
   useEffect(() => {
     if (!mart.length && !food.length) { setTotals(null); return; }

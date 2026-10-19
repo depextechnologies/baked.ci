@@ -63,7 +63,7 @@ export default function CartScreen() {
                   <View key={rid} style={{ gap: 4 }} testID={`cart-food-group-${rid}`}>
                     <AppText weight="bold" size={15} style={{ marginTop: 6 }}>{lines[0].restaurant_name}</AppText>
                     {g && !g.eligible ? (
-                      <View style={styles.warn} testID={`cart-food-not-eligible-${rid}`}><TriangleAlert color="#FCC44C" size={16} /><AppText size={12} color="#FCC44C" style={{ flex: 1 }}>{t('cart.not_deliverable')}</AppText></View>
+                      <View style={styles.warn} testID={`cart-food-not-eligible-${rid}`}><TriangleAlert color="#FCC44C" size={16} /><AppText size={12} color="#FCC44C" style={{ flex: 1 }}>{t(foodMode === 'delivery' ? 'cart.not_deliverable' : 'cart.no_pickup')}</AppText></View>
                     ) : null}
                     {lines.map((l) => (
                       <Row key={l.key} testID={`cart-food-line-${l.item_id}`} image={l.image} title={l.name}
