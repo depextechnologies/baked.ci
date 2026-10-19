@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Check, RefreshCw, Star } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -18,6 +18,7 @@ import { statusLabel, type TKey } from '@/lib/i18n';
 import { MODULES } from '@/lib/modules';
 import { confirmAsk, notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
+import { useSession } from '@/state/SessionContext';
 import { colors, fonts, hexA, radius } from '@/theme';
 import { normaliseTracking, type Tracking } from '@/lib/tracking';
 
@@ -27,6 +28,7 @@ export default function OrderScreen() {
   const { module, id } = useLocalSearchParams<{ module: 'mart' | 'food'; id: string }>();
   const { t, lang } = useApp();
   const reorder = useReorder();
+  const { isAuthed } = useSession();
   const [trk, setTrk] = useState<Tracking | null>(null);
   const [error, setError] = useState(false);
   const color = MODULES[module].color;
@@ -39,10 +41,11 @@ export default function OrderScreen() {
   }, [module, id]);
 
   useFocusEffect(useCallback(() => {
+    if (!isAuthed) return undefined;
     load();
     const timer = setInterval(() => { if (!trk?.terminal) load(); }, POLL_MS);
     return () => clearInterval(timer);
-  }, [load, trk?.terminal]));
+  }, [load, trk?.terminal, isAuthed]));
 
   const cancel = async () => {
     if (!(await confirmAsk(t('trk.cancel_confirm'), t('trk.cancel'), t('common.cancel')))) return;
@@ -53,6 +56,7 @@ export default function OrderScreen() {
   };
 
   const money = (n: number) => formatMoney(n, trk?.currency || 'XOF', undefined, lang);
+  if (!isAuthed) return <Redirect href={`/login?redirect=/order/${module}/${id}` as any} />;
 
   return (
     <SafeAreaView style={styles.root} testID="order-screen">

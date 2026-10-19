@@ -39,7 +39,7 @@ function foodTracking(raw: any): Tracking {
   const cancelled = CANCELLED.includes(o.status);
   const delivered = DELIVERED.includes(o.status);
   const current = delivered ? flow.length - 1 : Math.max(0, flow.indexOf(o.status));
-  const at = (code: string) => (o.events || []).find((e: any) => e.to_status === code)?.created_at
+  const at = (code: string) => (o.events || []).find((e: any) => e.type === code || e.to_status === code)?.at
     || ({ placed: o.placed_at, accepted: o.accepted_at, ready: o.ready_at, delivered: o.delivered_at, collected: o.delivered_at } as any)[code];
   const hasDriver = !!d?.driver?.name;
   return {

@@ -114,10 +114,11 @@ class TestFoodOrders:
         assert float(d["subtotal"]) == 7400
         pytest.food_oid = d["id"]
 
-    def test_create_pickup_order(self, cust):
+    # FIX 5 (iter117): pickup refused when restaurant has pickup_enabled=false
+    def test_create_pickup_order_refused(self, cust):
         r = _food_order(cust, "pickup")
-        assert r.status_code == 201, r.text
-        assert float(r.json()["delivery_fee"]) == 0
+        assert r.status_code == 409, r.text
+        assert "emporter" in r.text
 
     def test_tamper_prices_ignored(self, cust):
         r = _food_order(cust, "delivery", [{"item_id": BURGER, "quantity": 1,
@@ -153,7 +154,7 @@ class TestFoodOrders:
         assert r2.json()["status"] == "cancelled"
 
     def test_cancel_after_accept_409(self, cust, partner):
-        r = _food_order(cust, "pickup")
+        r = _food_order(cust, "delivery")
         oid = r.json()["id"]
         a = partner.patch(f"{API}/food/manage/{RID}/orders/{oid}", json={"action": "accept", "prep_minutes": 15})
         assert a.status_code == 200, a.text
@@ -167,6 +168,31 @@ class TestMart:
         r = cust.get(f"{API}/mart/cart/eligibility")
         print("eligibility", r.status_code, r.text[:300])
         assert r.status_code in (200, 404)
+
+
+# FIX 2 (iter117): /cart/quote MART uses partner-price overlay, same as /mart/products and eligibility
+BANANE = "prd_ab810bec2a114ba0"
+
+
+class TestMartQuotePrice:
+    def test_quote_banane_x2_partner_price(self):
+        listed = [p for p in requests.get(f"{API}/mart/products", params={"country": "CI", "q": "banane"}).json()
+                  if p["id"] == BANANE][0]["price"]
+        r = requests.post(f"{API}/cart/quote", json={"country": "CI", "items": [
+            {"module": "mart", "product_id": BANANE, "quantity": 2}]})
+        assert r.status_code == 200, r.text
+        assert float(r.json()["mart"]["subtotal"]) == float(listed) * 2 == 1800
+
+    def test_quote_matches_eligibility(self, cust):
+        for it in cust.get(f"{API}/carts/me").json().get("items", []):
+            cust.delete(f"{API}/carts/me/items/{it['id']}")
+        a = cust.post(f"{API}/carts/me/items", json={"product_id": BANANE, "quantity": 3, "module": "mart"})
+        assert a.status_code in (200, 201), a.text
+        e = cust.get(f"{API}/mart/cart/eligibility", params={"country": "CI"}).json()
+        q = requests.post(f"{API}/cart/quote", json={"country": "CI", "items": [
+            {"module": "mart", "product_id": BANANE, "quantity": 3}]}).json()
+        assert float(e["subtotal"]) == float(q["mart"]["subtotal"]) == 2700
+        assert float(e["delivery_fee"]) == float(q["mart"]["delivery_fee"])
 
 
 # --- SPA fallback ---
