@@ -49,25 +49,25 @@ export default function SendTrack() {
   }, [b?.id, JSON.stringify(b?.stops)]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (stops.length > 1) computeRoute(stops).then((r) => setRoute(r.coords)); }, [stops]);
 
+  const mv = b?.booking_type === 'movers';
   if (!isAuthed) return <Redirect href={`/login?redirect=/send/track/${id}` as any} />;
   const driver = pt(b?.driver_location);
   const target = b && ['picked_up', 'in_transit'].includes(b.status) ? stops[stops.length - 1] : stops[0];
   const remaining = driver && target ? km(driver, target) : null;
   const stale = lastFix && !terminal && b?.driver_id ? Math.round((now - lastFix) / 1000) : 0;
-  const mv = b?.booking_type === 'movers';
   const flow = mv ? MV_FLOW : FLOW;
-  const stLabel = (s: string) => (mv && s === 'confirmed' ? t('st.mv.confirmed') : t(`send.st.${s}` as TKey) || s);
+  const stLabel = (s: string) => (mv && s !== 'cancelled' ? t(`mv.st.${s}` as TKey) : t(`send.st.${s}` as TKey)) || s;
   const cur = Math.max(0, flow.indexOf(b?.status));
   const ds = b?.driver_snapshot;
 
   const cancel = async () => {
-    if (!(await confirmAsk(t('trk.cancel_confirm'), t('send.cancel'), t('common.cancel')))) return;
-    try { await api(`/express/bookings/${id}/cancel`, { method: 'POST', body: {} }); notify(t('send.cancelled')); refresh(); } catch (e: any) { notify(e?.message || t('common.network_error')); }
+    if (!(await confirmAsk(t('trk.cancel_confirm'), t(mv ? 'mv.cancel' : 'send.cancel'), t('common.cancel')))) return;
+    try { await api(`/express/bookings/${id}/cancel`, { method: 'POST', body: {} }); notify(t(mv ? 'mv.cancelled' : 'send.cancelled')); refresh(); } catch (e: any) { notify(e?.message || t('common.network_error')); }
   };
 
   return (
     <SafeAreaView style={styles.root} testID="send-track-screen">
-      <ScreenHeader title={t('send.track')} right={
+      <ScreenHeader title={t(mv ? 'mv.track' : 'send.track')} right={
         <View style={[styles.liveDot, { backgroundColor: live ? hexA(ORANGE, 0.18) : colors.surface2 }]} testID={live ? 'send-live' : 'send-offline'}>
           {live ? <Radio color={ORANGE} size={14} /> : <WifiOff color={colors.textMuted} size={14} />}
           <AppText size={11} weight="bold" color={live ? ORANGE : colors.textMuted}>{live ? t('send.live') : '10 s'}</AppText>
@@ -108,10 +108,10 @@ export default function SendTrack() {
             </View>
           ) : null}
           <View style={[styles.card, styles.row]}>
-            <AppText size={14} color={colors.textMuted} style={{ flex: 1 }}>{t('cart.total')} · {t('mode.delivery')}</AppText>
+            <AppText size={14} color={colors.textMuted} style={{ flex: 1 }}>{mv ? t('mv.total') : `${t('cart.total')} · ${t('mode.delivery')}`}</AppText>
             <AppText weight="black" size={16} testID="send-total">{formatMoney(Number(b.total), b.currency, b.currency_symbol, lang)}</AppText>
           </View>
-          {['searching', 'driver_assigned', 'confirmed'].includes(b.status) ? <Button testID="send-cancel" variant="secondary" label={t('send.cancel')} onPress={cancel} /> : null}
+          {['searching', 'driver_assigned', 'confirmed'].includes(b.status) ? <Button testID="send-cancel" variant="secondary" label={t(mv ? 'mv.cancel' : 'send.cancel')} onPress={cancel} /> : null}
         </ScrollView>
       )}
     </SafeAreaView>

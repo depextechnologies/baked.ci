@@ -11,7 +11,7 @@ import secrets
 from typing import Optional, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, BackgroundTasks
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -270,9 +270,9 @@ class MoversQuoteIn(BaseModel):
     drop_lat: float
     drop_lng: float
     items: List[MoverItemIn] = []
-    labour_movers: int = 2
-    floors_pickup: int = 0
-    floors_drop: int = 0
+    labour_movers: int = Field(2, ge=1, le=10)
+    floors_pickup: int = Field(0, ge=0, le=60)
+    floors_drop: int = Field(0, ge=0, le=60)
     stairs_pickup: bool = False
     stairs_drop: bool = False
     declared_value: Optional[float] = None
@@ -579,19 +579,26 @@ async def create_parcel_booking(
     return data
 
 
+class MoverBuildingIn(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    floor: int = Field(0, ge=0, le=60)
+    elevator: bool = False
+    stairs: bool = False
+
+
 class MoversBookingIn(BaseModel):
     country: str = "CI"
     move_type: str
     pickup: AddressPoint
     drop: AddressPoint
-    pickup_building: dict = {}
-    drop_building: dict = {}
+    pickup_building: MoverBuildingIn = MoverBuildingIn()
+    drop_building: MoverBuildingIn = MoverBuildingIn()
     items: List[MoverItemIn] = []
     custom_items: List[dict] = []
     scheduled_date: Optional[str] = None
     time_slot_code: Optional[str] = None
     declared_value: Optional[float] = None
-    labour_movers: int = 2
+    labour_movers: int = Field(2, ge=1, le=10)
     payment_method: str = "cod"
 
 
@@ -601,6 +608,15 @@ async def create_movers_booking(
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_session),
 ):
+    move_type_ok = (
+        await session.execute(select(ExpressMoveType.id).where(ExpressMoveType.code == payload.move_type, ExpressMoveType.active.is_(True)))
+    ).first()
+    if not move_type_ok:
+        raise HTTPException(400, {"code": "invalid_move_type", "message": "Unknown move type"})
+    if not payload.items and not payload.custom_items:
+        raise HTTPException(400, {"code": "no_items", "message": "Add at least one item"})
+    if payload.scheduled_date and _parse_dt(payload.scheduled_date) is None:
+        raise HTTPException(400, {"code": "invalid_date", "message": "Invalid scheduled date"})
     time_slot_surcharge = 0.0
     if payload.time_slot_code:
         slot = (
@@ -612,7 +628,9 @@ async def create_movers_booking(
                 )
             )
         ).scalar_one_or_none()
-        time_slot_surcharge = float(slot.surcharge) if slot else 0.0
+        if not slot:
+            raise HTTPException(400, {"code": "invalid_time_slot", "message": "Unknown time slot"})
+        time_slot_surcharge = float(slot.surcharge)
     quote = await quote_movers(
         session,
         country=payload.country,
@@ -620,10 +638,10 @@ async def create_movers_booking(
         drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
         items=[it.model_dump() for it in payload.items],
         labour_movers=payload.labour_movers,
-        floors_pickup=int(payload.pickup_building.get("floor") or 0),
-        floors_drop=int(payload.drop_building.get("floor") or 0),
-        stairs_pickup=bool(payload.pickup_building.get("stairs")),
-        stairs_drop=bool(payload.drop_building.get("stairs")),
+        floors_pickup=payload.pickup_building.floor,
+        floors_drop=payload.drop_building.floor,
+        stairs_pickup=payload.pickup_building.stairs,
+        stairs_drop=payload.drop_building.stairs,
         declared_value=payload.declared_value,
         time_slot_surcharge=time_slot_surcharge,
     )
@@ -644,8 +662,8 @@ async def create_movers_booking(
         **_address_columns("pickup", payload.pickup),
         **_address_columns("drop", payload.drop),
         move_type=payload.move_type,
-        movers_pickup_access=payload.pickup_building,
-        movers_drop_access=payload.drop_building,
+        movers_pickup_access=payload.pickup_building.model_dump(),
+        movers_drop_access=payload.drop_building.model_dump(),
         custom_items=payload.custom_items,
         quote_breakdown=quote,
         advance=quote["advance"],

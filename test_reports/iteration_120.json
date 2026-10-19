@@ -1,0 +1,41 @@
+{
+  "summary": "Phase D SEND fixes + Packers & Movers + SHOP icons tested on the Expo web preview (390x844) and backend pytest. Backend: 28 passed, 1 skipped (new test_mobile_send_movers.py has 10 tests, plus the phase_d regression with WS 4403/snapshot). UI: every requested flow passes. SEND details chips are in French (6 package chips, 3 preference chips). The searching track screen shows the title 'Recherche d’un livreur' with a different hint, 'Nous contactons les livreurs à proximité'. The 'Déménagement' tile (with image) opens /send/movers. Movers 6-step flow: the 'Étape n/6' label is correct. Size presets fill the inventory with correct counts (studio=11, 2 pièces=29, 4 pièces=54). Categories and items are in French. Counters work. Next buttons stay disabled until their step is valid. mv-back keeps the state. Floor, elevator and labour settings are sent correctly (stairs only when there is no elevator and floor>0). Slot cards are in French with the 'MEILLEUR PRIX' badge. Review fare 27 240 / 5 000 / 22 240 matches the POST /quote/movers response exactly. mv-book creates a confirmed movers booking (total equals the quote) and navigates to the track screen, which shows 'Déménagement confirmé', a timeline starting with that status, and the mv-summary card (date, slot, 2 objets · 160 kg, advance and remaining). Cancel moves the status to 'Annulée'. Single-drop SEND booking, cancel and the unauthenticated redirect back to /send/movers after login also work. SHOP: the home shows 12 distinct lucide icons. When images are blocked, the category grid shows 4/4 '-fallback' thumbs with the category icon, and the product page shows fallbacks too.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/express/quote/movers and POST /api/express/bookings/movers", "issue": "No bounds on labour_movers or floors: labour_movers=-5 with floors_pickup=-3 returns total=-14500, advance=5000, remaining=0. The booking endpoint uses the same quote, so a negative-total booking can be created. Add Field(ge=1, le=10) to labour_movers and Field(ge=0) to floors. Validate the floor in pickup_building/drop_building, which are untyped dicts."},
+      {"endpoint": "POST /api/express/bookings/movers", "issue": "These inputs are accepted silently: an empty items list; any move_type string (not checked against express_move_types); an unknown time_slot_code (surcharge becomes 0); an unparseable scheduled_date (stored as null). They should return 400/422."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "SEND module home", "issues": ["The 'Déménagement' tile label breaks in the middle of the word ('Déménagem' / 'ent') in the 4-column grid at 390px. Use a shorter label or adjustsFontSizeToFit/minimumFontScale, or allow hyphenation."]},
+      {"screen": "Track screen for a movers booking", "issues": ["Parcel wording is still used for movers: header 'Suivi de livraison', timeline 'Livreur assigné / Colis récupéré / Livré', 'Total · Livraison', 'Annuler la livraison'. Use movers labels such as 'Déménageurs assignés', 'Chargement', 'Déménagement terminé', 'Annuler le déménagement'."]},
+      {"screen": "Movers items step", "issues": ["The 'all' category chip reads 'Tous les produits' (reused from the mart.all key). 'Tous' fits the context better.", "Choosing a home size after editing quantities by hand silently replaces the manual inventory. The preset also applies to office and single_item move types."]},
+      {"screen": "Movers route step", "issues": ["mv-route-summary (km · min) never shows on web because computeRoute gives no distance. The review step does show the km from the quote. Minor, and possibly web-only."]},
+      {"screen": "SHOP product page", "issues": ["The image fallback uses the generic ShoppingBag icon instead of the category icon (the category grid uses SHOP_ICONS). Minor inconsistency."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_send_movers.py", "/app/backend/tests/test_mobile_phase_d_shop_send.py", "/app/test_reports/pytest/pytest_iter120.xml"],
+  "action_items": [
+    "Backend: add Pydantic bounds to MoversQuoteIn and MoversBookingIn (labour_movers ge=1, floors ge=0). Type pickup_building and drop_building. Reject empty items, an unknown move_type and an unknown time_slot_code.",
+    "Mobile: fix the mid-word break in the 'Déménagement' tile label on the SEND module home.",
+    "Mobile: use movers-specific wording for the header, timeline, total and cancel on the movers track screen.",
+    "Mobile (optional): label the movers 'all' chip 'Tous'; ask for confirmation or merge when a size preset would overwrite manual quantities."
+  ],
+  "critical_code_review_comments": [
+    "routes.py movers booking: the quote is recomputed on the server with the slot surcharge from the database. This is correct and matches the client quote (verified). But a negative total is possible because inputs are not validated (see backend minor issues).",
+    "movers.tsx: the quote effect runs only on [step] changes. That is fine because inputs cannot change on the review step. If the quote fails, the Skeleton stays forever and there is no retry button. Add an error state with a retry.",
+    "movers.tsx is 218 lines and MoversParts is split out; the size is fine.",
+    "The movers booking timeline label 'Move booked' is English in the backend; the client maps it to French."
+  ],
+  "updated_files": ["/app/backend/tests/test_mobile_send_movers.py"],
+  "success_rate": {"backend": "100% (28/28; 1 legacy test skipped)", "frontend": "100% of the requested flows"},
+  "seed_data_creation": "Created movers bookings mov_08610c227277491d (UI) and some from pytest, plus SEND booking exp_2f39a0207714416e, all for customer 0700000001. All were cancelled.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0 (shared state across tests). Log in on the web preview at /api/app-preview/login with 0700000001; read the OTP from otp-dev-code. Address picker: fill address-search-input and click the first address-result-*. To test image fallbacks, abort image requests with page.route. The SEND module home is reached from module-card-express; the SHOP home from module-card-shop.",
+  "test_credentials": "Customer phone 0700000001 (+225) via dev OTP; see /app/memory/test_credentials.md"
+}

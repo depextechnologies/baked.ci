@@ -97,7 +97,7 @@ function CategoryTile({ tile, color, icon, onPress }: { tile: Tile; color: strin
           ? <Image source={tile.image as any} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} onError={() => setFailed(true)} />
           : tile.icon ? <tile.icon color={color} size={26} /> : <ModuleIcon icon={icon} color={color} size={26} />}
       </View>
-      <AppText weight="medium" size={12} align="center" numberOfLines={2}>{tile.name}</AppText>
+      <AppText weight="medium" size={12} align="center" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{tile.name}</AppText>
     </Touchable>
   );
 }

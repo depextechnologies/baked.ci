@@ -18,7 +18,7 @@ import { formatMoney } from '@/lib/format';
 import { sendLabel } from '@/lib/i18n-send-data';
 import { MODULES } from '@/lib/modules';
 import { nextDays, SIZE_PRESET, SIZES, type Size } from '@/lib/movers';
-import { notify } from '@/lib/notify';
+import { confirmAsk, notify } from '@/lib/notify';
 import { computeRoute, type Route } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
 import { useSendDraft } from '@/state/SendDraftContext';
@@ -67,7 +67,8 @@ export default function MoversBook() {
   const slotRow = slots.data?.find((s) => s.code === slot);
   const curr = quote?.currency || 'XOF';
 
-  const pickSize = (s: Size) => {
+  const pickSize = async (s: Size) => {
+    if (count > 0 && !(await confirmAsk(t('mv.replace_confirm'), t('mv.replace'), t('common.cancel')))) return;
     setSize(s);
     const byName = Object.fromEntries((items.data || []).map((i) => [i.name, i.id]));
     setQty(Object.fromEntries(Object.entries(SIZE_PRESET[s]).filter(([n]) => byName[n]).map(([n, q]) => [byName[n], q])));
@@ -90,7 +91,7 @@ export default function MoversBook() {
         country: cc, move_type: moveType, pickup: point(pickup), drop: point(drop), items: chosen, labour_movers: labour, payment_method: 'cod',
         pickup_building: { floor: from.floor, elevator: from.elevator, stairs: !from.elevator && from.floor > 0 },
         drop_building: { floor: to.floor, elevator: to.elevator, stairs: !to.elevator && to.floor > 0 },
-        custom_items: size ? [{ name: `size:${size}` }] : [], scheduled_date: date, time_slot_code: slot,
+        custom_items: size && (moveType === 'house' || moveType === 'mini_labour') ? [{ name: `size:${size}` }] : [], scheduled_date: date, time_slot_code: slot,
       } });
       router.replace(`/send/track/${b.id}` as any);
     } catch (e: any) { notify(e?.message || t('common.network_error')); } finally { setBusy(false); }
@@ -129,14 +130,18 @@ export default function MoversBook() {
                 <AppText size={12} color={colors.textMuted}>{sendLabel(lang, m.description, m.description)}</AppText>
               </Touchable>
             ))}
-            <AppText weight="bold" size={15} style={{ marginTop: 6 }}>{t('mv.size')}</AppText>
-            <AppText size={12} color={colors.textMuted}>{t('mv.size_hint')}</AppText>
-            <View style={styles.wrap}>{SIZES.map((s) => <Chip key={s} testID={`mv-size-${s}`} label={t(`mv.size.${s}` as any)} on={size === s} color={ORANGE} onPress={() => pickSize(s)} />)}</View>
+            {moveType === 'house' || moveType === 'mini_labour' ? (
+              <>
+                <AppText weight="bold" size={15} style={{ marginTop: 6 }}>{t('mv.size')}</AppText>
+                <AppText size={12} color={colors.textMuted}>{t('mv.size_hint')}</AppText>
+                <View style={styles.wrap}>{SIZES.map((s) => <Chip key={s} testID={`mv-size-${s}`} label={t(`mv.size.${s}` as any)} on={size === s} color={ORANGE} onPress={() => pickSize(s)} />)}</View>
+              </>
+            ) : null}
           </>
         ) : step === 'items' ? (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              <Chip testID="mv-cat-all" label={t('mart.all')} on={!cat} color={ORANGE} onPress={() => setCat(null)} />
+              <Chip testID="mv-cat-all" label={t('mv.all')} on={!cat} color={ORANGE} onPress={() => setCat(null)} />
               {(cats.data || []).map((c) => <Chip key={c.code} testID={`mv-cat-${c.code}`} label={sendLabel(lang, c.code, c.name)} on={cat === c.code} color={ORANGE} onPress={() => setCat(c.code)} />)}
             </ScrollView>
             {items.loading ? <Skeleton h={200} /> : (items.data || []).filter((i) => !cat || i.category_code === cat).map((i) => (

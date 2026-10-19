@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CartButton } from '@/components/commerce/CartBar';
 import { QtyStepper } from '@/components/commerce/QtyStepper';
 import { Thumb } from '@/components/commerce/Thumb';
+import { SHOP_ICONS } from '@/components/module/moduleData';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
@@ -29,6 +30,8 @@ export default function ShopProduct() {
   const { width } = useWindowDimensions();
   const { shop, setShopQty } = useCart();
   const { data: p, loading, error, reload } = useFetch<P>(`/shop/products/${id}`, [id]);
+  const cats = useFetch<any[]>('/shop/categories', []);
+  const icon = SHOP_ICONS[(cats.data || []).find((c) => c.id === (p as any)?.category_id)?.slug];
   const [vid, setVid] = useState<string | null>(null);
   useEffect(() => { if (p && !vid) setVid(p.variants.find((v) => v.is_active && v.stock_qty > 0)?.id || p.variants[0]?.id || null); }, [p, vid]);
 
@@ -46,7 +49,7 @@ export default function ShopProduct() {
       {error ? <ErrorView onRetry={reload} /> : loading || !p ? <View style={{ padding: 18 }}><Skeleton h={300} /></View> : (
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-            {(images.length ? images : ['']).map((src, i) => <View key={src || i} style={{ width, height: 320 }}><Thumb src={src} color={GOLD} size={64} testID={`shop-product-img-${i}`} /></View>)}
+            {(images.length ? images : ['']).map((src, i) => <View key={src || i} style={{ width, height: 320 }}><Thumb src={src} color={GOLD} icon={icon} size={64} testID={`shop-product-img-${i}`} /></View>)}
           </ScrollView>
           <View style={{ padding: 18, gap: 8 }}>
             <AppText weight="black" size={22} testID="shop-product-title">{title}</AppText>
