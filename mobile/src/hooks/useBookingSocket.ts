@@ -14,6 +14,8 @@ export function useBookingSocket(bookingId: string) {
   const [booking, setBooking] = useState<any>(null);
   const [live, setLive] = useState(false);
   const [lastFix, setLastFix] = useState<number | null>(null);
+  const [denied, setDenied] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
   const terminal = TERMINAL.includes(booking?.status);
   const terminalRef = useRef(false);
   terminalRef.current = terminal;
@@ -34,7 +36,7 @@ export function useBookingSocket(bookingId: string) {
         return { ...prev, ...b };
       });
     };
-    const fetchOnce = () => api<any>(`/express/bookings/${bookingId}`).then(apply).catch(() => {});
+    const fetchOnce = () => api<any>(`/express/bookings/${bookingId}`).then(apply).catch((e) => { if ([403, 404].includes(e?.status)) { setDenied(true); stopped = true; stopPoll(); } });
     const startPoll = () => { if (!poll) poll = setInterval(fetchOnce, POLL_MS); };
     const stopPoll = () => { if (poll) clearInterval(poll); poll = undefined; };
 
@@ -43,6 +45,7 @@ export function useBookingSocket(bookingId: string) {
       const token = await secureToken.get();
       const url = `${API_URL.replace(/^http/, 'ws')}/express/ws/customer/bookings/${bookingId}?token=${encodeURIComponent(token || '')}`;
       ws = new WebSocket(url);
+      wsRef.current = ws;
       ws.onopen = () => {
         attempt = 0; failures = 0; setLive(true); stopPoll();
         beat = setInterval(() => ws?.readyState === 1 && ws.send('ping'), HEARTBEAT_MS);
@@ -68,5 +71,8 @@ export function useBookingSocket(bookingId: string) {
     return () => { stopped = true; ws?.close(); if (beat) clearInterval(beat); if (retry) clearTimeout(retry); stopPoll(); };
   }, [bookingId]);
 
-  return { booking, live, lastFix, terminal, refresh: () => api<any>(`/express/bookings/${bookingId}`).then((b) => setBooking(b)) };
+  // Whatever reported the terminal state (socket, poll or refresh), stop sharing/receiving location.
+  useEffect(() => { if (terminal) { wsRef.current?.close(); setLive(false); } }, [terminal]);
+
+  return { booking, live, lastFix, terminal, denied, refresh: () => api<any>(`/express/bookings/${bookingId}`).then((b) => setBooking((prev: any) => ({ ...prev, ...b }))) };
 }

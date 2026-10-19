@@ -40,10 +40,11 @@ export default function Checkout() {
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const attempt = useRef(`${Date.now()}`);
+  const placed = useRef(false);
 
   useEffect(() => { if (!slot && slots.data?.length) setSlot(slots.data[0].id); }, [slots.data, slot]);
   if (!isAuthed) return <Redirect href="/login?redirect=/checkout" />;
-  if (!hasMart && !food.length && !shop.length) return <Redirect href="/cart" />;
+  if (!hasMart && !food.length && !shop.length && !placed.current) return <Redirect href="/cart" />;
 
   const slotLabel = (s: Slot) => {
     if (s.kind === 'asap') return t('co.asap');
@@ -97,6 +98,7 @@ export default function Checkout() {
         clearFood(rid);
       } catch (e: any) { errors.push(`${lines[0].restaurant_name}: ${e?.message}`); }
     }
+    if (created.length) placed.current = true;
     await reload();
     setBusy(false);
     if (errors.length) notify(t('co.partial', { msg: errors.join('\n') }));

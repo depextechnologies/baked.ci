@@ -16,6 +16,7 @@ import { api } from '@/lib/api';
 import { WEB_ORIGIN } from '@/lib/config';
 import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
+import { sendLabel } from '@/lib/i18n-send-data';
 import { notify } from '@/lib/notify';
 import { computeRoute, type Route } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
@@ -208,7 +209,7 @@ function Group({ title, items, on, onPress, prefix }: { title: string; items: Op
   return (
     <View style={{ gap: 8 }}>
       <AppText weight="bold" size={15}>{title}</AppText>
-      <View style={styles.wrap}>{items.map((i) => <Chip key={i.code} testID={`${prefix}-${i.code}`} label={(lang === 'fr' && ((i as any).name_fr || (i as any).label_fr)) || i.name || i.label || i.code} on={on(i.code)} color={ORANGE} onPress={() => onPress(i.code)} />)}</View>
+      <View style={styles.wrap}>{items.map((i) => <Chip key={i.code} testID={`${prefix}-${i.code}`} label={sendLabel(lang, i.code, i.name || i.label)} on={on(i.code)} color={ORANGE} onPress={() => onPress(i.code)} />)}</View>
     </View>
   );
 }

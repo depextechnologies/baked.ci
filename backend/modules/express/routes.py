@@ -5,6 +5,8 @@ in Postgres and is editable from Super Admin. Booking status transitions are
 recorded in `express_booking_timeline` for auditability.
 """
 from __future__ import annotations
+
+import asyncio
 import secrets
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -751,8 +753,16 @@ async def ws_customer_booking(ws: WebSocket, booking_id: str, token: str = ""):
             await ws.accept()
             await ws.close(code=4403)
             return
-        await ws_manager.connect(booking_id, ws)
+        await ws.accept()
         data = await booking_to_dict(session, booking)
+    from modules.realtime import get_pubsub
+    sub = await get_pubsub().subscribe(f"express.booking.{booking_id}")
+
+    async def forward():
+        async for msg in sub:
+            await ws.send_json(msg)
+
+    pump = asyncio.create_task(forward())
     try:
         await ws.send_json({"type": "snapshot", **public_booking_fields(data)})
         while True:
@@ -762,7 +772,8 @@ async def ws_customer_booking(ws: WebSocket, booking_id: str, token: str = ""):
     except WebSocketDisconnect:
         pass
     finally:
-        await ws_manager.disconnect(booking_id, ws)
+        pump.cancel()
+        await sub.close()
 
 
 # ---------- Driver-app status endpoint (production path) ----------

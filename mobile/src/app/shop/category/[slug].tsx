@@ -1,10 +1,11 @@
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CartBar, CartButton } from '@/components/commerce/CartBar';
+import { Thumb } from '@/components/commerce/Thumb';
+import { SHOP_ICONS } from '@/components/module/moduleData';
 import { AppText } from '@/components/ui/AppText';
 import { Touchable } from '@/components/ui/Button';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -35,7 +36,7 @@ export default function ShopCategory() {
           ListEmptyComponent={loading ? <Skeleton h={240} /> : <StateView testID="shop-empty" title={t('mart.no_products')} />}
           renderItem={({ item: p }) => (
             <Touchable testID={`shop-product-${p.id}`} onPress={() => router.push(`/shop/product/${p.id}`)} style={styles.card} scale={0.98}>
-              <View style={styles.img}>{p.images?.[0] ? <Image source={p.images[0]} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}</View>
+              <View style={styles.img}><Thumb src={p.images?.[0]} color={MODULES.shop.color} icon={SHOP_ICONS[slug]} testID={`shop-product-img-${p.id}`} /></View>
               <AppText weight="semibold" size={13} numberOfLines={2} style={{ minHeight: 34 }}>{lang === 'fr' ? p.title_fr || p.title : p.title}</AppText>
               <AppText weight="bold" size={14}>{formatMoney(p.min_price, p.currency, undefined, lang)}</AppText>
               {p.compare_at_price && p.compare_at_price > p.min_price ? (

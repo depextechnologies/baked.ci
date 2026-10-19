@@ -36,7 +36,7 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
   const onTile = code === 'mart' ? (id: string) => router.push(`/mart/category/${id}`)
     : code === 'food' ? (id: string) => router.push(`/food/discover?category=${id}`)
     : code === 'shop' ? (id: string) => router.push(`/shop/category/${id}`)
-    : (id: string) => router.push(`/send/book?service=${id}`);
+    : (id: string) => router.push(id === 'packers_movers' ? '/send/movers' : `/send/book?service=${id}`);
   const searchTo = code === 'mart' ? '/mart/category/all?focus=1' : code === 'food' ? '/food/discover?focus=1' : code === 'shop' ? '/shop/category/all' : '/send/book';
 
   return (
@@ -95,7 +95,7 @@ function CategoryTile({ tile, color, icon, onPress }: { tile: Tile; color: strin
       <View style={[styles.tileImg, { backgroundColor: hexA(color, 0.12) }]}>
         {tile.image && !failed
           ? <Image source={tile.image as any} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} onError={() => setFailed(true)} />
-          : <ModuleIcon icon={icon} color={color} size={26} />}
+          : tile.icon ? <tile.icon color={color} size={26} /> : <ModuleIcon icon={icon} color={color} size={26} />}
       </View>
       <AppText weight="medium" size={12} align="center" numberOfLines={2}>{tile.name}</AppText>
     </Touchable>

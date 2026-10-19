@@ -16,6 +16,7 @@ sharing a request-scoped one.
 """
 from __future__ import annotations
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -74,6 +75,16 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+async def fanout(booking_id: str, payload: dict) -> None:
+    """Website socket (in-process) + cross-worker pub/sub for the authenticated mobile socket."""
+    await manager.broadcast(booking_id, payload)
+    try:
+        from modules.realtime import get_pubsub
+        await get_pubsub().publish(f"express.booking.{booking_id}", json.loads(json.dumps(payload, default=str)))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("express.booking pubsub publish failed: %s", e)
+
+
 async def broadcast_snapshot(session: AsyncSession, booking_id: str) -> dict:
     """Reload the booking and broadcast it — safe to call after any mutation."""
     booking = await session.get(ExpressBooking, booking_id)
@@ -81,7 +92,7 @@ async def broadcast_snapshot(session: AsyncSession, booking_id: str) -> dict:
         return {}
     data = await booking_to_dict(session, booking)
     payload = {"type": "snapshot", **public_booking_fields(data)}
-    await manager.broadcast(booking_id, payload)
+    await fanout(booking_id, payload)
     return data
 
 
@@ -137,7 +148,7 @@ async def transition_status(
                            booking_id, booking.food_order_id, e)
 
     data = await booking_to_dict(session, booking)
-    await manager.broadcast(booking_id, {"type": "snapshot", **public_booking_fields(data)})
+    await fanout(booking_id, {"type": "snapshot", **public_booking_fields(data)})
     return data
 
 
@@ -169,7 +180,7 @@ async def _stream_movement(
             .values(driver_location_lat=lat, driver_location_lng=lng, eta_seconds=remaining)
         )
         await session.commit()
-        await manager.broadcast(booking_id, {
+        await fanout(booking_id, {
             "type": "location",
             "booking_id": booking_id,
             "driver_location": {"lat": lat, "lng": lng},

@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -6,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CartButton } from '@/components/commerce/CartBar';
 import { QtyStepper } from '@/components/commerce/QtyStepper';
+import { Thumb } from '@/components/commerce/Thumb';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
@@ -46,7 +46,7 @@ export default function ShopProduct() {
       {error ? <ErrorView onRetry={reload} /> : loading || !p ? <View style={{ padding: 18 }}><Skeleton h={300} /></View> : (
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-            {images.map((src) => <View key={src} style={{ width, height: 320 }}><Image source={src} style={StyleSheet.absoluteFill} contentFit="cover" /></View>)}
+            {(images.length ? images : ['']).map((src, i) => <View key={src || i} style={{ width, height: 320 }}><Thumb src={src} color={GOLD} size={64} testID={`shop-product-img-${i}`} /></View>)}
           </ScrollView>
           <View style={{ padding: 18, gap: 8 }}>
             <AppText weight="black" size={22} testID="shop-product-title">{title}</AppText>

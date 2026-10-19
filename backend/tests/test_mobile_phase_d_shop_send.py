@@ -107,9 +107,39 @@ class TestSend:
     def _mobile_multi_payload(self, service):
         legs = [{"pickup": {**PICKUP, **ll(PICKUP)}, "drop": {**DROP1, **ll(DROP1), "receiver_name": "TEST_R", "receiver_phone": "+22507123456"}},
                 {"pickup": {**DROP1, **ll(DROP1)}, "drop": {**DROP2, **ll(DROP2), "receiver_name": "TEST_R", "receiver_phone": "+22507123456"}}]
-        return {"country": "CI", "vehicle_code": "bike", "service_type": service, "pickup": PICKUP, "drop": DROP2, "stops": legs,
+        return {"country": "CI", "vehicle_code": "bike", "service_type": service, "pickup": PICKUP, "drop": DROP1, "stops": legs,
                 "receiver": {"name": "TEST_R", "phone": "+22507123456", "preferences": []}, "payment_method": "cod"}
 
+    # Fixed mobile contract: drops>1 => service_type multiple_shipments, drop = first leg
+    def test_multiple_shipments_vehicles(self):
+        r = requests.get(f"{API}/express/vehicles?country=CI&service_type=multiple_shipments")
+        assert r.status_code == 200
+        codes = sorted(v["code"] for v in r.json())
+        assert codes == sorted(["bike", "three_wheeler", "mini_truck", "truck"]), codes
+
+    def test_mobile_multi_fixed_booking_total_and_stops(self, h):
+        legs = [{"pickup": ll(PICKUP), "drop": ll(DROP1)}, {"pickup": ll(DROP1), "drop": ll(DROP2)}]
+        for vc in ["bike", "three_wheeler"]:
+            mq = requests.post(f"{API}/express/quote/multi_stop", json={"country": "CI", "vehicle_code": vc, "stops": legs}).json()
+            p = self._mobile_multi_payload("multiple_shipments"); p["vehicle_code"] = vc
+            b = requests.post(f"{API}/express/bookings/parcel", headers=h, json=p)
+            assert b.status_code == 200, b.text
+            bd = b.json()
+            assert abs(float(bd["total"]) - float(mq["total"])) < 1, (vc, bd["total"], mq["total"])
+            g = requests.get(f"{API}/express/bookings/{bd['id']}", headers=h).json()
+            assert len(g["stops"]) == 2 and abs(float(g["total"]) - float(mq["total"])) < 1
+            assert g["service_type"] == "multiple_shipments"
+            requests.post(f"{API}/express/bookings/{bd['id']}/cancel", headers=h, json={})
+
+    def test_error_detail_shape(self, h):
+        p = self._mobile_multi_payload("multiple_shipments"); p["drop"] = DROP2
+        b = requests.post(f"{API}/express/bookings/parcel", headers=h, json=p)
+        assert b.status_code == 400
+        d = b.json()["detail"]
+        print("detail", d)
+        assert isinstance(d, (dict, str))
+
+    @pytest.mark.skip(reason="legacy: moto with 2 drops is no longer sent by the app")
     def test_mobile_multi_moto_booking(self, h):
         legs = [{"pickup": ll(PICKUP), "drop": ll(DROP1)}, {"pickup": ll(DROP1), "drop": ll(DROP2)}]
         mq = requests.post(f"{API}/express/quote/multi_stop", json={"country": "CI", "vehicle_code": "bike", "stops": legs}).json()
@@ -156,7 +186,7 @@ class TestWS:
         with pytest.raises(Exception) as e:
             asyncio.run(_ws(f"{WS}/express/ws/customer/bookings/{pytest.booking_id}?token={t}", send_ping=False))
         print("rejected:", repr(e.value)[:150])
-        assert "403" in str(e.value) or "4403" in str(e.value)
+        assert "4403" in str(e.value), "expected accept+close(4403)"
 
     def test_legacy_socket_unchanged(self):
         first, _ = asyncio.run(_ws(f"{WS}/express/ws/bookings/{pytest.booking_id}", send_ping=False))
