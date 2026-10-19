@@ -14,6 +14,7 @@ import { checkServiceable, detectCurrentAddress, reverseGeocode } from '@/lib/lo
 import { notify } from '@/lib/notify';
 import { autocomplete, newSessionToken, placeDetails, type PickedAddress, type Prediction } from '@/lib/places';
 import { useApp } from '@/state/AppContext';
+import { useSendDraft } from '@/state/SendDraftContext';
 import { useSession } from '@/state/SessionContext';
 import { colors, fonts, radius } from '@/theme';
 
@@ -22,7 +23,8 @@ const ABIDJAN = { latitude: 5.3484, longitude: -4.0305 };
 type Row = { key: string; icon: any; title: string; sub?: string; onPress: () => void; testID: string };
 
 export default function AddressScreen() {
-  const { next } = useLocalSearchParams<{ next?: string }>();
+  const { next, send } = useLocalSearchParams<{ next?: string; send?: string }>();
+  const draft = useSendDraft();
   const { t, lang, address, setAddress } = useApp();
   const { isAuthed } = useSession();
   const [q, setQ] = useState('');
@@ -51,6 +53,7 @@ export default function AddressScreen() {
 
   const commit = async (a: PickedAddress) => {
     setBusy(true);
+    if (send) { draft.setPoint(send, a); setBusy(false); router.back(); return; }
     const ok = await checkServiceable(a);
     setAddress(a);
     setBusy(false);

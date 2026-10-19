@@ -25,10 +25,10 @@ import { colors, radius } from '@/theme';
 export default function CartScreen() {
   const { t, lang } = useApp();
   const { isAuthed } = useSession();
-  const { mart, food, foodMode, setFoodMode, setFoodQty } = useCart();
+  const { mart, food, shop, setShopQty, foodMode, setFoodMode, setFoodQty } = useCart();
   const change = useMartAdd();
   const { totals, loading } = useCartTotals();
-  const empty = !mart.length && !food.length;
+  const empty = !mart.length && !food.length && !shop.length;
   const byRestaurant = food.reduce<Record<string, FoodLine[]>>((acc, l) => { (acc[l.restaurant_id] ||= []).push(l); return acc; }, {});
   const blocked = !!totals?.groups.some((g) => !g.eligible) || !!totals?.martUnavailable.length;
   const money = (n: number) => formatMoney(n, totals?.currency || 'XOF', undefined, lang);
@@ -46,6 +46,16 @@ export default function CartScreen() {
                   price={formatMoney(l.product.price * l.quantity, l.product.currency, l.product.currency_symbol, lang)}
                   unavailable={totals?.martUnavailable.includes(l.product_id)}
                   right={<QtyStepper size="sm" qty={l.quantity} onChange={(q) => change(l.product, q)} color={MODULES.mart.color} testID={`cart-mart-qty-${l.product_id}`} />} />
+              ))}
+            </View>
+          ) : null}
+          {shop.length ? (
+            <View style={styles.card} testID="cart-shop-section">
+              <BrandName code="shop" size={17} />
+              {shop.map((l) => (
+                <Row key={l.variant_id} testID={`cart-shop-line-${l.variant_id}`} image={l.variant.image} title={l.variant.product_title} sub={l.variant.title_suffix}
+                  price={formatMoney(l.variant.price * l.quantity, l.variant.currency, undefined, lang)}
+                  right={<QtyStepper size="sm" qty={l.quantity} onChange={(q) => setShopQty(l.variant, q).catch(() => {})} color={MODULES.shop.color} testID={`cart-shop-qty-${l.variant_id}`} />} />
               ))}
             </View>
           ) : null}

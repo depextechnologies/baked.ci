@@ -57,4 +57,20 @@ function foodTracking(raw: any): Tracking {
   };
 }
 
-export const normaliseTracking = (module: 'mart' | 'food', raw: any) => (module === 'mart' ? martTracking(raw) : foodTracking(raw));
+const SHOP_FLOW = ['pending', 'confirmed', 'shipped', 'delivered'];
+function shopTracking(o: any): Tracking {
+  const cancelled = CANCELLED.includes(o.status);
+  const delivered = DELIVERED.includes(o.status);
+  const cur = Math.max(0, SHOP_FLOW.indexOf(o.status));
+  return {
+    number: o.order_number || o.number, status: o.status, currency: o.currency, total: Number(o.total ?? o.grand_total ?? 0), fee: Number(o.shipping_fee || o.delivery_fee || 0),
+    steps: SHOP_FLOW.map((code, i) => ({ code, done: !cancelled && (delivered || i <= cur) })),
+    terminal: cancelled || delivered, cancelled, delivered, canCancel: false, rated: true, driver: null,
+    geo: { origin: null, destination: null, driver: null },
+    items: (o.items || o.lines || []).map((i: any) => ({ name: i.product_title || i.title || i.name, quantity: i.quantity, total: Number(i.line_total || 0) })),
+    raw: o,
+  };
+}
+
+export const normaliseTracking = (module: 'mart' | 'food' | 'shop', raw: any) =>
+  (module === 'mart' ? martTracking(raw) : module === 'shop' ? shopTracking(raw) : foodTracking(raw));

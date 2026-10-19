@@ -32,10 +32,12 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
   const { data, loading, error, reload } = useFetch<any>(categoryEndpoint(code, country?.code || 'CI'), [code]);
   const tiles = toTiles(code, data, lang, t, m.image);
 
-  const commerce = code === 'mart' || code === 'food';
+  const commerce = code !== 'express';
   const onTile = code === 'mart' ? (id: string) => router.push(`/mart/category/${id}`)
-    : code === 'food' ? (id: string) => router.push(`/food/discover?category=${id}`) : undefined;
-  const searchTo = code === 'mart' ? '/mart/category/all?focus=1' : code === 'food' ? '/food/discover?focus=1' : undefined;
+    : code === 'food' ? (id: string) => router.push(`/food/discover?category=${id}`)
+    : code === 'shop' ? (id: string) => router.push(`/shop/category/${id}`)
+    : (id: string) => router.push(`/send/book?service=${id}`);
+  const searchTo = code === 'mart' ? '/mart/category/all?focus=1' : code === 'food' ? '/food/discover?focus=1' : code === 'shop' ? '/shop/category/all' : '/send/book';
 
   return (
     <View style={{ flex: 1 }}>

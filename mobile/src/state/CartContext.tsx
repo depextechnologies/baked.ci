@@ -9,6 +9,8 @@ export type MartProduct = {
   currency: string; currency_symbol?: string; in_stock?: boolean; badge?: string | null;
 };
 export type MartLine = { id?: string; product_id: string; quantity: number; product: MartProduct };
+export type ShopVariant = { id: string; price: number; currency: string; title_suffix?: string; image?: string; product_id: string; product_title: string };
+export type ShopLine = { id?: string; variant_id: string; quantity: number; variant: ShopVariant };
 export type FoodOption = { id: string; name: string; price_delta?: number; price?: number };
 export type FoodLine = {
   key: string; restaurant_id: string; restaurant_name: string; item_id: string; name: string; image?: string;
@@ -20,7 +22,8 @@ export const foodUnitPrice = (l: FoodLine) =>
   l.base_price + (l.variant?.price_delta || 0) + l.addons.reduce((s, a) => s + (a.price || 0), 0);
 
 type CartState = {
-  mart: MartLine[]; food: FoodLine[]; count: number; ready: boolean; version: number;
+  mart: MartLine[]; food: FoodLine[]; shop: ShopLine[]; count: number; ready: boolean; version: number;
+  setShopQty: (v: ShopVariant, qty: number) => Promise<void>;
   foodMode: FoodMode; setFoodMode: (m: FoodMode) => void;
   martQty: (productId: string) => number;
   setMartQty: (product: MartProduct, qty: number) => Promise<void>;
@@ -38,6 +41,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { isAuthed } = useSession();
   const [mart, setMart] = useState<MartLine[]>([]);
   const [food, setFood] = useState<FoodLine[]>([]);
+  const [shop, setShop] = useState<ShopLine[]>([]);
   const [foodMode, _setFoodMode] = useState<FoodMode>('delivery');
   const [ready, setReady] = useState(false);
   const [version, setVersion] = useState(0);
@@ -51,7 +55,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // MART lives on the account cart once signed in; guests keep it on the device and merge at login.
   const reload = useCallback(async () => {
-    if (!isAuthed) { setMart(await prefs.get<MartLine[]>('guest_mart_cart', [])); setReady(true); return; }
+    if (!isAuthed) {
+      setMart(await prefs.get<MartLine[]>('guest_mart_cart', []));
+      setShop(await prefs.get<ShopLine[]>('guest_shop_cart', []));
+      setReady(true); setVersion((v) => v + 1); return;
+    }
+    const guestShop = await prefs.get<ShopLine[]>('guest_shop_cart', []);
+    if (guestShop.length) {
+      for (const g of guestShop) await api('/shop/cart/items', { method: 'POST', body: { variant_id: g.variant_id, quantity: g.quantity } }).catch(() => {});
+      await prefs.remove('guest_shop_cart');
+    }
+    api<{ items: any[] }>('/shop/cart/me').then((c) => setShop((c.items || []).map((i) => ({
+      id: i.id, variant_id: i.variant.id, quantity: i.quantity,
+      variant: { id: i.variant.id, price: i.variant.price, currency: i.variant.currency, title_suffix: i.variant.title_suffix,
+        image: i.variant.images?.[0] || i.product.images?.[0], product_id: i.product.id, product_title: i.product.title_fr || i.product.title },
+    })))).catch(() => {}).finally(() => setVersion((v) => v + 1));
     const guest = await prefs.get<MartLine[]>('guest_mart_cart', []);
     if (guest.length) {
       for (const g of guest) await api('/carts/me/items', { method: 'POST', body: { product_id: g.product_id, quantity: g.quantity, module: 'mart' } }).catch(() => {});
@@ -83,6 +101,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } finally { await reload(); }
   }, [mart, isAuthed, reload]);
 
+  const setShopQty = useCallback(async (v: ShopVariant, qty: number) => {
+    const existing = shop.find((l) => l.variant_id === v.id);
+    const next = qty <= 0 ? shop.filter((l) => l.variant_id !== v.id)
+      : existing ? shop.map((l) => (l.variant_id === v.id ? { ...l, quantity: qty } : l)) : [...shop, { variant_id: v.id, quantity: qty, variant: v }];
+    setShop(next);
+    if (!isAuthed) { await prefs.set('guest_shop_cart', next); setVersion((x) => x + 1); return; }
+    try {
+      if (existing?.id && qty <= 0) await api(`/shop/cart/items/${existing.id}`, { method: 'DELETE' });
+      else if (existing?.id) await api(`/shop/cart/items/${existing.id}`, { method: 'PATCH', body: { quantity: qty } });
+      else await api('/shop/cart/items', { method: 'POST', body: { variant_id: v.id, quantity: qty } });
+    } finally { await reload(); }
+  }, [shop, isAuthed, reload]);
+
   const addFood = useCallback((line: Omit<FoodLine, 'key'>) => {
     const key = lineKey(line);
     const hit = food.find((l) => l.key === key);
@@ -96,10 +127,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearFood = useCallback((rid?: string) => persistFood(rid ? food.filter((l) => l.restaurant_id !== rid) : []), [food]);
   const setFoodMode = useCallback((m: FoodMode) => { _setFoodMode(m); prefs.set('food_mode', m); }, []);
 
-  const count = mart.reduce((s, l) => s + l.quantity, 0) + food.reduce((s, l) => s + l.quantity, 0);
+  const count = mart.reduce((s, l) => s + l.quantity, 0) + food.reduce((s, l) => s + l.quantity, 0) + shop.reduce((s, l) => s + l.quantity, 0);
   const value = useMemo(() => ({
-    mart, food, count, ready, version, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload,
-  }), [mart, food, count, ready, version, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload]);
+    mart, food, shop, setShopQty, count, ready, version, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload,
+  }), [mart, food, shop, setShopQty, count, ready, version, foodMode, setFoodMode, martQty, setMartQty, addFood, setFoodQty, clearFood, reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

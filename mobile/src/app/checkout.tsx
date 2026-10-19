@@ -27,12 +27,12 @@ type Method = { code: string; label: string; label_fr: string; enabled: boolean 
 export default function Checkout() {
   const { t, lang, address, country } = useApp();
   const { isAuthed, customer } = useSession();
-  const { mart, food, foodMode, clearFood, reload } = useCart();
+  const { mart, food, shop, foodMode, clearFood, reload } = useCart();
   const { totals } = useCartTotals();
   const cc = country?.code || 'CI';
   const hasMart = mart.length > 0;
   const foodType = foodMode === 'delivery' ? 'delivery' : 'pickup';
-  const needsAddress = hasMart || (food.length > 0 && foodType === 'delivery');
+  const needsAddress = hasMart || shop.length > 0 || (food.length > 0 && foodType === 'delivery');
   const slots = useFetch<Slot[]>(hasMart ? `/mart/delivery-slots?country=${cc}` : null, [cc, hasMart]);
   const methods = useFetch<Method[]>(`/mart/payment-methods?country=${cc}`, [cc]);
   const [slot, setSlot] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export default function Checkout() {
 
   useEffect(() => { if (!slot && slots.data?.length) setSlot(slots.data[0].id); }, [slots.data, slot]);
   if (!isAuthed) return <Redirect href="/login?redirect=/checkout" />;
-  if (!hasMart && !food.length) return <Redirect href="/cart" />;
+  if (!hasMart && !food.length && !shop.length) return <Redirect href="/cart" />;
 
   const slotLabel = (s: Slot) => {
     if (s.kind === 'asap') return t('co.asap');
@@ -60,7 +60,7 @@ export default function Checkout() {
     if (!addressOk) { notify(t('co.need_address')); return; }
     if (hasMart && !slot) { notify(t('co.need_slot')); return; }
     setBusy(true);
-    const created: { module: 'mart' | 'food'; id: string }[] = [];
+    const created: { module: 'mart' | 'food' | 'shop'; id: string }[] = [];
     const errors: string[] = [];
     if (hasMart && address) {
       try {
@@ -72,6 +72,16 @@ export default function Checkout() {
         } });
         created.push({ module: 'mart', id: o.id });
       } catch (e: any) { errors.push(`MART: ${e?.message}`); }
+    }
+    if (shop.length && address) {
+      try {
+        const o = await api<{ id: string }>('/shop/checkout', { method: 'POST', body: {
+          payment_method: method === 'cod' ? 'cash_on_delivery' : method,
+          delivery_address: { line1: address.line1, city: address.city, country: address.country, latitude: address.latitude, longitude: address.longitude, formatted_address: address.formatted_address },
+          instructions: notes || undefined,
+        } });
+        created.push({ module: 'shop' as any, id: o.id });
+      } catch (e: any) { errors.push(`SHOP: ${e?.message}`); }
     }
     const groups = food.reduce<Record<string, FoodLine[]>>((acc, l) => { (acc[l.restaurant_id] ||= []).push(l); return acc; }, {});
     for (const [rid, lines] of Object.entries(groups)) {

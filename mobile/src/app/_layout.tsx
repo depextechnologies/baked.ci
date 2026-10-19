@@ -12,6 +12,7 @@ import { SplashOverlay } from '@/components/SplashOverlay';
 import { AppProvider, useApp } from '@/state/AppContext';
 import { SessionProvider, useSession } from '@/state/SessionContext';
 import { CartProvider } from '@/state/CartContext';
+import { SendDraftProvider } from '@/state/SendDraftContext';
 import { SwitcherProvider } from '@/state/SwitcherContext';
 import { colors } from '@/theme';
 
@@ -45,10 +46,12 @@ export default function RootLayout() {
         <AppProvider>
           <SessionProvider>
             <CartProvider>
+            <SendDraftProvider>
               <SwitcherProvider>
                 <StatusBar style="light" />
                 <Root fontsLoaded={fontsLoaded} />
               </SwitcherProvider>
+            </SendDraftProvider>
             </CartProvider>
           </SessionProvider>
         </AppProvider>

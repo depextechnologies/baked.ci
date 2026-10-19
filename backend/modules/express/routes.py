@@ -735,6 +735,35 @@ async def ws_booking(ws: WebSocket, booking_id: str):
         await ws_manager.disconnect(booking_id, ws)
 
 
+# Authenticated per-booking stream for the BAKĒD mobile app. Same ws_manager
+# fan-out as the website socket above — only the subscription is guarded.
+@router.websocket("/ws/customer/bookings/{booking_id}")
+async def ws_customer_booking(ws: WebSocket, booking_id: str, token: str = ""):
+    from core.security import decode_token
+    claims = None
+    try:
+        claims = decode_token(token) if token else None
+    except Exception:  # noqa: BLE001
+        claims = None
+    async with SessionLocal() as session:
+        booking = await session.get(ExpressBooking, booking_id)
+        if not claims or not booking or booking.customer_id != claims.get("sub"):
+            await ws.close(code=4403)
+            return
+        await ws_manager.connect(booking_id, ws)
+        data = await booking_to_dict(session, booking)
+    try:
+        await ws.send_json({"type": "snapshot", **public_booking_fields(data)})
+        while True:
+            msg = await ws.receive_text()
+            if msg == "ping":
+                await ws.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await ws_manager.disconnect(booking_id, ws)
+
+
 # ---------- Driver-app status endpoint (production path) ----------
 # When DEMO_MODE is off, the driver mobile app calls this after each real
 # action. Kept simple/token-less here for Phase 2 scaffolding; a real driver

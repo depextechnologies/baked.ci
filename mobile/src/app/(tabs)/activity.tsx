@@ -98,15 +98,15 @@ function Row({ e, lang }: { e: Entry; lang: 'fr' | 'en' }) {
   const reorder = useReorder();
   const { t } = useApp();
   const isResa = !!e.raw?.party_size;
-  const trackable = (e.module === 'mart' || e.module === 'food') && !isResa;
+  const trackable = e.module !== 'express' ? !isResa : true;
   return (
-    <Touchable disabled={!trackable} onPress={() => router.push(`/order/${e.module}/${e.id}` as any)} style={styles.row} testID={`activity-item-${e.key}`} scale={0.99}>
+    <Touchable disabled={!trackable} onPress={() => router.push((e.module === 'express' ? `/send/track/${e.id}` : `/order/${e.module}/${e.id}`) as any)} style={styles.row} testID={`activity-item-${e.key}`} scale={0.99}>
       <View style={[styles.icon, { backgroundColor: hexA(m.color, 0.16) }]}><ModuleIcon icon={m.icon} color={m.color} size={20} /></View>
       <View style={{ flex: 1 }}>
         <BrandName code={e.module} size={14} />
         {e.label || isResa ? <AppText size={13} weight="semibold" numberOfLines={1}>{isResa ? `${t('resa.reservation')} · ${t('resa.people', { n: e.raw.party_size })}` : e.label}</AppText> : null}
         <AppText size={12} color={colors.textMuted}>#{e.ref} · {formatDate(e.at, lang)}</AppText>
-        {trackable && done ? (
+        {trackable && done && (e.module === 'mart' || e.module === 'food') ? (
           <Touchable testID={`activity-reorder-${e.key}`} onPress={async () => {
             const mod = e.module as 'mart' | 'food';
             const detail = await api(mod === 'mart' ? `/orders/${e.id}` : `/food/customer/orders/${e.id}`).catch(() => null);

@@ -11,7 +11,7 @@ export function TotalsCard({ totals, money }: { totals: Totals; money: (n: numbe
   const fee = totals.martFee + totals.foodFee;
   return (
     <View style={styles.card} testID="cart-totals">
-      <Line label={t('cart.subtotal')} value={money(totals.martSubtotal + totals.foodSubtotal)} testID="cart-subtotal" />
+      <Line label={t('cart.subtotal')} value={money(totals.martSubtotal + totals.foodSubtotal + totals.shopSubtotal)} testID="cart-subtotal" />
       <Line label={t('cart.delivery_fee')} value={fee ? money(fee) : t('cart.free')} testID="cart-delivery-fee" />
       <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
       <Line label={t('cart.total')} value={money(totals.total)} bold testID="cart-total" />

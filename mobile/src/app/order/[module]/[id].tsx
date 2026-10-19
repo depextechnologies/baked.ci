@@ -25,7 +25,7 @@ import { normaliseTracking, type Tracking } from '@/lib/tracking';
 const POLL_MS = 10000;
 
 export default function OrderScreen() {
-  const { module, id } = useLocalSearchParams<{ module: 'mart' | 'food'; id: string }>();
+  const { module, id } = useLocalSearchParams<{ module: 'mart' | 'food' | 'shop'; id: string }>();
   const { t, lang } = useApp();
   const reorder = useReorder();
   const { isAuthed } = useSession();
@@ -35,7 +35,7 @@ export default function OrderScreen() {
 
   const load = useCallback(async () => {
     try {
-      const raw = await api(module === 'mart' ? `/orders/${id}/tracking` : `/food/customer/orders/${id}/track`);
+      const raw = await api(module === 'mart' ? `/orders/${id}/tracking` : module === 'shop' ? `/shop/orders/${id}` : `/food/customer/orders/${id}/track`);
       setTrk(normaliseTracking(module, raw)); setError(false);
     } catch { setError(true); }
   }, [module, id]);
@@ -122,8 +122,8 @@ export default function OrderScreen() {
           </View>
 
           {trk.canCancel ? <Button testID="order-cancel" variant="secondary" label={t('trk.cancel')} onPress={cancel} /> : null}
-          {trk.delivered ? <RateBox module={module} id={id} rated={trk.rated} restaurantId={trk.raw?.restaurant_id} /> : null}
-          {trk.terminal ? <Button testID="order-reorder" color={color} label={t('trk.reorder')} onPress={() => reorder(module, trk.raw)} /> : null}
+          {trk.delivered && module !== 'shop' ? <RateBox module={module as 'mart' | 'food'} id={id} rated={trk.rated} restaurantId={trk.raw?.restaurant_id} /> : null}
+          {trk.terminal && module !== 'shop' ? <Button testID="order-reorder" color={color} label={t('trk.reorder')} onPress={() => reorder(module as 'mart' | 'food', trk.raw)} /> : null}
         </ScrollView>
       )}
     </SafeAreaView>

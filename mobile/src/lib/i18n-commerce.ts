@@ -135,6 +135,8 @@ export const frC = {
   'trk.step.collected': 'Retirée',
   'trk.step.confirmed': 'Confirmée',
   'trk.step.packed': 'Préparée',
+  'trk.step.pending': 'En attente',
+  'trk.step.shipped': 'Expédiée',
 };
 
 export const enC: Record<keyof typeof frC, string> = {
@@ -273,4 +275,6 @@ export const enC: Record<keyof typeof frC, string> = {
   'trk.step.collected': 'Collected',
   'trk.step.confirmed': 'Confirmed',
   'trk.step.packed': 'Packed',
+  'trk.step.pending': 'Pending',
+  'trk.step.shipped': 'Shipped',
 };
