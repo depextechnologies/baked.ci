@@ -748,6 +748,7 @@ async def ws_customer_booking(ws: WebSocket, booking_id: str, token: str = ""):
     async with SessionLocal() as session:
         booking = await session.get(ExpressBooking, booking_id)
         if not claims or not booking or booking.customer_id != claims.get("sub"):
+            await ws.accept()
             await ws.close(code=4403)
             return
         await ws_manager.connect(booking_id, ws)

@@ -102,7 +102,7 @@ export default function Checkout() {
     if (errors.length) notify(t('co.partial', { msg: errors.join('\n') }));
     if (created.length) {
       if (!errors.length) notify(t('co.success'));
-      router.replace(`/order/${created[0].module}/${created[0].id}` as any);
+      router.replace((created.length > 1 ? '/activity' : `/order/${created[0].module}/${created[0].id}`) as any);
     }
   };
 

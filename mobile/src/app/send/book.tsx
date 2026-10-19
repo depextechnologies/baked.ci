@@ -44,13 +44,15 @@ export default function SendBook() {
   const [when, setWhen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const multi = service === 'multiple_shipments' || drops.length > 1;
+  // Several drops are always booked as the backend's multi-shipments service (its own vehicle set + stop pricing).
+  const svc = drops.length > 1 ? 'multiple_shipments' : service;
 
   useEffect(() => { if (!pickup && address) setPoint('pickup', address); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const pts = useMemo(() => [pickup, ...drops].filter(Boolean).map((a) => ({ latitude: a!.latitude, longitude: a!.longitude })), [pickup, drops]);
   const ready = !!pickup && drops.every(Boolean);
   useEffect(() => { computeRoute(pts).then(setRoute); }, [JSON.stringify(pts)]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const vehicles = useFetch<Vehicle[]>(`/express/vehicles?country=${cc}&service_type=${service}`, [cc, service]);
+  const vehicles = useFetch<Vehicle[]>(`/express/vehicles?country=${cc}&service_type=${svc}`, [cc, svc]);
   const pkgs = useFetch<Opt[]>(`/express/package-types?country=${cc}`, [cc]);
   const tiers = useFetch<Opt[]>(`/express/weight-tiers?country=${cc}`, [cc]);
   const prefs = useFetch<Opt[]>(`/express/delivery-preferences?country=${cc}`, [cc]);
@@ -76,7 +78,7 @@ export default function SendBook() {
     try {
       const receiver = { name: form.name.trim(), phone: form.phone.trim(), notes: form.notes || undefined, preferences: form.prefs };
       const b = await api<{ id: string }>('/express/bookings/parcel', { method: 'POST', body: {
-        country: cc, vehicle_code: vehicle, service_type: service, pickup: point(pickup), drop: point(drops[drops.length - 1]!),
+        country: cc, vehicle_code: vehicle, service_type: svc, pickup: point(pickup), drop: point(multi ? drops[0]! : drops[drops.length - 1]!),
         stops: multi ? drops.map((d, i) => ({ pickup: { ...point(i === 0 ? pickup : drops[i - 1]!), ...ll(i === 0 ? pickup : drops[i - 1]!) },
           drop: { ...point(d!), ...ll(d!), receiver_name: receiver.name, receiver_phone: receiver.phone } })) : undefined,
         receiver, package_type: form.pkg || undefined, package_weight_range: form.weight || undefined, package_notes: form.notes || undefined,
@@ -134,7 +136,7 @@ export default function SendBook() {
             <Field testID="send-receiver-name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder={t('send.receiver_name')} />
             <Field testID="send-receiver-phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder={t('send.receiver_phone')} phone />
             <Group title={t('send.package_type')} items={pkgs.data} on={(c) => form.pkg === c} onPress={(c) => setForm({ ...form, pkg: c })} prefix="send-pkg" />
-            <Group title={t('send.weight')} items={tiers.data} on={(c) => form.weight === c} onPress={(c) => setForm({ ...form, weight: c })} prefix="send-weight" />
+            <Group title={t('send.weight')} items={(tiers.data as any[] | null)?.map((w) => ({ code: w.code, name: w.max_kg ? `${w.min_kg ? `${w.min_kg}–` : '≤ '}${w.max_kg} kg` : `> ${w.min_kg} kg` }))} on={(c) => form.weight === c} onPress={(c) => setForm({ ...form, weight: c })} prefix="send-weight" />
             <Group title={t('send.prefs')} items={prefs.data} on={(c) => form.prefs.includes(c)} prefix="send-pref"
               onPress={(c) => setForm({ ...form, prefs: form.prefs.includes(c) ? form.prefs.filter((x) => x !== c) : [...form.prefs, c] })} />
             <Field testID="send-notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder={t('send.notes')} />
@@ -200,12 +202,13 @@ function Field({ value, onChange, placeholder, testID, phone }: { value: string;
     keyboardType={phone ? 'phone-pad' : 'default'} style={styles.input} />;
 }
 
-function Group({ title, items, on, onPress, prefix }: { title: string; items: Opt[] | null; on: (c: string) => boolean; onPress: (c: string) => void; prefix: string }) {
+function Group({ title, items, on, onPress, prefix }: { title: string; items: Opt[] | null | undefined; on: (c: string) => boolean; onPress: (c: string) => void; prefix: string }) {
+  const { lang } = useApp();
   if (!items?.length) return null;
   return (
     <View style={{ gap: 8 }}>
       <AppText weight="bold" size={15}>{title}</AppText>
-      <View style={styles.wrap}>{items.map((i) => <Chip key={i.code} testID={`${prefix}-${i.code}`} label={i.name || i.label || i.code} on={on(i.code)} color={ORANGE} onPress={() => onPress(i.code)} />)}</View>
+      <View style={styles.wrap}>{items.map((i) => <Chip key={i.code} testID={`${prefix}-${i.code}`} label={(lang === 'fr' && ((i as any).name_fr || (i as any).label_fr)) || i.name || i.label || i.code} on={on(i.code)} color={ORANGE} onPress={() => onPress(i.code)} />)}</View>
     </View>
   );
 }

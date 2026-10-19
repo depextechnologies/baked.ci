@@ -22,6 +22,7 @@ export function useBookingSocket(bookingId: string) {
     let ws: WebSocket | null = null;
     let stopped = false;
     let attempt = 0;
+    let failures = 0;
     let beat: ReturnType<typeof setInterval> | undefined;
     let poll: ReturnType<typeof setInterval> | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
@@ -43,15 +44,19 @@ export function useBookingSocket(bookingId: string) {
       const url = `${API_URL.replace(/^http/, 'ws')}/express/ws/customer/bookings/${bookingId}?token=${encodeURIComponent(token || '')}`;
       ws = new WebSocket(url);
       ws.onopen = () => {
-        attempt = 0; setLive(true); stopPoll();
+        attempt = 0; failures = 0; setLive(true); stopPoll();
         beat = setInterval(() => ws?.readyState === 1 && ws.send('ping'), HEARTBEAT_MS);
       };
       ws.onmessage = (e) => {
-        try { const m = JSON.parse(String(e.data)); if (m.type === 'snapshot') apply(m); } catch { /* ignore malformed frame */ }
+        try {
+          const m = JSON.parse(String(e.data));
+          if (m.type === 'snapshot') { apply(m); if (TERMINAL.includes(m.status)) { terminalRef.current = true; ws?.close(); } }
+        } catch { /* ignore malformed frame */ }
       };
       ws.onclose = (e) => {
         setLive(false); if (beat) clearInterval(beat);
         if (stopped || terminalRef.current || e.code === 4403) { if (e.code === 4403) fetchOnce(); return; }
+        if (++failures > 6) { startPoll(); return; }
         startPoll();
         retry = setTimeout(connect, BACKOFF[Math.min(attempt++, BACKOFF.length - 1)]);
       };

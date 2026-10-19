@@ -21,6 +21,7 @@ export class ApiError extends Error {
 const detailToMessage = (detail: unknown): string => {
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) return detail.map((d: any) => d?.msg).filter(Boolean).join(' · ');
+  if (detail && typeof detail === 'object') return (detail as any).message || (detail as any).code || '';
   return '';
 };
 

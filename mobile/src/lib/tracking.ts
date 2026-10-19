@@ -67,7 +67,7 @@ function shopTracking(o: any): Tracking {
     steps: SHOP_FLOW.map((code, i) => ({ code, done: !cancelled && (delivered || i <= cur) })),
     terminal: cancelled || delivered, cancelled, delivered, canCancel: false, rated: true, driver: null,
     geo: { origin: null, destination: null, driver: null },
-    items: (o.items || o.lines || []).map((i: any) => ({ name: i.product_title || i.title || i.name, quantity: i.quantity, total: Number(i.line_total || 0) })),
+    items: (o.items || o.lines || []).map((i: any) => ({ name: i.product_title_fr || i.title_fr || i.product_title || i.title || i.name, quantity: i.quantity, total: Number(i.line_total || 0) })),
     raw: o,
   };
 }
