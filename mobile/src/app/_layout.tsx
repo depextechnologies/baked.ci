@@ -11,6 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SplashOverlay } from '@/components/SplashOverlay';
 import { AppProvider, useApp } from '@/state/AppContext';
 import { SessionProvider, useSession } from '@/state/SessionContext';
+import { CartProvider } from '@/state/CartContext';
 import { SwitcherProvider } from '@/state/SwitcherContext';
 import { colors } from '@/theme';
 
@@ -43,10 +44,12 @@ export default function RootLayout() {
       <ThemeProvider value={theme}>
         <AppProvider>
           <SessionProvider>
-            <SwitcherProvider>
-              <StatusBar style="light" />
-              <Root fontsLoaded={fontsLoaded} />
-            </SwitcherProvider>
+            <CartProvider>
+              <SwitcherProvider>
+                <StatusBar style="light" />
+                <Root fontsLoaded={fontsLoaded} />
+              </SwitcherProvider>
+            </CartProvider>
           </SessionProvider>
         </AppProvider>
       </ThemeProvider>

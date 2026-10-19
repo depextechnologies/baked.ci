@@ -311,8 +311,17 @@ app.mount("/uploads", StaticFiles(directory=str(_uploads_root)), name="uploads")
 
 # BAKĒD mobile app — Expo Web export for design review (built from /app/mobile).
 _app_preview_root = _Path("/app/mobile/dist")
+class _SpaStaticFiles(StaticFiles):
+    """Serves index.html for unknown paths so in-app deep links survive a refresh."""
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except Exception:  # noqa: BLE001 — starlette raises HTTPException(404)
+            return await super().get_response("index.html", scope)
+
+
 if _app_preview_root.is_dir():
-    app.mount("/api/app-preview", StaticFiles(directory=str(_app_preview_root), html=True), name="app-preview")
+    app.mount("/api/app-preview", _SpaStaticFiles(directory=str(_app_preview_root), html=True), name="app-preview")
 
 # ---- Postgres-outage-friendly middleware ----
 # When Postgres goes briefly unreachable (container restart, VM reschedule),

@@ -34,5 +34,5 @@ export function toTiles(code: ModuleCode, data: any, lang: Lang, t: (k: TKey) =>
   const list: any[] = Array.isArray(data) ? data : data.items || [];
   return list
     .filter((c) => c.code !== 'all')
-    .map((c) => ({ id: c.slug || c.code || c.id, name: pick(c, lang), image: c.image }));
+    .map((c) => ({ id: c.code || c.slug || c.id, name: pick(c, lang), image: c.image }));
 }

@@ -30,9 +30,9 @@ export function AddressBar({ accent = colors.accent }: { accent?: string }) {
   );
 }
 
-export function SearchBar({ placeholder }: { placeholder: string }) {
+export function SearchBar({ placeholder, to }: { placeholder: string; to?: string }) {
   return (
-    <Touchable testID="home-search" onPress={() => router.navigate('/explore?focus=1')} style={[styles.card, { paddingVertical: 15 }]} scale={0.99}>
+    <Touchable testID="home-search" onPress={() => (to ? router.push(to as any) : router.navigate('/explore?focus=1'))} style={[styles.card, { paddingVertical: 15 }]} scale={0.99}>
       <Search color={colors.textMuted} size={22} />
       <AppText size={15} color="#C9B99A" style={{ flex: 1 }}>{placeholder}</AppText>
       <ScanLine color={colors.textMuted} size={20} />

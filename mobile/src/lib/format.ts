@@ -1,10 +1,12 @@
+const SYMBOLS: Record<string, string> = { XOF: 'CFA', XAF: 'FCFA', INR: '₹', EUR: '€', USD: '$' };
+
 export const formatMoney = (amount: number, currency = 'XOF', symbol?: string, lang = 'fr') => {
   const decimals = currency === 'XOF' ? 0 : 2;
   const n = new Intl.NumberFormat(lang === 'fr' ? 'fr-FR' : 'en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(amount || 0);
-  return `${n} ${symbol || currency}`;
+  return `${n} ${symbol || SYMBOLS[currency] || currency}`;
 };
 
 export const formatDate = (iso?: string | null, lang = 'fr') => {

@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bell, ChevronRight, CircleHelp, Globe, LogOut, MapPin, Moon, ShieldCheck, User, Wallet } from 'lucide-react-native';
+import { Bell, ChevronRight, Heart, ShoppingBag, CircleHelp, Globe, LogOut, MapPin, Moon, ShieldCheck, User, Wallet } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +24,8 @@ export default function Profile() {
   const items: Item[] = [
     { id: 'addresses', icon: MapPin, label: t('profile.addresses'), onPress: () => router.push('/address') },
     { id: 'wallet', icon: Wallet, label: t('profile.wallet'), onPress: () => gate('/wallet') },
+    { id: 'favourites', icon: Heart, label: t('food.favourites'), onPress: () => gate('/food/favourites') },
+    { id: 'cart', icon: ShoppingBag, label: t('cart.title'), onPress: () => router.push('/cart') },
     { id: 'notifications', icon: Bell, label: t('profile.notifications'), onPress: () => gate('/notifications') },
     { id: 'language', icon: Globe, label: t('profile.language'), value: <LangToggle /> },
     { id: 'appearance', icon: Moon, label: t('profile.appearance'), value: <AppText size={14} color={colors.textMuted}>{t('profile.appearance_value')}</AppText> },

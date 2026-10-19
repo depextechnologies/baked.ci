@@ -8,6 +8,7 @@ import { ModuleIcon } from '@/components/ModuleIcon';
 import { AppText } from '@/components/ui/AppText';
 import { Touchable } from '@/components/ui/Button';
 import { ErrorView, Skeleton, StateView } from '@/components/ui/StateView';
+import { useReorder } from '@/hooks/useReorder';
 import { api } from '@/lib/api';
 import { formatDate, formatMoney } from '@/lib/format';
 import { statusLabel } from '@/lib/i18n';
@@ -16,22 +17,25 @@ import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
 import { colors, hexA, radius } from '@/theme';
 
-type Entry = { key: string; module: ModuleCode; ref: string; status: string; total: number | null; currency: string; at: string | null };
+type Entry = { key: string; id: string; module: ModuleCode; ref: string; status: string; total: number | null; currency: string; at: string | null; label?: string; raw: any };
 
 const SOURCES: { module: ModuleCode; path: string }[] = [
   { module: 'mart', path: '/orders/me' },
   { module: 'food', path: '/food/customer/orders' },
   { module: 'shop', path: '/shop/orders/me' },
   { module: 'express', path: '/express/bookings/mine' },
+  { module: 'food', path: '/food/customer/reservations' },
 ];
 const DONE = ['delivered', 'completed', 'cancelled', 'canceled', 'refunded', 'rejected', 'failed'];
 
 const normalise = (module: ModuleCode, data: any): Entry[] => {
-  const list: any[] = Array.isArray(data) ? data : data?.items || data?.orders || data?.bookings || [];
+  const list: any[] = Array.isArray(data) ? data : data?.items || data?.orders || data?.bookings || data?.reservations || [];
   return list.map((o) => ({
-    key: `${module}-${o.id}`, module, ref: o.number || o.reference || o.code || String(o.id).slice(-8),
+    key: `${module}-${o.id}`, id: o.id, module, raw: o,
+    ref: o.number || o.order_number || o.reference || o.code || String(o.id).slice(-8),
     status: o.status || '', total: o.total ?? o.grand_total ?? o.total_amount ?? o.fare ?? o.price ?? null,
-    currency: o.currency || 'XOF', at: o.created_at || null,
+    currency: o.currency || 'XOF', at: o.created_at || o.placed_at || o.reservation_at || null,
+    label: o.party_size ? `${o.restaurant?.name || o.restaurant_name || ''}` : o.restaurant?.name,
   }));
 };
 
@@ -91,12 +95,26 @@ export default function Activity() {
 function Row({ e, lang }: { e: Entry; lang: 'fr' | 'en' }) {
   const m = MODULES[e.module];
   const done = DONE.includes(e.status);
+  const reorder = useReorder();
+  const { t } = useApp();
+  const isResa = !!e.raw?.party_size;
+  const trackable = (e.module === 'mart' || e.module === 'food') && !isResa;
   return (
-    <View style={styles.row} testID={`activity-item-${e.key}`}>
+    <Touchable disabled={!trackable} onPress={() => router.push(`/order/${e.module}/${e.id}` as any)} style={styles.row} testID={`activity-item-${e.key}`} scale={0.99}>
       <View style={[styles.icon, { backgroundColor: hexA(m.color, 0.16) }]}><ModuleIcon icon={m.icon} color={m.color} size={20} /></View>
       <View style={{ flex: 1 }}>
         <BrandName code={e.module} size={14} />
+        {e.label || isResa ? <AppText size={13} weight="semibold" numberOfLines={1}>{isResa ? `${t('resa.reservation')} · ${t('resa.people', { n: e.raw.party_size })}` : e.label}</AppText> : null}
         <AppText size={12} color={colors.textMuted}>#{e.ref} · {formatDate(e.at, lang)}</AppText>
+        {trackable && done ? (
+          <Touchable testID={`activity-reorder-${e.key}`} onPress={async () => {
+            const mod = e.module as 'mart' | 'food';
+            const detail = await api(mod === 'mart' ? `/orders/${e.id}` : `/food/customer/orders/${e.id}`).catch(() => null);
+            if (detail) reorder(mod, detail);
+          }} style={{ marginTop: 4 }}>
+            <AppText weight="bold" size={12} color={m.color}>{t('trk.reorder')}</AppText>
+          </Touchable>
+        ) : null}
       </View>
       <View style={{ alignItems: 'flex-end', gap: 4 }}>
         {e.total != null ? <AppText weight="bold" size={14}>{formatMoney(Number(e.total), e.currency, undefined, lang)}</AppText> : null}
@@ -104,7 +122,7 @@ function Row({ e, lang }: { e: Entry; lang: 'fr' | 'en' }) {
           <AppText weight="semibold" size={11} color={done ? colors.textMuted : m.color}>{statusLabel(lang, e.status)}</AppText>
         </View>
       </View>
-    </View>
+    </Touchable>
   );
 }
 

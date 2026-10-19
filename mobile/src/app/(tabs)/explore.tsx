@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { ArrowRight, Package, Search, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -16,7 +16,7 @@ import { MODULES, SWITCHER_ORDER, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { colors, fonts, hexA, radius } from '@/theme';
 
-type Hit = { module: string; entity_type: string; entity_id?: string; title: string; subtitle?: string; image?: string };
+type Hit = { module: string; entity_type: string; entity_id?: string; title: string; subtitle?: string; image?: string; destination_url?: string };
 type Intent = { intent_code: string; module: string; action_label: string; subtitle?: string };
 type Result = { groups: { module: string; items: Hit[] }[]; detected_intents: Intent[]; suggestions: string[]; event_id: string | null };
 
@@ -51,7 +51,11 @@ export default function Explore() {
 
   const open = (m: string, hit?: Hit) => {
     if (hit && res?.event_id) api('/search/click', { method: 'POST', body: { event_id: res.event_id, module: m, entity_type: hit.entity_type, entity_id: hit.entity_id || hit.title } }).catch(() => {});
-    openModule(toCode(m));
+    const code = toCode(m);
+    openModule(code);
+    const target = hit?.entity_id || hit?.destination_url?.split('?')[0].split('/').filter(Boolean).pop();
+    if (target && code === 'mart' && hit?.entity_type === 'product') router.push(`/mart/product/${target}`);
+    else if (target && code === 'food' && hit?.entity_type === 'restaurant') router.push(`/food/restaurant/${target}`);
   };
 
   const empty = res && res.groups.length === 0 && res.detected_intents.length === 0;

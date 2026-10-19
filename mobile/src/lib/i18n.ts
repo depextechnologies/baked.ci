@@ -1,4 +1,6 @@
-const fr = {
+import { enC, frC } from './i18n-commerce';
+
+const frBase = {
   'brand.tagline': 'Une app, six solutions, un confort sans limite.',
   'common.next': 'Suivant',
   'common.skip': 'Passer',
@@ -162,9 +164,10 @@ const fr = {
   'status.cancelled': 'Annulée',
 };
 
+const fr = { ...frBase, ...frC };
 type Key = keyof typeof fr;
 
-const en: Record<Key, string> = {
+const enBase: Record<keyof typeof frBase, string> = {
   'brand.tagline': 'One app, six solutions, limitless convenience.',
   'common.next': 'Next',
   'common.skip': 'Skip',
@@ -327,6 +330,8 @@ const en: Record<Key, string> = {
   'status.completed': 'Completed',
   'status.cancelled': 'Cancelled',
 };
+
+const en: Record<Key, string> = { ...enBase, ...enC };
 
 export type Lang = 'fr' | 'en';
 export type TKey = Key;

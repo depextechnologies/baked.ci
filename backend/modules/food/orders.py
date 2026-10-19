@@ -169,7 +169,7 @@ async def create_order(
 
     # ---- Validate restaurant
     r = (await session.execute(text(
-        "SELECT id, country, status, delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
+        "SELECT id, country, status, delivery_fee, delivery_paused_until, pickup_paused_until FROM food_restaurants WHERE id = :id"
     ), {"id": payload.restaurant_id})).fetchone()
     if not r or r.status != "active":
         raise HTTPException(404, "Restaurant unavailable")
@@ -208,15 +208,33 @@ async def create_order(
         if not by_id[it.item_id].is_available:
             raise HTTPException(409, f"Item '{by_id[it.item_id].name}' is sold out")
 
+    # Variant / add-on prices come from the menu tables, never from the client payload.
+    var_ids = [str((it.variant or {}).get("id")) for it in payload.items if (it.variant or {}).get("id")]
+    add_ids = [str(a.get("id")) for it in payload.items for a in (it.addons or []) if a.get("id")]
+    db_variants = {v.id: v for v in (await session.execute(text(
+        "SELECT id, item_id, name_en, name_fr, price_delta FROM food_item_variants WHERE id = ANY(:ids)"
+    ), {"ids": var_ids or [""]})).fetchall()}
+    db_addons = {a.id: a for a in (await session.execute(text(
+        "SELECT id, item_id, name_en, name_fr, price FROM food_item_addons WHERE id = ANY(:ids)"
+    ), {"ids": add_ids or [""]})).fetchall()}
+
     # ---- Build items + totals
     oid = f"ord_{uuid.uuid4().hex[:16]}"
     subtotal = 0.0
     items_out = []
     for line_no, it in enumerate(payload.items):
         base = by_id[it.item_id]
-        variant_delta = float((it.variant or {}).get("price_delta") or 0)
-        addons = it.addons or []
-        addons_total = sum(float(a.get("price") or 0) for a in addons)
+        variant = None
+        v = db_variants.get(str((it.variant or {}).get("id")))
+        if v and v.item_id == base.id:
+            variant = {"id": v.id, "name": (it.variant or {}).get("name") or v.name_fr, "price_delta": float(v.price_delta or 0)}
+        variant_delta = variant["price_delta"] if variant else 0.0
+        addons = []
+        for a_in in (it.addons or []):
+            a = db_addons.get(str(a_in.get("id")))
+            if a and a.item_id == base.id:
+                addons.append({"id": a.id, "name": a_in.get("name") or a.name_fr, "price": float(a.price or 0)})
+        addons_total = sum(a["price"] for a in addons)
         unit_price = float(base.base_price or 0) + variant_delta + addons_total
         line_total = unit_price * it.quantity
         subtotal += line_total
@@ -225,7 +243,7 @@ async def create_order(
             "order_id": oid, "line_no": line_no, "item_id": base.id,
             "name": base.name, "quantity": it.quantity,
             "unit_price": unit_price, "line_total": line_total,
-            "variant": it.variant or None, "addons": addons,
+            "variant": variant, "addons": addons,
             "notes": it.notes, "image": base.image,
         })
 
@@ -545,6 +563,39 @@ async def partner_get_delivery(rid: str, oid: str,
         return {"booking_id": None, "status": "none"}
     booking = await session.get(ExpressBooking, row.id)
     return food_delivery_public(booking, include_pin=True)
+
+
+class CustomerCancelIn(BaseModel):
+    reason: Optional[constr(strip_whitespace=True, max_length=200)] = None
+
+
+@customer_router.post("/orders/{oid}/cancel")
+async def customer_cancel_order(oid: str, payload: CustomerCancelIn,
+                                session: AsyncSession = Depends(get_session),
+                                customer: Customer = Depends(get_current_customer)):
+    """Customer self-cancel — only before the restaurant accepts the order."""
+    o = (await session.execute(text(
+        "SELECT status, restaurant_id, customer_id FROM food_orders WHERE id = :id FOR UPDATE"
+    ), {"id": oid})).fetchone()
+    if not o or o.customer_id != customer.id:
+        raise HTTPException(404, "Order not found")
+    if o.status == "cancelled":
+        return await _detail(session, oid)
+    if o.status != "placed":
+        raise HTTPException(409, "Cette commande a déjà été acceptée par le restaurant et ne peut plus être annulée.")
+    await session.execute(text(
+        "UPDATE food_orders SET status = 'cancelled', cancelled_at = now(), updated_at = now() WHERE id = :id"
+    ), {"id": oid})
+    await _log_event(session, oid, to_status="cancelled", from_status=o.status,
+                     actor_role="customer", notes=payload.reason or "customer_cancel")
+    await session.commit()
+    detail = await _detail(session, oid)
+    try:
+        await _publish(o.restaurant_id, {"type": "food.order.updated",
+                                         "order": {"id": oid, "status": "cancelled", "order_number": detail["order_number"]}})
+    except Exception as e:  # noqa: BLE001
+        log.warning("food.order.updated publish failed: %s", e)
+    return detail
 
 
 @customer_router.get("/orders/{oid}/track")

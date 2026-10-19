@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAccountSummary } from '@/hooks/useAccountSummary';
@@ -17,6 +18,10 @@ import { Logo } from '../Logo';
 import { AppText } from '../ui/AppText';
 import { ErrorView, Skeleton } from '../ui/StateView';
 import { ModuleIcon } from '../ModuleIcon';
+import { CartBar, CartButton } from '../commerce/CartBar';
+import { Touchable } from '../ui/Button';
+import { FoodHomeSections, FoodModeToggle } from './FoodHomeSections';
+import { MartHomeSections } from './MartHomeSections';
 import { categoryEndpoint, toTiles, type Tile } from './moduleData';
 
 export function ModuleHome({ code }: { code: ModuleCode }) {
@@ -27,18 +32,26 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
   const { data, loading, error, reload } = useFetch<any>(categoryEndpoint(code, country?.code || 'CI'), [code]);
   const tiles = toTiles(code, data, lang, t, m.image);
 
+  const commerce = code === 'mart' || code === 'food';
+  const onTile = code === 'mart' ? (id: string) => router.push(`/mart/category/${id}`)
+    : code === 'food' ? (id: string) => router.push(`/food/discover?category=${id}`) : undefined;
+  const searchTo = code === 'mart' ? '/mart/category/all?focus=1' : code === 'food' ? '/food/discover?focus=1' : undefined;
+
   return (
-    <ScrollView testID={`module-home-${code}`} contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1 }}>
+    <ScrollView testID={`module-home-${code}`} contentContainerStyle={{ paddingBottom: commerce ? 96 : 28 }} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Logo height={30} onPress={goMainHome} testID="module-logo-home" />
         <View style={[styles.chip, { borderColor: hexA(m.color, 0.5) }]}><BrandName code={code} size={14} /></View>
         <View style={{ flex: 1 }} />
         <BellButton unread={unread} />
+        {commerce ? <CartButton /> : null}
       </View>
       <AddressBar accent={m.color} />
-      <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} />
+      <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} to={searchTo} />
+      {code === 'food' ? <FoodModeToggle /> : null}
 
-      <View style={[styles.hero, { borderColor: hexA(m.color, 0.45) }]} testID="module-hero">
+      <View style={[styles.hero, { marginTop: code === 'food' ? 14 : 0, borderColor: hexA(m.color, 0.45) }]} testID="module-hero">
         <LinearGradient colors={[hexA(m.color, 0.32), hexA(m.color, 0.05), '#000']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <View style={{ flex: 1, zIndex: 1 }}>
           <BrandName code={code} size={26} />
@@ -54,30 +67,36 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
         <View style={styles.grid} testID="module-categories">
           {loading ? Array.from({ length: 8 }).map((_, i) => <View key={i} style={styles.tile}><Skeleton h={76} r={18} /></View>)
             : tiles.slice(0, 12).map((c) => (
-              <CategoryTile key={c.id} tile={c} color={m.color} icon={m.icon} />
+              <CategoryTile key={c.id} tile={c} color={m.color} icon={m.icon} onPress={onTile && (() => onTile(c.id))} />
             ))}
         </View>
       )}
 
-      <View style={[styles.note, { borderColor: hexA(m.color, 0.3) }]} testID="module-next-phase-note">
-        <Sparkles color={m.color} size={18} />
-        <AppText size={13} color={colors.textMuted} style={{ flex: 1 }}>{t('module.next_phase')}</AppText>
-      </View>
+      {code === 'mart' ? <MartHomeSections /> : null}
+      {code === 'food' ? <FoodHomeSections /> : null}
+      {!commerce ? (
+        <View style={[styles.note, { borderColor: hexA(m.color, 0.3) }]} testID="module-next-phase-note">
+          <Sparkles color={m.color} size={18} />
+          <AppText size={13} color={colors.textMuted} style={{ flex: 1 }}>{t('module.next_phase')}</AppText>
+        </View>
+      ) : null}
     </ScrollView>
+    {commerce ? <CartBar color={m.color} inTabs /> : null}
+    </View>
   );
 }
 
-function CategoryTile({ tile, color, icon }: { tile: Tile; color: string; icon: any }) {
+function CategoryTile({ tile, color, icon, onPress }: { tile: Tile; color: string; icon: any; onPress?: () => void }) {
   const [failed, setFailed] = useState(false);
   return (
-    <View style={styles.tile} testID={`module-cat-${tile.id}`}>
+    <Touchable disabled={!onPress} onPress={onPress} style={styles.tile} testID={`module-cat-${tile.id}`}>
       <View style={[styles.tileImg, { backgroundColor: hexA(color, 0.12) }]}>
         {tile.image && !failed
           ? <Image source={tile.image as any} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} onError={() => setFailed(true)} />
           : <ModuleIcon icon={icon} color={color} size={26} />}
       </View>
       <AppText weight="medium" size={12} align="center" numberOfLines={2}>{tile.name}</AppText>
-    </View>
+    </Touchable>
   );
 }
 
