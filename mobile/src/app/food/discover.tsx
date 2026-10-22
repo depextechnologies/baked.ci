@@ -24,7 +24,8 @@ const DEFAULTS: Filters = { vegetarian: 'all', open_now: false, sort: 'popularit
 type Cat = { code: string; name_fr: string; name_en: string };
 
 export default function FoodDiscover() {
-  const { category, cuisines, focus } = useLocalSearchParams<{ category?: string; cuisines?: string; focus?: string }>();
+  const { category, cuisines: cuisineParam, focus } = useLocalSearchParams<{ category?: string; cuisines?: string; focus?: string }>();
+  const [cuisines, setCuisines] = useState(cuisineParam || '');
   const { t, lang, country, address } = useApp();
   const { foodMode } = useCart();
   const cc = country?.code || 'CI';
@@ -62,6 +63,7 @@ export default function FoodDiscover() {
       <FoodModeToggle />
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {cuisines ? <Chip testID="food-cuisine-filter" label={`${cuisines.replace(/_/g, ' ')}  ✕`} on color={GREEN} onPress={() => setCuisines('')} /> : null}
           {(cats.data?.items || []).map((c) => (
             <Chip key={c.code} testID={`food-cat-${c.code}`} label={lang === 'en' ? c.name_en : c.name_fr}
               on={(cat || 'all') === c.code} color={GREEN} onPress={() => setCat(c.code)} />

@@ -33,4 +33,5 @@ Unknown types render nothing (same as website). Sync: cache-first (AsyncStorage 
 - SHOP native: DONE (iteration_122 — live sync tests 1-5, 7-10 pass).
 - MART native: DONE (iteration_123). Module-specific registry `MODULE_REGISTRY.mart` (components/cms/mart/*) mirrors ConfigHomepage.jsx: hero + country delivery panel, category grid, promo, 2 product carousels (/mart/products), banner row, brands, app_promotion (stores + QR + phone mockup on tablet), cta_strip, trust_strip.
 - Migrated: website hardcoded TrustStrip → CMS `trust_strip` (hps_<cc>_110_trust_strip, bilingual items; admin editor). MART category/banner images added in CMS (both clients).
-- Next: FOOD (food_* blocks + location data), SEND (migrate website sections into CMS, then native).
+- FOOD native: DONE (iteration_124). `MODULE_REGISTRY.food` (components/cms/food/*) mirrors FoodHome.jsx: hero (mode pills, favourites, no-address banner) first, categories, top brands (/food/brands/top), featured (/food/home — backend 15 km + mode eligibility), promos, cuisines (→ discover?cuisines=), usps, testimonials. Shared feed via FoodDataProvider. Content fixes: usps title_en, african cuisine + Grill House images.
+- Next: SEND (website ExpressHome is hardcoded → migrate into CMS, then native).

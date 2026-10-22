@@ -151,6 +151,7 @@ export function FoodFeatured({ section }: SectionProps) {
   if (cfg.cuisine_filter) xs = xs.filter((r) => (r.cuisines || []).includes(cfg.cuisine_filter));
   if (cfg.limit) xs = xs.slice(0, Number(cfg.limit));
   const sym = country?.currency_symbol || 'CFA';
+  const cuisineName = (code: string) => { const c = data?.cuisines?.find((x) => x.code === code); return c ? (lang === 'fr' ? c.name_fr || c.name_en : c.name_en || c.name_fr) : code.replace(/_/g, ' '); };
   return (
     <View testID={`cms-food-featured-${section.id}`}>
       <FoodHead testID={`cms-food-featured-head-${section.id}`} title={bi(section, 'title', lang) || 'Featured Restaurants'} subtitle={bi(section, 'subtitle', lang)} to="/food/discover" />
@@ -168,7 +169,7 @@ export function FoodFeatured({ section }: SectionProps) {
               </View>
               <View style={{ padding: 12, gap: 4 }}>
                 <AppText size={14} weight="semibold" numberOfLines={1}>{r.name}</AppText>
-                <AppText size={11} color={colors.textMuted} numberOfLines={1}>{(r.cuisines || []).slice(0, 2).join(' · ')}</AppText>
+                <AppText size={11} color={colors.textMuted} numberOfLines={1}>{(r.cuisines || []).slice(0, 2).map(cuisineName).join(' · ')}</AppText>
                 <View style={styles.row}>
                   <Star color={G} fill={G} size={11} /><AppText size={11}>{Number(r.rating || 0).toFixed(1)}</AppText><AppText size={11} color={colors.textMuted}>({r.review_count})</AppText>
                   <View style={{ flex: 1 }} />
