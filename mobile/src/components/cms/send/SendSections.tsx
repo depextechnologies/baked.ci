@@ -62,6 +62,7 @@ export function SendServiceTiles({ section, width }: SectionProps) {
           <Touchable key={x.key} testID={`send-tile-${x.key}`} onPress={() => router.push((ROUTE[x.key] || '/send/book') as any)} style={[styles.tile, { width: w, minHeight: big ? 248 : 212 }]} scale={0.985}>
             <View style={[styles.art, { height: big ? 160 : 128, backgroundColor: hexA(Y, 0.08) }]}>
               {x.image ? <Image source={tileImg(x.image)} style={{ width: '90%', height: big ? 144 : 112 }} contentFit="contain" cachePolicy="memory-disk" /> : null}
+              <View style={styles.go}><ArrowRight color="#0a0a0a" size={15} strokeWidth={2.6} /></View>
             </View>
             <View style={styles.tileBody}>
               <View style={{ flex: 1 }}>
@@ -69,7 +70,6 @@ export function SendServiceTiles({ section, width }: SectionProps) {
                 {x.title_en ? <AppText size={11} weight="medium" color={colors.textMuted} numberOfLines={1}>{x.title_en}</AppText> : null}
                 <AppText size={11} color={colors.textMuted} numberOfLines={2} style={{ marginTop: 6 }}>{lang === 'fr' ? x.desc_fr || x.desc_en : x.desc_en || x.desc_fr}</AppText>
               </View>
-              <View style={styles.go}><ArrowRight color="#0a0a0a" size={15} strokeWidth={2.6} /></View>
             </View>
           </Touchable>
         ))}
@@ -97,6 +97,6 @@ const styles = StyleSheet.create({
   tile: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   art: { alignItems: 'center', justifyContent: 'center' },
   tileBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12 },
-  go: { width: 36, height: 36, borderRadius: 18, backgroundColor: Y, alignItems: 'center', justifyContent: 'center' },
+  go: { position: 'absolute', right: 8, bottom: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: Y, alignItems: 'center', justifyContent: 'center' },
   trust: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
 });

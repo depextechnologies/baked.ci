@@ -94,7 +94,7 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
 
       </>
       )}
-      {!commerce ? (
+      {!commerce && !cms ? (
         <View style={[styles.note, { borderColor: hexA(m.color, 0.3) }]} testID="module-next-phase-note">
           <Sparkles color={m.color} size={18} />
           <AppText size={13} color={colors.textMuted} style={{ flex: 1 }}>{t('module.next_phase')}</AppText>

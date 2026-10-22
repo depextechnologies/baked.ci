@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
@@ -6,7 +6,6 @@ import { Bell, ChevronDown, MapPin, Plus, ArrowRight, Bike, Truck, Locate, Searc
 import { useApp, useAuth } from "../../contexts/BakedContexts";
 import { useExpressBooking } from "../../contexts/ExpressContext";
 import { api } from "../../lib/api";
-import { useMoney } from "../../components/express/ExpressLayout";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { EXPRESS_ASSETS, vehicleImage } from "../../lib/expressAssets";
 import { SendServiceTiles } from "../../components/express/SendServiceTiles";
@@ -206,23 +205,17 @@ const ExpressHomeMobile = () => {
   const navigate = useNavigate();
   const { openAddressSelector, activeAddress, country } = useApp();
   const { setDraft } = useExpressBooking();
-  const [vehicles, setVehicles] = useState([]);
-  const money = useMoney();
-
-  useEffect(() => {
-    api.get(`/express/vehicles?country=${country?.code || "CI"}`).then((r) => setVehicles(r.data)).catch(() => setVehicles([]));
-  }, [country?.code]);
-
-  const start = useCallback((code) => {
-    setDraft((d) => ({ ...d, pickup: activeAddress || d.pickup, vehicle_code: code || d.vehicle_code }));
-    navigate("/send/book/location");
-  }, [activeAddress, setDraft, navigate]);
-
-  const shortcutCards = vehicles.filter((v) => ["bike", "three_wheeler", "truck"].includes(v.code));
 
   return (
     <div className="min-h-screen bg-background pb-28">
       <ExpressTopBar />
+      {sections === null && (
+        <div className="px-4 mt-3 space-y-3" data-testid="send-cms-loading">
+          <div className="h-64 rounded-3xl bg-secondary/50 animate-pulse" />
+          <div className="h-14 rounded-2xl bg-secondary/50 animate-pulse" />
+          <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-52 rounded-2xl bg-secondary/50 animate-pulse" />)}</div>
+        </div>
+      )}
       {(sections || []).map((sec) => {
         const c = sec.config || {};
         if (sec.section_type === "send_map_hero") return <div key={sec.id} data-testid="send-cms-map"><MapHero showDrivers={c.show_drivers !== false} /></div>;
@@ -331,26 +324,13 @@ const ExpressDesktopHome = () => {
   const navigate = useNavigate();
   const { country, activeAddress, openAddressSelector } = useApp();
   const { setDraft } = useExpressBooking();
-  const [vehicles, setVehicles] = useState([]);
-  const money = useMoney();
   const address = activeAddress?.formatted_address || COUNTRY_CENTER[country?.code || "CI"].label;
   const eta = country?.delivery_eta_min || "10-15 min";
-
-  useEffect(() => {
-    api.get(`/express/vehicles?country=${country?.code || "CI"}`).then((r) => setVehicles(r.data)).catch(() => setVehicles([]));
-  }, [country?.code]);
-
-  const start = useCallback((code) => {
-    setDraft((d) => ({ ...d, pickup: activeAddress || d.pickup, vehicle_code: code || d.vehicle_code }));
-    navigate("/send/book/location");
-  }, [activeAddress, setDraft, navigate]);
-
-  const shortcutCards = vehicles.filter((v) => ["bike", "three_wheeler", "truck"].includes(v.code));
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col">
       {/* 45/55 split — left workflow, right map */}
-      <div className="flex-1 max-w-[1600px] mx-auto w-full px-6 py-6 grid grid-cols-1 md:grid-cols-[45%_1fr] gap-6">
+      <div className={`flex-1 max-w-[1600px] mx-auto w-full px-6 py-6 grid grid-cols-1 ${mapSection || sections === null ? "md:grid-cols-[45%_1fr]" : ""} gap-6`}>
         {/* LEFT PANEL — theme-adaptive card surface */}
         <div className="exp-dt-panel rounded-3xl p-6 md:p-7 flex flex-col gap-5 border border-border">
           {/* Section 1 — Clean header: EXPRESSbakēd logo + delivery location + ETA badge (nothing else) */}

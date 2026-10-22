@@ -615,6 +615,12 @@ const SectionEditor = ({ row, creating, module, onClose, onSave }) => {
   const rmListItem = (listName, itemIdx) => setDraft((d) => ({
     ...d, config: { ...d.config, [listName]: (d.config?.[listName] || []).filter((_, i) => i !== itemIdx) },
   }));
+  const moveListItem = (listName, from, to) => setDraft((d) => {
+    const xs = [...(d.config?.[listName] || [])];
+    if (to < 0 || to >= xs.length) return d;
+    [xs[from], xs[to]] = [xs[to], xs[from]];
+    return { ...d, config: { ...d.config, [listName]: xs } };
+  });
   // Grouped field setter — writes to `config[groupName][subField]`.
   const setGroupField = (groupName, subField, value) => setDraft((d) => ({
     ...d,
@@ -638,14 +644,23 @@ const SectionEditor = ({ row, creating, module, onClose, onSave }) => {
                 <div key={i} className="rounded-lg border border-border p-3 mb-2 space-y-2"
                      data-testid={`hp-editor-list-item-${f.name}-${i}`}>
                   {f.itemFields.map((sub) => (
-                    <FieldRenderer key={sub.name} field={sub}
+                    <FieldRenderer key={sub.name} field={{ ...sub, name: `${f.name}-${i}-${sub.name}` }}
                                    value={item[sub.name]}
                                    onChange={(v) => setListItem(f.name, i, sub.name, v)} />
                   ))}
-                  <button onClick={() => rmListItem(f.name, i)}
-                          className="text-[10px] uppercase tracking-widest text-rose-400">
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => moveListItem(f.name, i, i - 1)} disabled={i === 0}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border disabled:opacity-30"
+                            data-testid={`hp-editor-list-up-${f.name}-${i}`}>↑ Up</button>
+                    <button onClick={() => moveListItem(f.name, i, i + 1)} disabled={i === rows.length - 1}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border disabled:opacity-30"
+                            data-testid={`hp-editor-list-down-${f.name}-${i}`}>↓ Down</button>
+                    <button onClick={() => rmListItem(f.name, i)}
+                            className="text-[10px] uppercase tracking-widest text-rose-400"
+                            data-testid={`hp-editor-list-remove-${f.name}-${i}`}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
               {rows.length === 0 && (

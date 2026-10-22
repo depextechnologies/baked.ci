@@ -62,19 +62,19 @@ const SendTileCard = ({ tile, onClick, layout }) => {
           loading="lazy"
           className={`w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.45)] ${isDesktop ? "max-h-36" : "max-h-28"}`}
         />
-      </div>
-      <div className="flex-1 px-3 sm:px-4 pt-3 pb-3 flex items-end gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-foreground font-semibold text-[0.95rem] leading-tight line-clamp-2">{title}</div>
-          {sub ? <div className="text-muted-foreground text-[0.72rem] font-medium mt-0.5 truncate">{sub}</div> : null}
-          <div className="text-muted-foreground text-[0.7rem] font-normal mt-1.5 line-clamp-2 leading-snug">{desc}</div>
-        </div>
         <div
-          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md"
+          className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md"
           style={{ backgroundColor: YELLOW }}
           aria-hidden="true"
         >
           <ArrowRight size={15} color="#0a0a0a" strokeWidth={2.6} />
+        </div>
+      </div>
+      <div className="flex-1 px-3 sm:px-4 pt-3 pb-3 flex items-end gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-foreground font-semibold text-[0.95rem] leading-tight line-clamp-2 break-normal hyphens-auto" lang="fr">{title}</div>
+          {sub ? <div className="text-muted-foreground text-[0.72rem] font-medium mt-0.5 truncate">{sub}</div> : null}
+          <div className="text-muted-foreground text-[0.7rem] font-normal mt-1.5 line-clamp-2 leading-snug">{desc}</div>
         </div>
       </div>
     </button>
