@@ -137,6 +137,12 @@ export const frC = {
   'trk.step.packed': 'Préparée',
   'trk.step.pending': 'En attente',
   'trk.step.shipped': 'Expédiée',
+  'cms.view_all': 'Voir tout',
+  'cms.options': '+{n} option(s)',
+  'cms.sub_count': '{n} sous-catégories',
+  'cms.no_products': 'Aucun produit pour le moment.',
+  'cms.offline': 'Hors ligne · contenu enregistré affiché',
+  'cms.empty': 'Cette page d’accueil n’a pas encore de contenu publié.',
 };
 
 export const enC: Record<keyof typeof frC, string> = {
@@ -277,4 +283,11 @@ export const enC: Record<keyof typeof frC, string> = {
   'trk.step.packed': 'Packed',
   'trk.step.pending': 'Pending',
   'trk.step.shipped': 'Shipped',
+  'cms.view_all': 'View all',
+  'cms.options': '+{n} options',
+  'cms.sub_count': '{n} sub-categories',
+  'cms.no_products': 'No products yet.',
+  'cms.offline': 'Offline · showing saved content',
+  'cms.empty': 'This homepage has no published content yet.',
+
 };

@@ -46,6 +46,8 @@ const _SLIDE_FIELDS = [
   F.text("headline", "Headline"),
   F.area("description", "Description"),
   F.image("image", "Background image"),
+  F.image("image_tablet", "Tablet image (optional)", "Used on tablets (768–1023px). Falls back to the background image."),
+  F.image("image_mobile", "Mobile image (optional)", "Used on phones (<768px) — website and apps. Falls back to the background image."),
   F.text("badge", "Badge (optional, e.g. NEW, 30% off)"),
   F.text("cta_label", "Primary CTA label"),
   F.url("cta_link", "Primary CTA link"),

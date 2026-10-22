@@ -3,10 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useAccountSummary } from '@/hooks/useAccountSummary';
 import { useFetch } from '@/hooks/useFetch';
+import { useHomepage } from '@/hooks/useHomepage';
 import { useModuleNav } from '@/hooks/useModuleNav';
 import { MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
@@ -23,13 +24,21 @@ import { Touchable } from '../ui/Button';
 import { FoodHomeSections, FoodModeToggle } from './FoodHomeSections';
 import { MartHomeSections } from './MartHomeSections';
 import { categoryEndpoint, toTiles, type Tile } from './moduleData';
+import { CmsSections } from '../cms/registry';
+
+// Modules whose homepage body is fully driven by Super Admin Homepage Management.
+const CMS_MODULES: ModuleCode[] = ['shop'];
 
 export function ModuleHome({ code }: { code: ModuleCode }) {
   const { t, lang, country } = useApp();
   const { goMainHome } = useModuleNav();
   const { unread } = useAccountSummary();
   const m = MODULES[code];
-  const { data, loading, error, reload } = useFetch<any>(categoryEndpoint(code, country?.code || 'CI'), [code]);
+  const cms = CMS_MODULES.includes(code);
+  const cc = country?.code || 'CI';
+  const { width } = useWindowDimensions();
+  const hp = useHomepage(cms ? code : null, cc);
+  const { data, loading, error, reload } = useFetch<any>(cms ? null : categoryEndpoint(code, cc), [code]);
   const tiles = toTiles(code, data, lang, t, m.image);
 
   const commerce = code !== 'express';
@@ -41,7 +50,8 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
 
   return (
     <View style={{ flex: 1 }}>
-    <ScrollView testID={`module-home-${code}`} contentContainerStyle={{ paddingBottom: commerce ? 96 : 28 }} showsVerticalScrollIndicator={false}>
+    <ScrollView testID={`module-home-${code}`} contentContainerStyle={{ paddingBottom: commerce ? 96 : 28 }} showsVerticalScrollIndicator={false}
+      refreshControl={cms ? <RefreshControl refreshing={hp.refreshing} onRefresh={hp.refresh} tintColor={m.color} colors={[m.color]} /> : undefined}>
       <View style={styles.header}>
         <Logo height={30} onPress={goMainHome} testID="module-logo-home" />
         <View style={[styles.chip, { borderColor: hexA(m.color, 0.5) }]}><BrandName code={code} size={14} /></View>
@@ -53,6 +63,12 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
       <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} to={searchTo} />
       {code === 'food' ? <FoodModeToggle /> : null}
 
+      {cms ? (
+        <View style={{ marginTop: 4 }}>
+          <CmsSections sections={hp.data?.sections} loading={hp.loading} offline={hp.offline} accent={m.color} module={code} country={cc} width={width - 32} />
+        </View>
+      ) : (
+      <>
       <View style={[styles.hero, { marginTop: code === 'food' ? 14 : 0, borderColor: hexA(m.color, 0.45) }]} testID="module-hero">
         <LinearGradient colors={[hexA(m.color, 0.32), hexA(m.color, 0.05), '#000']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <View style={{ flex: 1, zIndex: 1 }}>
@@ -74,6 +90,8 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
         </View>
       )}
 
+      </>
+      )}
       {code === 'mart' ? <MartHomeSections /> : null}
       {code === 'food' ? <FoodHomeSections /> : null}
       {!commerce ? (
