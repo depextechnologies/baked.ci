@@ -149,6 +149,22 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "display_order": 100,
             "is_enabled": True,
         },
+        {
+            # Migrated from the website's hardcoded footer trust badges (2026-06).
+            "id": f"hps_{country.lower()}_110_trust_strip",
+            "country": country,
+            "section_type": "trust_strip",
+            "title": None,
+            "subtitle": None,
+            "config": {"items": [
+                {"icon": "bike", "color": "#77BC1F", "title": "Super fast delivery", "title_fr": "Livraison ultra-rapide", "subtitle": "10-15 min average", "subtitle_fr": "10-15 min en moyenne"},
+                {"icon": "package", "color": "#F97316", "title": "Wide range of products", "title_fr": "Large gamme de produits", "subtitle": "Everything you need", "subtitle_fr": "Tout ce qu'il vous faut"},
+                {"icon": "tag", "color": "#06B6D4", "title": "Best prices & offers", "title_fr": "Meilleurs prix & offres", "subtitle": "Save more every day", "subtitle_fr": "Économisez chaque jour"},
+                {"icon": "rotate", "color": "#A855F7", "title": "Easy returns", "title_fr": "Retours faciles", "subtitle": "Hassle-free refunds", "subtitle_fr": "Remboursement sans souci"},
+            ]},
+            "display_order": 110,
+            "is_enabled": True,
+        },
     ]
 
 

@@ -171,6 +171,16 @@ const SECTION_SCHEMAS = {
     top: [F.text("title", "Headline"), F.text("subtitle", "Subline")],
     config: [F.text("cta_label", "CTA label"), F.url("cta_link", "CTA link")],
   },
+  trust_strip: {
+    label: "Trust Strip (badges)",
+    top: [],
+    config: [F.list("items", "Badges (4 recommended)", [
+      F.text("icon", "Icon key (bike / package / tag / rotate / shield / truck)"),
+      F.text("color", "Accent colour (hex)"),
+      F.text("title", "Title (EN)"), F.text("title_fr", "Titre (FR)"),
+      F.text("subtitle", "Subtitle (EN)"), F.text("subtitle_fr", "Sous-titre (FR)"),
+    ])],
+  },
 
   // ---------------- FOODbakēd homepage sections (Feb 2026) ------------------
   // Every food_* schema is FR-first / EN-second. The customer FoodHome page

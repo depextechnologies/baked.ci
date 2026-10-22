@@ -22,12 +22,11 @@ import { ModuleIcon } from '../ModuleIcon';
 import { CartBar, CartButton } from '../commerce/CartBar';
 import { Touchable } from '../ui/Button';
 import { FoodHomeSections, FoodModeToggle } from './FoodHomeSections';
-import { MartHomeSections } from './MartHomeSections';
 import { categoryEndpoint, toTiles, type Tile } from './moduleData';
 import { CmsSections } from '../cms/registry';
 
 // Modules whose homepage body is fully driven by Super Admin Homepage Management.
-const CMS_MODULES: ModuleCode[] = ['shop'];
+const CMS_MODULES: ModuleCode[] = ['shop', 'mart'];
 
 export function ModuleHome({ code }: { code: ModuleCode }) {
   const { t, lang, country } = useApp();
@@ -92,7 +91,6 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
 
       </>
       )}
-      {code === 'mart' ? <MartHomeSections /> : null}
       {code === 'food' ? <FoodHomeSections /> : null}
       {!commerce ? (
         <View style={[styles.note, { borderColor: hexA(m.color, 0.3) }]} testID="module-next-phase-note">

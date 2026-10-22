@@ -29,8 +29,12 @@ export function nativeLink(link: string | null | undefined, module: string): str
   let m: RegExpMatchArray | null;
   if ((m = l.match(/^\/shop\/c\/([^/?]+)/))) return `/shop/category/${m[1]}`;
   if ((m = l.match(/^\/shop\/p\/([^/?]+)/))) return `/shop/product/${m[1]}`;
-  if (/^\/shop(\/categories)?\/?$/.test(l) || l === '') return module === 'shop' ? '/shop/category/all' : `/${module}`;
+  if (/^\/shop(\/categories)?\/?$/.test(l) || l === '') return module === 'shop' ? '/shop/category/all' : module === 'mart' ? '/mart/category/all' : `/${module}`;
   if ((m = l.match(/^\/mart\/c(?:ategory)?\/([^/?]+)/))) return `/mart/category/${m[1]}`;
+  if (module === 'mart' && /^\/(products|produits|categories)/.test(l)) {
+    const cat = (link || '').match(/[?&]category=([^&#]+)/);
+    return `/mart/category/${cat ? cat[1] : 'all'}`;
+  }
   if ((m = l.match(/^\/mart\/p(?:roduct)?\/([^/?]+)/))) return `/mart/product/${m[1]}`;
   if ((m = l.match(/^\/food\/r(?:estaurant)?\/([^/?]+)/))) return `/food/restaurant/${m[1]}`;
   return l;

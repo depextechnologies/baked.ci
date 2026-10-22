@@ -10,6 +10,7 @@ import { prefs } from '@/lib/storage';
 export type Country = {
   code: string; name: string; currency: string; currency_symbol: string;
   phone_code: string; delivery_eta_min?: string; service_radius_km?: number;
+  min_order?: number; delivery_fee?: number; free_delivery_over?: number;
 };
 
 type AppState = {
