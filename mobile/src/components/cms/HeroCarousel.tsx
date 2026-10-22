@@ -25,9 +25,10 @@ export function HeroCarousel({ section, accent, module, width }: SectionProps) {
 
   useEffect(() => {
     if (slides.length < 2) return;
-    const t = setInterval(() => setIdx((i) => { const n = (i + 1) % slides.length; list.current?.scrollToOffset({ offset: n * width, animated: true }); return n; }), 5500);
+    const t = setInterval(() => setIdx((i) => (i + 1) % slides.length), 5500);
     return () => clearInterval(t);
-  }, [slides.length, width]);
+  }, [slides.length]);
+  useEffect(() => { list.current?.scrollToOffset({ offset: idx * width, animated: true }); }, [idx, width]);
 
   if (!slides.length) return null;
   const onEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => setIdx(Math.round(e.nativeEvent.contentOffset.x / width));

@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ShoppingBag } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useFetch } from '@/hooks/useFetch';
 import { absUrl, nativeLink, sectionText } from '@/lib/cms';
@@ -20,7 +20,8 @@ export function CategoryGrid({ section, accent, module, country, width }: Sectio
   const { t, lang } = useApp();
   const tree = useFetch<any[]>(module === 'shop' ? `/shop/catalogue?country=${country}` : null, [country]);
   const cats: any[] = section.config?.categories || [];
-  const n = cols(width); const gap = 12; const w = (width - gap * (n - 1)) / n;
+  const { width: screen } = useWindowDimensions();
+  const n = cols(screen); const gap = 12; const w = (width - gap * (n - 1)) / n;
   const base = module === 'shop' ? '/shop/category' : `/${module}/category`;
   return (
     <View testID={`cms-category-grid-${section.id}`}>

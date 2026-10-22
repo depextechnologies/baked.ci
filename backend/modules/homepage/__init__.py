@@ -168,10 +168,12 @@ async def admin_reorder_sections(
     session: AsyncSession = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
+    rows = {i.id: await session.get(HomepageSection, i.id) for i in payload.items}
+    missing = [k for k, v in rows.items() if v is None]
+    if missing:
+        raise HTTPException(404, {"code": "section_not_found", "ids": missing})
     for item in payload.items:
-        row = await session.get(HomepageSection, item.id)
-        if row:
-            row.display_order = item.display_order
+        rows[item.id].display_order = item.display_order
     await session.commit()
     return {"ok": True, "count": len(payload.items)}
 

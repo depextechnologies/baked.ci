@@ -1918,3 +1918,5 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
     - Backend: movers quote/booking validation (labour 1-10, floors ≥0, slot surcharge ≥0, typed buildings, move_type/time_slot/date/items checks).
     - Redis runs under supervisor `redis-local`.
     - Testing: iteration_120 + iteration_121 PASS (backend 43 tests incl. `test_mobile_send_movers.py`).
+
+- ✅ **P0 Homepage parity + unified CMS — SHOP (2026-06)**: native SHOP home now renders the same `/api/homepage?module=shop` sections as the website via a native section registry (`mobile/src/components/cms/*`, `hooks/useHomepage.ts`). Backend adds `version`/`updated_at` + `/api/homepage/version`; reorder 404s unknown ids. Admin slide editor gains Tablet/Mobile image fields; website hero uses `<picture>` for them. Tested iteration_122 (live sync banner/reorder/visibility/new promo, EN, offline cache, tablet). See `/app/memory/HOMEPAGE_CMS_PARITY.md`. NEXT: MART, FOOD, SEND (SEND website is hardcoded → migrate to CMS).

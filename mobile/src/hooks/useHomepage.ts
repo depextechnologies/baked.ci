@@ -39,7 +39,7 @@ export function useHomepage(module: string | null, country: string) {
       try {
         const { version } = await api<{ version: string }>(`/homepage/version?${q}`, { auth: false });
         if (version !== verRef.current) await load();
-      } catch { setOffline(true); }
+      } catch { /* keep current content; next foreground or pull-to-refresh retries */ }
     });
     return () => sub.remove();
   }, [q, load, module]);
