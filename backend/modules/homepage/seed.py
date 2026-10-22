@@ -485,6 +485,49 @@ async def seed_food_homepage(session: AsyncSession) -> dict[str, int]:
     return counts
 
 
+# SENDbakēd homepage — migrated 1:1 from the hardcoded website ExpressHome (map, pickup bar, 6 tiles, trust banner).
+_SEND_TILES = [
+    ("moto", "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/kkvj338q_Bike_baked.png",
+     "Envoyer par moto", "Send by Motorcycle", "Colis rapides et documents en ville", "Fast parcels and documents in the city"),
+    ("cargo", "/send-tiles/send_by_cargo.png", "Envoyer par CARGO", "Send by CARGO", "Tricycle, mini camion ou camion", "Tricycle, mini truck or truck"),
+    ("fresh", "/send-tiles/fresh_products.png", "Envoyer des produits frais", "Send Fresh Products",
+     "Véhicules frigorifiques — poisson, viande, légumes", "Refrigerated vehicles — fish, meat, vegetables"),
+    ("between_cities", "/send-tiles/between_cities.png", "Envoyer entre villes", "Send Between Cities",
+     "Livraison inter-villes longue distance", "Long-distance inter-city delivery"),
+    ("movers", "/send-tiles/packers_movers.png", "Déménagement & Transport", "Packers & Movers",
+     "Déménagement clé en main avec équipe", "Turnkey home shifting with a full crew"),
+    ("multi", "/send-tiles/multiple_shipments.png", "Expéditions multiples", "Multiple Shipments",
+     "Plusieurs arrêts, un seul véhicule, un seul trajet", "Several stops, one vehicle, one trip"),
+]
+
+
+def _send_rows(country: str) -> list[dict]:
+    cc = country.lower()
+    tiles = [{"key": k, "image": img, "title_fr": tfr, "title_en": ten, "desc_fr": dfr, "desc_en": den, "enabled": True}
+             for k, img, tfr, ten, dfr, den in _SEND_TILES]
+    rows = [
+        (10, "send_map_hero", None, None, {"show_drivers": True}),
+        (20, "send_pickup_bar", None, None, {"placeholder": "Your Pick-up Location?", "placeholder_fr": "Votre lieu de ramassage ?",
+                                             "add_stop_label": "Add Stop", "add_stop_label_fr": "Ajouter un arrêt"}),
+        (30, "send_service_tiles", "Our services", "Pick the service that fits your shipment",
+         {"title_fr": "Nos services", "subtitle_fr": "Choisissez le service adapté à votre envoi", "tiles": tiles}),
+        (40, "send_trust_banner", None, None, {"text": "All deliveries are insured · verified drivers · live tracking on every order.",
+                                               "text_fr": "Toutes les livraisons sont assurées · chauffeurs vérifiés · suivi en direct sur chaque commande."}),
+    ]
+    return [{"id": f"hps_send_{cc}_{seq:03d}_{t}", "country": country, "module": "express", "section_type": t,
+             "title": title, "subtitle": sub, "config": cfg, "display_order": seq, "is_enabled": True}
+            for seq, t, title, sub, cfg in rows]
+
+
+async def seed_send_homepage(session: AsyncSession) -> dict[str, int]:
+    """Insert-only-if-missing SEND stack per country (admin edits/deletes are preserved)."""
+    counts: dict[str, int] = {}
+    for country in ("CI", "IN"):
+        stmt = pg_insert(HomepageSection).values(_send_rows(country)).on_conflict_do_nothing(index_elements=["id"])
+        counts[country] = (await session.execute(stmt)).rowcount or 0
+    await session.commit()
+    return counts
+
 
 async def seed_homepage(session: AsyncSession) -> dict[str, int]:
     """Idempotently insert the default homepage stack for each supported country.

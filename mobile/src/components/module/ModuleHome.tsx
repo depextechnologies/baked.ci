@@ -26,7 +26,7 @@ import { CmsSections } from '../cms/registry';
 import { FoodDataProvider } from '../cms/food/FoodData';
 
 // Modules whose homepage body is fully driven by Super Admin Homepage Management.
-const CMS_MODULES: ModuleCode[] = ['shop', 'mart', 'food'];
+const CMS_MODULES: ModuleCode[] = ['shop', 'mart', 'food', 'express'];
 
 export function ModuleHome({ code }: { code: ModuleCode }) {
   const { t, lang, country } = useApp();

@@ -10,6 +10,7 @@ import { Skeleton } from '../ui/StateView';
 import { BannerTrio, BrandRow, CtaStrip, PromoBanner } from './Blocks';
 import { CategoryGrid } from './CategoryGrid';
 import { HeroCarousel } from './HeroCarousel';
+import { SendMapHero, SendPickupBar, SendServiceTiles, SendTrustBanner } from './send/SendSections';
 import { FoodPromos, FoodTestimonial, FoodUsps } from './food/FoodBlocks';
 import { FoodCategories, FoodCuisines, FoodFeatured, FoodHero, FoodTopBrands } from './food/FoodSections';
 import { MartAppPromo, MartBannerRow, MartBrands, MartCtaStrip, MartPromo, MartTrust } from './mart/MartBlocks';
@@ -35,6 +36,7 @@ const MODULE_REGISTRY: Record<string, Record<string, React.ComponentType<Section
     food_hero: FoodHero, food_categories: FoodCategories, food_top_brands: FoodTopBrands, food_featured_restaurants: FoodFeatured,
     food_promos: FoodPromos, food_cuisines: FoodCuisines, food_usps: FoodUsps, food_testimonial: FoodTestimonial,
   },
+  express: { send_map_hero: SendMapHero, send_pickup_bar: SendPickupBar, send_service_tiles: SendServiceTiles, send_trust_banner: SendTrustBanner },
   mart: {
     hero: MartHero, category_grid: MartCategoryGrid, product_carousel: MartProductCarousel, promotional_banner: MartPromo,
     banner_trio: MartBannerRow, brand_carousel: MartBrands, app_promotion: MartAppPromo, cta_strip: MartCtaStrip, trust_strip: MartTrust,
@@ -47,9 +49,9 @@ type Props = { sections: CmsSection[] | undefined; loading: boolean; offline: bo
 export function CmsSections({ sections, loading, offline, accent, module, country, width }: Props) {
   const { t } = useApp();
   return (
-    <View style={styles.wrap} testID={`cms-home-${module}`}>
+    <View style={[styles.wrap, module === 'express' && { gap: 16 }]} testID={`cms-home-${module}`}>
       {offline ? (
-        <View style={styles.offline} testID="cms-offline"><WifiOff color="#FCC44C" size={14} /><AppText size={12} color="#FCC44C">{t('cms.offline')}</AppText></View>
+        <View style={[styles.offline, module === 'express' && { marginBottom: 0 }]} testID="cms-offline"><WifiOff color="#FCC44C" size={14} /><AppText size={12} color="#FCC44C">{t('cms.offline')}</AppText></View>
       ) : null}
       {loading ? <><Skeleton h={220} r={16} /><Skeleton h={300} r={16} /></>
         : !sections?.length ? <AppText size={13} color={colors.textMuted} testID="cms-empty">{t('cms.empty')}</AppText>

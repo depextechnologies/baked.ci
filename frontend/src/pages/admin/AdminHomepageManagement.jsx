@@ -300,6 +300,42 @@ const SECTION_SCHEMAS = {
       F.image("background_image", "Legacy background image"),
     ],
   },
+  send_map_hero: {
+    label: "SEND · Carte en direct · Live map hero",
+    modules: ["express"],
+    top: [],
+    config: [F.bool("show_drivers", "Afficher les chauffeurs à proximité · Show nearby drivers")],
+  },
+  send_pickup_bar: {
+    label: "SEND · Barre de ramassage · Pickup bar",
+    modules: ["express"],
+    top: [],
+    config: [
+      F.text("placeholder_fr", "Texte FR · ex: Votre lieu de ramassage ?"), F.text("placeholder", "Placeholder EN"),
+      F.text("add_stop_label_fr", "Bouton FR · ex: Ajouter un arrêt"), F.text("add_stop_label", "Button EN"),
+    ],
+  },
+  send_service_tiles: {
+    label: "SEND · Services (tuiles) · Service tiles",
+    modules: ["express"],
+    top: [F.text("title", "Title EN"), F.text("subtitle", "Subtitle EN")],
+    config: [
+      F.text("title_fr", "Titre FR · ex: Nos services"), F.text("subtitle_fr", "Sous-titre FR"),
+      F.list("tiles", "Tuiles (ordre = affichage) · Tiles (order = display)", [
+        F.text("key", "Service key: moto / cargo / fresh / between_cities / movers / multi"),
+        F.bool("enabled", "Afficher · Show"),
+        F.image("image", "Illustration"),
+        F.text("title_fr", "Titre FR"), F.text("title_en", "Title EN"),
+        F.text("desc_fr", "Description FR"), F.text("desc_en", "Description EN"),
+      ]),
+    ],
+  },
+  send_trust_banner: {
+    label: "SEND · Bandeau confiance · Trust banner",
+    modules: ["express"],
+    top: [],
+    config: [F.area("text_fr", "Texte FR"), F.area("text", "Text EN")],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -310,7 +346,9 @@ const MODULES_META = [
   { code: "mart", label: "MARTbakēd" },
   { code: "shop", label: "SHOPbakēd" },
   { code: "food", label: "FOODbakēd" },
+  { code: "express", label: "SENDbakēd" },
 ];
+const PREVIEW_PATH = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
 
 // Section types allowed for each module. Sections tagged with `modules: [...]`
 // are restricted; untagged sections are shared (available everywhere) but we
@@ -318,7 +356,7 @@ const MODULES_META = [
 const _isSectionForModule = (schema, module) => {
   if (schema.modules) return schema.modules.includes(module);
   // Untagged sections were built for MART/SHOP originally.
-  return module !== "food";
+  return module !== "food" && module !== "express";
 };
 
 const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";
@@ -451,13 +489,13 @@ export const AdminHomepageManagement = () => {
                   data-testid="hp-country-select">
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
-          {module === "food" && (
+          {PREVIEW_PATH[module] && (
             <a
-              href={`/food?preview_country=${country}`}
+              href={`${PREVIEW_PATH[module]}?preview_country=${country}`}
               target="_blank" rel="noreferrer"
               className="h-9 px-3 rounded-lg text-xs uppercase tracking-widest font-semibold bg-secondary text-foreground border border-border hover:bg-accent flex items-center gap-1"
               data-testid="hp-preview-btn"
-              title="Opens the live FOODbakēd homepage in a new tab with the selected country">
+              title="Opens the live module homepage in a new tab with the selected country">
               <Eye size={14} /> Preview
             </a>
           )}

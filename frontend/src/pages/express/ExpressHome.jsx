@@ -134,11 +134,24 @@ const ExpressTopBar = () => {
 };
 
 // ---------------- MAP HERO ----------------
-const MapHero = () => {
+// Published SEND homepage (Super Admin → /api/homepage?module=express) — same payload the native apps render.
+const useSendHomepage = () => {
+  const { country } = useApp();
+  const [sections, setSections] = useState(null);
+  useEffect(() => {
+    api.get(`/homepage?country=${country?.code || "CI"}&module=express`)
+      .then((r) => setSections(r.data?.sections || []))
+      .catch(() => setSections([]));
+  }, [country?.code]);
+  return sections;
+};
+const cmsText = (o, key, lang) => (lang === "fr" ? o?.[`${key}_fr`] || o?.[key] : o?.[key] || o?.[`${key}_fr`]) || "";
+
+const MapHero = ({ showDrivers = true }) => {
   const { country } = useApp();
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const center = COUNTRY_CENTER[country?.code || "CI"];
-  const drivers = useMemo(() => seedDrivers(center.lat, center.lng, 7), [center.lat, center.lng]);
+  const drivers = useMemo(() => (showDrivers ? seedDrivers(center.lat, center.lng, 7) : []), [center.lat, center.lng, showDrivers]);
   const [userPos, setUserPos] = useState(null);
 
   useEffect(() => {
@@ -187,7 +200,9 @@ export const ExpressHome = () => {
 };
 
 const ExpressHomeMobile = () => {
-  const { t } = useTranslation("customer");
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "en" ? "en" : "fr";
+  const sections = useSendHomepage();
   const navigate = useNavigate();
   const { openAddressSelector, activeAddress, country } = useApp();
   const { setDraft } = useExpressBooking();
@@ -208,38 +223,41 @@ const ExpressHomeMobile = () => {
   return (
     <div className="min-h-screen bg-background pb-28">
       <ExpressTopBar />
-      <MapHero />
-
-      {/* Pickup + Add Stop */}
-      <section className="px-4 mt-3">
-        <div className="rounded-2xl flex items-center gap-2 pl-3 pr-2 h-14 border border-border bg-card">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}><Search size={14} color={YELLOW} /></div>
-          <button
-            data-testid="exp-home-pickup"
-            onClick={() => openAddressSelector({ title: t("send.pickup_title"), onPick: (a) => setDraft({ pickup: a }) })}
-            className="flex-1 text-left text-sm text-foreground/90 truncate"
-          >
-            {activeAddress ? activeAddress.formatted_address : t("send.pickup_placeholder")}
-          </button>
-          <button
-            data-testid="exp-home-add-stop"
-            onClick={() => navigate("/send/book/location")}
-            className="h-10 pl-3 pr-4 rounded-full flex items-center gap-1.5 text-sm font-semibold border border-border text-foreground"
-          >
-            <Plus size={14} color={YELLOW} /> {t("send.add_stop")}
-          </button>
-        </div>
-      </section>
-
-      {/* Phase A — 6 SEND service tiles */}
-      <SendServiceTiles layout="mobile" />
-
-      <section className="px-4 mt-4">
-        <div className="rounded-2xl p-3 flex items-center gap-3 border border-border bg-card">
-          <Sparkles size={16} color={YELLOW} />
-          <div className="text-[0.75rem] font-normal text-foreground opacity-70">{t("send.trust_banner")}</div>
-        </div>
-      </section>
+      {(sections || []).map((sec) => {
+        const c = sec.config || {};
+        if (sec.section_type === "send_map_hero") return <div key={sec.id} data-testid="send-cms-map"><MapHero showDrivers={c.show_drivers !== false} /></div>;
+        if (sec.section_type === "send_pickup_bar") return (
+          <section key={sec.id} className="px-4 mt-3" data-testid="send-cms-pickup">
+            <div className="rounded-2xl flex items-center gap-2 pl-3 pr-2 h-14 border border-border bg-card">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: YELLOW_TINT }}><Search size={14} color={YELLOW} /></div>
+              <button
+                data-testid="exp-home-pickup"
+                onClick={() => openAddressSelector({ title: t("send.pickup_title"), onPick: (a) => setDraft({ pickup: a }) })}
+                className="flex-1 text-left text-sm text-foreground/90 truncate"
+              >
+                {activeAddress ? activeAddress.formatted_address : cmsText(c, "placeholder", lang)}
+              </button>
+              <button
+                data-testid="exp-home-add-stop"
+                onClick={() => navigate("/send/book/location")}
+                className="h-10 pl-3 pr-4 rounded-full flex items-center gap-1.5 text-sm font-semibold border border-border text-foreground"
+              >
+                <Plus size={14} color={YELLOW} /> {cmsText(c, "add_stop_label", lang)}
+              </button>
+            </div>
+          </section>
+        );
+        if (sec.section_type === "send_service_tiles") return <SendServiceTiles key={sec.id} layout="mobile" section={sec} />;
+        if (sec.section_type === "send_trust_banner") return (
+          <section key={sec.id} className="px-4 mt-4" data-testid="send-cms-trust">
+            <div className="rounded-2xl p-3 flex items-center gap-3 border border-border bg-card">
+              <Sparkles size={16} color={YELLOW} />
+              <div className="text-[0.75rem] font-normal text-foreground opacity-70">{cmsText(c, "text", lang)}</div>
+            </div>
+          </section>
+        );
+        return null;
+      })}
     </div>
   );
 };
@@ -306,7 +324,10 @@ const ServiceCard = ({ testid, title, subtitle, image, onClick }) => (
 // =====================================================================
 
 const ExpressDesktopHome = () => {
-  const { t } = useTranslation("customer");
+  const { t, i18n } = useTranslation("customer");
+  const lang = i18n.language === "en" ? "en" : "fr";
+  const sections = useSendHomepage();
+  const mapSection = (sections || []).find((x) => x.section_type === "send_map_hero");
   const navigate = useNavigate();
   const { country, activeAddress, openAddressSelector } = useApp();
   const { setDraft } = useExpressBooking();
@@ -348,19 +369,25 @@ const ExpressDesktopHome = () => {
             </button>
           </div>
 
-          {/* Phase A — 6 SEND service tiles (replaces vehicle carousel + parcel/movers + explore + book-now) */}
-          <SendServiceTiles layout="desktop" />
+          {/* CMS-managed left-panel sections (pickup bar is mobile-only; the map lives in the right panel) */}
+          {(sections || []).map((sec) => {
+            if (sec.section_type === "send_service_tiles") return <SendServiceTiles key={sec.id} layout="desktop" section={sec} />;
+            if (sec.section_type === "send_trust_banner") return (
+              <div key={sec.id} data-testid="send-cms-trust" className="exp-dt-tile rounded-2xl px-3 py-2.5 flex items-center gap-2 border border-border">
+                <ShieldCheck size={14} color={YELLOW} />
+                <div className="text-[0.75rem] font-normal text-muted-foreground">{cmsText(sec.config, "text", lang)}</div>
+              </div>
+            );
+            return null;
+          })}
+        </div>
 
-          <div className="exp-dt-tile rounded-2xl px-3 py-2.5 flex items-center gap-2 border border-border">
-            <ShieldCheck size={14} color={YELLOW} />
-            <div className="text-[0.75rem] font-normal text-muted-foreground">{t("send.trust_banner")}</div>
+        {/* RIGHT PANEL — persistent map (CMS send_map_hero) */}
+        {mapSection && (
+          <div className="exp-dt-panel rounded-3xl overflow-hidden relative min-h-[560px] border border-border" data-testid="send-cms-map">
+            <DesktopMapHero showDrivers={mapSection.config?.show_drivers !== false} />
           </div>
-        </div>
-
-        {/* RIGHT PANEL — persistent map */}
-        <div className="exp-dt-panel rounded-3xl overflow-hidden relative min-h-[560px] border border-border">
-          <DesktopMapHero />
-        </div>
+        )}
       </div>
     </div>
   );
@@ -415,11 +442,11 @@ const DesktopServiceCard = ({ testid, title, subtitle, image, onClick }) => (
 );
 
 // Larger map re-using the existing dark style + driver markers, sized to fill the right panel.
-const DesktopMapHero = () => {
+const DesktopMapHero = ({ showDrivers = true }) => {
   const { country } = useApp();
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const center = COUNTRY_CENTER[country?.code || "CI"];
-  const drivers = useMemo(() => seedDrivers(center.lat, center.lng, 9), [center.lat, center.lng]);
+  const drivers = useMemo(() => (showDrivers ? seedDrivers(center.lat, center.lng, 9) : []), [center.lat, center.lng, showDrivers]);
   const [userPos, setUserPos] = useState(null);
 
   useEffect(() => {

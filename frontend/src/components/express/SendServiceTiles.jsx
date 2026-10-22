@@ -41,7 +41,10 @@ const TILE_META = {
 
 const SendTileCard = ({ tile, onClick, layout }) => {
   const { t } = useTranslation("customer");
-  const meta = TILE_META[tile.key];
+  const meta = TILE_META[tile.key] || {};
+  const title = tile.title || t(meta.titleKey);
+  const sub = tile.title_en ?? t(meta.enKey);
+  const desc = tile.desc || t(meta.descKey);
   const isDesktop = layout === "desktop";
   return (
     <button
@@ -55,16 +58,16 @@ const SendTileCard = ({ tile, onClick, layout }) => {
       >
         <img
           src={tile.asset}
-          alt={t(meta.titleKey)}
+          alt={title}
           loading="lazy"
           className={`w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.45)] ${isDesktop ? "max-h-36" : "max-h-28"}`}
         />
       </div>
       <div className="flex-1 px-3 sm:px-4 pt-3 pb-3 flex items-end gap-3">
         <div className="flex-1 min-w-0">
-          <div className="text-foreground font-semibold text-[0.95rem] leading-tight line-clamp-2">{t(meta.titleKey)}</div>
-          <div className="text-muted-foreground text-[0.72rem] font-medium mt-0.5 truncate">{t(meta.enKey)}</div>
-          <div className="text-muted-foreground text-[0.7rem] font-normal mt-1.5 line-clamp-2 leading-snug">{t(meta.descKey)}</div>
+          <div className="text-foreground font-semibold text-[0.95rem] leading-tight line-clamp-2">{title}</div>
+          {sub ? <div className="text-muted-foreground text-[0.72rem] font-medium mt-0.5 truncate">{sub}</div> : null}
+          <div className="text-muted-foreground text-[0.7rem] font-normal mt-1.5 line-clamp-2 leading-snug">{desc}</div>
         </div>
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md"
@@ -84,8 +87,21 @@ const SendTileCard = ({ tile, onClick, layout }) => {
  * Props:
  *   layout: "mobile" | "desktop"  — controls tile height + column count.
  */
-export const SendServiceTiles = ({ layout = "mobile" }) => {
-  const { t } = useTranslation("customer");
+export const SendServiceTiles = ({ layout = "mobile", section = null }) => {
+  const { t, i18n } = useTranslation("customer");
+  const fr = i18n.language !== "en";
+  // CMS (send_service_tiles): ordered tiles with FR primary / EN secondary labels; falls back to the built-in six.
+  const tiles = section
+    ? (section.config?.tiles || []).filter((x) => x.enabled !== false && x.key).map((x) => ({
+        key: x.key,
+        asset: x.image || SEND_TILE_ASSETS[x.key],
+        title: x.title_fr || x.title_en,
+        title_en: x.title_en || "",
+        desc: fr ? x.desc_fr || x.desc_en : x.desc_en || x.desc_fr,
+      }))
+    : SERVICES;
+  const heading = section ? (fr ? section.config?.title_fr || section.title : section.title || section.config?.title_fr) : t("send.services_heading");
+  const subheading = section ? (fr ? section.config?.subtitle_fr || section.subtitle : section.subtitle || section.config?.subtitle_fr) : t("send.services_sub");
   const navigate = useNavigate();
   const { activeAddress } = useApp();
   const { setDraft } = useExpressBooking();
@@ -140,12 +156,12 @@ export const SendServiceTiles = ({ layout = "mobile" }) => {
     <section data-testid="send-services-grid" className={layout === "desktop" ? "" : "px-4 mt-5"}>
       <div className={`${layout === "desktop" ? "" : "mb-3"} flex items-end justify-between`}>
         <div>
-          <h2 className="text-foreground font-bold tracking-tight text-xl sm:text-2xl leading-tight">{t("send.services_heading")}</h2>
-          <p className="text-muted-foreground text-[0.78rem] mt-1">{t("send.services_sub")}</p>
+          <h2 className="text-foreground font-bold tracking-tight text-xl sm:text-2xl leading-tight">{heading}</h2>
+          <p className="text-muted-foreground text-[0.78rem] mt-1">{subheading}</p>
         </div>
       </div>
       <div className={`${gridClass} ${layout === "desktop" ? "mt-4" : ""}`}>
-        {SERVICES.map((tile) => (
+        {tiles.map((tile) => (
           <SendTileCard key={tile.key} tile={tile} layout={layout} onClick={() => handleClick(tile.key)} />
         ))}
       </div>

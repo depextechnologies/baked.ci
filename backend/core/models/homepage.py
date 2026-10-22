@@ -35,6 +35,12 @@ HOMEPAGE_SECTION_TYPES = [
     "food_promos",
     "food_usps",
     "food_testimonial",
+    "food_top_brands",
+    # SENDbakēd (2026-06) — migrated from the hardcoded website ExpressHome.
+    "send_map_hero",
+    "send_pickup_bar",
+    "send_service_tiles",
+    "send_trust_banner",
 ]
 
 
