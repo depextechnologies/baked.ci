@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowRight, Bike, Package, RotateCcw, Smartphone, Tag, type LucideIcon } from 'lucide-react-native';
+import { ArrowRight, Bike, Package, RotateCcw, ShieldCheck, Smartphone, Tag, Truck, type LucideIcon } from 'lucide-react-native';
 import React from 'react';
 import { Linking, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -24,7 +24,7 @@ export function MartPromo({ section }: SectionProps) {
       {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" /> : null}
       <LinearGradient colors={img ? ['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.15)', 'transparent'] : ['#77BC1F', '#3b6b0f']} start={{ x: 0, y: 0 }} end={{ x: 1, y: img ? 0 : 1 }} style={StyleSheet.absoluteFill} />
       <View style={{ padding: 24, maxWidth: 560 }}>
-        {badge ? <View style={styles.badge}><AppText size={11} weight="bold" style={styles.caps}>{badge}</AppText></View> : null}
+        {badge ? <View style={styles.badge}><AppText size={11} weight="bold" style={[styles.caps, { marginBottom: 0 }]}>{badge}</AppText></View> : null}
         <AppText weight="bold" size={width >= 768 ? 36 : 24} testID={`cms-mart-promo-title-${section.id}`}>{sectionText(section, 'title', lang)}</AppText>
         {sub ? <AppText size={14} color="rgba(255,255,255,0.85)" style={{ marginTop: 6 }}>{sub}</AppText> : null}
         {cta ? <View style={styles.white}><AppText size={14} weight="bold" color="#000">{cta}</AppText><ArrowRight color="#000" size={16} /></View> : null}
@@ -133,7 +133,7 @@ export function MartCtaStrip({ section }: SectionProps) {
   );
 }
 
-const TRUST_ICONS: Record<string, LucideIcon> = { bike: Bike, package: Package, tag: Tag, rotate: RotateCcw };
+const TRUST_ICONS: Record<string, LucideIcon> = { bike: Bike, package: Package, tag: Tag, rotate: RotateCcw, shield: ShieldCheck, truck: Truck };
 
 export function MartTrust({ section }: SectionProps) {
   const { lang } = useApp();

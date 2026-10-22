@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Loader2, Smartphone, Store,
   Truck, Car, Home as HomeIcon, Package,
-  Bike, Clock, Wallet, Tag, RotateCcw, MapPin,
+  Bike, Clock, Wallet, Tag, RotateCcw, MapPin, ShieldCheck,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useApp } from "../contexts/BakedContexts";
@@ -722,7 +722,7 @@ const CtaStrip = ({ section }) => {
  * ============================================================================ */
 
 // Migrated to CMS (section_type `trust_strip`, config.items[{icon,color,title(_fr),subtitle(_fr)}]).
-const TRUST_ICONS = { bike: Bike, package: Package, tag: Tag, rotate: RotateCcw };
+const TRUST_ICONS = { bike: Bike, package: Package, tag: Tag, rotate: RotateCcw, shield: ShieldCheck, truck: Truck };
 const TrustStrip = ({ section }) => {
   const { i18n } = useTranslation("common");
   const fr = i18n.language === "fr";

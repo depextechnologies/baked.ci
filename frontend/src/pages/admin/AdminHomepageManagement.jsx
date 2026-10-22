@@ -501,7 +501,7 @@ export const AdminHomepageManagement = () => {
                   data-testid={`hp-row-${row.id}`}>
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.display_order}</td>
                 <td className="px-4 py-3">
-                  <div className="font-medium">{row.title || <span className="italic text-muted-foreground">Untitled</span>}</div>
+                  <div className="font-medium">{row.title || <span className="italic text-muted-foreground">{SECTION_SCHEMAS[row.section_type]?.label || "Untitled"}</span>}</div>
                   <div className="text-[11px] text-muted-foreground truncate max-w-md">{row.subtitle}</div>
                 </td>
                 <td className="px-4 py-3 text-xs">

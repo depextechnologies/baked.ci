@@ -46,7 +46,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
           </View>
         </View>
       </View>
-      <View style={[styles.panel, wide && { flex: 0.9 }]} testID="cms-mart-delivery-panel">
+      <View style={[styles.panel, wide && { flex: 0.9, justifyContent: 'flex-start', gap: 22 }]} testID="cms-mart-delivery-panel">
         <View>
           <AppText size={11} weight="semibold" color={colors.textMuted} style={styles.caps}>{t('cms.delivery_in')}</AppText>
           <View style={styles.etaRow}>
