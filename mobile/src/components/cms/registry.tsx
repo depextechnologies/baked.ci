@@ -10,6 +10,8 @@ import { Skeleton } from '../ui/StateView';
 import { BannerTrio, BrandRow, CtaStrip, PromoBanner } from './Blocks';
 import { CategoryGrid } from './CategoryGrid';
 import { HeroCarousel } from './HeroCarousel';
+import { FoodPromos, FoodTestimonial, FoodUsps } from './food/FoodBlocks';
+import { FoodCategories, FoodCuisines, FoodFeatured, FoodHero, FoodTopBrands } from './food/FoodSections';
 import { MartAppPromo, MartBannerRow, MartBrands, MartCtaStrip, MartPromo, MartTrust } from './mart/MartBlocks';
 import { MartHero } from './mart/MartHero';
 import { MartCategoryGrid, MartProductCarousel } from './mart/MartSections';
@@ -29,6 +31,10 @@ export const SECTION_REGISTRY: Record<string, React.ComponentType<SectionProps>>
 
 // Per-module designs mirror each website renderer (MART = ConfigHomepage.jsx, SHOP = ShopHome.jsx).
 const MODULE_REGISTRY: Record<string, Record<string, React.ComponentType<SectionProps>>> = {
+  food: {
+    food_hero: FoodHero, food_categories: FoodCategories, food_top_brands: FoodTopBrands, food_featured_restaurants: FoodFeatured,
+    food_promos: FoodPromos, food_cuisines: FoodCuisines, food_usps: FoodUsps, food_testimonial: FoodTestimonial,
+  },
   mart: {
     hero: MartHero, category_grid: MartCategoryGrid, product_carousel: MartProductCarousel, promotional_banner: MartPromo,
     banner_trio: MartBannerRow, brand_carousel: MartBrands, app_promotion: MartAppPromo, cta_strip: MartCtaStrip, trust_strip: MartTrust,
@@ -47,7 +53,7 @@ export function CmsSections({ sections, loading, offline, accent, module, countr
       ) : null}
       {loading ? <><Skeleton h={220} r={16} /><Skeleton h={300} r={16} /></>
         : !sections?.length ? <AppText size={13} color={colors.textMuted} testID="cms-empty">{t('cms.empty')}</AppText>
-          : sections.map((s) => {
+          : (module === 'food' ? [...sections].sort((a, b) => Number(b.section_type === 'food_hero') - Number(a.section_type === 'food_hero')) : sections).map((s) => {
             const C = componentFor(module, s.section_type);
             return C ? <View key={s.id} testID={`cms-section-${s.section_type}-${s.id}`}><C section={s} accent={accent} module={module} country={country} width={width} /></View> : null;
           })}

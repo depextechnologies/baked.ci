@@ -37,5 +37,6 @@ export function nativeLink(link: string | null | undefined, module: string): str
   }
   if ((m = l.match(/^\/mart\/p(?:roduct)?\/([^/?]+)/))) return `/mart/product/${m[1]}`;
   if ((m = l.match(/^\/food\/r(?:estaurant)?\/([^/?]+)/))) return `/food/restaurant/${m[1]}`;
+  if (/^\/(foodbaked|food)(\/restaurants)?\/?$/.test(l)) return '/food/discover';
   return l;
 }

@@ -21,12 +21,12 @@ import { ErrorView, Skeleton } from '../ui/StateView';
 import { ModuleIcon } from '../ModuleIcon';
 import { CartBar, CartButton } from '../commerce/CartBar';
 import { Touchable } from '../ui/Button';
-import { FoodHomeSections, FoodModeToggle } from './FoodHomeSections';
 import { categoryEndpoint, toTiles, type Tile } from './moduleData';
 import { CmsSections } from '../cms/registry';
+import { FoodDataProvider } from '../cms/food/FoodData';
 
 // Modules whose homepage body is fully driven by Super Admin Homepage Management.
-const CMS_MODULES: ModuleCode[] = ['shop', 'mart'];
+const CMS_MODULES: ModuleCode[] = ['shop', 'mart', 'food'];
 
 export function ModuleHome({ code }: { code: ModuleCode }) {
   const { t, lang, country } = useApp();
@@ -60,11 +60,14 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
       </View>
       <AddressBar accent={m.color} />
       <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} to={searchTo} />
-      {code === 'food' ? <FoodModeToggle /> : null}
 
       {cms ? (
         <View style={{ marginTop: 4 }}>
-          <CmsSections sections={hp.data?.sections} loading={hp.loading} offline={hp.offline} accent={m.color} module={code} country={cc} width={width - 32} />
+          {code === 'food' ? (
+            <FoodDataProvider>
+              <CmsSections sections={hp.data?.sections} loading={hp.loading} offline={hp.offline} accent={m.color} module={code} country={cc} width={width - 32} />
+            </FoodDataProvider>
+          ) : <CmsSections sections={hp.data?.sections} loading={hp.loading} offline={hp.offline} accent={m.color} module={code} country={cc} width={width - 32} />}
         </View>
       ) : (
       <>
@@ -91,7 +94,6 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
 
       </>
       )}
-      {code === 'food' ? <FoodHomeSections /> : null}
       {!commerce ? (
         <View style={[styles.note, { borderColor: hexA(m.color, 0.3) }]} testID="module-next-phase-note">
           <Sparkles color={m.color} size={18} />

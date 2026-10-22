@@ -24,7 +24,7 @@ const DEFAULTS: Filters = { vegetarian: 'all', open_now: false, sort: 'popularit
 type Cat = { code: string; name_fr: string; name_en: string };
 
 export default function FoodDiscover() {
-  const { category, focus } = useLocalSearchParams<{ category?: string; focus?: string }>();
+  const { category, cuisines, focus } = useLocalSearchParams<{ category?: string; cuisines?: string; focus?: string }>();
   const { t, lang, country, address } = useApp();
   const { foodMode } = useCart();
   const cc = country?.code || 'CI';
@@ -38,7 +38,7 @@ export default function FoodDiscover() {
   const cats = useFetch<{ items: Cat[] }>(`/food/categories?country=${cc}`, [cc]);
   const qs = [
     `country=${cc}`, `fulfillment_mode=${foodMode}`, 'limit=48', `sort=${filters.sort}`,
-    address && `lat=${address.latitude}&lng=${address.longitude}`, cat && cat !== 'all' && `category=${cat}`,
+    address && `lat=${address.latitude}&lng=${address.longitude}`, cat && cat !== 'all' && `category=${cat}`, cuisines && `cuisines=${encodeURIComponent(cuisines)}`,
     debounced && `query=${encodeURIComponent(debounced)}`, filters.min_rating && `min_rating=${filters.min_rating}`,
     filters.max_price && `max_price=${filters.max_price}`, filters.vegetarian !== 'all' && `vegetarian=${filters.vegetarian}`,
     filters.open_now && 'open_now=true',
