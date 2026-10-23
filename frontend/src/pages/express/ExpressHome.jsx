@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { APIProvider, Map, AdvancedMarker, useMap } from "@vis.gl/react-google-maps";
@@ -31,26 +31,42 @@ const COUNTRY_CENTER = {
   IN: { lat: 28.6139, lng: 77.2090, label: "Connaught Place, New Delhi" },
 };
 
-// Deterministically-seeded driver positions around a center (so they don't jitter on re-render).
-const seedDrivers = (lat, lng, count = 7) => {
-  const out = [];
-  const kinds = ["bike", "scooter", "three_wheeler", "truck"];
-  for (let i = 0; i < count; i++) {
-    // Pseudo-random offset ~0.5–3.5 km using a hashed step
-    const a = ((i * 137.508) % 360) * (Math.PI / 180);
-    const r = 0.005 + ((i * 7) % 20) * 0.001;
-    out.push({
-      id: `drv${i}`,
-      lat: lat + Math.sin(a) * r,
-      lng: lng + Math.cos(a) * r,
-      kind: kinds[i % kinds.length],
-    });
-  }
-  return out;
+// Real online SEND drivers near the map origin (GET /api/express/drivers/nearby — dispatch eligibility, ~110 m rounding).
+const NEARBY_POLL_MS = 15000;
+const useNearbyDrivers = (origin, country, enabled) => {
+  const [state, setState] = useState({ drivers: [], count: null });
+  const lat = origin?.lat; const lng = origin?.lng;
+  useEffect(() => {
+    if (!enabled || lat == null || lng == null) { setState({ drivers: [], count: null }); return undefined; }
+    let alive = true;
+    const load = () => {
+      if (document.hidden) return;
+      api.get(`/express/drivers/nearby?country=${country}&lat=${lat}&lng=${lng}`)
+        .then((r) => alive && setState({ drivers: r.data?.drivers || [], count: r.data?.count ?? 0 }))
+        .catch(() => {});
+    };
+    load();
+    const id = setInterval(load, NEARBY_POLL_MS);
+    document.addEventListener("visibilitychange", load);
+    return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", load); };
+  }, [enabled, lat, lng, country]);
+  return state;
+};
+
+const DriverCountChip = ({ count }) => {
+  const { t } = useTranslation("customer");
+  if (count == null) return null;
+  return (
+    <div data-testid="send-nearby-count"
+         className="absolute top-3 left-3 z-10 h-8 px-3 rounded-full flex items-center gap-2 text-[0.72rem] font-semibold bg-black/70 backdrop-blur border border-white/10 text-white">
+      <span className={`w-2 h-2 rounded-full ${count ? "animate-pulse" : ""}`} style={{ backgroundColor: count ? "#22C55E" : "#737373" }} />
+      {count ? t("send.nearby_drivers", { count }) : t("send.no_nearby_drivers")}
+    </div>
+  );
 };
 
 const DriverPin = ({ kind }) => {
-  const Icon = kind === "bike" || kind === "scooter" ? Bike : Truck;
+  const Icon = ["bike", "moto", "scooter", "motorcycle"].includes(kind) ? Bike : Truck;
   return (
     <div className="relative">
       <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-2xl border-2 border-foreground" style={{ backgroundColor: YELLOW }}>
@@ -147,11 +163,12 @@ const useSendHomepage = () => {
 const cmsText = (o, key, lang) => (lang === "fr" ? o?.[`${key}_fr`] || o?.[key] : o?.[key] || o?.[`${key}_fr`]) || "";
 
 const MapHero = ({ showDrivers = true }) => {
-  const { country } = useApp();
+  const { country, activeAddress } = useApp();
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const center = COUNTRY_CENTER[country?.code || "CI"];
-  const drivers = useMemo(() => (showDrivers ? seedDrivers(center.lat, center.lng, 7) : []), [center.lat, center.lng, showDrivers]);
   const [userPos, setUserPos] = useState(null);
+  const origin = activeAddress?.lat != null ? { lat: activeAddress.lat, lng: activeAddress.lng } : userPos || center;
+  const { drivers, count } = useNearbyDrivers(origin, country?.code || "CI", showDrivers);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -171,23 +188,24 @@ const MapHero = ({ showDrivers = true }) => {
       <APIProvider apiKey={apiKey} libraries={["places", "geocoding"]}>
         <Map
           style={{ width: "100%", height: "100%" }}
-          defaultCenter={userPos || center}
+          defaultCenter={origin}
           defaultZoom={14}
           mapId="baked-express-map"
           gestureHandling="greedy"
           disableDefaultUI
         >
-          {drivers.map((d) => (
-            <AdvancedMarker key={d.id} position={{ lat: d.lat, lng: d.lng }}>
-              <DriverPin kind={d.kind} />
+          {drivers.map((d, i) => (
+            <AdvancedMarker key={`${d.lat},${d.lng},${i}`} position={{ lat: d.lat, lng: d.lng }}>
+              <DriverPin kind={d.vehicle_type} />
             </AdvancedMarker>
           ))}
-          <AdvancedMarker position={userPos || center}>
+          <AdvancedMarker position={origin}>
             <UserPin />
           </AdvancedMarker>
         </Map>
         <GpsButton />
       </APIProvider>
+      {showDrivers && <DriverCountChip count={count} />}
     </div>
   );
 };
@@ -423,11 +441,12 @@ const DesktopServiceCard = ({ testid, title, subtitle, image, onClick }) => (
 
 // Larger map re-using the existing dark style + driver markers, sized to fill the right panel.
 const DesktopMapHero = ({ showDrivers = true }) => {
-  const { country } = useApp();
+  const { country, activeAddress } = useApp();
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const center = COUNTRY_CENTER[country?.code || "CI"];
-  const drivers = useMemo(() => (showDrivers ? seedDrivers(center.lat, center.lng, 9) : []), [center.lat, center.lng, showDrivers]);
   const [userPos, setUserPos] = useState(null);
+  const origin = activeAddress?.lat != null ? { lat: activeAddress.lat, lng: activeAddress.lng } : userPos || center;
+  const { drivers, count } = useNearbyDrivers(origin, country?.code || "CI", showDrivers);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -443,22 +462,23 @@ const DesktopMapHero = ({ showDrivers = true }) => {
     <APIProvider apiKey={apiKey} libraries={["places", "geocoding"]}>
       <Map
         style={{ width: "100%", height: "100%", minHeight: 560 }}
-        defaultCenter={userPos || center}
+        defaultCenter={origin}
         defaultZoom={13}
         mapId="baked-express-map-dt"
         gestureHandling="greedy"
         disableDefaultUI
       >
-        {drivers.map((d) => (
-          <AdvancedMarker key={d.id} position={{ lat: d.lat, lng: d.lng }}>
-            <DriverPin kind={d.kind} />
+        {drivers.map((d, i) => (
+          <AdvancedMarker key={`${d.lat},${d.lng},${i}`} position={{ lat: d.lat, lng: d.lng }}>
+            <DriverPin kind={d.vehicle_type} />
           </AdvancedMarker>
         ))}
-        <AdvancedMarker position={userPos || center}>
+        <AdvancedMarker position={origin}>
           <UserPin />
         </AdvancedMarker>
       </Map>
       <GpsButton />
+      {showDrivers && <DriverCountChip count={count} />}
     </APIProvider>
   );
 };

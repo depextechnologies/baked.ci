@@ -895,7 +895,9 @@
       "book_another": "Réserver à nouveau",
       "continue": "Continuer",
       "step_x_of_y": "Étape {{current}} sur {{total}}"
-    }
+    },
+    "nearby_drivers": "{{count}} chauffeur(s) disponible(s) à proximité",
+    "no_nearby_drivers": "Aucun chauffeur disponible à proximité pour le moment"
   },
   "activities": {
     "signin_body": "Consultez vos commandes, livraisons et demandes dans tous les services BAKĒD.",

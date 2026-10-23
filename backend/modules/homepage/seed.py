@@ -52,12 +52,12 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "config": {
                 "columns": 6,
                 "categories": [
-                    {"slug": "fruits-vegetables", "name": texts["cat_produce"]},
-                    {"slug": "dairy-eggs",       "name": texts["cat_dairy"]},
-                    {"slug": "beverages",         "name": texts["cat_beverages"]},
-                    {"slug": "bakery-bread",      "name": texts["cat_bakery"]},
-                    {"slug": "meat-seafood",      "name": texts["cat_meat"]},
-                    {"slug": "grocery",           "name": texts["cat_grocery"]},
+                    {"slug": "fruits-vegetables", "name": texts["cat_produce"], "image": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=70&auto=format&fit=crop"},
+                    {"slug": "dairy-eggs",       "name": texts["cat_dairy"], "image": "https://images.pexels.com/photos/11363573/pexels-photo-11363573.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"slug": "beverages",         "name": texts["cat_beverages"], "image": "https://images.pexels.com/photos/7414290/pexels-photo-7414290.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"slug": "bakery-bread",      "name": texts["cat_bakery"], "image": "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=600&q=70&auto=format&fit=crop"},
+                    {"slug": "meat-seafood",      "name": texts["cat_meat"], "image": "https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=600&q=70&auto=format&fit=crop"},
+                    {"slug": "grocery",           "name": texts["cat_grocery"], "image": "https://images.pexels.com/photos/17546505/pexels-photo-17546505.jpeg?auto=compress&cs=tinysrgb&w=600"},
                 ],
             },
             "display_order": 30,
@@ -96,10 +96,10 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "subtitle": None,
             "config": {
                 "banners": [
-                    {"label": texts["trio_1_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_1_subtitle"], "link": "/products?category=fruits-vegetables"},
-                    {"label": texts["trio_2_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_2_subtitle"], "link": "/products?category=beverages"},
-                    {"label": texts["trio_3_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_3_subtitle"], "link": "/products?category=grocery"},
-                    {"label": texts["trio_4_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_4_subtitle"], "link": "/products?category=bakery-bread"},
+                    {"label": texts["trio_1_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_1_subtitle"], "link": "/products?category=fruits-vegetables", "image": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=70&auto=format&fit=crop"},
+                    {"label": texts["trio_2_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_2_subtitle"], "link": "/products?category=beverages", "image": "https://images.pexels.com/photos/7414290/pexels-photo-7414290.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"label": texts["trio_3_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_3_subtitle"], "link": "/products?category=grocery", "image": "https://images.pexels.com/photos/17546505/pexels-photo-17546505.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"label": texts["trio_4_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_4_subtitle"], "link": "/products?category=bakery-bread", "image": "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=600&q=70&auto=format&fit=crop"},
                 ],
             },
             "display_order": 60,
@@ -338,7 +338,7 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
              config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
         dict(seq=60, type="food_usps",                 title="Pourquoi FOODbakēd ?",
              subtitle=None,
-             config={"usps": [
+             config={"title_fr": "Pourquoi FOODbakēd ?", "title_en": "Why FOODbakēd?", "usps": [
                  {"icon": "clock",    "title_fr": "Livraison rapide",      "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",       "subtitle_en": "Hot meals at your door"},
                  {"icon": "utensils", "title_fr": "Grande variété",         "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
                  {"icon": "tag",      "title_fr": "Super offres",           "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",            "subtitle_en": "Save more every day"},
@@ -410,7 +410,7 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
         dict(seq=50, type="food_cuisines",             title="Cuisines You'll Love", subtitle="From Mumbai to Milan",
              config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
         dict(seq=60, type="food_usps",                 title="Why FOODbakēd?", subtitle=None,
-             config={"usps": [
+             config={"title_fr": "Pourquoi FOODbakēd ?", "title_en": "Why FOODbakēd?", "usps": [
                  {"icon": "clock",    "title_fr": "Livraison rapide",       "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",         "subtitle_en": "Hot meals at your door"},
                  {"icon": "utensils", "title_fr": "Grande variété",          "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
                  {"icon": "tag",      "title_fr": "Super offres",            "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",             "subtitle_en": "Save more every day"},

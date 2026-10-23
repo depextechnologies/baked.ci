@@ -7,7 +7,8 @@ import { useApp } from '@/state/AppContext';
 import { colors } from '@/theme';
 import { AppText } from '../ui/AppText';
 
-export type SendMapProps = { points: LatLng[]; route: LatLng[]; driver?: LatLng | null; color: string; height?: number | `${number}%` };
+export type NearbyDriver = LatLng & { vehicle_type?: string };
+export type SendMapProps = { points: LatLng[]; route: LatLng[]; driver?: LatLng | null; nearby?: NearbyDriver[]; color: string; height?: number | `${number}%` };
 
 // Web preview: route summary (native map renders on device).
 export function SendMap({ driver, color, height = 140 }: SendMapProps) {

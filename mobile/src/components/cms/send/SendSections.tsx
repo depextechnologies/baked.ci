@@ -1,14 +1,15 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ArrowRight, Plus, Search, Sparkles } from 'lucide-react-native';
-import React from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AppState, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { api } from '@/lib/api';
 import { absUrl } from '@/lib/cms';
 import { WEB_ORIGIN } from '@/lib/config';
 import { useApp } from '@/state/AppContext';
 import { colors, hexA, radius } from '@/theme';
-import { SendMap } from '../../send/SendMap';
+import { SendMap, type NearbyDriver } from '../../send/SendMap';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
@@ -23,10 +24,41 @@ const ROUTE: Record<string, string> = {
 const txt = (o: any, k: string, lang: string) => (lang === 'fr' ? o?.[`${k}_fr`] || o?.[k] : o?.[k] || o?.[`${k}_fr`]) || '';
 const tileImg = (u?: string) => (u?.startsWith('/send-tiles') ? `${WEB_ORIGIN}${u}` : absUrl(u));
 
+const POLL_MS = 15000;
+
+// Real online drivers around the origin (same endpoint + eligibility as the website map); paused in background.
+function useNearbyDrivers(origin: { latitude: number; longitude: number }, country: string, enabled: boolean) {
+  const [state, setState] = useState<{ drivers: NearbyDriver[]; count: number | null }>({ drivers: [], count: null });
+  useEffect(() => {
+    if (!enabled) { setState({ drivers: [], count: null }); return; }
+    let alive = true;
+    const load = () => api<any>(`/express/drivers/nearby?country=${country}&lat=${origin.latitude}&lng=${origin.longitude}`, { auth: false })
+      .then((r) => alive && setState({ drivers: (r.drivers || []).map((d: any) => ({ latitude: d.lat, longitude: d.lng, vehicle_type: d.vehicle_type })), count: r.count ?? 0 }))
+      .catch(() => {});
+    load();
+    const id = setInterval(() => { if (AppState.currentState === 'active') load(); }, POLL_MS);
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && load());
+    return () => { alive = false; clearInterval(id); sub.remove(); };
+  }, [origin.latitude, origin.longitude, country, enabled]);
+  return state;
+}
+
 export function SendMapHero({ section, country }: SectionProps) {
-  const { address } = useApp();
+  const { t, address } = useApp();
   const p = address ? { latitude: address.latitude, longitude: address.longitude } : CENTER[country] || CENTER.CI;
-  return <View testID={`cms-send-map-${section.id}`} style={styles.map}><SendMap points={[p]} route={[]} color={Y} height={256} /></View>;
+  const show = section.config?.show_drivers !== false;
+  const { drivers, count } = useNearbyDrivers(p, country, show);
+  return (
+    <View testID={`cms-send-map-${section.id}`} style={styles.map}>
+      <SendMap points={[p]} route={[]} nearby={drivers} color={Y} height={256} />
+      {show && count != null ? (
+        <View style={styles.chip} testID="send-nearby-count">
+          <View style={[styles.dot, { backgroundColor: count ? '#22C55E' : '#737373' }]} />
+          <AppText size={11} weight="semibold">{count ? t('send.nearby_drivers', { n: count }) : t('send.no_nearby_drivers')}</AppText>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export function SendPickupBar({ section }: SectionProps) {
@@ -90,6 +122,8 @@ export function SendTrustBanner({ section }: SectionProps) {
 
 const styles = StyleSheet.create({
   map: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  chip: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, height: 32, paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   pickup: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 56, paddingLeft: 12, paddingRight: 8, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   searchIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: hexA(Y, 0.13), alignItems: 'center', justifyContent: 'center' },
   addStop: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 12, paddingRight: 16, borderRadius: 999, borderWidth: 1, borderColor: colors.border },

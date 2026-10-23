@@ -57,6 +57,48 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
 
 
 # ---------- Configuration reads ----------
+@router.get("/drivers/nearby")
+async def nearby_drivers(
+    country: str = Query(..., min_length=2, max_length=2),
+    lat: float = Query(..., ge=-90, le=90),
+    lng: float = Query(..., ge=-180, le=180),
+    radius_km: float = Query(5.0, gt=0, le=15),
+    session: AsyncSession = Depends(get_session),
+):
+    """Real online SEND drivers around a point for the homepage map.
+
+    Same eligibility as dispatch (linked real driver, active, available, fresh GPS ping).
+    Privacy: no ids/names; coordinates rounded to ~110 m.
+    """
+    from datetime import timedelta
+    from core.models import ModuleDriver
+    from modules.express.dispatch import STALE_AFTER_SECONDS, _haversine_km
+
+    stale_before = datetime.now(timezone.utc) - timedelta(seconds=STALE_AFTER_SECONDS)
+    deg = radius_km / 111.0
+    rows = (await session.execute(
+        select(ModuleDriver.vehicle_type, ModuleDriver.current_lat, ModuleDriver.current_lng).where(
+            ModuleDriver.module == "express",
+            ModuleDriver.country == country.upper(),
+            ModuleDriver.status == "active",
+            ModuleDriver.is_available.is_(True),
+            ModuleDriver.deleted_at.is_(None),
+            ModuleDriver.linked_driver_id.isnot(None),
+            ModuleDriver.last_seen_at >= stale_before,
+            ModuleDriver.current_lat.between(lat - deg, lat + deg),
+            ModuleDriver.current_lng.isnot(None),
+        ).limit(200)
+    )).all()
+    drivers = []
+    for vt, dlat, dlng in rows:
+        km = _haversine_km(lat, lng, float(dlat), float(dlng))
+        if km <= radius_km:
+            drivers.append({"vehicle_type": vt, "lat": round(float(dlat), 3), "lng": round(float(dlng), 3), "distance_km": round(km, 1)})
+    drivers.sort(key=lambda d: d["distance_km"])
+    return {"radius_km": radius_km, "count": len(drivers), "drivers": drivers[:30],
+            "stale_after_s": STALE_AFTER_SECONDS, "as_of": datetime.now(timezone.utc).isoformat()}
+
+
 @router.get("/vehicles")
 async def list_vehicles(
     country: str = Query("CI"),
