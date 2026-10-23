@@ -75,7 +75,9 @@ async def nearby_drivers(
     from modules.express.dispatch import STALE_AFTER_SECONDS, _haversine_km
 
     stale_before = datetime.now(timezone.utc) - timedelta(seconds=STALE_AFTER_SECONDS)
+    import math
     deg = radius_km / 111.0
+    lng_deg = deg / max(math.cos(math.radians(lat)), 0.01)
     rows = (await session.execute(
         select(ModuleDriver.vehicle_type, ModuleDriver.current_lat, ModuleDriver.current_lng).where(
             ModuleDriver.module == "express",
@@ -86,7 +88,7 @@ async def nearby_drivers(
             ModuleDriver.linked_driver_id.isnot(None),
             ModuleDriver.last_seen_at >= stale_before,
             ModuleDriver.current_lat.between(lat - deg, lat + deg),
-            ModuleDriver.current_lng.isnot(None),
+            ModuleDriver.current_lng.between(lng - lng_deg, lng + lng_deg),
         ).limit(200)
     )).all()
     drivers = []

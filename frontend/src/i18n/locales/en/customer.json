@@ -896,8 +896,8 @@
       "continue": "Continue",
       "step_x_of_y": "Step {{current}} of {{total}}"
     },
-    "nearby_drivers": "{{count}} driver(s) available nearby",
-    "no_nearby_drivers": "No drivers available nearby right now"
+    "nearby_drivers": "{{count}} driver(s) nearby",
+    "no_nearby_drivers": "No drivers nearby"
   },
   "activities": {
     "signin_title": "Sign in to view your activities",

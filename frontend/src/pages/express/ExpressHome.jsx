@@ -53,14 +53,28 @@ const useNearbyDrivers = (origin, country, enabled) => {
   return state;
 };
 
+// Address first, then device GPS only if it is inside the selected country (~150 km of its centre), else the country centre.
+const mapOrigin = (addr, gps, center) => {
+  if (addr?.lat != null) return { lat: addr.lat, lng: addr.lng };
+  if (gps && Math.abs(gps.lat - center.lat) < 1.4 && Math.abs(gps.lng - center.lng) < 1.4) return gps;
+  return center;
+};
+
+// Keeps the map centred on the origin when it changes after mount (GPS resolves, address switched).
+const Recenter = ({ origin }) => {
+  const map = useMap();
+  useEffect(() => { if (map && origin) map.panTo(origin); }, [map, origin?.lat, origin?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+};
+
 const DriverCountChip = ({ count }) => {
   const { t } = useTranslation("customer");
   if (count == null) return null;
   return (
     <div data-testid="send-nearby-count"
-         className="absolute top-3 left-3 z-10 h-8 px-3 rounded-full flex items-center gap-2 text-[0.72rem] font-semibold bg-black/70 backdrop-blur border border-white/10 text-white">
+         className="absolute top-3 left-3 z-10 h-8 px-3 max-w-[calc(100%-5rem)] rounded-full flex items-center gap-2 whitespace-nowrap text-[0.72rem] font-semibold bg-black/70 backdrop-blur border border-white/10 text-white">
       <span className={`w-2 h-2 rounded-full ${count ? "animate-pulse" : ""}`} style={{ backgroundColor: count ? "#22C55E" : "#737373" }} />
-      {count ? t("send.nearby_drivers", { count }) : t("send.no_nearby_drivers")}
+      <span className="truncate">{count ? t("send.nearby_drivers", { count }) : t("send.no_nearby_drivers")}</span>
     </div>
   );
 };
@@ -167,7 +181,7 @@ const MapHero = ({ showDrivers = true }) => {
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const center = COUNTRY_CENTER[country?.code || "CI"];
   const [userPos, setUserPos] = useState(null);
-  const origin = activeAddress?.lat != null ? { lat: activeAddress.lat, lng: activeAddress.lng } : userPos || center;
+  const origin = mapOrigin(activeAddress, userPos, center);
   const { drivers, count } = useNearbyDrivers(origin, country?.code || "CI", showDrivers);
 
   useEffect(() => {
@@ -199,7 +213,9 @@ const MapHero = ({ showDrivers = true }) => {
               <DriverPin kind={d.vehicle_type} />
             </AdvancedMarker>
           ))}
-          <AdvancedMarker position={origin}>
+          <Recenter origin={origin} />
+          <Recenter origin={origin} />
+        <AdvancedMarker position={origin}>
             <UserPin />
           </AdvancedMarker>
         </Map>
@@ -445,7 +461,7 @@ const DesktopMapHero = ({ showDrivers = true }) => {
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const center = COUNTRY_CENTER[country?.code || "CI"];
   const [userPos, setUserPos] = useState(null);
-  const origin = activeAddress?.lat != null ? { lat: activeAddress.lat, lng: activeAddress.lng } : userPos || center;
+  const origin = mapOrigin(activeAddress, userPos, center);
   const { drivers, count } = useNearbyDrivers(origin, country?.code || "CI", showDrivers);
 
   useEffect(() => {
@@ -473,6 +489,7 @@ const DesktopMapHero = ({ showDrivers = true }) => {
             <DriverPin kind={d.vehicle_type} />
           </AdvancedMarker>
         ))}
+        <Recenter origin={origin} />
         <AdvancedMarker position={origin}>
           <UserPin />
         </AdvancedMarker>

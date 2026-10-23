@@ -896,8 +896,8 @@
       "continue": "Continuer",
       "step_x_of_y": "Étape {{current}} sur {{total}}"
     },
-    "nearby_drivers": "{{count}} chauffeur(s) disponible(s) à proximité",
-    "no_nearby_drivers": "Aucun chauffeur disponible à proximité pour le moment"
+    "nearby_drivers": "{{count}} chauffeur(s) à proximité",
+    "no_nearby_drivers": "Aucun chauffeur à proximité"
   },
   "activities": {
     "signin_body": "Consultez vos commandes, livraisons et demandes dans tous les services BAKĒD.",
