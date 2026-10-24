@@ -488,15 +488,15 @@ async def seed_food_homepage(session: AsyncSession) -> dict[str, int]:
 # SENDbakēd homepage — migrated 1:1 from the hardcoded website ExpressHome (map, pickup bar, 6 tiles, trust banner).
 _SEND_TILES = [
     ("moto", "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/kkvj338q_Bike_baked.png",
-     "Envoyer par moto", "Send by Motorcycle", "Colis rapides et documents en ville", "Fast parcels and documents in the city"),
-    ("cargo", "/send-tiles/send_by_cargo.png", "Envoyer par CARGO", "Send by CARGO", "Tricycle, mini camion ou camion", "Tricycle, mini truck or truck"),
-    ("fresh", "/send-tiles/fresh_products.png", "Envoyer des produits frais", "Send Fresh Products",
+     "Moto", "Bike", "Colis rapides et documents en ville", "Fast parcels and documents in the city"),
+    ("cargo", "/send-tiles/send_by_cargo.png", "Cargo", "Cargo", "Tricycle, mini camion ou camion", "Tricycle, mini truck or truck"),
+    ("fresh", "/send-tiles/fresh_products.png", "Produits frais", "Fresh Produce",
      "Véhicules frigorifiques — poisson, viande, légumes", "Refrigerated vehicles — fish, meat, vegetables"),
-    ("between_cities", "/send-tiles/between_cities.png", "Envoyer entre villes", "Send Between Cities",
+    ("between_cities", "/send-tiles/between_cities.png", "Intervilles", "Between Cities",
      "Livraison inter-villes longue distance", "Long-distance inter-city delivery"),
-    ("movers", "/send-tiles/packers_movers.png", "Déménagement & Transport", "Packers & Movers",
+    ("movers", "/send-tiles/packers_movers.png", "Déménagement", "Movers",
      "Déménagement clé en main avec équipe", "Turnkey home shifting with a full crew"),
-    ("multi", "/send-tiles/multiple_shipments.png", "Expéditions multiples", "Multiple Shipments",
+    ("multi", "/send-tiles/multiple_shipments.png", "Envois multiples", "Multi Shipments",
      "Plusieurs arrêts, un seul véhicule, un seul trajet", "Several stops, one vehicle, one trip"),
 ]
 

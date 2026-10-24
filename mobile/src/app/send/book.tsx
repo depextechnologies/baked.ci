@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { MapPin, Plus, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -31,18 +31,23 @@ type Opt = { code: string; name?: string; label?: string };
 const ll = (a: { latitude: number; longitude: number }) => ({ lat: a.latitude, lng: a.longitude });
 const point = (a: any) => ({ line1: a.line1, latitude: a.latitude, longitude: a.longitude, formatted_address: a.formatted_address, place_id: a.place_id, city: a.city, country: a.country });
 
+type Saved = { service: string; step: 'route' | 'vehicle' | 'details'; vehicle: string | null; form: any; when: string | null };
+// Survives the login round-trip (website keeps the draft when auth is required at the last step).
+let saved: Saved | null = null;
+
 export default function SendBook() {
-  const { service = 'moto' } = useLocalSearchParams<{ service?: string }>();
+  const { service = 'moto', resume } = useLocalSearchParams<{ service?: string; resume?: string }>();
+  const restore = resume && saved?.service === service ? saved : null;
   const { t, lang, country, address } = useApp();
   const { isAuthed, customer } = useSession();
   const { pickup, drops, setPoint, addStop, removeStop } = useSendDraft();
   const cc = country?.code || 'CI';
-  const [step, setStep] = useState<'route' | 'vehicle' | 'details'>('route');
+  const [step, setStep] = useState<'route' | 'vehicle' | 'details'>(restore?.step || 'route');
   const [route, setRoute] = useState<Route>({ coords: [], distanceKm: null, durationMin: null, road: false });
-  const [vehicle, setVehicle] = useState<string | null>(null);
+  const [vehicle, setVehicle] = useState<string | null>(restore?.vehicle || null);
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
-  const [form, setForm] = useState({ name: '', phone: '', pkg: '', weight: '', prefs: [] as string[], notes: '' });
-  const [when, setWhen] = useState<string | null>(null);
+  const [form, setForm] = useState(restore?.form || { name: '', phone: '', pkg: '', weight: '', prefs: [] as string[], notes: '' });
+  const [when, setWhen] = useState<string | null>(restore?.when || null);
   const [busy, setBusy] = useState(false);
   const multi = service === 'multiple_shipments' || drops.length > 1;
   // Several drops are always booked as the backend's multi-shipments service (its own vehicle set + stop pricing).
@@ -75,9 +80,16 @@ export default function SendBook() {
 
   const book = async () => {
     if (!q || !vehicle || !pickup) return;
+    if (!isAuthed) {
+      saved = { service, step, vehicle, form, when };
+      router.push(`/login?redirect=${encodeURIComponent(`/send/book?service=${service}&resume=1`)}` as any);
+      return;
+    }
     setBusy(true);
     try {
-      const receiver = { name: form.name.trim(), phone: form.phone.trim(), notes: form.notes || undefined, preferences: form.prefs };
+      // Multi-shipments (website wizard) has no receiver step: the sender is the contact for each stop.
+      const receiver = multi ? { name: form.name.trim() || customer?.name || 'Client', phone: form.phone.trim() || customer?.phone || '' }
+        : { name: form.name.trim(), phone: form.phone.trim(), notes: form.notes || undefined, preferences: form.prefs };
       const b = await api<{ id: string }>('/express/bookings/parcel', { method: 'POST', body: {
         country: cc, vehicle_code: vehicle, service_type: svc, pickup: point(pickup), drop: point(multi ? drops[0]! : drops[drops.length - 1]!),
         stops: multi ? drops.map((d, i) => ({ pickup: { ...point(i === 0 ? pickup : drops[i - 1]!), ...ll(i === 0 ? pickup : drops[i - 1]!) },
@@ -85,6 +97,7 @@ export default function SendBook() {
         receiver, package_type: form.pkg || undefined, package_weight_range: form.weight || undefined, package_notes: form.notes || undefined,
         scheduled_for: when || undefined, payment_method: 'cod',
       } });
+      saved = null;
       router.replace(`/send/track/${b.id}` as any);
     } catch (e: any) { notify(e?.message || t('common.network_error')); } finally { setBusy(false); }
   };
@@ -99,7 +112,6 @@ export default function SendBook() {
   }, []);
   const fmtSlot = (iso: string) => new Date(iso).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-GB', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  if (!isAuthed) return <Redirect href={`/login?redirect=/send/book?service=${service}` as any} />;
   return (
     <SafeAreaView style={styles.root} testID="send-book-screen">
       <ScreenHeader title={t('send.title')} />
@@ -107,9 +119,9 @@ export default function SendBook() {
       <ScrollView contentContainerStyle={{ padding: 18, gap: 14, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
         {step === 'route' ? (
           <>
-            <PointRow testID="send-pickup" label={t('send.pickup')} value={pickup?.line1} onPress={() => router.push('/address?send=pickup')} />
+            <PointRow testID="send-pickup" label={t('send.pickup')} value={pickup ? pickup.formatted_address || pickup.line1 : undefined} onPress={() => router.push('/address?send=pickup')} />
             {drops.map((d, i) => (
-              <PointRow key={i} testID={`send-drop-${i}`} label={drops.length > 1 ? t('send.stop_n', { n: i + 1 }) : t('send.drop')} value={d?.line1}
+              <PointRow key={i} testID={`send-drop-${i}`} label={drops.length > 1 ? t('send.stop_n', { n: i + 1 }) : t('send.drop')} value={d ? d.formatted_address || d.line1 : undefined}
                 onPress={() => router.push(`/address?send=drop:${i}`)} onRemove={drops.length > 1 ? () => removeStop(i) : undefined} />
             ))}
             <Touchable testID="send-add-stop" onPress={addStop} style={styles.addStop}><Plus color={ORANGE} size={18} /><AppText weight="semibold" color={ORANGE}>{t('send.add_stop')}</AppText></Touchable>
@@ -130,17 +142,6 @@ export default function SendBook() {
               </Touchable>
             ))}
             {q ? <FareCard q={q} money={money} /> : null}
-          </>
-        ) : (
-          <>
-            <AppText weight="bold" size={17}>{t('send.receiver')}</AppText>
-            <Field testID="send-receiver-name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder={t('send.receiver_name')} />
-            <Field testID="send-receiver-phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder={t('send.receiver_phone')} phone />
-            <Group title={t('send.package_type')} items={pkgs.data} on={(c) => form.pkg === c} onPress={(c) => setForm({ ...form, pkg: c })} prefix="send-pkg" />
-            <Group title={t('send.weight')} items={(tiers.data as any[] | null)?.map((w) => ({ code: w.code, name: w.max_kg ? `${w.min_kg ? `${w.min_kg}–` : '≤ '}${w.max_kg} kg` : `> ${w.min_kg} kg` }))} on={(c) => form.weight === c} onPress={(c) => setForm({ ...form, weight: c })} prefix="send-weight" />
-            <Group title={t('send.prefs')} items={prefs.data} on={(c) => form.prefs.includes(c)} prefix="send-pref"
-              onPress={(c) => setForm({ ...form, prefs: form.prefs.includes(c) ? form.prefs.filter((x) => x !== c) : [...form.prefs, c] })} />
-            <Field testID="send-notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder={t('send.notes')} />
             <AppText weight="bold" size={15}>{t('send.when')}</AppText>
             <View style={styles.wrap}>
               <Chip testID="send-when-now" label={t('send.now')} on={!when} color={ORANGE} onPress={() => setWhen(null)} />
@@ -151,16 +152,26 @@ export default function SendBook() {
                 {slots.map((s) => <Chip key={s} testID={`send-slot-${s}`} label={fmtSlot(s)} on={when === s} color={ORANGE} onPress={() => setWhen(s)} />)}
               </ScrollView>
             ) : null}
-            {q ? <FareCard q={q} money={money} /> : null}
+          </>
+        ) : (
+          <>
+            <AppText weight="bold" size={17}>{t('send.receiver')}</AppText>
+            <Field testID="send-receiver-name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder={t('send.receiver_name')} />
+            <Field testID="send-receiver-phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder={t('send.receiver_phone')} phone />
+            <Group title={t('send.package_type')} items={pkgs.data} on={(c) => form.pkg === c} onPress={(c) => setForm({ ...form, pkg: c })} prefix="send-pkg" />
+            <Group title={t('send.weight')} items={(tiers.data as any[] | null)?.map((w) => ({ code: w.code, name: w.max_kg ? `${w.min_kg ? `${w.min_kg}–` : '≤ '}${w.max_kg} kg` : `> ${w.min_kg} kg` }))} on={(c) => form.weight === c} onPress={(c) => setForm({ ...form, weight: c })} prefix="send-weight" />
+            <Group title={t('send.prefs')} items={prefs.data} on={(c) => form.prefs.includes(c)} prefix="send-pref"
+              onPress={(c) => setForm({ ...form, prefs: form.prefs.includes(c) ? form.prefs.filter((x: string) => x !== c) : [...form.prefs, c] })} />
+            <Field testID="send-notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder={t('send.notes')} />
           </>
         )}
       </ScrollView>
       <View style={styles.footer}>
-        {step === 'route' ? <Button testID="send-next-route" label={t('send.continue')} color={ORANGE} disabled={!ready} onPress={() => setStep('vehicle')} />
-          : step === 'vehicle' ? <Button testID="send-next-vehicle" label={t('send.continue')} color={ORANGE} disabled={!q} onPress={() => setStep('details')} />
-            : <Button testID="send-book" color={ORANGE} loading={busy} disabled={!q || form.name.trim().length < 2 || form.phone.trim().length < 8}
-              label={t('send.book', { total: q ? money(q.total) : '' })} onPress={book} />}
-        {step !== 'route' ? <Touchable testID="send-back-step" onPress={() => setStep(step === 'details' ? 'vehicle' : 'route')} style={{ alignSelf: 'center', marginTop: 10 }}>
+        {step === 'route' ? <Button testID="send-next-route" label={t('send.continue')} color={ORANGE} disabled={!ready} onPress={() => setStep(multi ? 'vehicle' : 'details')} />
+          : step === 'details' ? <Button testID="send-next-details" label={t('send.continue')} color={ORANGE} disabled={form.name.trim().length < 2 || form.phone.trim().length < 8} onPress={() => setStep('vehicle')} />
+            : <Button testID="send-book" color={ORANGE} loading={busy} disabled={!q}
+              label={isAuthed ? t('send.book', { total: q ? money(q.total) : '' }) : t('send.login_to_book')} onPress={book} />}
+        {step !== 'route' ? <Touchable testID="send-back-step" onPress={() => setStep(step === 'vehicle' && !multi ? 'details' : 'route')} style={{ alignSelf: 'center', marginTop: 10 }}>
           <AppText size={13} color={colors.textMuted}>← {t('common.cancel')}</AppText></Touchable> : null}
       </View>
     </SafeAreaView>

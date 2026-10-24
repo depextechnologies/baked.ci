@@ -250,3 +250,27 @@ async def logout(request: Request, response: Response, session: AsyncSession = D
         await session.commit()
     response.delete_cookie("session_token", path="/")
     return {"ok": True}
+
+
+class EmergentSessionIn(BaseModel):
+    session_id: str = Field(..., min_length=8, max_length=256)
+
+
+EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+
+
+@router.post("/emergent/session")
+async def emergent_google_session(payload: EmergentSessionIn, session: AsyncSession = Depends(get_session)):
+    """Native app Google Sign-In (Emergent-managed). Exchanges the one-time session_id server-side,
+    links/creates the customer by email and returns the same app JWT as the OTP flow."""
+    async with httpx.AsyncClient(timeout=10) as http:
+        r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": payload.session_id})
+    if r.status_code != 200:
+        raise HTTPException(status_code=401, detail=_t("errors.auth.google_exchange_failed", current_lang(), detail=r.text[:200]))
+    info = r.json()
+    email = (info.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=401, detail=_t("errors.auth.google_email_unverified", current_lang()))
+    customer = await _find_or_create_customer_by_google(session, email=email, name=info.get("name", ""), picture=info.get("picture", ""))
+    await session.commit()
+    return {"access_token": create_access_token(customer.id, role=customer.role), "customer": customer_to_dict(customer)}

@@ -19,10 +19,10 @@ import { colors, radius } from '@/theme';
 type P = { id: string; title: string; title_fr?: string; images: string[]; min_price: number; compare_at_price?: number | null; currency: string };
 
 export default function ShopCategory() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, sub } = useLocalSearchParams<{ slug: string; sub?: string }>();
   const { t, lang, country } = useApp();
   const cc = country?.code || 'CI';
-  const q = `/shop/products?country=${cc}&limit=60${slug !== 'all' ? `&category=${slug}` : ''}`;
+  const q = `/shop/products?country=${cc}&limit=60${slug !== 'all' ? `&category=${slug}` : ''}${sub ? `&subcategory=${sub}` : ''}`;
   const { data, loading, error, reload } = useFetch<P[]>(q, [q]);
   const cats = useFetch<any[]>(`/shop/categories?country=${cc}`, [cc]);
   const cat = (Array.isArray(cats.data) ? cats.data : []).find((c) => c.slug === slug);

@@ -12,6 +12,7 @@ import { Touchable } from '@/components/ui/Button';
 import { ErrorView } from '@/components/ui/StateView';
 import { useModuleNav } from '@/hooks/useModuleNav';
 import { api } from '@/lib/api';
+import { ModuleExplore } from '@/components/explore/ModuleExplore';
 import { MODULES, SWITCHER_ORDER, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { colors, fonts, hexA, radius } from '@/theme';
@@ -71,6 +72,7 @@ export default function Explore() {
           <Touchable testID="explore-clear" onPress={() => setQ('')} hitSlop={8}><X color={colors.textMuted} size={18} /></Touchable>
         ) : null}
       </View>
+      {activeContext !== 'baked' ? <View style={styles.filters} testID="explore-module-head"><BrandName code={activeContext} size={15} /></View> : (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} style={{ flexGrow: 0 }}>
         {FILTERS.map((f) => {
           const on = filter === f;
@@ -82,10 +84,11 @@ export default function Explore() {
           );
         })}
       </ScrollView>
+      )}
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 30 }}>
         {error ? <ErrorView onRetry={run} /> : null}
-        {!res && !error ? <Discover onTry={setQ} onOpen={(c) => openModule(c)} /> : null}
+        {!res && !error ? (activeContext !== 'baked' ? <ModuleExplore code={activeContext} /> : <Discover onTry={setQ} onOpen={(c) => openModule(c)} />) : null}
         {res?.detected_intents.map((it) => {
           const m = MODULES[toCode(it.module)];
           return (

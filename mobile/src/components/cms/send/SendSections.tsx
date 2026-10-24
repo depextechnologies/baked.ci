@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ArrowRight, Plus, Search, Sparkles } from 'lucide-react-native';
+import { ArrowRight, Info as InfoIcon, Plus, Search, Sparkles, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { AppState, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { AppState, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { api } from '@/lib/api';
 import { absUrl } from '@/lib/cms';
@@ -45,12 +45,14 @@ function useNearbyDrivers(origin: { latitude: number; longitude: number }, count
 
 export function SendMapHero({ section, country }: SectionProps) {
   const { t, address } = useApp();
+  const { height: screenH } = useWindowDimensions();
+  const mapH = Math.max(300, Math.min(Math.round(screenH * 0.46), 520));
   const p = address ? { latitude: address.latitude, longitude: address.longitude } : CENTER[country] || CENTER.CI;
   const show = section.config?.show_drivers !== false;
   const { drivers, count } = useNearbyDrivers(p, country, show);
   return (
     <View testID={`cms-send-map-${section.id}`} style={styles.map}>
-      <SendMap points={[p]} route={[]} nearby={drivers} color={Y} height={256} />
+      <SendMap points={[p]} route={[]} nearby={drivers} color={Y} height={mapH} />
       {show && count != null ? (
         <View style={styles.chip} testID="send-nearby-count">
           <View style={[styles.dot, { backgroundColor: count ? '#22C55E' : '#737373' }]} />
@@ -67,8 +69,8 @@ export function SendPickupBar({ section }: SectionProps) {
   return (
     <View style={styles.pickup} testID={`cms-send-pickup-${section.id}`}>
       <View style={styles.searchIcon}><Search color={Y} size={14} /></View>
-      <Touchable testID="cms-send-pickup-btn" onPress={() => router.push('/address?send=pickup')} style={{ flex: 1 }}>
-        <AppText size={14} numberOfLines={1} color={address ? colors.text : colors.textMuted}>{address?.line1 || txt(c, 'placeholder', lang)}</AppText>
+      <Touchable testID="cms-send-pickup-btn" onPress={() => router.push('/address')} style={{ flex: 1 }}>
+        <AppText size={14} numberOfLines={1} color={address ? colors.text : colors.textMuted} testID="cms-send-pickup-address">{address ? address.formatted_address || [address.line1, address.city].filter(Boolean).join(', ') : txt(c, 'placeholder', lang)}</AppText>
       </Touchable>
       <Touchable testID="cms-send-add-stop" onPress={() => router.push('/send/book')} style={styles.addStop}>
         <Plus color={Y} size={14} /><AppText size={13} weight="semibold">{txt(c, 'add_stop_label', lang)}</AppText>
@@ -78,34 +80,45 @@ export function SendPickupBar({ section }: SectionProps) {
 }
 
 export function SendServiceTiles({ section, width }: SectionProps) {
-  const { lang } = useApp();
-  const { width: screen } = useWindowDimensions();
+  const { t, lang } = useApp();
+  const [info, setInfo] = useState<any | null>(null);
   const c = section.config || {};
   const tiles: any[] = (c.tiles || []).filter((x: any) => x.enabled !== false && x.key);
-  const n = screen >= 1024 ? 3 : 2;
-  const w = (width - 12 * (n - 1)) / n;
-  const big = screen >= 768;
+  const gap = 10;
+  const w = (width - gap * 2) / 3;
+  const name = (x: any) => (lang === 'fr' ? x.title_fr || x.title_en : x.title_en || x.title_fr);
   return (
     <View testID={`cms-send-tiles-${section.id}`}>
       <AppText weight="bold" size={20} testID="cms-send-tiles-title">{lang === 'fr' ? c.title_fr || section.title : section.title || c.title_fr}</AppText>
       <AppText size={12} color={colors.textMuted} style={{ marginTop: 4, marginBottom: 12 }}>{lang === 'fr' ? c.subtitle_fr || section.subtitle : section.subtitle || c.subtitle_fr}</AppText>
-      <View style={styles.grid}>
+      <View style={[styles.grid, { gap }]}>
         {tiles.map((x) => (
-          <Touchable key={x.key} testID={`send-tile-${x.key}`} onPress={() => router.push((ROUTE[x.key] || '/send/book') as any)} style={[styles.tile, { width: w, minHeight: big ? 248 : 212 }]} scale={0.985}>
-            <View style={[styles.art, { height: big ? 160 : 128, backgroundColor: hexA(Y, 0.08) }]}>
-              {x.image ? <Image source={tileImg(x.image)} style={{ width: '90%', height: big ? 144 : 112 }} contentFit="contain" cachePolicy="memory-disk" /> : null}
-              <View style={styles.go}><ArrowRight color="#0a0a0a" size={15} strokeWidth={2.6} /></View>
+          <Touchable key={x.key} testID={`send-tile-${x.key}`} onPress={() => router.push((ROUTE[x.key] || '/send/book') as any)} style={[styles.tile, { width: w }]} scale={0.97}>
+            <View style={[styles.art, { backgroundColor: hexA(Y, 0.08) }]}>
+              {x.image ? <Image source={tileImg(x.image)} style={{ width: '88%', height: '84%' }} contentFit="contain" cachePolicy="memory-disk" /> : null}
             </View>
             <View style={styles.tileBody}>
-              <View style={{ flex: 1 }}>
-                <AppText size={15} weight="semibold" numberOfLines={2}>{x.title_fr || x.title_en}</AppText>
-                {x.title_en ? <AppText size={11} weight="medium" color={colors.textMuted} numberOfLines={1}>{x.title_en}</AppText> : null}
-                <AppText size={11} color={colors.textMuted} numberOfLines={2} style={{ marginTop: 6 }}>{lang === 'fr' ? x.desc_fr || x.desc_en : x.desc_en || x.desc_fr}</AppText>
-              </View>
+              <AppText size={12} weight="semibold" align="center" numberOfLines={2} style={{ lineHeight: 15 }} testID={`send-tile-name-${x.key}`}>{name(x)}</AppText>
             </View>
+            <Touchable testID={`send-tile-info-${x.key}`} onPress={(e: any) => { e?.stopPropagation?.(); setInfo(x); }} hitSlop={10} style={styles.info} accessibilityLabel={t('send.info')}>
+              <InfoIcon color="#fff" size={14} />
+            </Touchable>
           </Touchable>
         ))}
       </View>
+      <Modal visible={!!info} transparent animationType="fade" onRequestClose={() => setInfo(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setInfo(null)} testID="send-tile-info-backdrop">
+          <Pressable style={styles.sheet} onPress={() => {}} testID="send-tile-info-sheet">
+            {info?.image ? <View style={styles.sheetArt}><Image source={tileImg(info.image)} style={{ width: '70%', height: 110 }} contentFit="contain" /></View> : null}
+            <AppText weight="bold" size={18} testID="send-tile-info-title">{info ? name(info) : ''}</AppText>
+            <AppText size={14} color={colors.textMuted} style={{ marginTop: 6 }} testID="send-tile-info-desc">{info ? (lang === 'fr' ? info.desc_fr || info.desc_en : info.desc_en || info.desc_fr) : ''}</AppText>
+            <Touchable testID="send-tile-info-book" onPress={() => { const k = info?.key; setInfo(null); router.push((ROUTE[k] || '/send/book') as any); }} style={styles.sheetBtn}>
+              <AppText size={14} weight="bold" color="#0a0a0a">{t('send.book_service')}</AppText><ArrowRight color="#0a0a0a" size={16} />
+            </Touchable>
+            <Touchable testID="send-tile-info-close" onPress={() => setInfo(null)} style={styles.sheetClose} hitSlop={10}><X color={colors.textMuted} size={18} /></Touchable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -128,9 +141,14 @@ const styles = StyleSheet.create({
   searchIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: hexA(Y, 0.13), alignItems: 'center', justifyContent: 'center' },
   addStop: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingLeft: 12, paddingRight: 16, borderRadius: 999, borderWidth: 1, borderColor: colors.border },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  tile: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  art: { alignItems: 'center', justifyContent: 'center' },
-  tileBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12 },
-  go: { position: 'absolute', right: 8, bottom: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: Y, alignItems: 'center', justifyContent: 'center' },
+  tile: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  art: { width: '100%', aspectRatio: 1.15, alignItems: 'center', justifyContent: 'center' },
+  tileBody: { minHeight: 42, paddingHorizontal: 6, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
+  info: { position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 34, borderWidth: 1, borderColor: colors.border },
+  sheetArt: { height: 130, borderRadius: 16, backgroundColor: hexA(Y, 0.08), alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  sheetBtn: { marginTop: 18, height: 50, borderRadius: 14, backgroundColor: Y, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  sheetClose: { position: 'absolute', top: 14, right: 14 },
   trust: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
 });

@@ -620,23 +620,23 @@
     "services_heading": "Nos services",
     "services_sub": "Choisissez le service adapté à votre envoi",
     "tile": {
-      "moto_title": "Envoyer par moto",
-      "moto_title_en": "Send by Motorcycle",
+      "moto_title": "Moto",
+      "moto_title_en": "Bike",
       "moto_desc": "Colis rapides et documents en ville",
-      "cargo_title": "Envoyer par CARGO",
-      "cargo_title_en": "Send by CARGO",
+      "cargo_title": "Cargo",
+      "cargo_title_en": "Cargo",
       "cargo_desc": "Tricycle, mini camion ou camion",
-      "fresh_title": "Envoyer des produits frais",
-      "fresh_title_en": "Send Fresh Products",
+      "fresh_title": "Produits frais",
+      "fresh_title_en": "Fresh Produce",
       "fresh_desc": "Véhicules frigorifiques — poisson, viande, légumes",
-      "between_cities_title": "Envoyer entre villes",
-      "between_cities_title_en": "Send Between Cities",
+      "between_cities_title": "Intervilles",
+      "between_cities_title_en": "Between Cities",
       "between_cities_desc": "Livraison inter-villes longue distance",
-      "movers_tile_title": "Déménagement & Transport",
-      "movers_tile_title_en": "Packers & Movers",
+      "movers_tile_title": "Déménagement",
+      "movers_tile_title_en": "Movers",
       "movers_tile_desc": "Déménagement clé en main avec équipe",
-      "multi_title": "Expéditions multiples",
-      "multi_title_en": "Multiple Shipments",
+      "multi_title": "Envois multiples",
+      "multi_title_en": "Multi Shipments",
       "multi_desc": "Plusieurs arrêts, un seul véhicule, un seul trajet"
     },
     "multi": {
@@ -897,7 +897,9 @@
       "step_x_of_y": "Étape {{current}} sur {{total}}"
     },
     "nearby_drivers": "{{count}} chauffeur(s) à proximité",
-    "no_nearby_drivers": "Aucun chauffeur à proximité"
+    "no_nearby_drivers": "Aucun chauffeur à proximité",
+    "service_info": "Détails du service",
+    "book_service": "Réserver ce service"
   },
   "activities": {
     "signin_body": "Consultez vos commandes, livraisons et demandes dans tous les services BAKĒD.",

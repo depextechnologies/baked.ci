@@ -58,8 +58,8 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
         <BellButton unread={unread} />
         {commerce ? <CartButton /> : null}
       </View>
-      <AddressBar accent={m.color} />
-      <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} to={searchTo} />
+      {code !== 'express' ? <AddressBar accent={m.color} /> : null}
+      {code !== 'express' ? <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} to={searchTo} /> : null}
 
       {cms ? (
         <View style={{ marginTop: 4 }}>
