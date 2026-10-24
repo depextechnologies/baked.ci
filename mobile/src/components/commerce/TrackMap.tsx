@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-import { colors, themed } from '@/theme';
+import { getScheme, colors, themed } from '@/theme';
 
 export type Pt = { lat?: number | null; lng?: number | null } | null | undefined;
 type Props = { origin: Pt; destination: Pt; driver: Pt; color: string };
@@ -20,7 +20,7 @@ export function TrackMap({ origin, destination, driver, color }: Props) {
   };
   return (
     <View style={styles.wrap} testID="track-map">
-      <MapView style={StyleSheet.absoluteFill} region={region} userInterfaceStyle="dark">
+      <MapView style={StyleSheet.absoluteFill} region={region} userInterfaceStyle={getScheme()}>
         {ok(origin) ? <Marker coordinate={{ latitude: origin.lat, longitude: origin.lng }} pinColor={color} /> : null}
         {ok(destination) ? <Marker coordinate={{ latitude: destination.lat, longitude: destination.lng }} pinColor="#FFFFFF" /> : null}
         {ok(driver) ? <Marker coordinate={{ latitude: driver.lat, longitude: driver.lng }} pinColor="#F5A524" /> : null}

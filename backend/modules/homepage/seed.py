@@ -571,7 +571,7 @@ _IMG = "/app-home/{}.webp"
 _APP_TILES = [
     ("express", "Livrez tout", "Deliver Anything", "tile_send", "#F5A524"),
     ("food", "Commandez à manger", "Order Foods", "tile_food", "#77BC1F"),
-    ("mart", "Courses en quelques minutes", "Groceries in minutes", "tile_mart", "#1D9BF0"),
+    ("mart", "Courses en minutes", "Groceries in minutes", "tile_mart", "#1D9BF0"),
     ("shop", "Achetez la mode", "Shop Fashion", "tile_shop", "#C13CFF"),
     ("immo", "Explorez l’immobilier", "Explore Properties", "tile_immo", "#F5B70A"),
     ("auto", "Explorez les voitures", "Explore Cars", "tile_auto", "#FF4C52"),

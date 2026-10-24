@@ -8,7 +8,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { absUrl, sectionText } from '@/lib/cms';
 import type { ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA, themed } from '@/theme';
+import { accentText, colors, hexA, themed } from '@/theme';
 import { categoryEndpoint } from '../../module/moduleData';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
@@ -59,6 +59,7 @@ export function AppCategoryRow({ section, country }: SectionProps) {
   const cfg = section.config || {};
   const src = (['food', 'mart', 'shop'].includes(cfg.source_module) ? cfg.source_module : 'food') as Src;
   const accent = cfg.accent || colors.accent;
+  const ink = accentText(accent);
   const { data, loading } = useFetch<any>(categoryEndpoint(src as ModuleCode, country), [src, country]);
   const cats = buildCats(cfg, data, lang);
   if (!loading && !cats.length) return null;
@@ -68,7 +69,7 @@ export function AppCategoryRow({ section, country }: SectionProps) {
       <View style={styles.head}>
         <AppText weight="bold" size={20} numberOfLines={1} style={{ flex: 1, letterSpacing: -0.3 }} testID={`app-row-${src}-title`}>{title}</AppText>
         <Touchable testID={`app-row-${src}-view-all`} onPress={() => router.push(VIEW_ALL[src] as any)} style={styles.link} hitSlop={8}>
-          <AppText size={14} weight="semibold" color={accent}>{t('home.view_all')}</AppText><ChevronRight color={accent} size={16} />
+          <AppText size={14} weight="semibold" color={ink}>{t('home.view_all')}</AppText><ChevronRight color={ink} size={16} />
         </Touchable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>

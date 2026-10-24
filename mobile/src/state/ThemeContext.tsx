@@ -28,7 +28,11 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!customer?.id) return;
     api<{ theme?: string }>('/customers/me/preferences')
-      .then((p) => { if (isMode(p?.theme)) { _setMode(p.theme); prefs.set('theme_mode', p.theme); } })
+      .then(async (p) => {
+        if (isMode(p?.theme)) { _setMode(p.theme); prefs.set('theme_mode', p.theme); return; }
+        const local = await prefs.get<ThemeMode>('theme_mode', 'dark');
+        api('/customers/me/preferences', { method: 'PATCH', body: { theme: local, dark_mode: local === 'dark' } }).catch(() => {});
+      })
       .catch(() => {});
   }, [customer?.id]);
 

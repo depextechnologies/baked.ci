@@ -12,7 +12,7 @@ export function LangToggle() {
     <View style={styles.wrap} testID="lang-toggle">
       {(['fr', 'en'] as const).map((l) => (
         <Touchable key={l} testID={`lang-${l}`} onPress={() => setLang(l)} style={[styles.pill, lang === l && styles.on]}>
-          <AppText weight="bold" size={12} color={lang === l ? '#000' : colors.textMuted}>{l.toUpperCase()}</AppText>
+          <AppText weight="bold" size={12} color={lang === l ? colors.bg : colors.textMuted}>{l.toUpperCase()}</AppText>
         </Touchable>
       ))}
     </View>

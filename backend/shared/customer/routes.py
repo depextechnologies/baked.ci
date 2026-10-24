@@ -156,7 +156,6 @@ async def get_prefs(customer: Customer = Depends(get_current_customer)):
         "currency": None,
         "region": customer.country or "CI",
         "dark_mode": True,
-        "theme": "dark",
         "marketing_opt_in": False,
     }
     return {**defaults, **prefs}

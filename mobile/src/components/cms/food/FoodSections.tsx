@@ -57,7 +57,7 @@ export function FoodHero({ section }: SectionProps) {
       {!address ? (
         <View style={styles.addr} testID="food-home-set-address">
           <MapPin color="#FCD34D" size={18} />
-          <AppText size={13} color="#FDE68A" style={{ flex: 1 }}>{lang === 'fr' ? 'Choisissez votre adresse de livraison pour voir uniquement les restaurants qui livrent chez vous.' : 'Set your delivery address to see only restaurants that deliver to you.'}</AppText>
+          <AppText size={13} color={colors.warnText} style={{ flex: 1 }}>{lang === 'fr' ? 'Choisissez votre adresse de livraison pour voir uniquement les restaurants qui livrent chez vous.' : 'Set your delivery address to see only restaurants that deliver to you.'}</AppText>
           <Touchable testID="food-home-set-address-btn" onPress={() => router.push('/address')} style={styles.addrBtn}><AppText size={12} weight="semibold" color="#000">{lang === 'fr' ? "Choisir l'adresse" : 'Set address'}</AppText></Touchable>
         </View>
       ) : null}
@@ -165,7 +165,7 @@ export function FoodFeatured({ section }: SectionProps) {
             <Touchable key={r.id} testID={`food-restaurant-${r.id}`} onPress={() => router.push((dine ? `/food/reserve/${r.id}` : `/food/restaurant/${r.id}`) as any)} style={styles.card} scale={0.98}>
               <View style={styles.cardImg}>
                 <Image source={absUrl(r.image)} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" />
-                <View style={styles.eta}><Clock color="#fff" size={10} /><AppText size={10} weight="semibold">{r.eta_min && r.eta_max ? `${r.eta_min}–${r.eta_max} min` : `${r.prep_time_min}–${r.prep_time_max} min`}</AppText></View>
+                <View style={styles.eta}><Clock color="#fff" size={10} /><AppText size={10} weight="semibold" color="#fff">{r.eta_min && r.eta_max ? `${r.eta_min}–${r.eta_max} min` : `${r.prep_time_min}–${r.prep_time_max} min`}</AppText></View>
               </View>
               <View style={{ padding: 12, gap: 4 }}>
                 <AppText size={14} weight="semibold" numberOfLines={1}>{r.name}</AppText>
@@ -191,7 +191,7 @@ const styles = themed(() => StyleSheet.create({
   fav: { position: 'absolute', top: 14, right: 14, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
   caps: { letterSpacing: 1.8, textTransform: 'uppercase' },
   modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  mode: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  mode: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.45)' },
   addr: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)', backgroundColor: 'rgba(245,158,11,0.1)' },
   addrBtn: { height: 36, paddingHorizontal: 12, borderRadius: 999, backgroundColor: '#F59E0B', justifyContent: 'center' },
   head: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 14 },

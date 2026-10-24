@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { GOOGLE_MAPS_KEY } from '@/lib/config';
 import type { LatLng } from '@/lib/routes';
-import { colors, themed } from '@/theme';
+import { getScheme, colors, themed } from '@/theme';
 
 export type NearbyDriver = LatLng & { vehicle_type?: string };
 export type SendMapProps = { points: LatLng[]; route: LatLng[]; driver?: LatLng | null; nearby?: NearbyDriver[]; color: string; height?: number | `${number}%` };
@@ -48,7 +48,7 @@ export function SendMap({ points, route, driver, nearby = [], color, height = 30
     loadMaps().then((gm) => {
       if (!alive || !el.current || map.current) return;
       const c = points[0] ? pos(points[0]) : { lat: 5.3484, lng: -4.0305 };
-      map.current = new gm.Map(el.current, { center: c, zoom: 14, styles: DARK, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false });
+      map.current = new gm.Map(el.current, { center: c, zoom: 14, styles: getScheme() === 'dark' ? DARK : [], disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false });
       draw();
     }).catch(() => {});
     return () => { alive = false; };

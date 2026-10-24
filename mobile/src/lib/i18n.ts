@@ -89,7 +89,7 @@ const frBase = {
   'home.banner_line3': 'un confort sans limite.',
   'mod.express.desc': 'Livrez tout',
   'mod.food.desc': 'Commandez à manger',
-  'mod.mart.desc': 'Courses en quelques minutes',
+  'mod.mart.desc': 'Courses en minutes',
   'mod.shop.desc': 'Achetez la mode',
   'mod.immo.desc': 'Explorez l’immobilier',
   'mod.auto.desc': 'Explorez les voitures',

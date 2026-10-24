@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useSwitcher } from '@/state/SwitcherContext';
-import { colors, themed } from '@/theme';
+import { accentText, colors, themed } from '@/theme';
 import { AppText } from './ui/AppText';
 import { Touchable } from './ui/Button';
 
@@ -40,7 +40,7 @@ export function TabBar({ state, navigateToTab, insets }: Props) {
           );
         }
         const focused = current === name;
-        const tint = focused ? accent : colors.textMuted;
+        const tint = focused ? accentText(accent) : colors.textMuted;
         return (
           <Touchable key={name} testID={`tab-${name === 'index' ? 'home' : name}`} accessibilityRole="tab" accessibilityState={{ selected: focused }}
             onPress={() => route && navigateToTab(route.key)} style={styles.item}>

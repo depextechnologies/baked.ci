@@ -14,6 +14,7 @@ const dark = {
   textMuted: '#A1A1AA',
   textDim: '#6B6B73',
   muted: '#3A3A40',
+  warnText: '#FDE68A',
   tabBar: '#0B0B0D',
   overlay: 'rgba(0,0,0,0.6)',
   scrim: 'rgba(0,0,0,0.35)',
@@ -37,6 +38,7 @@ const light: Palette = {
   textMuted: '#666666',
   textDim: '#8A8A8F',
   muted: '#CFCFD4',
+  warnText: '#8A5A00',
   tabBar: '#FFFFFF',
   overlay: 'rgba(0,0,0,0.4)',
   scrim: 'rgba(255,255,255,0.7)',
@@ -83,6 +85,17 @@ export const fonts = {
 
 export const radius = { sm: 10, md: 14, lg: 18, xl: 24, pill: 999 };
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
+
+// Accent used as TEXT: bright yellows/oranges get a deeper shade on light backgrounds for readability.
+export function accentText(hex: string) {
+  if (current !== 'light' || !/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [n >> 16, (n >> 8) & 255, n & 255];
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (lum < 0.55) return hex;
+  const k = 0.58;
+  return `#${[r, g, b].map((v) => Math.round(v * k).toString(16).padStart(2, '0')).join('')}`;
+}
 
 export const hexA = (hex: string, alpha: number) =>
   `${hex}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;

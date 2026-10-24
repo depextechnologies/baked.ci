@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApp } from '@/state/AppContext';
-import { colors, themed } from '@/theme';
+import { accentText, colors, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 
@@ -20,7 +20,7 @@ export function SectionHeader({ title, subtitle, accent, to, testID }: { title?:
       </View>
       {to ? (
         <Touchable testID={`${testID}-view-all`} onPress={() => router.push(to as any)} style={styles.link} hitSlop={8}>
-          <AppText size={12} weight="semibold" color={accent}>{t('cms.view_all')}</AppText><ArrowRight color={accent} size={12} />
+          <AppText size={12} weight="semibold" color={accentText(accent)}>{t('cms.view_all')}</AppText><ArrowRight color={accentText(accent)} size={12} />
         </Touchable>
       ) : null}
     </View>

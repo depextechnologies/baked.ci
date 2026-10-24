@@ -8,7 +8,7 @@ import { useModuleNav } from '@/hooks/useModuleNav';
 import { absUrl, pick } from '@/lib/cms';
 import { HOME_GRID_ORDER, MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, fonts, hexA, themed } from '@/theme';
+import { accentText, colors, fonts, hexA, themed } from '@/theme';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
@@ -22,6 +22,7 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
   const { openModule } = useModuleNav();
   const m = MODULES[cfg.module];
   const accent = cfg.accent || m.color;
+  const ink = accentText(accent);
   const soon = m.status !== 'active';
   const tagline = pick(cfg, 'tagline', lang) || (lang === 'en' ? cfg.tagline_en : undefined) || t(`mod.${cfg.module}.desc` as any);
   return (
@@ -31,16 +32,16 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
       <Image source={absUrl(cfg.image) || m.image} placeholder={m.image} style={styles.img} contentFit="contain" transition={200} />
       {soon ? (
         <View style={[styles.soon, { borderColor: hexA(accent, 0.7) }]} testID={`app-tile-soon-${cfg.module}`}>
-          <AppText weight="bold" size={9} color={accent} style={{ letterSpacing: 0.8 }}>{t('common.soon').toUpperCase()}</AppText>
+          <AppText weight="bold" size={9} color={ink} style={{ letterSpacing: 0.8 }}>{t('common.soon').toUpperCase()}</AppText>
         </View>
       ) : null}
       <AppText size={14} numberOfLines={1} style={{ lineHeight: 17 }} testID={`app-tile-name-${cfg.module}`}>
-        <AppText size={14} style={{ fontFamily: fonts.black, color: accent, letterSpacing: -0.4 }}>{m.label}</AppText>
+        <AppText size={14} style={{ fontFamily: fonts.black, color: ink, letterSpacing: -0.4 }}>{m.label}</AppText>
         <AppText size={12} weight="bold">bakēd</AppText>
       </AppText>
       <View style={styles.foot}>
         <AppText size={10.5} color={colors.textSoft} numberOfLines={2} style={{ flex: 1, lineHeight: 13 }} testID={`app-tile-tagline-${cfg.module}`}>{tagline}</AppText>
-        <View style={[styles.arrow, { borderColor: accent }]}><ChevronRight color={accent} size={13} strokeWidth={2.6} /></View>
+        <View style={[styles.arrow, { borderColor: accent }]}><ChevronRight color={ink} size={13} strokeWidth={2.6} /></View>
       </View>
     </Touchable>
   );

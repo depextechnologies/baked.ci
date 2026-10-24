@@ -1,0 +1,43 @@
+{
+  "summary": "Tested the new BAKĒD Super App main home (CMS module=baked) and the global Light/Dark theme on the Expo web preview at 390x844, plus the backend. BACKEND: 9/9 pytest pass. Public /api/homepage for CI and IN returns the 5 sections in order (grid, food row, mart row, shop row, promo; row source is config.source_module). Admin list includes the app_* section types. PATCH config and is_enabled work, and /homepage/version changes after a PATCH. Reorder works. Create then delete a section works (deleting it again returns 404). Without auth the admin API returns 401/403. Customer preferences accept theme dark/light/system and return 422 for 'blue'. All test data was restored. FRONTEND DARK: header bell, cart, address-bar and home-search-button render. The 6 tiles sit in a 3x2 grid with FR CMS taglines. IMMO and AUTO show BIENTÔT, are aria-disabled, and tapping them does nothing. SEND/FOOD/MART/SHOP open module-home-{express,food,mart,shop}. Category tiles and View All links go to the right routes (/food/discover?category=burgers, /mart/category/fruits-vegetables, /shop/category/mode-femme, /food/discover, /mart/category/all, /shop/category/all). app-promo-0 opens FOOD home and app-promo-1 opens MART home. CMS: disabling the shop row and editing the SEND tagline in admin both show after reload; restored. EN: 'Deliver Anything', 'Order your bites', 'View All', 'Order Now' and 'SOON' all appear. THEME: profile-item-appearance opens /appearance. Choosing Light switches to app-root-light at once and the user stays on /appearance. localStorage baked_theme_mode is '\"light\"'. Back goes to profile ('Mode clair'), and a reload keeps light. System mode follows prefers-color-scheme, including a live switch. Logged in (OTP +225 0700000000): choosing a theme sends PATCH {theme:'light'} (200). After clearing local storage and reloading, the theme comes back from the account. Admin web UI hp-module-baked lists the 5 baked sections. A light-mode contrast scan plus screenshots covered home, explore, activity, profile, cart, MART category and product, FOOD discover, a restaurant page, SEND book, login and the 4 module homes. Most screens read well. Several light-mode readability bugs were found (below).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "FoodSections hero mode pills (À emporter / Sur place)", "issue": "LIGHT mode: inactive pills are white text and icon (#fff hard-coded) on styles.mode backgroundColor colors.surface (#F5F5F5). Contrast is 1.09, so the text cannot be read inside the dark hero.", "selector": "[data-testid=food-mode-pickup], [data-testid=food-mode-dine_in]", "priority": "HIGH"},
+      {"component": "FoodSections restaurant card ETA badge", "issue": "LIGHT mode: the ETA AppText has no color, so it falls back to colors.text #111 on rgba(0,0,0,0.7). The '20–30 min' text is invisible (FoodSections.tsx line 168).", "selector": "[data-testid^=food-restaurant-] eta badge", "priority": "HIGH"},
+      {"component": "FoodSections address prompt (food-home-set-address)", "issue": "LIGHT mode: text is hard-coded #FDE68A (pale yellow) on a pale amber background over white. Contrast is 1.25, so it is unreadable (FoodSections.tsx line 60).", "selector": "[data-testid=food-home-set-address]", "priority": "HIGH"},
+      {"component": "LangToggle (profile and login)", "issue": "LIGHT mode: the active pill has bg colors.text (#111) and text hard-coded '#000', so 'FR'/'EN' is invisible. Use colors.bg for the active text colour.", "selector": "[data-testid=lang-fr]", "priority": "MEDIUM"},
+      {"component": "Logo", "issue": "Logo drops testID when no onPress is passed, so main-logo is not in the DOM (count 0). Pass testID to the Image.", "selector": "[data-testid=main-logo]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Guest theme then login", "issue": "Code review: after login, ThemeContext replaces the local mode with the account preference. GET /me/preferences defaults theme to 'dark' even if it was never set, so a guest who chose Light flips to Dark after signing in. Push the local mode up when the account has no explicit theme, or don't default theme on the server.", "affected_selectors": ["app-root-light"]}
+    ],
+    "design_issues": [
+      {"screen": "Light mode: accent text", "issues": ["Yellow and orange accent text on white or #F5F5F5 is hard to read. SHOP #FCC44C is 1.47–1.6 (module name, 'Voir tout', active tab label). IMMO and the BIENTÔT badge #F5B70A are 1.65–1.8. SEND #F5A524 is 1.87–2.0 (tile name, 'Ajouter un arrêt', active tab). Use a darker shade of the accent for text in light mode while keeping accent fills."]},
+      {"screen": "SEND home and /send/book map (light)", "issues": ["The Google map keeps the dark style in light mode. Consider a light map style."]},
+      {"screen": "Main home MART tile", "issues": ["The tagline 'Courses en quelques minutes' is cut to 'Courses en quelques ...' (numberOfLines=2 at 390px)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_baked_app_home_theme.py", "/app/backend/tests/cms_toggle_helper.py", "/app/test_reports/pytest/pytest_baked_home_theme.xml"],
+  "action_items": [
+    "FoodSections.tsx: give inactive hero mode pills a dark-glass style (bg rgba(255,255,255,0.08), border rgba(255,255,255,0.2)) instead of colors.surface/colors.border.",
+    "FoodSections.tsx line 168: set the ETA badge AppText color to '#fff'.",
+    "FoodSections.tsx line 60: make the address prompt text colour theme-aware (e.g. #92400E in light).",
+    "LangToggle.tsx: active text colour should be colors.bg, not '#000'.",
+    "Logo.tsx: pass testID to the Image when onPress is absent.",
+    "ThemeContext: don't let the server default 'dark' override a guest's local choice on first login.",
+    "Optional: darker accent text shades for SHOP, IMMO and SEND in light mode; light Google map style.",
+    "Rebuild /app/mobile/dist after the fixes."
+  ],
+  "critical_code_review_comments": [
+    "theme.ts applyScheme() mutates module state during ThemeModeProvider render (side effect in render). It works because Stack is keyed by scheme, but that remount resets navigation state. On /appearance this is fine today, but any in-progress screen state (forms, scroll) is lost when the system theme changes.",
+    "Hard-coded hex text colours (#fff/#000/#FDE68A) inside themed() styles cause most of the light-mode bugs. Grep for color=\"#000\"/'#fff' used next to colors.* backgrounds."
+  ],
+  "updated_files": ["/app/backend/tests/test_baked_app_home_theme.py", "/app/backend/tests/cms_toggle_helper.py"],
+  "success_rate": {"backend": "100%", "frontend": "85%"},
+  "seed_data_creation": "None persisted. Temporary TEST_row section was created and deleted. Shop row toggle and tagline edit were restored. Customer +2250700000000 theme was restored to dark.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To land on the main home, clear localStorage baked_active_context (the selected module persists). Set baked_theme_mode='\"light\"' to force light. Login on web: normal click (not force) on login-submit, read the code from otp-dev-code, type it into otp-input. The light-mode contrast scanner JS is in this iteration's run: it walks ancestors to find the effective bg and flags ratio <2.2. Retest the FOOD module home in light (hero pills, ETA badge, address prompt), LangToggle, and guest-light then login.",
+  "rca of the issue": "Light-mode unreadable text comes from components that mix themed backgrounds (colors.surface/colors.text) with hard-coded text colours meant for dark mode (#fff in the FOOD hero pills, #000 in LangToggle, #FDE68A in the address prompt), or from text with no colour (it defaults to colors.text #111) on a fixed dark scrim (the FOOD ETA badge). Repro: set baked_theme_mode '\"light\"', open the FOOD tile and view the hero and Restaurants populaires; or open Profile and look at the Langue toggle."
+}

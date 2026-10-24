@@ -4,7 +4,7 @@ import { Animated, StyleSheet, View } from 'react-native';
 import MapView, { AnimatedRegion, Marker, MarkerAnimated, Polyline } from 'react-native-maps';
 
 import type { LatLng } from '@/lib/routes';
-import { colors, themed } from '@/theme';
+import { getScheme, colors, themed } from '@/theme';
 
 export type NearbyDriver = LatLng & { vehicle_type?: string };
 export type SendMapProps = { points: LatLng[]; route: LatLng[]; driver?: LatLng | null; nearby?: NearbyDriver[]; color: string; height?: number | `${number}%` };
@@ -29,7 +29,7 @@ export function SendMap({ points, route, driver, nearby = [], color, height = 30
 
   return (
     <View style={[styles.wrap, { height }]} testID="send-map">
-      <MapView ref={map} style={StyleSheet.absoluteFill} userInterfaceStyle="dark"
+      <MapView ref={map} style={StyleSheet.absoluteFill} userInterfaceStyle={getScheme()}
         initialRegion={{ latitude: points[0]?.latitude ?? 5.3484, longitude: points[0]?.longitude ?? -4.0305, latitudeDelta: 0.08, longitudeDelta: 0.08 }}>
         {route.length > 1 ? <Polyline coordinates={route} strokeColor={color} strokeWidth={5} /> : null}
         {points.map((p, i) => <Marker key={`${i}-${p.latitude}`} coordinate={p} pinColor={i === 0 ? color : '#FFFFFF'} />)}

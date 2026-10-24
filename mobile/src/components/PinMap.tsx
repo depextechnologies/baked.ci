@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { MapPin } from 'lucide-react-native';
 
-import { colors, themed } from '@/theme';
+import { getScheme, colors, themed } from '@/theme';
 
 type Props = { initial: { latitude: number; longitude: number }; onCenterChange: (c: { latitude: number; longitude: number }) => void };
 
@@ -16,7 +16,7 @@ export function PinMap({ initial, onCenterChange }: Props) {
         style={StyleSheet.absoluteFill}
         initialRegion={region}
         showsUserLocation
-        userInterfaceStyle="dark"
+        userInterfaceStyle={getScheme()}
         onRegionChangeComplete={(r) => onCenterChange({ latitude: r.latitude, longitude: r.longitude })}
       />
       <View pointerEvents="none" style={styles.pin}><MapPin color={colors.accent} fill="#000" size={40} /></View>
