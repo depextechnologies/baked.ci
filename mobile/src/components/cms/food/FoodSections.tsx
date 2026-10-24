@@ -10,7 +10,7 @@ import { absUrl, nativeLink } from '@/lib/cms';
 import { formatMoney } from '@/lib/format';
 import { useApp } from '@/state/AppContext';
 import { useCart, type FoodMode } from '@/state/CartContext';
-import { colors, hexA, themed } from '@/theme';
+import { accentText, colors, hexA, themed } from '@/theme';
 import { AppText, OnDark } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import { Skeleton } from '../../ui/StateView';
@@ -173,7 +173,7 @@ export function FoodFeatured({ section }: SectionProps) {
                 <View style={styles.row}>
                   <Star color={G} fill={G} size={11} /><AppText size={11}>{Number(r.rating || 0).toFixed(1)}</AppText><AppText size={11} color={colors.textMuted}>({r.review_count})</AppText>
                   <View style={{ flex: 1 }} />
-                  <View style={[styles.open, { backgroundColor: r.is_open ? hexA(G, 0.2) : colors.surface2 }]}><AppText size={10} weight="semibold" color={r.is_open ? G : colors.textMuted}>{r.is_open ? (lang === 'fr' ? 'Ouvert' : 'Open') : t('food.closed')}</AppText></View>
+                  <View style={[styles.open, { backgroundColor: r.is_open ? hexA(G, 0.2) : colors.surface2 }]}><AppText size={10} weight="semibold" color={r.is_open ? accentText(G) : colors.textMuted}>{r.is_open ? (lang === 'fr' ? 'Ouvert' : 'Open') : t('food.closed')}</AppText></View>
                 </View>
                 {cta ? <View style={styles.cta}><AppText size={11} weight="semibold" color="#000">{cta}</AppText></View>
                   : <AppText size={11} color={colors.textMuted} style={{ paddingTop: 4 }}>{r.delivery_fee === 0 ? t('food.free_delivery') : `${formatMoney(r.delivery_fee, undefined, sym, lang)} ${lang === 'fr' ? 'livraison' : 'delivery'}`}</AppText>}
