@@ -8,21 +8,24 @@ import { useModuleNav } from '@/hooks/useModuleNav';
 import { absUrl, pick } from '@/lib/cms';
 import { HOME_GRID_ORDER, MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { accentText, colors, fonts, hexA, themed } from '@/theme';
+import { colors, fonts, getScheme, hexA, themed } from '@/theme';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
 
 type TileCfg = { module: ModuleCode; enabled?: boolean; tagline_fr?: string; tagline_en?: string; tagline?: string; image?: string; accent?: string };
 
+// Brand codes for the home tiles (same in dark and light); Super Admin can still override per tile.
+const BRAND: Record<ModuleCode, string> = { express: '#FCC44C', food: '#77BC1F', mart: '#77BC1F', shop: '#FCC44C', immo: '#A659FF', auto: '#FF4C52' };
 const FALLBACK: TileCfg[] = HOME_GRID_ORDER.map((module) => ({ module }));
 
 function AppTile({ cfg }: { cfg: TileCfg }) {
   const { t, lang } = useApp();
   const { openModule } = useModuleNav();
   const m = MODULES[cfg.module];
-  const accent = cfg.accent || m.color;
-  const ink = accentText(accent);
+  const accent = cfg.accent || BRAND[cfg.module] || m.color;
+  const ink = accent;
+  const suffix = getScheme() === 'light' ? '#000000' : '#FFFFFF';
   const soon = m.status !== 'active';
   const tagline = pick(cfg, 'tagline', lang) || (lang === 'en' ? cfg.tagline_en : undefined) || t(`mod.${cfg.module}.desc` as any);
   return (
@@ -37,7 +40,7 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
       ) : null}
       <AppText size={14} numberOfLines={1} style={{ lineHeight: 17 }} testID={`app-tile-name-${cfg.module}`}>
         <AppText size={14} style={{ fontFamily: fonts.black, color: ink, letterSpacing: -0.4 }}>{m.label}</AppText>
-        <AppText size={12} weight="bold">bakēd</AppText>
+        <AppText size={12} weight="bold" color={suffix}>bakēd</AppText>
       </AppText>
       <View style={styles.foot}>
         <AppText size={10.5} color={colors.textSoft} numberOfLines={2} style={{ flex: 1, lineHeight: 13 }} testID={`app-tile-tagline-${cfg.module}`}>{tagline}</AppText>
