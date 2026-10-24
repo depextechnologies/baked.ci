@@ -1,4 +1,4 @@
-import { Redirect, router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { MapPin } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -18,6 +18,7 @@ import { formatMoney } from '@/lib/format';
 import { sendLabel } from '@/lib/i18n-send-data';
 import { MODULES } from '@/lib/modules';
 import { nextDays, SIZE_PRESET, SIZES, type Size } from '@/lib/movers';
+import { clearResume, saveResume, takeResume } from '@/lib/bookingResume';
 import { confirmAsk, notify } from '@/lib/notify';
 import { computeRoute, type Route } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
@@ -37,17 +38,19 @@ export default function MoversBook() {
   const { pickup, drops, setPoint } = useSendDraft();
   const drop = drops[0];
   const cc = country?.code || 'CI';
-  const [step, setStep] = useState<Step>('route');
+  const { resume } = useLocalSearchParams<{ resume?: string }>();
+  const [r0] = useState<any>(() => (resume ? takeResume('movers') : null));
+  const [step, setStep] = useState<Step>(r0?.step || 'route');
   const [route, setRoute] = useState<Route>({ coords: [], distanceKm: null, durationMin: null, road: false });
-  const [moveType, setMoveType] = useState<string | null>(null);
-  const [size, setSize] = useState<Size | null>(null);
+  const [moveType, setMoveType] = useState<string | null>(r0?.moveType || null);
+  const [size, setSize] = useState<Size | null>(r0?.size || null);
   const [cat, setCat] = useState<string | null>(null);
-  const [qty, setQty] = useState<Record<string, number>>({});
-  const [from, setFrom] = useState<Building>({ floor: 0, elevator: false });
-  const [to, setTo] = useState<Building>({ floor: 0, elevator: false });
-  const [labour, setLabour] = useState(2);
-  const [date, setDate] = useState<string | null>(null);
-  const [slot, setSlot] = useState<string | null>(null);
+  const [qty, setQty] = useState<Record<string, number>>(r0?.qty || {});
+  const [from, setFrom] = useState<Building>(r0?.from || { floor: 0, elevator: false });
+  const [to, setTo] = useState<Building>(r0?.to || { floor: 0, elevator: false });
+  const [labour, setLabour] = useState(r0?.labour || 2);
+  const [date, setDate] = useState<string | null>(r0?.date || null);
+  const [slot, setSlot] = useState<string | null>(r0?.slot || null);
   const [quote, setQuote] = useState<Record<string, any> | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -57,7 +60,10 @@ export default function MoversBook() {
   const slots = useFetch<Slot[]>(`/express/movers/time-slots?country=${cc}`, [cc]);
   const days = useMemo(() => nextDays(14), []);
 
-  useEffect(() => { if (!pickup && address) setPoint('pickup', address); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (r0?.pickup) { setPoint('pickup', r0.pickup); if (r0.drop) setPoint('drop:0', r0.drop); }
+    else if (!pickup && address) setPoint('pickup', address);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const pts = useMemo(() => [pickup, drop].filter(Boolean).map((a) => ({ latitude: a!.latitude, longitude: a!.longitude })), [pickup, drop]);
   useEffect(() => { computeRoute(pts).then(setRoute); }, [JSON.stringify(pts)]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,6 +91,11 @@ export default function MoversBook() {
 
   const book = async () => {
     if (!pickup || !drop || !moveType) return;
+    if (!isAuthed) {
+      saveResume('movers', { step, moveType, size, qty, from, to, labour, date, slot, pickup, drop });
+      router.push(`/login?redirect=${encodeURIComponent('/send/movers?resume=1')}` as any);
+      return;
+    }
     setBusy(true);
     try {
       const b = await api<{ id: string }>('/express/bookings/movers', { method: 'POST', body: {
@@ -93,6 +104,7 @@ export default function MoversBook() {
         drop_building: { floor: to.floor, elevator: to.elevator, stairs: !to.elevator && to.floor > 0 },
         custom_items: size && (moveType === 'house' || moveType === 'mini_labour') ? [{ name: `size:${size}` }] : [], scheduled_date: date, time_slot_code: slot,
       } });
+      clearResume('movers');
       router.replace(`/send/track/${b.id}` as any);
     } catch (e: any) { notify(e?.message || t('common.network_error')); } finally { setBusy(false); }
   };
@@ -101,7 +113,6 @@ export default function MoversBook() {
   const canNext = step === 'route' ? !!pickup && !!drop : step === 'type' ? !!moveType : step === 'items' ? count > 0 : step === 'when' ? !!date && !!slot : true;
   const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
-  if (!isAuthed) return <Redirect href={'/login?redirect=/send/movers' as any} />;
   return (
     <SafeAreaView style={styles.root} testID="mv-screen">
       <ScreenHeader title={t('mv.title')} />
@@ -187,7 +198,7 @@ export default function MoversBook() {
       <View style={styles.footer}>
         {step === 'items' || step === 'access' ? <AppText size={13} color={colors.textMuted} align="center" testID="mv-items-count" style={{ marginBottom: 8 }}>{count ? t('mv.items_count', { n: count, kg: Math.round(kg) }) : t('mv.no_items')}</AppText> : null}
         {step === 'review'
-          ? <Button testID="mv-book" color={ORANGE} loading={busy} disabled={!quote} label={t('mv.book', { total: quote ? formatMoney(quote.advance, curr, undefined, lang) : '' })} onPress={book} />
+          ? <Button testID="mv-book" color={ORANGE} loading={busy} disabled={!quote} label={isAuthed ? t('mv.book', { total: quote ? formatMoney(quote.advance, curr, undefined, lang) : '' }) : t('send.login_to_book')} onPress={book} />
           : <Button testID={`mv-next-${step}`} color={ORANGE} label={t('send.continue')} disabled={!canNext} onPress={() => setStep(STEPS[idx + 1])} />}
         {idx > 0 ? <Touchable testID="mv-back" onPress={() => setStep(STEPS[idx - 1])} style={{ alignSelf: 'center', marginTop: 10 }}>
           <AppText size={13} color={colors.textMuted}>← {t(`mv.step_${STEPS[idx - 1]}` as any)}</AppText></Touchable> : null}

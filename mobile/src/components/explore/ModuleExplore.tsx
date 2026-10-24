@@ -5,6 +5,8 @@ import React from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useFetch } from '@/hooks/useFetch';
+import { SHOP_ICONS } from '../module/moduleData';
+import { ShoppingBag, UtensilsCrossed } from 'lucide-react-native';
 import { useHomepage } from '@/hooks/useHomepage';
 import { absUrl } from '@/lib/cms';
 import { WEB_ORIGIN } from '@/lib/config';
@@ -17,6 +19,7 @@ import { Touchable } from '../ui/Button';
 import { ErrorView, Skeleton } from '../ui/StateView';
 
 type Item = { id: string; name: string; image?: string | null; to: string; subs?: Item[] };
+const fallbackIcon = (code: ModuleCode, id: string) => (code === 'shop' ? SHOP_ICONS[id] || ShoppingBag : code === 'food' ? UtensilsCrossed : ShoppingBag);
 const SEND_ROUTE: Record<string, string> = { moto: '/send/book?service=moto', cargo: '/send/book?service=cargo', fresh: '/send/book?service=fresh_products', between_cities: '/send/book?service=between_cities', multi: '/send/book?service=multiple_shipments', movers: '/send/movers' };
 const nm = (o: any, lang: string) => (lang === 'fr' ? o.name_fr || o.name || o.name_en : o.name_en || o.name || o.name_fr) || o.slug || o.code;
 const img = (u?: string | null) => (u?.startsWith('/send-tiles') ? `${WEB_ORIGIN}${u}` : absUrl(u));
@@ -62,12 +65,12 @@ export function ModuleExplore({ code }: { code: ModuleCode }) {
       {xs.map((it) => (
         <View key={it.id} style={{ width: w }}>
           <Touchable testID={`explore-${prefix}-${it.id}`} onPress={() => router.push(it.to as any)} style={styles.tile} scale={0.97}>
-            <View style={[styles.art, { backgroundColor: hexA(color, 0.1) }]}>{it.image ? <Image source={it.image} style={StyleSheet.absoluteFill} contentFit={code === 'express' ? 'contain' : 'cover'} cachePolicy="memory-disk" /> : null}</View>
+            <View style={[styles.art, { backgroundColor: hexA(color, 0.1) }]}>{it.image ? <Image source={it.image} style={StyleSheet.absoluteFill} contentFit={code === 'express' ? 'contain' : 'cover'} cachePolicy="memory-disk" /> : React.createElement(fallbackIcon(code, it.id), { color, size: 28 })}</View>
             <AppText size={12} weight="semibold" align="center" numberOfLines={2} style={{ padding: 8, lineHeight: 15 }}>{it.name}</AppText>
           </Touchable>
           {it.subs?.length ? it.subs.slice(0, 4).map((s) => (
             <Touchable key={s.id} testID={`explore-sub-${it.id}-${s.id}`} onPress={() => router.push(s.to as any)} style={styles.sub}>
-              <AppText size={11} color={colors.textMuted} numberOfLines={1} style={{ flex: 1 }}>{s.name}</AppText><ChevronRight color={colors.textDim} size={12} />
+              <AppText size={11} color={colors.textMuted} numberOfLines={2} style={{ flex: 1, lineHeight: 14 }}>{s.name}</AppText><ChevronRight color={colors.textDim} size={12} />
             </Touchable>
           )) : null}
         </View>
@@ -89,6 +92,6 @@ const styles = StyleSheet.create({
   caption: { letterSpacing: 1.2, marginBottom: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  art: { width: '100%', aspectRatio: 1.15, overflow: 'hidden' },
+  art: { width: '100%', aspectRatio: 1.15, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   sub: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 4 },
 });

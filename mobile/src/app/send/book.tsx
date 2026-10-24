@@ -17,6 +17,7 @@ import { WEB_ORIGIN } from '@/lib/config';
 import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
 import { sendLabel } from '@/lib/i18n-send-data';
+import { clearResume, saveResume, takeResume } from '@/lib/bookingResume';
 import { notify } from '@/lib/notify';
 import { computeRoute, type Route } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
@@ -31,13 +32,11 @@ type Opt = { code: string; name?: string; label?: string };
 const ll = (a: { latitude: number; longitude: number }) => ({ lat: a.latitude, lng: a.longitude });
 const point = (a: any) => ({ line1: a.line1, latitude: a.latitude, longitude: a.longitude, formatted_address: a.formatted_address, place_id: a.place_id, city: a.city, country: a.country });
 
-type Saved = { service: string; step: 'route' | 'vehicle' | 'details'; vehicle: string | null; form: any; when: string | null };
-// Survives the login round-trip (website keeps the draft when auth is required at the last step).
-let saved: Saved | null = null;
+type Saved = { service: string; step: 'route' | 'vehicle' | 'details'; vehicle: string | null; form: any; when: string | null; pickup: any; drops: any[] };
 
 export default function SendBook() {
   const { service = 'moto', resume } = useLocalSearchParams<{ service?: string; resume?: string }>();
-  const restore = resume && saved?.service === service ? saved : null;
+  const [restore] = useState(() => { const v = resume ? takeResume<Saved>('send') : null; return v?.service === service ? v : null; });
   const { t, lang, country, address } = useApp();
   const { isAuthed, customer } = useSession();
   const { pickup, drops, setPoint, addStop, removeStop } = useSendDraft();
@@ -49,11 +48,17 @@ export default function SendBook() {
   const [form, setForm] = useState(restore?.form || { name: '', phone: '', pkg: '', weight: '', prefs: [] as string[], notes: '' });
   const [when, setWhen] = useState<string | null>(restore?.when || null);
   const [busy, setBusy] = useState(false);
+  const [retry, setRetry] = useState(0);
   const multi = service === 'multiple_shipments' || drops.length > 1;
   // Several drops are always booked as the backend's multi-shipments service (its own vehicle set + stop pricing).
   const svc = drops.length > 1 ? 'multiple_shipments' : service;
 
-  useEffect(() => { if (!pickup && address) setPoint('pickup', address); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (restore?.pickup) {
+      setPoint('pickup', restore.pickup);
+      restore.drops.forEach((d, i) => { if (i > 0 && i >= drops.length) addStop(); if (d) setPoint(`drop:${i}`, d); });
+    } else if (!pickup && address) setPoint('pickup', address);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const pts = useMemo(() => [pickup, ...drops].filter(Boolean).map((a) => ({ latitude: a!.latitude, longitude: a!.longitude })), [pickup, drops]);
   const ready = !!pickup && drops.every(Boolean);
   useEffect(() => { computeRoute(pts).then(setRoute); }, [JSON.stringify(pts)]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,15 +78,18 @@ export default function SendBook() {
       setQuotes(Object.fromEntries(rows.filter(Boolean) as any));
       if (!vehicle && vehicles.data?.[0]) setVehicle(vehicles.data[0].code);
     });
-  }, [step, ready, vehicles.data, JSON.stringify(pts)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step, ready, vehicles.data, JSON.stringify(pts), retry]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A failed quote for the selected vehicle is retried (e.g. right after the login round-trip).
+  useEffect(() => { if (step === 'vehicle' && vehicle && vehicles.data && !quotes[vehicle] && retry < 3) { const id = setTimeout(() => setRetry((n) => n + 1), 1200); return () => clearTimeout(id); } }, [step, vehicle, quotes, vehicles.data, retry]);
 
   const q = vehicle ? quotes[vehicle] : null;
-  const money = (n: number) => formatMoney(n, q?.currency || 'XOF', undefined, lang);
+  const curr = q?.currency || Object.values(quotes)[0]?.currency || country?.currency || 'XOF';
+  const money = (n: number) => formatMoney(n, curr, undefined, lang);
 
   const book = async () => {
     if (!q || !vehicle || !pickup) return;
     if (!isAuthed) {
-      saved = { service, step, vehicle, form, when };
+      saveResume('send', { service, step, vehicle, form, when, pickup, drops } satisfies Saved);
       router.push(`/login?redirect=${encodeURIComponent(`/send/book?service=${service}&resume=1`)}` as any);
       return;
     }
@@ -97,7 +105,7 @@ export default function SendBook() {
         receiver, package_type: form.pkg || undefined, package_weight_range: form.weight || undefined, package_notes: form.notes || undefined,
         scheduled_for: when || undefined, payment_method: 'cod',
       } });
-      saved = null;
+      clearResume('send');
       router.replace(`/send/track/${b.id}` as any);
     } catch (e: any) { notify(e?.message || t('common.network_error')); } finally { setBusy(false); }
   };

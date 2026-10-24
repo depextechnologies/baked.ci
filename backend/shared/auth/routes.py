@@ -263,8 +263,11 @@ EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/
 async def emergent_google_session(payload: EmergentSessionIn, session: AsyncSession = Depends(get_session)):
     """Native app Google Sign-In (Emergent-managed). Exchanges the one-time session_id server-side,
     links/creates the customer by email and returns the same app JWT as the OTP flow."""
-    async with httpx.AsyncClient(timeout=10) as http:
-        r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": payload.session_id})
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            r = await http.get(EMERGENT_SESSION_URL, headers={"X-Session-ID": payload.session_id})
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail=_t("errors.auth.google_exchange_failed", current_lang(), detail="auth provider unreachable"))
     if r.status_code != 200:
         raise HTTPException(status_code=401, detail=_t("errors.auth.google_exchange_failed", current_lang(), detail=r.text[:200]))
     info = r.json()

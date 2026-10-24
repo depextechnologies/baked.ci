@@ -79,7 +79,7 @@ export default function Otp() {
           )}
         </View>
         <View style={{ flex: 1 }} />
-        <Button testID="otp-verify" label={t('otp.verify')} loading={busy} disabled={code.length !== LEN} onPress={() => verify()} color={colors.accent} />
+        <Button testID="otp-verify" label={t('otp.verify')} loading={busy} disabled={code.length !== LEN} onPress={() => verify()} color="#FF4C52" textColor="#fff" />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

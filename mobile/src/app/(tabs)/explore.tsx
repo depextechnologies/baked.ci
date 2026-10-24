@@ -66,7 +66,7 @@ export default function Explore() {
       <AppText weight="black" size={28} style={styles.title}>{t('explore.title')}</AppText>
       <View style={styles.search}>
         <Search color={colors.textMuted} size={20} />
-        <TextInput ref={input} testID="explore-search-input" value={q} onChangeText={setQ} placeholder={t('explore.ph')}
+        <TextInput ref={input} testID="explore-search-input" value={q} onChangeText={setQ} placeholder={activeContext !== 'baked' ? `${t('home.search_ph')} · ${MODULES[activeContext].label}` : t('explore.ph')}
           placeholderTextColor={colors.textDim} style={styles.input} autoCorrect={false} returnKeyType="search" />
         {loading ? <ActivityIndicator color={colors.text} /> : q ? (
           <Touchable testID="explore-clear" onPress={() => setQ('')} hitSlop={8}><X color={colors.textMuted} size={18} /></Touchable>

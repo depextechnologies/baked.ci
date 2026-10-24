@@ -32,6 +32,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [gBusy, setGBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [errKey, setErrKey] = useState<'login.invalid_phone' | 'common.network_error' | null>(null);
   const digits = phone.replace(/\D/g, '');
 
   useEffect(() => {
@@ -40,13 +41,13 @@ export default function Login() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async () => {
-    if (digits.length < 8) { setErr(t('login.invalid_phone')); return; }
-    setBusy(true); setErr(null);
+    if (digits.length < 8) { setErrKey('login.invalid_phone'); setErr(null); return; }
+    setBusy(true); setErr(null); setErrKey(null);
     try {
       const r = await requestOtp(cc, digits);
       router.push({ pathname: '/otp', params: { challenge: r.challenge_id, masked: r.masked_phone, dev: r.dev_code || '', cc, phone: digits, redirect: redirect || '/' } });
     } catch (e: any) {
-      setErr(e?.status === 0 ? t('common.network_error') : e?.message);
+      if (e?.status === 0) setErrKey('common.network_error'); else setErr(e?.message);
     } finally { setBusy(false); }
   };
 
@@ -69,12 +70,12 @@ export default function Login() {
           </AppText>
           <AppText size={14} color={colors.textMuted} align="center" style={{ marginTop: 8 }}>{t('login.body')}</AppText>
 
-          <View style={[styles.field, err ? { borderColor: colors.danger } : null]}>
+          <View style={[styles.field, err || errKey ? { borderColor: colors.danger } : null]}>
             <Touchable testID="login-country-code" onPress={() => setOpen((o) => !o)} style={styles.cc}>
               <AppText weight="semibold" size={14}>{CODES.find((c) => c[1] === cc)?.[0] || ''} {cc}</AppText>
               <ChevronDown color={colors.textMuted} size={14} />
             </Touchable>
-            <TextInput testID="login-phone-input" value={phone} onChangeText={(v) => { setPhone(v); setErr(null); }} placeholder={t('login.phone_ph')}
+            <TextInput testID="login-phone-input" value={phone} onChangeText={(v) => { setPhone(v); setErr(null); setErrKey(null); }} placeholder={t('login.phone_ph')}
               placeholderTextColor={colors.textDim} keyboardType="phone-pad" maxLength={15} style={styles.input} onSubmitEditing={submit} returnKeyType="done" />
           </View>
           {open ? (
@@ -86,9 +87,9 @@ export default function Login() {
               ))}
             </View>
           ) : null}
-          {err ? <AppText testID="login-error" size={13} color={colors.danger} style={{ marginTop: 10 }}>{err}</AppText> : null}
+          {err || errKey ? <AppText testID="login-error" size={13} color={colors.danger} style={{ marginTop: 10 }}>{errKey ? t(errKey) : err}</AppText> : null}
 
-          <View style={{ marginTop: 16 }}><Button testID="login-submit" label={t('login.send')} loading={busy} onPress={submit} color={RED} /></View>
+          <View style={{ marginTop: 16 }}><Button testID="login-submit" label={t('login.send')} loading={busy} onPress={submit} color={RED} textColor="#fff" /></View>
 
           <View style={styles.or}><View style={styles.line} /><AppText size={12} color={colors.textMuted}>{t('login.or')}</AppText><View style={styles.line} /></View>
 

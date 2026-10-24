@@ -24,10 +24,10 @@ export function Touchable({ style, scale = 0.97, onPress, children, ...rest }: P
 
 type BtnProps = {
   label: string; onPress?: () => void; variant?: 'primary' | 'secondary' | 'ghost';
-  loading?: boolean; disabled?: boolean; icon?: React.ReactNode; color?: string; testID?: string;
+  loading?: boolean; disabled?: boolean; icon?: React.ReactNode; color?: string; textColor?: string; testID?: string;
 };
 
-export function Button({ label, onPress, variant = 'primary', loading, disabled, icon, color = colors.text, testID }: BtnProps) {
+export function Button({ label, onPress, variant = 'primary', loading, disabled, icon, color = colors.text, textColor, testID }: BtnProps) {
   const isPrimary = variant === 'primary';
   return (
     <Touchable
@@ -42,10 +42,10 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
         (disabled || loading) && { opacity: 0.5 },
       ]}
     >
-      {loading ? <ActivityIndicator color={isPrimary ? '#000' : '#fff'} /> : (
+      {loading ? <ActivityIndicator color={textColor || (isPrimary ? '#000' : '#fff')} /> : (
         <View style={styles.row}>
           {icon}
-          <AppText weight="bold" size={16} color={isPrimary ? '#000' : colors.text}>{label}</AppText>
+          <AppText weight="bold" size={16} color={textColor || (isPrimary ? '#000' : colors.text)}>{label}</AppText>
         </View>
       )}
     </Touchable>
