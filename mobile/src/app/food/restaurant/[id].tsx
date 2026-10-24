@@ -21,7 +21,7 @@ import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useCart } from '@/state/CartContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 
 const GREEN = MODULES.food.color;
 type Menu = {
@@ -142,7 +142,7 @@ function MenuRow({ it, onPress, disabled }: { it: MenuItem; onPress: () => void;
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { height: 190, backgroundColor: colors.surface2 },
@@ -153,4 +153,4 @@ const styles = StyleSheet.create({
   thumb: { width: 104, height: 104, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface2, justifyContent: 'flex-end', alignItems: 'center' },
   addPill: { marginBottom: 8, backgroundColor: GREEN, paddingHorizontal: 14, paddingVertical: 5, borderRadius: radius.pill },
   veg: { alignSelf: 'flex-start', borderWidth: 1, borderColor: hexA(GREEN, 0.6), paddingHorizontal: 6, borderRadius: 6 },
-});
+}));

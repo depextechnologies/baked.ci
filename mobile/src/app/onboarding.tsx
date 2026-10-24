@@ -10,7 +10,7 @@ import { AppText } from '@/components/ui/AppText';
 import { Button, Touchable } from '@/components/ui/Button';
 import type { TKey } from '@/lib/i18n';
 import { useApp } from '@/state/AppContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 const SLIDES = [
   { id: '1', image: require('../../assets/images/onboarding/onb1.jpg'), accent: '#77BC1F' },
@@ -45,7 +45,7 @@ export default function Onboarding() {
         renderItem={({ item }) => (
           <View style={{ width, height }} testID={`onboarding-slide-${item.id}`}>
             <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <LinearGradient colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.2)', '#000']} locations={[0, 0.45, 0.78]} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.2)', colors.bg]} locations={[0, 0.45, 0.78]} style={StyleSheet.absoluteFill} />
           </View>
         )}
       />
@@ -77,11 +77,11 @@ export default function Onboarding() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between' },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
   bottom: { paddingHorizontal: 24, paddingBottom: 18 },
   dots: { flexDirection: 'row', gap: 6, marginBottom: 22 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3A3A40' },
-});
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.muted },
+}));

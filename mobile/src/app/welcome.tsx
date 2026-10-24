@@ -11,7 +11,7 @@ import { Logo } from '@/components/Logo';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { useApp } from '@/state/AppContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 export default function Welcome() {
   const { t, completeOnboarding } = useApp();
@@ -20,7 +20,7 @@ export default function Welcome() {
   return (
     <View style={styles.root} testID="welcome-screen">
       <Image source={require('../../assets/images/onboarding/onb2.jpg')} style={styles.hero} contentFit="cover" />
-      <LinearGradient colors={['rgba(0,0,0,0.25)', '#000']} locations={[0.1, 0.62]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['rgba(0,0,0,0.25)', colors.bg]} locations={[0.1, 0.62]} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.content}>
         <View style={styles.top}><Logo height={34} /><LangToggle /></View>
         <View style={{ flex: 1 }} />
@@ -39,10 +39,10 @@ export default function Welcome() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   hero: { position: 'absolute', top: 0, left: 0, right: 0, height: '62%' },
   content: { flex: 1 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
   bottom: { paddingHorizontal: 24, paddingBottom: 16 },
-});
+}));

@@ -11,7 +11,7 @@ import { useHomepage } from '@/hooks/useHomepage';
 import { useModuleNav } from '@/hooks/useModuleNav';
 import { MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 import { BrandName } from '../BrandName';
 import { AddressBar, SearchBar } from '../home/AddressBar';
 import { BellButton } from '../home/MainHeader';
@@ -72,7 +72,7 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
       ) : (
       <>
       <View style={[styles.hero, { marginTop: code === 'food' ? 14 : 0, borderColor: hexA(m.color, 0.45) }]} testID="module-hero">
-        <LinearGradient colors={[hexA(m.color, 0.32), hexA(m.color, 0.05), '#000']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[hexA(m.color, 0.32), hexA(m.color, 0.05), colors.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         <View style={{ flex: 1, zIndex: 1 }}>
           <BrandName code={code} size={26} />
           <AppText weight="semibold" size={17} style={{ marginTop: 8 }}>{t(`module.hero.${code}` as any)}</AppText>
@@ -120,7 +120,7 @@ function CategoryTile({ tile, color, icon, onPress }: { tile: Tile; color: strin
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 6, paddingBottom: 14 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, backgroundColor: colors.surface },
   hero: { marginHorizontal: 18, height: 150, borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', padding: 18 },
@@ -130,4 +130,4 @@ const styles = StyleSheet.create({
   tile: { width: '25%', paddingHorizontal: 6, marginBottom: 14, alignItems: 'center', gap: 6 },
   tileImg: { width: '100%', aspectRatio: 1, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   note: { flexDirection: 'row', gap: 10, marginHorizontal: 18, marginTop: 10, padding: 14, borderRadius: radius.md, borderWidth: 1, backgroundColor: colors.surface },
-});
+}));

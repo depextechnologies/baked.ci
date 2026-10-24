@@ -559,3 +559,67 @@ async def seed_homepage(session: AsyncSession) -> dict[str, int]:
         counts[country] = result.rowcount or 0
     await session.commit()
     return counts
+
+
+# ---------------------------------------------------------------------------
+# BAKĒD Super App main home (module "baked") — native app only.
+# Category rows reference EXISTING FOOD/MART/SHOP category keys; images are
+# optional per-item overrides (the category's own image is used otherwise).
+# ---------------------------------------------------------------------------
+_IMG = "/app-home/{}.webp"
+
+_APP_TILES = [
+    ("express", "Livrez tout", "Deliver Anything", "tile_send", "#F5A524"),
+    ("food", "Commandez à manger", "Order Foods", "tile_food", "#77BC1F"),
+    ("mart", "Courses en quelques minutes", "Groceries in minutes", "tile_mart", "#1D9BF0"),
+    ("shop", "Achetez la mode", "Shop Fashion", "tile_shop", "#C13CFF"),
+    ("immo", "Explorez l’immobilier", "Explore Properties", "tile_immo", "#F5B70A"),
+    ("auto", "Explorez les voitures", "Explore Cars", "tile_auto", "#FF4C52"),
+]
+
+_APP_ROWS = [
+    (20, "food", "Order your bites", "Commandez vos envies", "#77BC1F", [
+        ("burgers", "cat_burger", None, None), ("pizza", "cat_pizza", None, None), ("chicken", "cat_chicken", None, None),
+        ("african", "cat_african", None, None), ("desserts", "cat_desserts", None, None)]),
+    (30, "mart", "Groceries in minutes", "Vos courses en minutes", "#1D9BF0", [
+        ("fruits-vegetables", "cat_fruits", "Fruits", "Fruits"), ("dairy-eggs", "cat_dairy", "Crèmerie", "Dairy"),
+        ("snacks", "cat_snacks", None, "Snacks"), ("beverages", "cat_beverages", None, None), ("household", "cat_household", None, "Household")]),
+    (40, "shop", "Trending fashions", "Tendances mode", "#C13CFF", [
+        ("mode-femme", "cat_women", "Femme", "Women"), ("mode-homme", "cat_men", "Homme", "Men"),
+        ("chaussures-sneakers", "cat_footwear", "Chaussures", "Footwear"), ("sacs-bagages", "cat_bags", "Sacs", "Bags"),
+        ("bijoux-montres-lunettes", "cat_accessories", "Accessoires", "Accessories")]),
+]
+
+
+def _baked_rows(country: str) -> list[dict]:
+    cc = country.lower()
+    rows = [{
+        "seq": 10, "type": "app_module_grid", "title": None, "subtitle": None,
+        "config": {"items": [{"module": m, "enabled": True, "tagline_fr": fr, "tagline_en": en, "image": _IMG.format(img), "accent": ac}
+                             for m, fr, en, img, ac in _APP_TILES]},
+    }]
+    for seq, src, title, title_fr, accent, items in _APP_ROWS:
+        rows.append({"seq": seq, "type": "app_category_row", "title": title, "subtitle": None, "config": {
+            "title_fr": title_fr, "source_module": src, "accent": accent, "max_items": 12,
+            "items": [{"key": k, "enabled": True, "image": _IMG.format(img), "label_fr": lfr, "label_en": len_}
+                      for k, img, lfr, len_ in items],
+        }})
+    rows.append({"seq": 50, "type": "app_promo_slider", "title": None, "subtitle": None, "config": {"items": [
+        {"enabled": True, "title_fr": "Plats délicieux livrés vite", "title_en": "Delicious Food Delivered Fast",
+         "cta_label_fr": "Commander", "cta_label_en": "Order Now", "link": "/food", "image": _IMG.format("banner_food"), "accent": "#F5A524"},
+        {"enabled": True, "title_fr": "Courses fraîches tous les jours", "title_en": "Fresh Groceries Everyday",
+         "cta_label_fr": "Acheter", "cta_label_en": "Shop Now", "link": "/mart", "image": _IMG.format("banner_grocery"), "accent": "#77BC1F"},
+    ]}})
+    return [{"id": f"hps_baked_{cc}_{r['seq']:03d}_{r['type']}", "country": country, "module": "baked",
+             "section_type": r["type"], "title": r["title"], "subtitle": r["subtitle"], "config": r["config"],
+             "display_order": r["seq"], "is_enabled": True} for r in rows]
+
+
+async def seed_baked_homepage(session: AsyncSession) -> dict[str, int]:
+    """Insert-only-if-missing Super App main home per country (admin edits/deletes are preserved)."""
+    counts: dict[str, int] = {}
+    for country in ("CI", "IN"):
+        stmt = pg_insert(HomepageSection).values(_baked_rows(country)).on_conflict_do_nothing(index_elements=["id"])
+        counts[country] = (await session.execute(stmt)).rowcount or 0
+    await session.commit()
+    return counts

@@ -17,7 +17,7 @@ import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useCart, type MartProduct } from '@/state/CartContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 const GREEN = MODULES.mart.color;
 type Product = MartProduct & { images?: string[]; description?: string; brand?: string; rating?: number; review_count?: number };
@@ -89,13 +89,13 @@ function CartBarInline() {
   return <Button testID="mart-product-go-cart" label={t('cart.view')} color={GREEN} onPress={() => router.push('/cart')} />;
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   imgBox: { height: 300, backgroundColor: '#fff' },
   dots: { flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 10 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#3A3A40' },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.muted },
   body: { padding: 18, gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   badge: { backgroundColor: GREEN, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 26, backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
-});
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 26, backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+}));

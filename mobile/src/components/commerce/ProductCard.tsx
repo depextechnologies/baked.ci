@@ -8,7 +8,7 @@ import { MODULES } from '@/lib/modules';
 import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useCart, type MartProduct } from '@/state/CartContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 import { AddButton, QtyStepper } from './QtyStepper';
@@ -50,9 +50,9 @@ export function ProductCard({ p, width }: { p: MartProduct; width: number | `${n
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: { padding: 10, gap: 4, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   imgBox: { width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff', marginBottom: 6 },
   badge: { position: 'absolute', top: 6, left: 6, backgroundColor: GREEN, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-});
+}));

@@ -954,8 +954,9 @@ async def run_seed():
         from shared.suppliers.seed import seed_demo_suppliers
         await seed_demo_suppliers(session)
         # Homepage CMS default stack (CI + IN) — insert-only, admin edits preserved.
-        from modules.homepage.seed import seed_homepage, seed_food_homepage, seed_send_homepage
+        from modules.homepage.seed import seed_homepage, seed_food_homepage, seed_send_homepage, seed_baked_homepage
         await seed_homepage(session)
+        await seed_baked_homepage(session)
         await seed_food_homepage(session)
         await seed_send_homepage(session)
         # SHOPbakēd catalogue (Slice 2) — 19 categories × subcategory tree per country.

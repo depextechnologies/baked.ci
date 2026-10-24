@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useModuleNav } from '@/hooks/useModuleNav';
 import { MODULES, SWITCHER_ORDER, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 import { BrandName } from './BrandName';
 import { ModuleIcon } from './ModuleIcon';
 import { AppText } from './ui/AppText';
@@ -92,18 +92,18 @@ function SwitcherCard({ code, onDone }: { code: ModuleCode; onDone: () => void }
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   backdrop: { backgroundColor: 'rgba(0,0,0,0.72)' },
   sheet: {
     position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: H * 0.88,
-    backgroundColor: '#111113', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     borderTopWidth: 1, borderColor: colors.border, paddingHorizontal: 18,
   },
-  grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#3A3A40', marginTop: 10, marginBottom: 14 },
+  grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.muted, marginTop: 10, marginBottom: 14 },
   head: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   close: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   card: { width: '48.5%', minHeight: 150, borderRadius: radius.lg, padding: 16, overflow: 'hidden', gap: 4, justifyContent: 'flex-end' },
   iconBox: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   badge: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 9, paddingVertical: 3, borderRadius: radius.pill },
-});
+}));

@@ -21,7 +21,7 @@ import { confirmAsk, notify } from '@/lib/notify';
 import { computeRoute, type LatLng } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 
 const ORANGE = MODULES.express.color;
 const FLOW = ['searching', 'driver_assigned', 'arriving', 'picked_up', 'in_transit', 'delivered'];
@@ -135,7 +135,7 @@ function MoversSummary({ b }: { b: any }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { padding: 16, gap: 6, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -144,4 +144,4 @@ const styles = StyleSheet.create({
   avatar: { width: 46, height: 46, borderRadius: 23, overflow: 'hidden', backgroundColor: colors.surface2 },
   call: { width: 40, height: 40, borderRadius: 20, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
   liveDot: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
-});
+}));

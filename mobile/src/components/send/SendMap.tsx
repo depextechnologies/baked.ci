@@ -4,7 +4,7 @@ import { Animated, StyleSheet, View } from 'react-native';
 import MapView, { AnimatedRegion, Marker, MarkerAnimated, Polyline } from 'react-native-maps';
 
 import type { LatLng } from '@/lib/routes';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 export type NearbyDriver = LatLng & { vehicle_type?: string };
 export type SendMapProps = { points: LatLng[]; route: LatLng[]; driver?: LatLng | null; nearby?: NearbyDriver[]; color: string; height?: number | `${number}%` };
@@ -53,8 +53,8 @@ export function SendMap({ points, route, driver, nearby = [], color, height = 30
 
 const MarkerAnimatedAny = MarkerAnimated as any;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { width: '100%', backgroundColor: colors.surface, overflow: 'hidden' },
   nearby: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   driver: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#000', borderWidth: 5 },
-});
+}));

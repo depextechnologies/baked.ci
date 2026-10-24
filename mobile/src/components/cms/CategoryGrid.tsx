@@ -7,7 +7,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useFetch } from '@/hooks/useFetch';
 import { absUrl, nativeLink, sectionText } from '@/lib/cms';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA } from '@/theme';
+import { colors, hexA, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 import { SectionHeader } from './SectionHeader';
@@ -55,8 +55,8 @@ function Thumb({ src, accent }: { src: string | null; accent: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, paddingVertical: 16, paddingHorizontal: 8, alignItems: 'center', gap: 10, minHeight: 150 },
   icon: { width: 56, height: 56, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-});
+}));

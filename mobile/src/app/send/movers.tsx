@@ -24,7 +24,7 @@ import { computeRoute, type Route } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
 import { useSendDraft } from '@/state/SendDraftContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 
 const ORANGE = MODULES.express.color;
 const STEPS = ['route', 'type', 'items', 'access', 'when', 'review'] as const;
@@ -71,7 +71,7 @@ export default function MoversBook() {
   const count = chosen.reduce((s, i) => s + i.qty, 0);
   const kg = chosen.reduce((s, i) => s + i.qty * (items.data?.find((x) => x.id === i.item_id)?.weight_kg || 0), 0);
   const slotRow = slots.data?.find((s) => s.code === slot);
-  const curr = quote?.currency || 'XOF';
+  const curr = quote?.currency || country?.currency || 'XOF';
 
   const pickSize = async (s: Size) => {
     if (count > 0 && !(await confirmAsk(t('mv.replace_confirm'), t('mv.replace'), t('common.cancel')))) return;
@@ -220,7 +220,7 @@ function Point({ label, value, onPress, testID }: { label: string; value?: strin
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   progress: { height: 3, backgroundColor: colors.surface2, marginHorizontal: 18, borderRadius: 2, overflow: 'hidden' },
   bar: { height: 3, backgroundColor: ORANGE },
@@ -230,5 +230,5 @@ const styles = StyleSheet.create({
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 24, backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border },
-});
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 24, backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border },
+}));

@@ -12,12 +12,12 @@ export type ModuleDef = {
 
 // `express` is the internal backend code; the customer-facing brand is SEND.
 export const MODULES: Record<ModuleCode, ModuleDef> = {
-  express: { code: 'express', label: 'SEND', color: '#F5A524', status: 'active', image: require('../../assets/images/modules/send.png'), icon: 'truck' },
-  food: { code: 'food', label: 'FOOD', color: '#77BC1F', status: 'active', image: require('../../assets/images/modules/food.png'), icon: 'utensils' },
-  mart: { code: 'mart', label: 'MART', color: '#77BC1F', status: 'active', image: require('../../assets/images/modules/mart.png'), icon: 'basket' },
-  shop: { code: 'shop', label: 'SHOP', color: '#FCC44C', status: 'active', image: require('../../assets/images/modules/shop.png'), icon: 'bag' },
-  immo: { code: 'immo', label: 'IMMO', color: '#A659FF', status: 'coming_soon', image: require('../../assets/images/modules/immo.png'), icon: 'home' },
-  auto: { code: 'auto', label: 'AUTO', color: '#FF4C52', status: 'coming_soon', image: require('../../assets/images/modules/auto.png'), icon: 'car' },
+  express: { code: 'express', label: 'SEND', color: '#F5A524', status: 'active', image: require('../../assets/images/modules/tile_send.webp'), icon: 'truck' },
+  food: { code: 'food', label: 'FOOD', color: '#77BC1F', status: 'active', image: require('../../assets/images/modules/tile_food.webp'), icon: 'utensils' },
+  mart: { code: 'mart', label: 'MART', color: '#77BC1F', status: 'active', image: require('../../assets/images/modules/tile_mart.webp'), icon: 'basket' },
+  shop: { code: 'shop', label: 'SHOP', color: '#FCC44C', status: 'active', image: require('../../assets/images/modules/tile_shop.webp'), icon: 'bag' },
+  immo: { code: 'immo', label: 'IMMO', color: '#A659FF', status: 'coming_soon', image: require('../../assets/images/modules/tile_immo.webp'), icon: 'home' },
+  auto: { code: 'auto', label: 'AUTO', color: '#FF4C52', status: 'coming_soon', image: require('../../assets/images/modules/tile_auto.webp'), icon: 'car' },
 };
 
 export const HOME_GRID_ORDER: ModuleCode[] = ['express', 'food', 'mart', 'shop', 'immo', 'auto'];

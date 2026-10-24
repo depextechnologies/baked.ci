@@ -3,7 +3,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApp } from '@/state/AppContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
 
@@ -30,7 +30,7 @@ export function Skeleton({ h, w = '100%', r = radius.md }: { h: number; w?: numb
   return <View style={{ height: h, width: w, borderRadius: r, backgroundColor: colors.surface2 }} />;
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { alignItems: 'center', gap: 8, paddingVertical: 40, paddingHorizontal: 24 },
   icon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-});
+}));

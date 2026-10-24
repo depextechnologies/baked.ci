@@ -16,7 +16,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useCart } from '@/state/CartContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 
 const GREEN = MODULES.food.color;
 type Filters = { min_rating?: number; max_price?: number; vegetarian: 'all' | 'veg_options' | 'pure_veg'; open_now: boolean; sort: string };
@@ -119,7 +119,7 @@ function FilterSheet({ visible, value, onClose, onApply }: { visible: boolean; v
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   searchRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 18 },
   search: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, height: 48, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
@@ -127,6 +127,6 @@ const styles = StyleSheet.create({
   filterBtn: { width: 48, height: 48, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   chips: { gap: 8, paddingHorizontal: 18, paddingVertical: 12 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: { maxHeight: '80%', backgroundColor: '#111113', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 30, borderTopWidth: 1, borderColor: colors.border },
+  sheet: { maxHeight: '80%', backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 30, borderTopWidth: 1, borderColor: colors.border },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-});
+}));

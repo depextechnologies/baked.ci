@@ -15,6 +15,10 @@ from core.models.base import Base, new_id
 
 
 HOMEPAGE_SECTION_TYPES = [
+    # BAKĒD Super App main home (module "baked") — native app grid, category rows, promo slider.
+    "app_module_grid",
+    "app_category_row",
+    "app_promo_slider",
     "hero",
     "category_grid",
     "product_carousel",

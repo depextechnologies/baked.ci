@@ -8,7 +8,7 @@ import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import type { FoodOption } from '@/state/CartContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Button, Touchable } from '../ui/Button';
 
@@ -112,9 +112,9 @@ function Option({ label, price, on, radio, onPress, testID }: { label: string; p
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
-  sheet: { maxHeight: '90%', backgroundColor: '#111113', borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
+  sheet: { maxHeight: '90%', backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
   img: { height: 200, backgroundColor: colors.surface2 },
   close: { position: 'absolute', top: 12, right: 12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
   group: { marginTop: 16, gap: 4 },
@@ -124,4 +124,4 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingHorizontal: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
   qty: { flexDirection: 'row', alignItems: 'center', height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: GREEN },
   qBtn: { width: 44, height: '100%', alignItems: 'center', justifyContent: 'center' },
-});
+}));

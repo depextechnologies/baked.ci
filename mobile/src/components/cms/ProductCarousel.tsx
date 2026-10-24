@@ -9,7 +9,7 @@ import { formatMoney } from '@/lib/format';
 import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useCart } from '@/state/CartContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 import { Thumb } from '../commerce/Thumb';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
@@ -72,10 +72,10 @@ function ProductTile({ p, w, accent }: { p: any; w: number; accent: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface },
   img: { width: '100%', aspectRatio: 1, backgroundColor: colors.surface2 },
   off: { position: 'absolute', top: 8, left: 8, backgroundColor: '#FF4C52', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 4 },
   add: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-});
+}));

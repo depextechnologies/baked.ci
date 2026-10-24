@@ -7,8 +7,8 @@ import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEve
 
 import { absUrl, nativeLink } from '@/lib/cms';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA } from '@/theme';
-import { AppText } from '../../ui/AppText';
+import { colors, hexA, themed } from '@/theme';
+import { AppText, OnDark } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
 import { bi, biItem } from './FoodData';
@@ -27,7 +27,7 @@ export function FoodPromos({ section }: SectionProps) {
       {banners.map((b, i) => {
         const img = absUrl(b.image); const cta = biItem(b, 'cta_label', lang); const desc = biItem(b, 'description', lang);
         return (
-          <View key={i} style={[styles.promo, width >= 768 && { flex: 1 }]} testID={`food-promo-${section.id}-${i}`}>
+          <View key={i} style={[styles.promo, width >= 768 && { flex: 1 }]} testID={`food-promo-${section.id}-${i}`}><OnDark>
             {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" /> : null}
             <LinearGradient colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.35)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
             <View style={{ padding: 24, maxWidth: 420 }}>
@@ -36,7 +36,7 @@ export function FoodPromos({ section }: SectionProps) {
               {cta ? <Touchable testID={`food-promo-cta-${i}`} onPress={() => router.push(nativeLink(b.cta_link, 'food') as any)} style={styles.cta}>
                 <AppText size={12} weight="semibold" color="#000">{cta}</AppText><ChevronRight color="#000" size={14} /></Touchable> : null}
             </View>
-          </View>
+          </OnDark></View>
         );
       })}
     </View>
@@ -85,7 +85,7 @@ export function FoodTestimonial({ section }: SectionProps) {
         {items.map((it, i) => {
           const author = biItem(it, 'author', lang); const photo = absUrl(it.customer_image); const bg = absUrl(it.background_image);
           return (
-            <View key={i} style={[styles.quote, { width: cardW }]} testID={`food-testimonial-card-${i}`}>
+            <View key={i} style={[styles.quote, { width: cardW }]} testID={`food-testimonial-card-${i}`}><OnDark>
               {bg ? <Image source={bg} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
               {bg ? <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.78)' }]} /> : null}
               <AppText size={64} color={hexA(G, 0.3)} style={styles.mark}>“</AppText>
@@ -98,7 +98,7 @@ export function FoodTestimonial({ section }: SectionProps) {
                 </View>
                 <View style={{ flexDirection: 'row' }}>{[0, 1, 2, 3, 4].map((s) => <Star key={s} color={G} fill={G} size={13} />)}</View>
               </View>
-            </View>
+            </OnDark></View>
           );
         })}
       </ScrollView>
@@ -107,7 +107,7 @@ export function FoodTestimonial({ section }: SectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   promo: { minHeight: 160, borderRadius: 16, overflow: 'hidden', justifyContent: 'center', backgroundColor: '#0d0d0d' },
   cta: { marginTop: 16, alignSelf: 'flex-start', height: 40, paddingHorizontal: 16, borderRadius: 999, backgroundColor: G, flexDirection: 'row', alignItems: 'center', gap: 8 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
@@ -119,4 +119,4 @@ const styles = StyleSheet.create({
   avatar: { width: 40, height: 40, borderRadius: 20 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
-});
+}));

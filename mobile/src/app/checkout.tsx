@@ -19,7 +19,7 @@ import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useCart, type FoodLine } from '@/state/CartContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, hexA, radius } from '@/theme';
+import { colors, fonts, hexA, radius, themed } from '@/theme';
 
 type Slot = { id: string; label: string; kind: string; start_at: string; end_at: string };
 type Method = { code: string; label: string; label_fr: string; enabled: boolean };
@@ -163,12 +163,12 @@ export default function Checkout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { padding: 16, gap: 10, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   addr: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   method: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   input: { minHeight: 70, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, color: colors.text, padding: 12, fontFamily: fonts.regular, fontSize: 14, textAlignVertical: 'top', outlineStyle: 'none' } as any,
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 28, backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border },
-});
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 28, backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border },
+}));

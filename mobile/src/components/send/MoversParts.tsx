@@ -6,7 +6,7 @@ import { formatMoney } from '@/lib/format';
 import { sendLabel, slotWindow } from '@/lib/i18n-send-data';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 import { Chip } from '../ui/Chip';
@@ -79,7 +79,7 @@ export function MoversFare({ q }: { q: Record<string, any> }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   counter: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 4, height: 38 },
   cBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   card: { padding: 16, gap: 10, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
@@ -88,4 +88,4 @@ const styles = StyleSheet.create({
   slot: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   badge: { backgroundColor: ORANGE, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   split: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
-});
+}));

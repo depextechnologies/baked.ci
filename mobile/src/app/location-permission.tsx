@@ -9,7 +9,7 @@ import { Button, Touchable } from '@/components/ui/Button';
 import { DEFAULT_COUNTRY } from '@/lib/config';
 import { detectCurrentAddress } from '@/lib/location';
 import { useApp } from '@/state/AppContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 export default function LocationPermission() {
   const { t, lang, setAddress } = useApp();
@@ -55,7 +55,7 @@ export default function LocationPermission() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   top: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 8 },
   body: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
@@ -64,4 +64,4 @@ const styles = StyleSheet.create({
   point: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   check: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(119,188,31,0.16)', alignItems: 'center', justifyContent: 'center' },
   actions: { paddingHorizontal: 24, paddingBottom: 16, gap: 12 },
-});
+}));

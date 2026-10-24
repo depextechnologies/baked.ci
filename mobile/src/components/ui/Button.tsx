@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from './AppText';
 
 export const tap = () => { if (Platform.OS !== 'web') Haptics.selectionAsync(); };
@@ -29,6 +29,7 @@ type BtnProps = {
 
 export function Button({ label, onPress, variant = 'primary', loading, disabled, icon, color = colors.text, textColor, testID }: BtnProps) {
   const isPrimary = variant === 'primary';
+  const onColor = textColor || (isPrimary ? (color === colors.text ? colors.bg : '#000') : colors.text);
   return (
     <Touchable
       testID={testID}
@@ -42,18 +43,18 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
         (disabled || loading) && { opacity: 0.5 },
       ]}
     >
-      {loading ? <ActivityIndicator color={textColor || (isPrimary ? '#000' : '#fff')} /> : (
+      {loading ? <ActivityIndicator color={onColor} /> : (
         <View style={styles.row}>
           {icon}
-          <AppText weight="bold" size={16} color={textColor || (isPrimary ? '#000' : colors.text)}>{label}</AppText>
+          <AppText weight="bold" size={16} color={onColor}>{label}</AppText>
         </View>
       )}
     </Touchable>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   btn: { height: 56, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   secondary: { backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-});
+}));

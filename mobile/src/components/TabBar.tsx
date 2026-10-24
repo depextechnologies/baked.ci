@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useSwitcher } from '@/state/SwitcherContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 import { AppText } from './ui/AppText';
 import { Touchable } from './ui/Button';
 
@@ -53,12 +53,12 @@ export function TabBar({ state, navigateToTab, insets }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
+const styles = themed(() => StyleSheet.create({
+  bar: { flexDirection: 'row', backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
   item: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 52 },
   fab: {
-    width: 58, height: 58, borderRadius: 29, marginTop: -26, backgroundColor: '#1A1A1F', borderWidth: 2,
+    width: 58, height: 58, borderRadius: 29, marginTop: -26, backgroundColor: colors.surface2, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
+    shadowColor: colors.shadow, shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
-});
+}));

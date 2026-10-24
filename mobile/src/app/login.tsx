@@ -16,7 +16,7 @@ import { consumeWebCallback, startGoogle } from '@/lib/googleAuth';
 import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 
 const RED = '#FF4C52';
 // Same list as the website PhoneLoginDialog.
@@ -116,7 +116,7 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   body: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 32 },
   field: { marginTop: 32, flexDirection: 'row', alignItems: 'center', height: 56, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
@@ -128,4 +128,4 @@ const styles = StyleSheet.create({
   line: { flex: 1, height: 1, backgroundColor: colors.border },
   alt: { height: 56, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   create: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 24, flexWrap: 'wrap' },
-});
+}));

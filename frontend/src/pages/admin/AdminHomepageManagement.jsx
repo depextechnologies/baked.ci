@@ -330,6 +330,52 @@ const SECTION_SCHEMAS = {
       ]),
     ],
   },
+  app_module_grid: {
+    label: "App · Grille des services · Module grid",
+    modules: ["baked"],
+    top: [],
+    config: [
+      F.list("items", "Tuiles (ordre = affichage, 3 colonnes) · Tiles (order = display, 3 columns)", [
+        F.text("module", "Module: express / food / mart / shop / immo / auto"),
+        F.bool("enabled", "Afficher · Show"),
+        F.text("tagline_fr", "Accroche FR · ex: Livrez tout"), F.text("tagline_en", "Tagline EN · e.g. Deliver Anything"),
+        F.image("image", "Illustration (PNG/WebP transparent)"),
+        F.text("accent", "Couleur d'accent · Accent colour (hex, e.g. #F5A524)"),
+      ], "IMMO et AUTO affichent un badge « Bientôt » tant que le module n'est pas lancé."),
+    ],
+  },
+  app_category_row: {
+    label: "App · Rangée de catégories · Category row",
+    modules: ["baked"],
+    top: [F.text("title", "Title EN · e.g. Order your bites")],
+    config: [
+      F.text("title_fr", "Titre FR · ex: Commandez vos envies"),
+      F.text("source_module", "Module source: food / mart / shop", "Les catégories viennent du catalogue existant du module."),
+      F.text("accent", "Couleur « Voir tout » · View-all colour (hex)"),
+      F.num("max_items", "Nombre max de tuiles · Max tiles"),
+      F.list("items", "Catégories (ordre = affichage). Vide = toutes · Categories (order = display). Empty = all", [
+        F.text("key", "Code / slug de la catégorie existante · Existing category code / slug"),
+        F.bool("enabled", "Afficher · Show"),
+        F.image("image", "Image (optionnelle, sinon image de la catégorie)"),
+        F.text("label_fr", "Libellé FR (optionnel)"), F.text("label_en", "Label EN (optional)"),
+      ]),
+    ],
+  },
+  app_promo_slider: {
+    label: "App · Bannières promo · Promo slider",
+    modules: ["baked"],
+    top: [],
+    config: [
+      F.list("items", "Bannières (ordre = affichage) · Banners (order = display)", [
+        F.bool("enabled", "Afficher · Show"),
+        F.text("title_fr", "Titre FR"), F.text("title_en", "Title EN"),
+        F.text("cta_label_fr", "Bouton FR · ex: Commander"), F.text("cta_label_en", "Button EN · e.g. Order Now"),
+        F.url("link", "Lien · Link (/food, /mart, /shop, /send, /mart/category/<slug> …)"),
+        F.image("image", "Image de fond · Background image"),
+        F.text("accent", "Couleur du bouton · Button colour (hex)"),
+      ]),
+    ],
+  },
   send_trust_banner: {
     label: "SEND · Bandeau confiance · Trust banner",
     modules: ["express"],
@@ -347,6 +393,7 @@ const MODULES_META = [
   { code: "shop", label: "SHOPbakēd" },
   { code: "food", label: "FOODbakēd" },
   { code: "express", label: "SENDbakēd" },
+  { code: "baked", label: "BAKĒD App" },
 ];
 const PREVIEW_PATH = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
 
@@ -356,7 +403,7 @@ const PREVIEW_PATH = { mart: "/", shop: "/shop", food: "/food", express: "/send"
 const _isSectionForModule = (schema, module) => {
   if (schema.modules) return schema.modules.includes(module);
   // Untagged sections were built for MART/SHOP originally.
-  return module !== "food" && module !== "express";
+  return module !== "food" && module !== "express" && module !== "baked";
 };
 
 const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";

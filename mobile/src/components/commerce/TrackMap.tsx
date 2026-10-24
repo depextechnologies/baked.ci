@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 export type Pt = { lat?: number | null; lng?: number | null } | null | undefined;
 type Props = { origin: Pt; destination: Pt; driver: Pt; color: string };
@@ -29,6 +29,6 @@ export function TrackMap({ origin, destination, driver, color }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { height: 220, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.surface },
-});
+}));

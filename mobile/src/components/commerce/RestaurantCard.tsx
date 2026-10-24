@@ -7,7 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 
@@ -50,11 +50,11 @@ const Meta = ({ icon, text }: { icon: React.ReactNode; text: string }) => (
   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>{icon}<AppText size={12} color={colors.textMuted}>{text}</AppText></View>
 );
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: { borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   img: { height: 150, backgroundColor: colors.surface2 },
   flag: { position: 'absolute', left: 10, top: 10, backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
   body: { padding: 12, gap: 3 },
   row: { flexDirection: 'row', alignItems: 'center' },
   rating: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: MODULES.food.color, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-});
+}));

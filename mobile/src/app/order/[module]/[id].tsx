@@ -19,7 +19,7 @@ import { MODULES } from '@/lib/modules';
 import { confirmAsk, notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, hexA, radius } from '@/theme';
+import { colors, fonts, hexA, radius, themed } from '@/theme';
 import { normaliseTracking, type Tracking } from '@/lib/tracking';
 
 const POLL_MS = 10000;
@@ -161,7 +161,7 @@ function RateBox({ module, id, rated }: { module: 'mart' | 'food'; id: string; r
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { padding: 16, gap: 10, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -171,4 +171,4 @@ const styles = StyleSheet.create({
   lineV: { width: 2, flex: 1, minHeight: 16, backgroundColor: colors.border },
   avatar: { width: 46, height: 46, borderRadius: 23, overflow: 'hidden', backgroundColor: colors.surface2 },
   input: { minHeight: 60, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, color: colors.text, padding: 12, fontFamily: fonts.regular, fontSize: 14, textAlignVertical: 'top', outlineStyle: 'none' } as any,
-});
+}));

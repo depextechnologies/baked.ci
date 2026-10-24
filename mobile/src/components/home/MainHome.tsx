@@ -1,32 +1,46 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { useAccountSummary } from '@/hooks/useAccountSummary';
-import { HOME_GRID_ORDER } from '@/lib/modules';
+import { useHomepage } from '@/hooks/useHomepage';
 import { useApp } from '@/state/AppContext';
-import { AddressBar, SearchBar } from './AddressBar';
-import { BrandBanner } from './BrandBanner';
+import { colors, themed } from '@/theme';
+import { AppGrid } from '../cms/app/AppGrid';
+import { CmsSections } from '../cms/registry';
+import { Skeleton } from '../ui/StateView';
+import { AddressBar, SearchButton } from './AddressBar';
 import { MainHeader } from './MainHeader';
-import { ModuleCard } from './ModuleCard';
-import { QuickStrip } from './QuickStrip';
 
+// BAKĒD Super App home — every section below the address bar is published from Super Admin (module "baked").
 export function MainHome() {
-  const { t } = useApp();
-  const { wallet, unread, points } = useAccountSummary();
+  const { country } = useApp();
+  const { unread } = useAccountSummary();
+  const { width } = useWindowDimensions();
+  const cc = country?.code || 'CI';
+  const hp = useHomepage('baked', cc);
+  const sections = hp.data?.sections;
+
   return (
-    <ScrollView testID="main-home" contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
-      <MainHeader wallet={wallet} unread={unread} />
-      <AddressBar />
-      <SearchBar placeholder={t('home.search_ph')} />
-      <View style={styles.grid}>
-        {HOME_GRID_ORDER.map((code) => <ModuleCard key={code} code={code} />)}
+    <ScrollView testID="main-home" contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={hp.refreshing} onRefresh={hp.refresh} tintColor={colors.accent} colors={[colors.accent]} />}>
+      <MainHeader unread={unread} />
+      <View style={styles.bar}>
+        <AddressBar inline />
+        <SearchButton />
       </View>
-      <QuickStrip wallet={wallet} points={points} />
-      <BrandBanner />
+      {sections?.length ? (
+        <CmsSections sections={sections} loading={false} offline={hp.offline} accent={colors.accent} module="baked" country={cc} width={width - 28} />
+      ) : (
+        <View style={{ gap: 22 }} testID="main-home-fallback">
+          <AppGrid />
+          {hp.loading ? <View style={styles.sk}><Skeleton h={104} r={14} /><Skeleton h={104} r={14} /></View> : null}
+        </View>
+      )}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, paddingHorizontal: 18 },
-});
+const styles = themed(() => StyleSheet.create({
+  bar: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, marginBottom: 16 },
+  sk: { paddingHorizontal: 14, gap: 16 },
+}));

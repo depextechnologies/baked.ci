@@ -18,7 +18,7 @@ import { MODULES } from '@/lib/modules';
 import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useCart } from '@/state/CartContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 const GOLD = MODULES.shop.color;
 type V = { id: string; title_suffix?: string; price: number; compare_at_price?: number | null; currency: string; stock_qty: number; images: string[]; is_active: boolean };
@@ -85,9 +85,9 @@ export default function ShopProduct() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 26, backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
-});
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 26, backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+}));

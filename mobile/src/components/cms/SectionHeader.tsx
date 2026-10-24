@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApp } from '@/state/AppContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 
@@ -27,7 +27,7 @@ export function SectionHeader({ title, subtitle, accent, to, testID }: { title?:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 14 },
   link: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 3 },
-});
+}));

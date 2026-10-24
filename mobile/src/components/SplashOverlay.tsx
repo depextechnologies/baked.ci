@@ -2,7 +2,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet } from 'react-native';
 
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 import { Logo } from './Logo';
 import { AppText } from './ui/AppText';
 
@@ -40,6 +40,6 @@ export function SplashOverlay({ ready, tagline }: { ready: boolean; tagline: str
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-});
+}));

@@ -20,7 +20,7 @@ import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { foodUnitPrice, useCart, type FoodLine } from '@/state/CartContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 export default function CartScreen() {
   const { t, lang } = useApp();
@@ -116,11 +116,11 @@ function Row({ image, title, sub, price, right, unavailable, testID }: { image?:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { padding: 16, gap: 10, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   thumb: { width: 56, height: 56, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface2 },
   warn: { flexDirection: 'row', gap: 8, alignItems: 'center', padding: 10, borderRadius: 10, backgroundColor: 'rgba(252,196,76,0.1)' },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 28, backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border },
-});
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 28, backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border },
+}));

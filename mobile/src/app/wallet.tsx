@@ -12,7 +12,7 @@ import type { WalletInfo } from '@/hooks/useAccountSummary';
 import { formatDate, formatMoney } from '@/lib/format';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 export default function WalletScreen() {
   const { t, lang } = useApp();
@@ -55,8 +55,8 @@ export default function WalletScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { padding: 18, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 6 },
   rowCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-});
+}));

@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { MapPin } from 'lucide-react-native';
 
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 type Props = { initial: { latitude: number; longitude: number }; onCenterChange: (c: { latitude: number; longitude: number }) => void };
 
@@ -24,7 +24,7 @@ export function PinMap({ initial, onCenterChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { flex: 1, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.surface },
   pin: { position: 'absolute', left: '50%', top: '50%', marginLeft: -20, marginTop: -40 },
-});
+}));

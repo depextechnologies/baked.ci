@@ -2,7 +2,7 @@ import { Minus, Plus } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 
@@ -32,8 +32,8 @@ export function AddButton({ label, onPress, color, testID, disabled }: { label: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: radius.pill, backgroundColor: colors.surface },
   btn: { height: '100%', alignItems: 'center', justifyContent: 'center' },
   add: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 34, paddingHorizontal: 12, borderRadius: radius.pill },
-});
+}));

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApp } from '@/state/AppContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from './ui/AppText';
 import { Touchable } from './ui/Button';
 
@@ -19,8 +19,8 @@ export function LangToggle() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { flexDirection: 'row', backgroundColor: colors.surface2, borderRadius: radius.pill, padding: 3, borderWidth: 1, borderColor: colors.border },
   pill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
   on: { backgroundColor: colors.text },
-});
+}));

@@ -7,8 +7,8 @@ import { Linking, ScrollView, StyleSheet, useWindowDimensions, View } from 'reac
 
 import { absUrl, assetFor, nativeLink, pick, sectionText } from '@/lib/cms';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA } from '@/theme';
-import { AppText } from '../../ui/AppText';
+import { colors, hexA, themed } from '@/theme';
+import { AppText, OnDark } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
 import { MartHeader } from './MartSections';
@@ -20,7 +20,7 @@ export function MartPromo({ section }: SectionProps) {
   const img = assetFor(cfg, width);
   const badge = pick(cfg, 'badge', lang); const cta = pick(cfg, 'cta_label', lang); const sub = sectionText(section, 'subtitle', lang);
   return (
-    <Touchable disabled={!cfg.link} onPress={() => router.push(nativeLink(cfg.link, 'mart') as any)} scale={0.99} testID={`cms-mart-promo-${section.id}`} style={[styles.promo, { minHeight: width >= 768 ? 260 : 180 }]}>
+    <Touchable disabled={!cfg.link} onPress={() => router.push(nativeLink(cfg.link, 'mart') as any)} scale={0.99} testID={`cms-mart-promo-${section.id}`} style={[styles.promo, { minHeight: width >= 768 ? 260 : 180 }]}><OnDark>
       {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" /> : null}
       <LinearGradient colors={img ? ['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.15)', 'transparent'] : ['#77BC1F', '#3b6b0f']} start={{ x: 0, y: 0 }} end={{ x: 1, y: img ? 0 : 1 }} style={StyleSheet.absoluteFill} />
       <View style={{ padding: 24, maxWidth: 560 }}>
@@ -29,7 +29,7 @@ export function MartPromo({ section }: SectionProps) {
         {sub ? <AppText size={14} color="rgba(255,255,255,0.85)" style={{ marginTop: 6 }}>{sub}</AppText> : null}
         {cta ? <View style={styles.white}><AppText size={14} weight="bold" color="#000">{cta}</AppText><ArrowRight color="#000" size={16} /></View> : null}
       </View>
-    </Touchable>
+    </OnDark></Touchable>
   );
 }
 
@@ -45,13 +45,13 @@ export function MartBannerRow({ section }: SectionProps) {
         {banners.map((b, i) => {
           const img = assetFor(b, width);
           return (
-            <Touchable key={i} testID={`cms-mart-banner-${i}`} onPress={() => router.push(nativeLink(b.link, 'mart') as any)} style={styles.tile} scale={0.98}>
+            <Touchable key={i} testID={`cms-mart-banner-${i}`} onPress={() => router.push(nativeLink(b.link, 'mart') as any)} style={styles.tile} scale={0.98}><OnDark>
               {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" /> : null}
               <LinearGradient colors={img ? ['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.75)'] : ['#262626', '#0a0a0a']} style={StyleSheet.absoluteFill} />
               {pick(b, 'eyebrow', lang) ? <AppText size={10} weight="bold" color="rgba(255,255,255,0.7)" style={styles.caps}>{pick(b, 'eyebrow', lang)}</AppText> : null}
               <AppText weight="bold" size={19}>{pick(b, 'label', lang)}</AppText>
               {pick(b, 'subtitle', lang) ? <AppText size={12} color="rgba(255,255,255,0.8)">{pick(b, 'subtitle', lang)}</AppText> : null}
-            </Touchable>
+            </OnDark></Touchable>
           );
         })}
       </ScrollView>
@@ -69,7 +69,7 @@ export function MartBrands({ section, accent }: SectionProps) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 24, alignItems: 'center' }}>
           {brands.map((b, i) => (
             <View key={i} style={styles.brand} testID={`cms-mart-brand-${i}`}>
-              {b.image ? <Image source={absUrl(b.image)} style={{ width: '100%', height: 40 }} contentFit="contain" /> : <AppText size={12} weight="bold" color="#D4D4D4" style={styles.caps}>{b.name}</AppText>}
+              {b.image ? <Image source={absUrl(b.image)} style={{ width: '100%', height: 40 }} contentFit="contain" /> : <AppText size={12} weight="bold" color={colors.textMuted} style={styles.caps}>{b.name}</AppText>}
             </View>
           ))}
         </ScrollView>
@@ -90,7 +90,7 @@ export function MartAppPromo({ section }: SectionProps) {
     </Touchable>
   );
   return (
-    <LinearGradient colors={['#0f2a05', '#1a4d0a', '#2b7a15']} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={[styles.app, wide && { flexDirection: 'row', alignItems: 'center' }]}>
+    <LinearGradient colors={['#0f2a05', '#1a4d0a', '#2b7a15']} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={[styles.app, wide && { flexDirection: 'row', alignItems: 'center' }]}><OnDark>
       <View style={{ flex: 1.2 }} testID={`cms-mart-app-${section.id}`}>
         {cfg.logo ? <Image source={absUrl(cfg.logo)} style={styles.logo} /> : null}
         <AppText size={11} weight="bold" color="#c9f086" style={styles.caps}>{pick(cfg, 'eyebrow', lang) || t('cms.get_app')}</AppText>
@@ -113,7 +113,7 @@ export function MartAppPromo({ section }: SectionProps) {
             : <View style={styles.phone}><Package color="#77BC1F" size={72} /></View>}
         </View>
       ) : null}
-    </LinearGradient>
+    </OnDark></LinearGradient>
   );
 }
 
@@ -126,8 +126,8 @@ export function MartCtaStrip({ section }: SectionProps) {
       <View style={{ alignItems: 'center' }} testID={`cms-mart-cta-${section.id}`}>
         <AppText weight="bold" size={24} color="#0a1200" align="center">{sectionText(section, 'title', lang)}</AppText>
         {sub ? <AppText size={14} color="#0a1200" align="center" style={{ marginTop: 6, opacity: 0.9 }}>{sub}</AppText> : null}
-        {cta ? <Touchable testID={`cms-mart-cta-link-${section.id}`} onPress={() => router.push(nativeLink(cfg.cta_link, 'mart') as any)} style={styles.black}>
-          <AppText size={14} weight="bold">{cta}</AppText><ArrowRight color="#fff" size={16} /></Touchable> : null}
+        {cta ? <Touchable testID={`cms-mart-cta-link-${section.id}`} onPress={() => router.push(nativeLink(cfg.cta_link, 'mart') as any)} style={styles.black}><OnDark>
+          <AppText size={14} weight="bold">{cta}</AppText><ArrowRight color="#fff" size={16} /></OnDark></Touchable> : null}
       </View>
     </LinearGradient>
   );
@@ -155,7 +155,7 @@ export function MartTrust({ section }: SectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   caps: { letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: 6 },
   promo: { borderRadius: 24, overflow: 'hidden', justifyContent: 'center', backgroundColor: '#3b6b0f' },
   badge: { alignSelf: 'flex-start', height: 24, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 12 },
@@ -175,4 +175,4 @@ const styles = StyleSheet.create({
   trust: { flexDirection: 'row', flexWrap: 'wrap', borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 14 },
   trustItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 6 },
   trustIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-});
+}));

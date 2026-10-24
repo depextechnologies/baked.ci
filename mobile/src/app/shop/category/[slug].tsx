@@ -14,7 +14,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 type P = { id: string; title: string; title_fr?: string; images: string[]; min_price: number; compare_at_price?: number | null; currency: string };
 
@@ -50,8 +50,8 @@ export default function ShopCategory() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { flex: 1, maxWidth: '50%', padding: 10, gap: 4, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   img: { width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface2, marginBottom: 6 },
-});
+}));

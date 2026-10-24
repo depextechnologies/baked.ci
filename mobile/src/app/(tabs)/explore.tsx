@@ -15,7 +15,7 @@ import { api } from '@/lib/api';
 import { ModuleExplore } from '@/components/explore/ModuleExplore';
 import { MODULES, SWITCHER_ORDER, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, fonts, hexA, radius } from '@/theme';
+import { colors, fonts, hexA, radius, themed } from '@/theme';
 
 type Hit = { module: string; entity_type: string; entity_id?: string; title: string; subtitle?: string; image?: string; destination_url?: string };
 type Intent = { intent_code: string; module: string; action_label: string; subtitle?: string };
@@ -154,7 +154,7 @@ function Discover({ onTry, onOpen }: { onTry: (q: string) => void; onOpen: (c: M
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   title: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12, letterSpacing: -0.6 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 18, paddingHorizontal: 16, height: 54, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
@@ -168,4 +168,4 @@ const styles = StyleSheet.create({
   groupHead: { paddingHorizontal: 18, marginBottom: 6 },
   hit: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 10 },
   thumb: { width: 52, height: 52, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface2 },
-});
+}));

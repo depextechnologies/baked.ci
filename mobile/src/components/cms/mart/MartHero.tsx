@@ -8,8 +8,8 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { assetFor, nativeLink, pick, sectionText } from '@/lib/cms';
 import { formatMoney } from '@/lib/format';
 import { useApp } from '@/state/AppContext';
-import { colors } from '@/theme';
-import { AppText } from '../../ui/AppText';
+import { colors, themed } from '@/theme';
+import { AppText, OnDark } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
 
@@ -29,7 +29,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
   const wide = screen >= 768;
   return (
     <View style={[styles.grid, wide && { flexDirection: 'row' }]} testID={`cms-mart-hero-${section.id}`}>
-      <View style={[styles.hero, wide && { flex: 1.4, minHeight: 420 }]}>
+      <View style={[styles.hero, wide && { flex: 1.4, minHeight: 420 }]}><OnDark>
         <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={250} testID="cms-mart-hero-img" />
         <LinearGradient colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.15)']} locations={[0, 0.45, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
         <View style={styles.body}>
@@ -45,7 +45,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
               <AppText size={14} weight="bold">{cta2}</AppText></Touchable> : null}
           </View>
         </View>
-      </View>
+      </OnDark></View>
       <View style={[styles.panel, wide && { flex: 0.9, justifyContent: 'flex-start', gap: 22 }]} testID="cms-mart-delivery-panel">
         <View>
           <AppText size={11} weight="semibold" color={colors.textMuted} style={styles.caps}>{t('cms.delivery_in')}</AppText>
@@ -70,7 +70,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   grid: { gap: 16 },
   hero: { minHeight: 300, borderRadius: 24, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: '#0a0a0a' },
   body: { padding: 24, maxWidth: 560 },
@@ -84,4 +84,4 @@ const styles = StyleSheet.create({
   etaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 4 },
   bike: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(119,188,31,0.15)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   split: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
-});
+}));

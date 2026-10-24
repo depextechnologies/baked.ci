@@ -10,8 +10,8 @@ import { absUrl, nativeLink } from '@/lib/cms';
 import { formatMoney } from '@/lib/format';
 import { useApp } from '@/state/AppContext';
 import { useCart, type FoodMode } from '@/state/CartContext';
-import { colors, hexA } from '@/theme';
-import { AppText } from '../../ui/AppText';
+import { colors, hexA, themed } from '@/theme';
+import { AppText, OnDark } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import { Skeleton } from '../../ui/StateView';
 import type { SectionProps } from '../types';
@@ -28,7 +28,7 @@ export function FoodHero({ section }: SectionProps) {
   const sub = bi(section, 'subtitle', lang);
   return (
     <View testID={`cms-food-hero-${section.id}`} style={{ gap: 16 }}>
-      <View style={styles.hero}>
+      <View style={styles.hero}><OnDark>
         <Image source={absUrl(cfg.background_image) || HERO_BG} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={250} />
         <LinearGradient colors={['rgba(0,0,0,0.75)', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)']} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
         <Touchable testID="cms-food-favourites" onPress={() => router.push('/food/favourites')} style={styles.fav}>
@@ -45,7 +45,7 @@ export function FoodHero({ section }: SectionProps) {
               const on = foodMode === code;
               return (
                 <Touchable key={code} testID={`food-mode-${code}`} onPress={() => setFoodMode(code)} style={[styles.mode, on && { backgroundColor: G, borderColor: G }]}>
-                  <Icon color={on ? '#000' : colors.text} size={14} /><AppText size={12} weight="semibold" color={on ? '#000' : colors.text}>{lang === 'fr' ? fr : en}</AppText>
+                  <Icon color={on ? '#000' : '#fff'} size={14} /><AppText size={12} weight="semibold" color={on ? '#000' : '#fff'}>{lang === 'fr' ? fr : en}</AppText>
                 </Touchable>
               );
             })}
@@ -53,7 +53,7 @@ export function FoodHero({ section }: SectionProps) {
           {cfg.cta_label && cfg.cta_link ? <Touchable testID="cms-food-hero-cta" onPress={() => router.push(nativeLink(cfg.cta_link, 'food') as any)} style={[styles.mode, { backgroundColor: G, borderColor: G, alignSelf: 'flex-start' }]}>
             <AppText size={12} weight="semibold" color="#000">{cfg.cta_label}</AppText><ChevronRight color="#000" size={14} /></Touchable> : null}
         </View>
-      </View>
+      </OnDark></View>
       {!address ? (
         <View style={styles.addr} testID="food-home-set-address">
           <MapPin color="#FCD34D" size={18} />
@@ -186,7 +186,7 @@ export function FoodFeatured({ section }: SectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   hero: { minHeight: 380, borderRadius: 20, overflow: 'hidden', justifyContent: 'center', backgroundColor: '#0a0a0a' },
   fav: { position: 'absolute', top: 14, right: 14, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
   caps: { letterSpacing: 1.8, textTransform: 'uppercase' },
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   link: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   tile: { width: 88, alignItems: 'center', gap: 6 },
   tileImg: { width: 88, height: 88, borderRadius: 24, overflow: 'hidden', borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface2 },
-  brandsBox: { borderRadius: 24, padding: 18, backgroundColor: '#000', borderWidth: 1, borderColor: colors.border },
+  brandsBox: { borderRadius: 24, padding: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   brandImg: { width: 96, height: 96, borderRadius: 48, overflow: 'hidden', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   empty: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 18 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -207,4 +207,4 @@ const styles = StyleSheet.create({
   eta: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   open: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   cta: { marginTop: 8, height: 32, borderRadius: 999, backgroundColor: G, alignItems: 'center', justifyContent: 'center' },
-});
+}));

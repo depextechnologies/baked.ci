@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { GOOGLE_MAPS_KEY } from '@/lib/config';
 import type { LatLng } from '@/lib/routes';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 export type NearbyDriver = LatLng & { vehicle_type?: string };
 export type SendMapProps = { points: LatLng[]; route: LatLng[]; driver?: LatLng | null; nearby?: NearbyDriver[]; color: string; height?: number | `${number}%` };
@@ -90,6 +90,6 @@ const driverSvg = (c: string, bike: boolean) => `<svg xmlns="http://www.w3.org/2
   ? '<circle cx="3" cy="10" r="3"/><circle cx="11" cy="10" r="3"/><path d="M3 10l3-6h4l1 6M8 4h2"/>'
   : '<rect x="0" y="3" width="9" height="7"/><path d="M9 6h3l2 2v2H9"/><circle cx="3" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>'}</g></svg>`;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { width: '100%', backgroundColor: colors.surface, overflow: 'hidden', position: 'relative' },
-});
+}));

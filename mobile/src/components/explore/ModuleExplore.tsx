@@ -13,7 +13,7 @@ import { WEB_ORIGIN } from '@/lib/config';
 import { MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useCart } from '@/state/CartContext';
-import { colors, hexA } from '@/theme';
+import { colors, hexA, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
 import { ErrorView, Skeleton } from '../ui/StateView';
@@ -88,10 +88,10 @@ export function ModuleExplore({ code }: { code: ModuleCode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   caption: { letterSpacing: 1.2, marginBottom: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   art: { width: '100%', aspectRatio: 1.15, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   sub: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 5, paddingHorizontal: 4 },
-});
+}));

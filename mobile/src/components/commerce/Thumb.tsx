@@ -3,7 +3,7 @@ import { ShoppingBag, type LucideIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { colors, hexA } from '@/theme';
+import { colors, hexA, themed } from '@/theme';
 
 // Product image with a branded icon fallback when the URL is missing or fails to load.
 export function Thumb({ src, color, icon: Icon = ShoppingBag, size = 34, testID }: { src?: string | null; color: string; icon?: LucideIcon; size?: number; testID?: string }) {
@@ -16,4 +16,4 @@ export function Thumb({ src, color, icon: Icon = ShoppingBag, size = 34, testID 
   );
 }
 
-const styles = StyleSheet.create({ fb: { alignItems: 'center', justifyContent: 'center', borderColor: colors.border } });
+const styles = themed(() => StyleSheet.create({ fb: { alignItems: 'center', justifyContent: 'center', borderColor: colors.border } }));

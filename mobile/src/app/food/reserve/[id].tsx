@@ -15,7 +15,7 @@ import { MODULES } from '@/lib/modules';
 import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 
 const GREEN = MODULES.food.color;
 type Config = { restaurant: { name: string }; enabled: boolean; min_party_size: number; max_party_size: number; advance_booking_days: number };
@@ -95,10 +95,10 @@ export default function Reserve() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   partyRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   pBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: GREEN, alignItems: 'center', justifyContent: 'center' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   input: { height: 50, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 14, fontFamily: fonts.regular, fontSize: 15, outlineStyle: 'none' } as any,
-});
+}));

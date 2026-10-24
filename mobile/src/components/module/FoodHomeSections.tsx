@@ -5,6 +5,7 @@ import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useCart, type FoodMode } from '@/state/CartContext';
 import { Chip } from '../ui/Chip';
+import { themed } from '@/theme';
 
 const GREEN = MODULES.food.color;
 
@@ -23,6 +24,6 @@ export function FoodModeToggle() {
 export const discoverQuery = (cc: string, mode: string, lat?: number, lng?: number) =>
   `/food/restaurants/discover?country=${cc}&fulfillment_mode=${mode}${lat != null ? `&lat=${lat}&lng=${lng}` : ''}`;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   modes: { flexDirection: 'row', gap: 8, paddingHorizontal: 18, marginTop: 16 },
-});
+}));

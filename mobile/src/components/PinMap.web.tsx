@@ -3,7 +3,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useApp } from '@/state/AppContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 import { AppText } from './ui/AppText';
 
 type Props = { initial: { latitude: number; longitude: number }; onCenterChange: (c: { latitude: number; longitude: number }) => void };
@@ -19,6 +19,6 @@ export function PinMap(_: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { flex: 1, borderRadius: 18, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 },
-});
+}));

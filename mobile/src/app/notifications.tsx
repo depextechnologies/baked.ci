@@ -11,7 +11,7 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 
 type Notif = { id: string; title: string; body?: string; is_read: boolean; created_at: string };
 
@@ -50,7 +50,7 @@ export default function Notifications() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   card: { padding: 14, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 4 },
-});
+}));

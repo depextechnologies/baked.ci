@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { Totals } from '@/hooks/useCartTotals';
 import { useApp } from '@/state/AppContext';
-import { colors, radius } from '@/theme';
+import { colors, radius, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 
 export function TotalsCard({ totals, money }: { totals: Totals; money: (n: number) => string }) {
@@ -26,6 +26,6 @@ const Line = ({ label, value, bold, testID }: { label: string; value: string; bo
   </View>
 );
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: { padding: 16, gap: 10, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-});
+}));

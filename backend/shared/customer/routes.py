@@ -141,6 +141,7 @@ class PreferencesIn(BaseModel):
     currency: Optional[str] = None
     region: Optional[str] = None
     dark_mode: Optional[bool] = None
+    theme: Optional[str] = Field(None, pattern="^(dark|light|system)$")
     marketing_opt_in: Optional[bool] = None
 
 
@@ -155,6 +156,7 @@ async def get_prefs(customer: Customer = Depends(get_current_customer)):
         "currency": None,
         "region": customer.country or "CI",
         "dark_mode": True,
+        "theme": "dark",
         "marketing_opt_in": False,
     }
     return {**defaults, **prefs}

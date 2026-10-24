@@ -12,12 +12,15 @@ import { Button, Touchable } from '@/components/ui/Button';
 import { WEB_ORIGIN } from '@/lib/config';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, radius } from '@/theme';
+import { useThemeMode } from '@/state/ThemeContext';
+import type { TKey } from '@/lib/i18n';
+import { colors, radius, themed } from '@/theme';
 
 type Item = { id: string; icon: any; label: string; value?: React.ReactNode; onPress?: () => void; auth?: boolean };
 
 export default function Profile() {
   const { t } = useApp();
+  const { mode } = useThemeMode();
   const { customer, isAuthed, signOut } = useSession();
   const gate = (p: string) => router.push((isAuthed ? p : `/login?redirect=${p}`) as any);
 
@@ -28,7 +31,7 @@ export default function Profile() {
     { id: 'cart', icon: ShoppingBag, label: t('cart.title'), onPress: () => router.push('/cart') },
     { id: 'notifications', icon: Bell, label: t('profile.notifications'), onPress: () => gate('/notifications') },
     { id: 'language', icon: Globe, label: t('profile.language'), value: <LangToggle /> },
-    { id: 'appearance', icon: Moon, label: t('profile.appearance'), value: <AppText size={14} color={colors.textMuted}>{t('profile.appearance_value')}</AppText> },
+    { id: 'appearance', icon: Moon, label: t('profile.appearance'), value: <View style={styles.valueRow}><AppText size={14} color={colors.textMuted} testID="profile-appearance-value">{t(`theme.${mode}` as TKey)}</AppText><ChevronRight color={colors.textMuted} size={18} /></View>, onPress: () => router.push('/appearance') },
     { id: 'help', icon: CircleHelp, label: t('profile.help'), onPress: () => WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/profile/help`) },
     { id: 'privacy', icon: ShieldCheck, label: t('profile.privacy'), onPress: () => WebBrowser.openBrowserAsync(`${WEB_ORIGIN}/privacy`) },
   ];
@@ -71,12 +74,13 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   title: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 16, letterSpacing: -0.6 },
   account: { flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 18, marginBottom: 14, padding: 16, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
   list: { marginHorizontal: 18, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, minHeight: 58 },
+  valueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   divider: { borderTopWidth: 1, borderTopColor: colors.borderSoft },
-});
+}));

@@ -8,7 +8,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { absUrl, nativeLink, pick, sectionText } from '@/lib/cms';
 import { useApp } from '@/state/AppContext';
 import type { MartProduct } from '@/state/CartContext';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 import { ProductCard } from '../../commerce/ProductCard';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
@@ -90,11 +90,11 @@ export function MartProductCarousel({ section, accent, country, width: content }
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 18 },
   caps: { letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 },
   link: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   cat: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 12, alignItems: 'center', gap: 12, minHeight: 130 },
   catImg: { borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-});
+}));

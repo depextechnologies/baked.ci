@@ -16,7 +16,7 @@ import { autocomplete, newSessionToken, placeDetails, type PickedAddress, type P
 import { useApp } from '@/state/AppContext';
 import { useSendDraft } from '@/state/SendDraftContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 
 const ABIDJAN = { latitude: 5.3484, longitude: -4.0305 };
 
@@ -128,11 +128,11 @@ export default function AddressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 18, marginBottom: 12, paddingHorizontal: 16, height: 54, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   input: { flex: 1, minWidth: 0, color: colors.text, fontFamily: fonts.regular, fontSize: 16, height: '100%', outlineStyle: 'none' } as any,
   caption: { paddingHorizontal: 18, marginTop: 6, marginBottom: 4, letterSpacing: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.borderSoft },
   rowIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
-});
+}));

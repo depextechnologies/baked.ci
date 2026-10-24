@@ -13,7 +13,7 @@ import { useFetch } from '@/hooks/useFetch';
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import type { MartProduct } from '@/state/CartContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 
 const GREEN = MODULES.mart.color;
 const SORTS = ['popularity', 'price_asc', 'price_desc'] as const;
@@ -82,9 +82,9 @@ export default function MartCategory() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 18, paddingHorizontal: 14, height: 48, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   input: { flex: 1, minWidth: 0, height: '100%', color: colors.text, fontFamily: fonts.regular, fontSize: 15, outlineStyle: 'none' } as any,
   chips: { gap: 8, paddingHorizontal: 18, paddingVertical: 12 },
-});
+}));

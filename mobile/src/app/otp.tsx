@@ -11,7 +11,7 @@ import { requestOtp } from '@/lib/auth';
 import { finishAuthFlow } from '@/lib/authFlow';
 import { useApp } from '@/state/AppContext';
 import { useSession, type Customer } from '@/state/SessionContext';
-import { colors, fonts, radius } from '@/theme';
+import { colors, fonts, radius, themed } from '@/theme';
 
 const LEN = 6;
 const RESEND_S = 30;
@@ -85,11 +85,11 @@ export default function Otp() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   body: { flex: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
   boxes: { flexDirection: 'row', justifyContent: 'space-between' },
   box: { width: '14.5%', aspectRatio: 0.85, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   boxFocus: { borderColor: colors.accent, borderWidth: 2 },
   hidden: { position: 'absolute', opacity: 0, height: 1, width: 1, fontFamily: fonts.regular },
-});
+}));

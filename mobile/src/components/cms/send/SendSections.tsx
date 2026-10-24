@@ -8,9 +8,9 @@ import { api } from '@/lib/api';
 import { absUrl } from '@/lib/cms';
 import { WEB_ORIGIN } from '@/lib/config';
 import { useApp } from '@/state/AppContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 import { SendMap, type NearbyDriver } from '../../send/SendMap';
-import { AppText } from '../../ui/AppText';
+import { AppText, OnDark } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
 import type { SectionProps } from '../types';
 
@@ -54,10 +54,10 @@ export function SendMapHero({ section, country }: SectionProps) {
     <View testID={`cms-send-map-${section.id}`} style={styles.map}>
       <SendMap points={[p]} route={[]} nearby={drivers} color={Y} height={mapH} />
       {show && count != null ? (
-        <View style={styles.chip} testID="send-nearby-count">
+        <View style={styles.chip} testID="send-nearby-count"><OnDark>
           <View style={[styles.dot, { backgroundColor: count ? '#22C55E' : '#737373' }]} />
           <AppText size={11} weight="semibold">{count ? t('send.nearby_drivers', { n: count }) : t('send.no_nearby_drivers')}</AppText>
-        </View>
+        </OnDark></View>
       ) : null}
     </View>
   );
@@ -133,7 +133,7 @@ export function SendTrustBanner({ section }: SectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   map: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   chip: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', gap: 8, height: 32, paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   dot: { width: 8, height: 8, borderRadius: 4 },
@@ -151,4 +151,4 @@ const styles = StyleSheet.create({
   sheetBtn: { marginTop: 18, height: 50, borderRadius: 14, backgroundColor: Y, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   sheetClose: { position: 'absolute', top: 14, right: 14 },
   trust: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-});
+}));

@@ -15,7 +15,7 @@ import { statusLabel } from '@/lib/i18n';
 import { MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, hexA, radius } from '@/theme';
+import { colors, hexA, radius, themed } from '@/theme';
 
 type Entry = { key: string; id: string; module: ModuleCode; ref: string; status: string; total: number | null; currency: string; at: string | null; label?: string; raw: any };
 
@@ -126,7 +126,7 @@ function Row({ e, lang }: { e: Entry; lang: 'fr' | 'en' }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   title: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 4, letterSpacing: -0.6 },
   filters: { gap: 8, paddingHorizontal: 18, paddingVertical: 14 },
@@ -135,4 +135,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   icon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   status: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
-});
+}));

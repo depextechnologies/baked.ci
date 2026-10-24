@@ -23,7 +23,7 @@ import { computeRoute, type Route } from '@/lib/routes';
 import { useApp } from '@/state/AppContext';
 import { useSendDraft } from '@/state/SendDraftContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, hexA, radius } from '@/theme';
+import { colors, fonts, hexA, radius, themed } from '@/theme';
 
 const ORANGE = MODULES.express.color;
 type Vehicle = { code: string; name: string; name_fr: string; description?: string; max_weight_kg: number; eta_min_min: number; eta_min_max: number };
@@ -233,7 +233,7 @@ function Group({ title, items, on, onPress, prefix }: { title: string; items: Op
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   point: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   addStop: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6 },
@@ -243,5 +243,5 @@ const styles = StyleSheet.create({
   line: { flexDirection: 'row', justifyContent: 'space-between' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   input: { height: 50, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 14, fontFamily: fonts.regular, fontSize: 15, outlineStyle: 'none' } as any,
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 24, backgroundColor: '#0B0B0D', borderTopWidth: 1, borderTopColor: colors.border },
-});
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 24, backgroundColor: colors.tabBar, borderTopWidth: 1, borderTopColor: colors.border },
+}));
