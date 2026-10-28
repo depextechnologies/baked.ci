@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BAKĒD",
+    "name": "Baked",
     "slug": "baked",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -46,7 +46,13 @@
           ]
         }
       ],
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "allowBackup": false
     },
     "web": {
       "output": "single",
