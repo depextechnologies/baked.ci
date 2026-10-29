@@ -793,7 +793,7 @@ export const FoodHome = () => {
   // Mode is now owned by the global context so it survives navigation to a
   // restaurant microsite and back; dine_in is the UI label, backend treats
   // it as "reservation".
-  const mode = foodServiceMode || "delivery";
+  const mode = ["delivery", "pickup", "dine_in", "reservation"].includes(foodServiceMode) ? foodServiceMode : "delivery";
   const setMode = setFoodServiceMode;
   const [activeCategory, setActiveCategory] = useState("all");
   const [data, setData] = useState({ categories: [], cuisines: [], featured_restaurants: [] });
@@ -815,14 +815,14 @@ export const FoodHome = () => {
         const previewCc = url.searchParams.get("preview_country");
         const cc = encodeURIComponent(previewCc || countryCode || "CI");
         const homeParams = new URLSearchParams({ country: cc, mode });
-        if (lat !== null && lng !== null) {
-          homeParams.set("lat", lat); homeParams.set("lng", lng);
+        if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && lat !== null && lng !== null) {
+          homeParams.set("lat", Number(lat)); homeParams.set("lng", Number(lng));
         }
         const [homeRes, hpRes] = await Promise.all([
-          axios.get(`${API}/api/food/home?${homeParams}`),
+          axios.get(`${API}/api/food/home?${homeParams}`).catch(() => null),
           axios.get(`${API}/api/homepage?country=${cc}&module=food`).catch(() => ({ data: { sections: [] } })),
         ]);
-        if (!cancel) { setData(homeRes.data); setHomepage(hpRes.data); }
+        if (!cancel) { if (homeRes) setData(homeRes.data); setHomepage(hpRes.data); }
       } finally {
         if (!cancel) setLoading(false);
       }
