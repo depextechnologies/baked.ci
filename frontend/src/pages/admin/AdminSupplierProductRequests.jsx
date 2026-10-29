@@ -51,16 +51,21 @@ export const AdminSupplierProductRequests = () => {
   }, [status]);
   useEffect(() => { load(); }, [load]);
 
-  // Load categories once for the approve form dropdown
+  // Approve-form categories must come from the supplier's country — the backend
+  // rejects a category from any other country (e.g. an IN supplier with CI categories).
+  const categoryCountry = (active?.supplier?.country || "CI").toUpperCase();
   useEffect(() => {
+    let cancelled = false;
+    setCategories([]);
     (async () => {
       try {
-        const { data } = await adminApi.get("/mart/categories?country=CI");
+        const { data } = await adminApi.get("/mart/categories", { params: { country: categoryCountry } });
         const cs = Array.isArray(data) ? data : (data.items || []);
-        setCategories(cs);
+        if (!cancelled) setCategories(cs);
       } catch (e) { /* silent */ }
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [categoryCountry]);
 
   const openDetail = (r) => {
     setActive(r); setAction(null); setRejectNotes("");
