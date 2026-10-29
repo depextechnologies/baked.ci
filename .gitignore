@@ -163,3 +163,4 @@ frontend/node_modules/.cache/default-development/24.pack
 *.jks
 *.keystore
 /frontend/public/downloads/
+signing/mapping-v2.txt

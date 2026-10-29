@@ -44,7 +44,7 @@ TASKS=()
 [ "$KIND" = "apk" ] || [ "$KIND" = "both" ] && TASKS+=(assembleRelease)
 [ "$KIND" = "aab" ] || [ "$KIND" = "both" ] && TASKS+=(bundleRelease)
 # Memory guard: this workspace has an 8 GB limit; stop the build before the workspace itself is evicted.
-( while sleep 3; do m=$(awk '/^anon /{print $2}' /sys/fs/cgroup/memory.stat 2>/dev/null || echo 0); if [ "$m" -gt 6800000000 ]; then echo "MEMORY GUARD: stopping build at $m bytes"; pkill -f GradleWrapperMain; pkill -f GradleDaemon; pkill -f clang; break; fi; done ) &
+( while sleep 3; do m=$(awk '/^anon /{print $2}' /sys/fs/cgroup/memory.stat 2>/dev/null || echo 0); if [ "$m" -gt 6800000000 ]; then echo "MEMORY GUARD: stopping build at $m bytes"; pkill -f GradleWrapperMain; pkill -f "org.gradle"; pkill -f clang; break; fi; done ) &
 GUARD=$!
 trap 'kill $GUARD 2>/dev/null || true' EXIT
 nice -n 10 ./gradlew "${TASKS[@]}" --no-daemon --console=plain --max-workers=2
