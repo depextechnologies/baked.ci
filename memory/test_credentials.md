@@ -122,3 +122,7 @@
 - Web preview: `https://baked-platform.preview.emergentagent.com/api/app-preview/` (open root, then navigate in-app; use a mobile viewport ~390x844)
 - Any CI mobile number, e.g. country `+225`, phone `0700000001` (8+ digits). OTP_PROVIDER=dev → the code is shown on the OTP screen ("Code de test") and returned as `dev_code` from `POST /api/auth/otp/request`.
 - Expo Go: scan `https://baked-platform.preview.emergentagent.com/api/app-preview/expo-go-qr.png` (tunnel served by supervisor program `expo-mobile`).
+
+
+## Note (2026-10-29)
+- Preview DB was reset by a workspace restart and re-seeded. Customer OTP is now random: the code is shown on the OTP screen ("dev code") in the preview/test APK. QA partner `qa-burger@test.example` no longer exists until recreated.

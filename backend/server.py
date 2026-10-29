@@ -438,7 +438,7 @@ async def _on_startup():
     from core.db import engine as _engine
 
     logger.info("baked.startup waiting for postgres…")
-    for attempt in range(30):
+    for attempt in range(180):
         try:
             async with _engine.begin() as conn:
                 await conn.execute(text("SELECT 1"))
