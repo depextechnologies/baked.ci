@@ -29,4 +29,4 @@ mkdir -p ~/.gradle
   echo "org.gradle.workers.max=2"
   echo "kotlin.compiler.execution.strategy=in-process"
   echo "android.aapt2FromMavenOverride=$A/sdk/build-tools/37.0.0/aapt2"; } > ~/.gradle/gradle.properties
-echo TOOLCHAIN_OK
+touch /opt/android/.toolchain-ok; echo TOOLCHAIN_OK
