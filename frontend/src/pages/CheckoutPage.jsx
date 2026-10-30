@@ -14,7 +14,7 @@ import { PhoneLoginDialog } from "../components/auth/PhoneLoginDialog";
 export const CheckoutPage = () => {
   const { customer } = useAuth();
   const { country, uiLocale, language, activeAddress, openAddressSelector } = useApp();
-  const { cart, reload: reloadCart } = useCart();
+  const { cart, reload: reloadCart, removeItem: removeCartItem } = useCart();
   const navigate = useNavigate();
   const path = useLocalePath();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -60,18 +60,37 @@ export const CheckoutPage = () => {
   }, [customer, country.code, activeAddress]);
 
   const items = cart.items || [];
-  const hasShop = (cart.shop?.item_count ?? 0) > 0 || items.some((i) => i.module === "shop");
-  const hasMart = (cart.mart?.item_count ?? 0) > 0 || items.some((i) => i.module !== "shop");
+
+  // -------------------------------------------------------------------
+  // SINGLE SOURCE OF TRUTH — totals are derived from `items` directly,
+  // not from the module buckets on `cart`. Server-side bucket subtotals
+  // can lag (e.g. after a guest→auth transition that keeps FOOD rows in
+  // localStorage) which previously produced a ₹0 subtotal for a cart
+  // worth ₹527. Deriving from `items` removes the possibility of
+  // divergence between the Order Summary line items and the Total.
+  // -------------------------------------------------------------------
+  const lineTotal = (i) => Number(
+    i.line_total ?? ((i.product?.price || i.unit_price || 0) * i.quantity)
+  ) || 0;
+  const martItems = items.filter((i) => i.module !== "shop" && i.module !== "food");
+  const shopItems = items.filter((i) => i.module === "shop");
+  const foodItems = items.filter((i) => i.module === "food");
+  const martSubtotal = martItems.reduce((s, i) => s + lineTotal(i), 0);
+  const shopSubtotal = shopItems.reduce((s, i) => s + lineTotal(i), 0);
+  const foodSubtotal = foodItems.reduce((s, i) => s + lineTotal(i), 0);
+  const hasMart = martItems.length > 0;
+  const hasShop = shopItems.length > 0;
+  const hasFood = foodItems.length > 0;
   // QA — Fixing_Prompt v14 §5: checkout branding follows cart composition
   // (MART_ONLY / SHOP_ONLY / MIXED). Falls back to MART green when empty.
   const theme = getCartTheme(cart);
-  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
-  const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
+  // Delivery fee is MART-only in v1 (SHOP ships via seller, FOOD charges
+  // per restaurant in its own flow). Compute via the shared helper so the
+  // free-delivery threshold logic stays canonical.
   const elig = checkOrderEligibility(martSubtotal, country);
-  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
-  const minOrderOk = hasMart ? martEligible : true;
-  const total = (hasMart ? elig.total : 0) + shopSubtotal;
-  const subtotal = martSubtotal + shopSubtotal;
+  const deliveryFee = hasMart ? elig.delivery_fee : 0;
+  const subtotal = martSubtotal + shopSubtotal + foodSubtotal;
+  const total = subtotal + deliveryFee;
 
   const saveAddress = async (candidate) => {
     // Called by AddressSelector's onPick — persist the picked place, refresh
@@ -114,14 +133,14 @@ export const CheckoutPage = () => {
   const placeOrder = async () => {
     if (hasMart && !addressId) { toast.error(language === "en" ? "Please choose an address" : "Veuillez choisir une adresse"); return; }
     if (hasMart && !slotId) { toast.error(language === "en" ? "Please choose a delivery time" : "Veuillez choisir une créneau"); return; }
-    if (!minOrderOk) { toast.error(`Minimum order is ${formatMoney(country.min_order, country.currency, country.currency_symbol)}`); return; }
     setBusy(true);
     try {
       const slot = slots.find(s => s.id === slotId);
-      // Unified checkout: place MART order first (if any), then SHOP order
-      // (if any). Backend keeps both fulfilment paths isolated. If MART fails
-      // we abort and leave SHOP cart intact; if SHOP fails after MART success
-      // we still route to the MART receipt and surface the SHOP error toast.
+      // Unified checkout: place MART order first (if any), SHOP order next
+      // (if any), then FOOD orders per restaurant. Each branch is isolated —
+      // one failure doesn't rollback the others; the customer sees a toast
+      // for the specific module that failed and the remaining cart lines
+      // stay intact for a retry.
       let martOrder = null;
       if (hasMart) {
         const { data } = await api.post("/orders", {
@@ -154,6 +173,49 @@ export const CheckoutPage = () => {
           toast.error(msg, { duration: 6000 });
         }
       }
+      // FOOD orders — one per restaurant. FOOD has no server cart yet in
+      // Phase 2 so we drive it straight from the guest-cart snapshot the
+      // CartDrawer already uses (same code path for parity).
+      let foodOrdersCreated = 0;
+      if (hasFood) {
+        try {
+          const byR = {};
+          for (const it of foodItems) {
+            const snap = it.product || it.snapshot || {};
+            const rid = snap.restaurant_id;
+            if (!rid) continue;
+            byR[rid] = byR[rid] || { items: [], restaurant_id: rid };
+            byR[rid].items.push({
+              item_id: it.product_id,
+              quantity: it.quantity,
+              variant: snap.variant || null,
+              addons: snap.addons || [],
+              notes: it.notes || null,
+            });
+          }
+          for (const group of Object.values(byR)) {
+            await api.post("/food/customer/orders", {
+              restaurant_id: group.restaurant_id,
+              order_type: "delivery",
+              items: group.items,
+              customer_snapshot: { name: customer.name, phone: customer.phone, email: customer.email },
+              delivery_address: {},
+              payment_method: method === "stripe" ? "card" : "cod",
+              client_order_id: `coid_${group.restaurant_id}_${Date.now()}`,
+            });
+            foodOrdersCreated += 1;
+          }
+          // Clear the FOOD lines from the guest cart on success so the
+          // customer doesn't see them re-appear on the next page load.
+          for (const it of foodItems) {
+            try { await removeCartItem(it.id); } catch (_) { /* best-effort */ }
+          }
+        } catch (foodErr) {
+          const d = foodErr?.response?.data?.detail;
+          const msg = typeof d === "string" ? d : (d?.message || (language === "en" ? "FOOD order failed — items kept in cart" : "Commande FOOD échouée"));
+          toast.error(msg, { duration: 6000 });
+        }
+      }
       await reloadCart();
       toast.success(language === "en" ? "Order placed!" : "Commande passée !");
       // SHOP orders carry a delivery PIN. Toast the SMS status so the
@@ -171,6 +233,7 @@ export const CheckoutPage = () => {
       }
       if (martOrder) navigate(path("order", { id: martOrder.id }));
       else if (shopOrder) navigate(`/shop/order/${shopOrder.id}`);
+      else if (foodOrdersCreated > 0) navigate("/compte/activites");
     } catch (e) {
       const detail = e?.response?.data?.detail;
       // "Coming soon" from allocation engine — detail is an object with gaps
@@ -301,41 +364,47 @@ export const CheckoutPage = () => {
           <div className="text-xs text-muted-foreground space-y-1">
             {items.map((it) => {
               const isShop = it.module === "shop";
+              const isFood = it.module === "food";
               const label = isShop ? (it.title || it.product?.title) : it.product?.name;
               const curr = it.currency || it.product?.currency || country.currency;
+              const chipBg = isShop ? "rgba(251,191,36,.15)" : isFood ? "rgba(239,68,68,.15)" : "rgba(119,188,31,.15)";
+              const chipFg = isShop ? "#F59E0B"              : isFood ? "#EF4444"              : "#77BC1F";
+              const chipLabel = isShop ? "SHOP" : isFood ? "FOOD" : "MART";
               return (
-                <div key={it.id} className="flex justify-between">
+                <div key={it.id} className="flex justify-between" data-testid={`checkout-item-${it.id}`}>
                   <span className="truncate pr-2">
                     <span className="text-[9px] uppercase tracking-widest font-semibold px-1 py-0.5 rounded mr-1"
-                          style={{
-                            background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
-                            color: isShop ? "#F59E0B" : "#77BC1F",
-                          }}>{isShop ? "SHOP" : "MART"}</span>
+                          style={{ background: chipBg, color: chipFg }}>{chipLabel}</span>
                     {it.quantity} × {label}
                   </span>
-                  <span>{formatMoney(it.line_total, curr, country.currency_symbol)}</span>
+                  <span>{formatMoney(lineTotal(it), curr, country.currency_symbol)}</span>
                 </div>
               );
             })}
           </div>
           <div className="h-px bg-border" />
           {hasMart && (
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">MART subtotal</span><span>{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
+            <div data-testid="checkout-summary-mart-subtotal" className="flex justify-between text-sm"><span className="text-muted-foreground">MART subtotal</span><span>{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
           )}
           {hasShop && (
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">SHOP subtotal</span><span>{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
+            <div data-testid="checkout-summary-shop-subtotal" className="flex justify-between text-sm"><span className="text-muted-foreground">SHOP subtotal</span><span>{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
           )}
-          <div className="flex justify-between text-sm"><span className="text-muted-foreground">{t(uiLocale, "cart.subtotal")}</span><span>{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
+          {hasFood && (
+            <div data-testid="checkout-summary-food-subtotal" className="flex justify-between text-sm"><span className="text-muted-foreground">FOOD subtotal</span><span>{formatMoney(foodSubtotal, country.currency, country.currency_symbol)}</span></div>
+          )}
+          <div data-testid="checkout-summary-subtotal" className="flex justify-between text-sm"><span className="text-muted-foreground">{t(uiLocale, "cart.subtotal")}</span><span>{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
           {hasMart && (
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (MART)" : "Livraison (MART)"}</span><span>{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
           )}
           {hasShop && (
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Shipping (SHOP)" : "Expédition (SHOP)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By seller" : "Par vendeur"}</span></div>
           )}
+          {hasFood && (
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (FOOD)" : "Livraison (FOOD)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By restaurant" : "Par restaurant"}</span></div>
+          )}
           <div className="h-px bg-border" />
-          <div className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
-          {!minOrderOk && (<div data-testid="checkout-min-order-warning" className="text-[11px] p-2 rounded-lg bg-yellow-500/10 text-yellow-500">{language === "en" ? `Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum` : `Ajoutez ${formatMoney(shortfall, country.currency, country.currency_symbol)} pour atteindre le minimum de ${formatMoney(minOrder, country.currency, country.currency_symbol)}`}</div>)}
-          <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy || !minOrderOk} className="w-full h-12 baked-btn font-semibold" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
+          <div data-testid="checkout-summary-total" className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
+          <Button data-testid="checkout-place-order-btn" onClick={placeOrder} disabled={busy} className="w-full h-12 baked-btn font-semibold" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             {busy ? (language === "en" ? "Placing…" : "En cours…") : (language === "en" ? "Place order" : "Passer la commande")}
           </Button>
         </div>

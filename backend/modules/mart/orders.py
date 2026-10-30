@@ -155,7 +155,8 @@ async def cart_eligibility(
     # Rewards preview
     available = int(customer.reward_points or 0)
     requested = min(max(0, use_points), available)
-    max_discount_allowed = max(0.0, elig["total"] - (country.get("min_order", 0) or 0))
+    # v1.1: redemption capped only by the payable total (minimum-order rule removed).
+    max_discount_allowed = max(0.0, elig["total"])
     discount = round(min(requested / REWARD_CONVERSION, max_discount_allowed), 2)
     # Snap to whole-point boundaries
     applied = int(discount * REWARD_CONVERSION)
@@ -336,13 +337,9 @@ async def create_order(
         country_free_delivery_over=country.get("free_delivery_over", 0),
         min_order=country.get("min_order", 0),
     )
-    if not elig["eligible"]:
-        raise HTTPException(400, _t(
-            "errors.order.min_order_details", current_lang(),
-            min=country.get("min_order", 0),
-            currency=country.get("currency", ""),
-            shortfall=f"{elig['shortfall']:g}",
-        ))
+    # v1.1: minimum-order rule removed. Backend never blocks an order on
+    # subtotal size; it still validates product availability, address,
+    # payment method, etc. The elig helper always returns eligible=True.
 
     delivery_fee = elig["delivery_fee"]
     subtotal_after_delivery = elig["total"]
@@ -351,8 +348,8 @@ async def create_order(
     # ---- Rewards redemption ----
     available_points = int(customer.reward_points or 0)
     use_points = min(max(0, payload.use_points), available_points)
-    # Never let a redemption drive the total below the minimum-order threshold
-    max_discount_allowed = max(0.0, subtotal_after_delivery - (country.get("min_order", 0) or 0))
+    # Never let a redemption drive the total below zero.
+    max_discount_allowed = max(0.0, subtotal_after_delivery)
     points_discount = round(min(use_points / REWARD_CONVERSION, max_discount_allowed), 2)
     # Round redemption down to whole points if capped
     if points_discount < use_points / REWARD_CONVERSION:

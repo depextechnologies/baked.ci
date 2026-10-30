@@ -1,0 +1,12 @@
+crons:
+  - name: vendor-payouts
+    description: "Fires hourly; each vendor's config decides if their payout is due in Africa/Abidjan time"
+    # Hourly minimum (deployed caps minute granularity to 15m+); the server
+    # scans every vendor and checks their saved schedule_type / timezone /
+    # time_hhmm — so one global cron is enough even though vendors fire at
+    # different hours.
+    cron: "0 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/vendor-settlement/run"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

@@ -1,0 +1,21 @@
+{
+  "summary": "RETEST of the iteration_129 fixes on the Expo web preview (/api/app-preview/, 390x844). Frontend only. All 9 requested items PASS. (1) LIGHT FOOD hero: food-mode-pickup and food-mode-dine_in have bg rgba(0,0,0,0.45), a rgba(255,255,255,0.25) border and white text, readable on the hero. (2) ETA badge '20–30 min' is white on a dark badge (screenshot confirms). (3) food-home-set-address text is #8A5A00 in light and #FDE68A in dark. (4) LangToggle on profile and login: active lang-fr is bg #111 with fg #fff, readable. (5) main-logo is present (count 1). (6) Guest picks Light, then logs in with a FRESH account (+225 0701290131). Before login, GET prefs for a fresh account has no 'theme' key, so the server default is gone. After OTP login the app stays app-root-light, a PATCH {theme:'light',dark_mode:false} is sent, server prefs become theme 'light', and light persists after reload. Guest picks Light, then logs in with +225 0700000000, which has theme 'dark' saved: the account wins (app-root-dark, localStorage '\"dark\"'). (7) Light-mode contrast scan (ratio <2.2) is clean on main home, SHOP home and SEND home. SEND/IMMO names, BIENTÔT and the active tab label are darkened. (8) The SEND map is the light Google style in light mode and dark style in dark mode. (9) MART tagline reads 'Courses en minutes'. Regression in dark mode: 6 tiles, 3 view-all rows, promos, logo, and a clean contrast scan. /appearance switches light, dark and system live (system follows prefers-color-scheme) and stays on the screen. Module navigation to express, food, mart and shop works. One NEW minor finding: the FOOD restaurant card 'Ouvert' badge in light mode is lime #77BC1F text on a light-green pill (contrast 1.85), because it does not use accentText.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "FOOD module home restaurant cards (LIGHT)", "issues": ["The 'Ouvert'/'Open' badge text uses the raw FOOD accent G (#77BC1F) on hexA(G,0.2) over white, contrast 1.85. FoodSections.tsx line 176: use accentText(G) for the text colour."]}
+    ]
+  },
+  "test_report_links": ["/app/tests/contrast_scan.js"],
+  "action_items": ["(Minor) FoodSections.tsx line 176: change the 'Ouvert' badge text colour from G to accentText(G) for light mode."],
+  "critical_code_review_comments": ["ThemeContext's login sync now pushes the local mode when the account has no theme. This works as intended. Note that dark_mode:true is still defaulted server-side (harmless)."],
+  "updated_files": ["/app/tests/contrast_scan.js"],
+  "success_rate": {"backend": "N/A (skipped as requested)", "frontend": "100% of requested retest items (1 new minor design nit)"},
+  "test_credentials": "Customer OTP +225 0700000000 (code read from otp-dev-code; account theme currently 'dark'). Fresh test accounts were created: +225 0701290130 (no theme) and +225 0701290131 (theme 'light').",
+  "seed_data_creation": "Two customer accounts were auto-created via OTP: +225 0701290130 and +225 0701290131.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Contrast scanner: /app/tests/contrast_scan.js (page.evaluate(open(...).read())). Its false positives are white text over image tiles (MART category cards). To test guest-to-login theme behaviour with no saved theme, use a NEW phone number (e.g. 07012901xx). GET /api/customers/me/preferences omits 'theme' until it is set."
+}

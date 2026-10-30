@@ -13,6 +13,14 @@
     "step_documents": "Documents",
     "step_review": "Vérification",
     "step_status": "Statut",
-    "submit_cta": "Soumettre ma candidature"
+    "submit_cta": "Soumettre ma candidature",
+    "reservations": {
+      "question": "Proposez-vous la réservation de tables ?",
+      "help": "Nous activerons la fonctionnalité et vous configurerez horaires, tables et disponibilités depuis votre portail partenaire une fois approuvé.",
+      "yes": "Oui",
+      "no": "Non",
+      "capacity_label": "Nombre approximatif de places",
+      "capacity_hint": "Facultatif — vous pourrez l'ajuster après approbation."
+    }
   }
 }

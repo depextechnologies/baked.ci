@@ -8,6 +8,7 @@
  * Mounted at /admin/homepage-management.
  */
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Home, ArrowUp, ArrowDown, Eye, EyeOff, Pencil, Trash2, Plus, Save, X, Loader2, Globe,
@@ -45,6 +46,8 @@ const _SLIDE_FIELDS = [
   F.text("headline", "Headline"),
   F.area("description", "Description"),
   F.image("image", "Background image"),
+  F.image("image_tablet", "Tablet image (optional)", "Used on tablets (768–1023px). Falls back to the background image."),
+  F.image("image_mobile", "Mobile image (optional)", "Used on phones (<768px) — website and apps. Falls back to the background image."),
   F.text("badge", "Badge (optional, e.g. NEW, 30% off)"),
   F.text("cta_label", "Primary CTA label"),
   F.url("cta_link", "Primary CTA link"),
@@ -168,17 +171,264 @@ const SECTION_SCHEMAS = {
     top: [F.text("title", "Headline"), F.text("subtitle", "Subline")],
     config: [F.text("cta_label", "CTA label"), F.url("cta_link", "CTA link")],
   },
+  trust_strip: {
+    label: "Trust Strip (badges)",
+    top: [],
+    config: [F.list("items", "Badges (4 recommended)", [
+      F.text("icon", "Icon key (bike / package / tag / rotate / shield / truck)"),
+      F.text("color", "Accent colour (hex)"),
+      F.text("title", "Title (EN)"), F.text("title_fr", "Titre (FR)"),
+      F.text("subtitle", "Subtitle (EN)"), F.text("subtitle_fr", "Sous-titre (FR)"),
+    ])],
+  },
+
+  // ---------------- FOODbakēd homepage sections (Feb 2026) ------------------
+  // Every food_* schema is FR-first / EN-second. The customer FoodHome page
+  // renders these via a lightweight renderer keyed on section_type.
+  food_hero: {
+    label: "FOOD · Hero Banner",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Headline (FR par défaut)"),
+          F.area("subtitle", "Sous-titre · Sub-headline (FR par défaut)")],
+    config: [
+      F.image("background_image", "Image d'arrière-plan · Background image"),
+      F.text("eyebrow", "Éyebrow (petit tag au-dessus du titre)"),
+      F.text("title_fr", "Titre FR (optionnel — remplace le titre ci-dessus en FR)"),
+      F.text("title_en", "Title EN (optional — shown when English is selected)"),
+      F.area("subtitle_fr", "Sous-titre FR (optionnel)"),
+      F.area("subtitle_en", "Subtitle EN (optional)"),
+      F.area("tagline_fr", "Phrase d'accroche FR"),
+      F.area("tagline_en", "Tagline EN"),
+      F.text("cta_label", "CTA label"),
+      F.url("cta_link", "CTA link"),
+    ],
+  },
+  food_categories: {
+    label: "FOOD · Catégories chips",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [
+      F.text("source", "Source (blank = seed catalogue food_categories)"),
+      F.num("limit", "Nombre à afficher · Number to show (blank = all)"),
+    ],
+  },
+  food_cuisines: {
+    label: "FOOD · Cuisines tiles",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [
+      F.text("title_fr", "Titre FR (optionnel)"),
+      F.text("title_en", "Title EN (optional)"),
+      F.num("columns", "Colonnes desktop · Desktop columns"),
+      F.num("limit", "Nombre à afficher · Number to show"),
+    ],
+  },
+  food_featured_restaurants: {
+    label: "FOOD · Restaurants mis en avant",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [
+      F.text("title_fr", "Titre FR (optionnel)"),
+      F.text("title_en", "Title EN (optional)"),
+      F.text("cuisine_filter", "Filtre cuisine (blank = all featured)"),
+      F.num("limit", "Nombre de cartes · Card limit"),
+    ],
+  },
+  food_top_brands: {
+    label: "FOOD · Top Brands For You (location-aware carousel)",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title (FR par défaut)"),
+          F.text("subtitle", "Sous-titre · Subtitle (FR par défaut)")],
+    config: [
+      F.text("title_fr", "Titre FR (optionnel — remplace le titre ci-dessus en FR)"),
+      F.text("title_en", "Title EN (shown when English is selected)"),
+      F.text("subtitle_fr", "Sous-titre FR (optionnel)"),
+      F.text("subtitle_en", "Subtitle EN (optional)"),
+      F.num("limit", "Nombre de marques · Max brands (default 10)"),
+      F.text("selection", "Mode de sélection · Selection: auto (default) | curated"),
+    ],
+  },
+  food_promos: {
+    label: "FOOD · Bandeaux promotionnels · Promo banners",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title"), F.text("subtitle", "Sous-titre · Subtitle")],
+    config: [F.list("banners", "Bannières · Banners", [
+      F.image("image", "Image"),
+      F.text("headline_fr", "Titre FR · Headline"),
+      F.text("headline_en", "Headline EN"),
+      F.text("description_fr", "Description FR"),
+      F.text("description_en", "Description EN"),
+      F.text("cta_label_fr", "CTA FR"),
+      F.text("cta_label_en", "CTA EN"),
+      F.url("cta_link", "CTA link"),
+    ])],
+  },
+  food_usps: {
+    label: "FOOD · Points forts (USP Strip)",
+    modules: ["food"],
+    top: [F.text("title", "Titre · Section title")],
+    config: [F.list("usps", "USPs (3-4 recommandés)", [
+      F.text("icon", "Icon key (shield / truck / sparkles / tag / clock / utensils / star / heart / shopping)"),
+      F.text("title_fr", "Titre FR"),
+      F.text("title_en", "Title EN"),
+      F.text("subtitle_fr", "Sous-titre FR"),
+      F.text("subtitle_en", "Subtitle EN"),
+    ])],
+  },
+  food_testimonial: {
+    label: "FOOD · Témoignages · Testimonials",
+    modules: ["food"],
+    top: [F.text("title", "Titre interne / Internal title")],
+    config: [
+      F.text("title_fr", "Titre FR affiché · ex: Avis de nos clients"),
+      F.text("title_en", "Displayed title EN · e.g. Customer Reviews"),
+      F.list("items", "Témoignages (2 recommandés) · Testimonials (2 recommended)", [
+        F.bool("enabled", "Afficher · Show this testimonial"),
+        F.area("quote_fr", "Citation FR · Quote (French)"),
+        F.area("quote_en", "Quote EN"),
+        F.text("author_fr", "Nom du client FR · Customer display name (FR)"),
+        F.text("author_en", "Customer display name EN"),
+        F.text("role_fr", "Rôle / lieu FR · Role / location (optional)"),
+        F.text("role_en", "Role / location EN (optional)"),
+        F.image("customer_image", "Photo client (optionnelle) · Customer photo (optional)"),
+        F.image("background_image", "Image d'arrière-plan (optionnelle) · Background image (optional)"),
+        F.num("sort_order", "Ordre d'affichage · Sort order"),
+      ], "Chaque témoignage s'affiche en carte. 2 cartes côte-à-côte sur desktop, carrousel sur mobile."),
+      // Legacy single-quote fields kept so existing rows don't break.
+      F.area("quote_fr", "Citation FR (ancien format) · Legacy single quote FR"),
+      F.area("quote_en", "Legacy single quote EN"),
+      F.image("background_image", "Legacy background image"),
+    ],
+  },
+  send_map_hero: {
+    label: "SEND · Carte en direct · Live map hero",
+    modules: ["express"],
+    top: [],
+    config: [F.bool("show_drivers", "Afficher les chauffeurs à proximité · Show nearby drivers")],
+  },
+  send_pickup_bar: {
+    label: "SEND · Barre de ramassage · Pickup bar",
+    modules: ["express"],
+    top: [],
+    config: [
+      F.text("placeholder_fr", "Texte FR · ex: Votre lieu de ramassage ?"), F.text("placeholder", "Placeholder EN"),
+      F.text("add_stop_label_fr", "Bouton FR · ex: Ajouter un arrêt"), F.text("add_stop_label", "Button EN"),
+    ],
+  },
+  send_service_tiles: {
+    label: "SEND · Services (tuiles) · Service tiles",
+    modules: ["express"],
+    top: [F.text("title", "Title EN"), F.text("subtitle", "Subtitle EN")],
+    config: [
+      F.text("title_fr", "Titre FR · ex: Nos services"), F.text("subtitle_fr", "Sous-titre FR"),
+      F.list("tiles", "Tuiles (ordre = affichage) · Tiles (order = display)", [
+        F.text("key", "Service key: moto / cargo / fresh / between_cities / movers / multi"),
+        F.bool("enabled", "Afficher · Show"),
+        F.image("image", "Illustration"),
+        F.text("title_fr", "Titre FR"), F.text("title_en", "Title EN"),
+        F.text("desc_fr", "Description FR"), F.text("desc_en", "Description EN"),
+      ]),
+    ],
+  },
+  app_module_grid: {
+    label: "App · Grille des services · Module grid",
+    modules: ["baked"],
+    top: [],
+    config: [
+      F.list("items", "Tuiles (ordre = affichage, 3 colonnes) · Tiles (order = display, 3 columns)", [
+        F.text("module", "Module: express / food / mart / shop / immo / auto"),
+        F.bool("enabled", "Afficher · Show"),
+        F.text("tagline_fr", "Accroche FR · ex: Livrez tout"), F.text("tagline_en", "Tagline EN · e.g. Deliver Anything"),
+        F.image("image", "Illustration (PNG/WebP transparent)"),
+        F.text("accent", "Couleur d'accent · Accent colour (hex, e.g. #F5A524)"),
+      ], "IMMO et AUTO affichent un badge « Bientôt » tant que le module n'est pas lancé."),
+    ],
+  },
+  app_category_row: {
+    label: "App · Rangée de catégories · Category row",
+    modules: ["baked"],
+    top: [F.text("title", "Title EN · e.g. Order your bites")],
+    config: [
+      F.text("title_fr", "Titre FR · ex: Commandez vos envies"),
+      F.text("source_module", "Module source: food / mart / shop", "Les catégories viennent du catalogue existant du module."),
+      F.text("accent", "Couleur « Voir tout » · View-all colour (hex)"),
+      F.num("max_items", "Nombre max de tuiles · Max tiles"),
+      F.list("items", "Catégories (ordre = affichage). Vide = toutes · Categories (order = display). Empty = all", [
+        F.text("key", "Code / slug de la catégorie existante · Existing category code / slug"),
+        F.bool("enabled", "Afficher · Show"),
+        F.image("image", "Image (optionnelle, sinon image de la catégorie)"),
+        F.text("label_fr", "Libellé FR (optionnel)"), F.text("label_en", "Label EN (optional)"),
+      ]),
+    ],
+  },
+  app_promo_slider: {
+    label: "App · Bannières promo · Promo slider",
+    modules: ["baked"],
+    top: [],
+    config: [
+      F.list("items", "Bannières (ordre = affichage) · Banners (order = display)", [
+        F.bool("enabled", "Afficher · Show"),
+        F.text("title_fr", "Titre FR"), F.text("title_en", "Title EN"),
+        F.text("cta_label_fr", "Bouton FR · ex: Commander"), F.text("cta_label_en", "Button EN · e.g. Order Now"),
+        F.url("link", "Lien · Link (/food, /mart, /shop, /send, /mart/category/<slug> …)"),
+        F.image("image", "Image de fond · Background image"),
+        F.text("accent", "Couleur du bouton · Button colour (hex)"),
+      ]),
+    ],
+  },
+  send_trust_banner: {
+    label: "SEND · Bandeau confiance · Trust banner",
+    modules: ["express"],
+    top: [],
+    config: [F.area("text_fr", "Texte FR"), F.area("text", "Text EN")],
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Modules metadata + helpers
+// ---------------------------------------------------------------------------
+
+const MODULES_META = [
+  { code: "mart", label: "MARTbakēd" },
+  { code: "shop", label: "SHOPbakēd" },
+  { code: "food", label: "FOODbakēd" },
+  { code: "express", label: "SENDbakēd" },
+  { code: "baked", label: "BAKĒD App" },
+];
+const PREVIEW_PATH = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
+
+// Section types allowed for each module. Sections tagged with `modules: [...]`
+// are restricted; untagged sections are shared (available everywhere) but we
+// hide FOOD-specific ones from MART/SHOP.
+const _isSectionForModule = (schema, module) => {
+  if (schema.modules) return schema.modules.includes(module);
+  // Untagged sections were built for MART/SHOP originally.
+  return module !== "food" && module !== "express" && module !== "baked";
 };
 
 const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";
 
 export const AdminHomepageManagement = () => {
+  const location = useLocation();
+  // Detect the scoped module from URL: /admin/modules/<code>/homepage-management.
+  // When scoped, the toggle is hidden and the module is locked so admins
+  // NEVER accidentally edit another module's homepage from within FOODbakēd.
+  const scopedModule = React.useMemo(() => {
+    const m = /\/admin\/modules\/([^/]+)\/homepage-management/.exec(location.pathname);
+    return m && MODULES_META.some((x) => x.code === m[1]) ? m[1] : null;
+  }, [location.pathname]);
+
   const [country, setCountry] = useState("CI");
-  const [module, setModule] = useState("mart");
+  const [module, setModule] = useState(scopedModule || "mart");
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);   // full row being edited
   const [creating, setCreating] = useState(false);
+
+  // Keep module in sync when the route changes (e.g. nav from FOOD to MART).
+  useEffect(() => {
+    if (scopedModule && scopedModule !== module) setModule(scopedModule);
+  }, [scopedModule]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = async () => {
     setBusy(true);
@@ -247,40 +497,67 @@ export const AdminHomepageManagement = () => {
       <div className="flex items-start justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Configuration</div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Home size={22} /> Homepage Management</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Home size={22} /> Homepage Management
+            {scopedModule && (
+              <span className="text-xs font-semibold px-2 py-1 rounded-full bg-primary/15 text-primary uppercase tracking-wider">
+                {MODULES_META.find((m) => m.code === scopedModule)?.label || scopedModule}
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Add, reorder, edit and toggle sections on the customer homepage. Country-specific.
+            {scopedModule === "food" && " · French-first · English-second."}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex rounded-full border border-border p-1 text-xs"
-                data-testid="hp-module-toggle">
-            {[
-              { code: "mart", label: "MARTbakēd" },
-              { code: "shop", label: "SHOPbakēd" },
-            ].map((m) => (
-              <button
-                key={m.code}
-                onClick={() => setModule(m.code)}
-                data-testid={`hp-module-${m.code}`}
-                className={`px-3 py-1.5 rounded-full transition-colors ${
-                  module === m.code
-                    ? "bg-primary text-primary-foreground font-semibold"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </span>
+          {!scopedModule && (
+            <span className="inline-flex rounded-full border border-border p-1 text-xs"
+                  data-testid="hp-module-toggle">
+              {MODULES_META.map((m) => (
+                <button
+                  key={m.code}
+                  onClick={() => setModule(m.code)}
+                  data-testid={`hp-module-${m.code}`}
+                  className={`px-3 py-1.5 rounded-full transition-colors ${
+                    module === m.code
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </span>
+          )}
           <Globe size={14} className="text-muted-foreground" />
           <select value={country} onChange={(e) => setCountry(e.target.value)}
                   className="h-9 rounded-lg bg-secondary text-sm px-3"
                   data-testid="hp-country-select">
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
-          <button onClick={() => { setCreating(true); setEditing({ _creating: true, id: null,
-            section_type: "hero", title: "", subtitle: "", config: {}, is_enabled: true }); }}
+          {PREVIEW_PATH[module] && (
+            <a
+              href={`${PREVIEW_PATH[module]}?preview_country=${country}`}
+              target="_blank" rel="noreferrer"
+              className="h-9 px-3 rounded-lg text-xs uppercase tracking-widest font-semibold bg-secondary text-foreground border border-border hover:bg-accent flex items-center gap-1"
+              data-testid="hp-preview-btn"
+              title="Opens the live module homepage in a new tab with the selected country">
+              <Eye size={14} /> Preview
+            </a>
+          )}
+          <button onClick={() => {
+                    // First allowed section type for this module.
+                    const firstType = Object.entries(SECTION_SCHEMAS).find(
+                      ([, s]) => _isSectionForModule(s, module)
+                    )?.[0] || "hero";
+                    setCreating(true);
+                    setEditing({
+                      _creating: true, id: null,
+                      section_type: firstType, title: "", subtitle: "",
+                      config: {}, is_enabled: true,
+                    });
+                  }}
                   className="h-9 px-3 rounded-lg text-xs uppercase tracking-widest font-semibold bg-primary text-primary-foreground flex items-center gap-1"
                   data-testid="hp-add-btn">
             <Plus size={14} /> Add section
@@ -309,7 +586,7 @@ export const AdminHomepageManagement = () => {
                   data-testid={`hp-row-${row.id}`}>
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.display_order}</td>
                 <td className="px-4 py-3">
-                  <div className="font-medium">{row.title || <span className="italic text-muted-foreground">Untitled</span>}</div>
+                  <div className="font-medium">{row.title || <span className="italic text-muted-foreground">{SECTION_SCHEMAS[row.section_type]?.label || "Untitled"}</span>}</div>
                   <div className="text-[11px] text-muted-foreground truncate max-w-md">{row.subtitle}</div>
                 </td>
                 <td className="px-4 py-3 text-xs">
@@ -351,6 +628,7 @@ export const AdminHomepageManagement = () => {
         <SectionEditor
           row={editing}
           creating={creating}
+          module={module}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSave={save}
         />
@@ -361,7 +639,7 @@ export const AdminHomepageManagement = () => {
 
 /* --------------------------- Schema-driven editor ------------------------ */
 
-const SectionEditor = ({ row, creating, onClose, onSave }) => {
+const SectionEditor = ({ row, creating, module, onClose, onSave }) => {
   const [draft, setDraft] = useState(row);
   const schema = SECTION_SCHEMAS[draft.section_type] || { top: [], config: [] };
   const tabs = schema.tabs;
@@ -384,6 +662,12 @@ const SectionEditor = ({ row, creating, onClose, onSave }) => {
   const rmListItem = (listName, itemIdx) => setDraft((d) => ({
     ...d, config: { ...d.config, [listName]: (d.config?.[listName] || []).filter((_, i) => i !== itemIdx) },
   }));
+  const moveListItem = (listName, from, to) => setDraft((d) => {
+    const xs = [...(d.config?.[listName] || [])];
+    if (to < 0 || to >= xs.length) return d;
+    [xs[from], xs[to]] = [xs[to], xs[from]];
+    return { ...d, config: { ...d.config, [listName]: xs } };
+  });
   // Grouped field setter — writes to `config[groupName][subField]`.
   const setGroupField = (groupName, subField, value) => setDraft((d) => ({
     ...d,
@@ -407,14 +691,23 @@ const SectionEditor = ({ row, creating, onClose, onSave }) => {
                 <div key={i} className="rounded-lg border border-border p-3 mb-2 space-y-2"
                      data-testid={`hp-editor-list-item-${f.name}-${i}`}>
                   {f.itemFields.map((sub) => (
-                    <FieldRenderer key={sub.name} field={sub}
+                    <FieldRenderer key={sub.name} field={{ ...sub, name: `${f.name}-${i}-${sub.name}` }}
                                    value={item[sub.name]}
                                    onChange={(v) => setListItem(f.name, i, sub.name, v)} />
                   ))}
-                  <button onClick={() => rmListItem(f.name, i)}
-                          className="text-[10px] uppercase tracking-widest text-rose-400">
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => moveListItem(f.name, i, i - 1)} disabled={i === 0}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border disabled:opacity-30"
+                            data-testid={`hp-editor-list-up-${f.name}-${i}`}>↑ Up</button>
+                    <button onClick={() => moveListItem(f.name, i, i + 1)} disabled={i === rows.length - 1}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border disabled:opacity-30"
+                            data-testid={`hp-editor-list-down-${f.name}-${i}`}>↓ Down</button>
+                    <button onClick={() => rmListItem(f.name, i)}
+                            className="text-[10px] uppercase tracking-widest text-rose-400"
+                            data-testid={`hp-editor-list-remove-${f.name}-${i}`}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
               {rows.length === 0 && (
@@ -467,9 +760,11 @@ const SectionEditor = ({ row, creating, onClose, onSave }) => {
               <select value={draft.section_type} onChange={(e) => set("section_type", e.target.value)}
                       className="w-full h-10 rounded-lg bg-secondary px-3 text-sm"
                       data-testid="hp-editor-type">
-                {Object.entries(SECTION_SCHEMAS).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
+                {Object.entries(SECTION_SCHEMAS)
+                  .filter(([, v]) => _isSectionForModule(v, module))
+                  .map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
               </select>
             </Field>
           )}

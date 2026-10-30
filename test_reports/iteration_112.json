@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 112 — iter-111 RCA fix verified GREEN. hydrateGuest() (and authed load()) now carry `menu_item_id` and `restaurant_id` through to cart.items, so the quote-builder useEffect's `i.menu_item_id || i.product_id || i.product?.id` resolves properly. Backend /api/cart/quote: 10/10 pytest green (1.20s). Desktop /food drawer: Subtotal ₹478.00, Frais de livraison (FOOD) ₹29.00, Total ₹507.00, FOOD red badges on both lines, exactly 1 POST /api/cart/quote fires with the expected 2-item payload. Mobile /cart at 390x844: cart-summary-food-subtotal=₹478.00, cart-summary-food-delivery=₹29.00, cart-summary-total=₹507.00, m-cart-total=₹507.00, MART & SHOP sections absent. FR default labels (Récapitulatif, Frais de livraison, Sous-total) present, no min-order banner. Cart item testids resolve to real ids (line1/line2) — no more cart-item-undefined. MART-only and SHOP-only regressions still render correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cart_quote.py",
+    "/app/test_reports/pytest/iter112_cart_quote.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BakedContexts.jsx:362-372 and 463-470 — the hydrateGuest + authed load() both now propagate menu_item_id and restaurant_id (with fallback s.restaurant_id || it.restaurant_id). Good. Consider adding a JSDoc on hydrateGuest listing the contract keys that MUST survive hydration (id, product_id, menu_item_id, variant_id, addon_ids, restaurant_id) so future regressions get caught at review time.",
+    "Residual (non-blocking): i18n missing-key console warnings for customer:food.categories_title / categories_subtitle in FR locale — unrelated to this bug but visible in console on /food."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_112.json",
+    "/app/test_reports/pytest/iter112_cart_quote.xml"
+  ],
+  "success_rate": {"backend": "100% (10/10 cart_quote)", "frontend": "100% (desktop drawer + mobile /cart + MART/SHOP regressions all green)"},
+  "test_credentials": "N/A — guest flow only.",
+  "seed_data_creation": "localStorage per the review spec: baked_country=IN, baked_active_address Delhi lat/lng, baked_guest_cart = {items:[burger_hub_in crispy_wings ₹279, mozz_sticks ₹199]} with top-level menu_item_id + restaurant_id + snapshot{name,price,currency}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "P0 global cart pricing bug is fully resolved. iter-111 action items (a) and (b) both landed in BakedContexts.jsx (both hydrateGuest and the authed load() path). If future work changes the raw guest-cart line schema or adds new quote-engine keys (variant_id, addon_ids, modifier_ids), extend the hydrate push for all three branches (food+mart with snapshot, shop with product fetch, authed load) in BakedContexts.jsx. A tiny Jest/RTL contract test seeding localStorage with the review-spec payload and asserting the next fetch is /cart/quote with items.length===2 is still a worthwhile anchor to prevent re-regression — not blocking.",
+  "rca of the issue": "RESOLVED. Root cause (iter-111): hydrateGuest stripped menu_item_id/restaurant_id before the quote-builder useEffect ran, so the one-line builder fix in iter-110 was dead code. Fix (iter-112, verified): BakedContexts.jsx lines 371-372 (guest hydrate) and 467-468 (authed load) now push `menu_item_id: it.menu_item_id` and `restaurant_id: s.restaurant_id || it.restaurant_id`. Verified empirically: review-spec seed produces exactly 1 POST /api/cart/quote with the correct 2-item payload, backend returns delivery_fee=29, UI renders ₹507 total on both desktop drawer and mobile /cart."
+}

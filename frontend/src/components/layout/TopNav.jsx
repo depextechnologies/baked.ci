@@ -12,6 +12,53 @@ import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 import { useLocalePath } from "../../i18n/routes";
 import { MODULES } from "../../lib/modules";
 import { toast } from "sonner";
+import GlobalSearchDropdown from "../search/GlobalSearchDropdown";
+
+/* Global header search box: controlled input + portal dropdown. Enter
+ * sends the user to /search?q=…; clicking a dropdown hit navigates
+ * directly to its destination_url. */
+const GlobalSearchHeaderBox = ({ placeholder, testIdInput }) => {
+  const inputRef = React.useRef(null);
+  const navigate = useNavigate();
+  const [q, setQ] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    const onDocClick = (e) => {
+      if (inputRef.current && !inputRef.current.contains(e.target)) {
+        // Dropdown lives in a portal — allow clicks inside it to stay open.
+        const dd = document.querySelector('[data-testid="global-search-dropdown"]');
+        if (dd && dd.contains(e.target)) return;
+        setOpen(false);
+      }
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
+  return (
+    <div className="relative">
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
+      <input
+        ref={inputRef}
+        data-testid={testIdInput}
+        placeholder={placeholder}
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        className="baked-input w-full pl-11 pr-4 py-3 bg-secondary text-sm outline-none focus:ring-2 focus:ring-primary/40 motion-fast"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && q.trim()) {
+            setOpen(false);
+            navigate(`/search?q=${encodeURIComponent(q.trim())}`);
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+      />
+      <GlobalSearchDropdown anchorRef={inputRef} open={open} query={q} onClose={() => setOpen(false)} />
+    </div>
+  );
+};
+
 
 const DETECT_REASON_COPY = {
   denied:                "Location permission is blocked. Enable it in your browser settings, then try again.",
@@ -116,26 +163,14 @@ export const TopNav = () => {
             </PopoverContent>
           </Popover>
 
-          {/* Search — full input on desktop, icon-only on mobile */}
+          {/* Global Search — portal typeahead + full /search page on Enter */}
           <div className="hidden md:block flex-1 max-w-[560px]">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <input
-                data-testid={NAV.searchInput}
-                placeholder={t(locale, "nav.search_placeholder")}
-                className="baked-input w-full pl-11 pr-4 py-3 bg-secondary text-sm outline-none focus:ring-2 focus:ring-primary/40 motion-fast"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                    navigate(`${path("products")}?search=${encodeURIComponent(e.currentTarget.value.trim())}`);
-                  }
-                }}
-              />
-            </div>
+            <GlobalSearchHeaderBox placeholder={t(locale, "nav.search_placeholder")} testIdInput={NAV.searchInput} />
           </div>
-          {/* Mobile: search chevron that jumps to /products */}
+          {/* Mobile: search chevron that jumps to the global search page */}
           <button
             data-testid={`${NAV.searchInput}-mobile`}
-            onClick={() => navigate(path("products"))}
+            onClick={() => navigate("/search")}
             className="md:hidden ml-auto w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center motion-fast"
             aria-label={t(locale, "nav.search_placeholder")}
           >

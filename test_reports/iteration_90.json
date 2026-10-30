@@ -1,0 +1,33 @@
+{
+  "summary": "Full E2E validation of FOODbakēd Restaurant Onboarding portal. Backend: 36/36 tests pass (test_food_application_flow.py 9/9 + test_food_admin_crud.py + test_food_homepage_sections.py + test_food_partner_menu.py). Frontend: complete happy path validated end-to-end — /Sell-on-baked FOODbakēd card links to /foodbaked/sellers; landing page renders FR-first with Apply/Sign-in CTAs; dual-OTP signup with visible dev_code hints works; 6-step wizard (details → docs upload → timing → menu/cuisines → bank → review/submit) transitions correctly and status flips to 'Soumis · Submitted'; logout + phone-OTP login for returning applicant works and preserves the same application; unauthed /foodbaked/sellers/dashboard correctly redirects to login; admin queue at /admin/modules/food/applications loads (after routing fix — see below), search-by-email + status filter work, drawer opens with all 5 sections (Restaurant/Documents/Timing/Menu/Bank); start-review → 'En cours', per-doc verify/reject with reason work, request-correction moves status to 'Corrections' and correction banner + notes render in applicant dashboard; re-submit from step 6 flips back to 'Soumis'; admin approve moves status to 'Approuvé' AND emits dev _activation_url (captured from network response AND rendered in admin-food-app-activation-url anchor); activation page at /partner/food/activate?token=… sets password and shows 'Compte activé'; partner login at /partner/food/login with new password lands on partner dashboard with Statut/Note/Prépa tiles + Menu button. /food customer homepage still renders normally (regression OK).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminApp routing", "issue": "Duplicate <Route path=\"applications\"> under modules/:code — the generic ModulePartnerApplications route (line 106) shadowed the new AdminFoodApplications route (line 139), so /admin/modules/food/applications rendered the legacy MART Partner Applications table instead of the new FOOD applications queue. FIXED by introducing ApplicationsSwitch dispatcher on code === 'food'.", "selector": "data-testid=admin-food-applications", "priority": "CRITICAL (fixed)"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_application_flow.py",
+    "/app/backend/tests/test_food_admin_crud.py",
+    "/app/backend/tests/test_food_homepage_sections.py",
+    "/app/backend/tests/test_food_partner_menu.py",
+    "/app/test_reports/pytest/food_apps_iter90.xml"
+  ],
+  "action_items": [
+    "Verify the ApplicationsSwitch dispatch pattern (added in /app/frontend/src/apps/admin/AdminApp.jsx) matches the existing CatalogSwitch/AttributesSwitch/ApprovalsSwitch/ProductsSwitch pattern — it uses useOutletContext().code === 'food' to render AdminFoodApplications, otherwise ModulePartnerApplications. Please review and confirm no other module needs a dedicated applications component (e.g., SHOP)."
+  ],
+  "critical_code_review_comments": [
+    "Route collision (fixed): Two children of <Route path=\"modules/:code\"> both used path=\"applications\" — React Router v6 picks the first, so the new FOOD queue was unreachable at its own URL. Any future dedicated-per-module page should either be nested under a code-specific segment or use a Switch dispatcher pattern.",
+    "The activation_url is only ever returned on the approve-action response (dev only) and is NOT persisted in the application detail. That's fine for QA but if any future flow needs to re-fetch it (e.g., 'Resend activation email' button) the backend would need to expose a dedicated re-generate endpoint."
+  ],
+  "updated_files": ["/app/frontend/src/apps/admin/AdminApp.jsx"],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "100% (all scenarios pass after routing fix)"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@. Applicant created dynamically each run (dev OTP shown inline as 'dev: XXXXXX' in the OTP input label).",
+  "seed_data_creation": "Created two live applications during testing: fpa_2cd5f72b5e6f4332 (qatest+1790253260@example.com, approved) and one for qafull+1790253723@example.com (approved + partner activated with password 'TestPass123!'). Both created partner accounts + food_activation_tokens. May want to clean up for production seed hygiene.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 36 backend food application tests + full UI happy path pass. Routing fix in AdminApp.jsx is minimal and low-risk. If SHOP or another module later adds a dedicated Applications component, extend ApplicationsSwitch. The FOODbakēd sellers portal happy path is now stable end-to-end.",
+  "rca of the issue": "AdminApp.jsx had two <Route path=\"applications\"> children under the same parent <Route path=\"modules/:code\">. React Router picked the first (ModulePartnerApplications), so /admin/modules/food/applications never mounted AdminFoodApplications — the entire admin FOOD-onboarding queue was unreachable from the UI (backend was fine). Reproduction: log in as super-admin, go to /admin/modules/food/applications → observe legacy MART 'Partner Applications' table instead of the new 'Demandes de restaurants' queue. Fix: replaced both routes with a single ApplicationsSwitch component that dispatches on useOutletContext().code === 'food' to AdminFoodApplications, otherwise falls back to ModulePartnerApplications. Verified end-to-end: search, drawer, per-doc review, correction, approval, activation URL all reachable."
+}

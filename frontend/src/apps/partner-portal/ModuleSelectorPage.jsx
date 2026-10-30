@@ -31,9 +31,19 @@ const ModuleSelectorPage = ({ intent = "owner", title, subtitle }) => {
       ? "Pick your BAKĒD module to continue to the staff login."
       : "Pick your BAKĒD module to continue to the owner login.");
 
-  const hrefFor = (slug) => (isStaff
-    ? `/partner/${slug}/staff-login`
-    : `/partner-portal/${slug}/login`);
+  const hrefFor = (slug) => {
+    const m = PARTNER_MODULES[slug];
+    // Modules with their own dedicated login page (FOOD, SHOP, SEND) go
+    // straight there; MART stays in the inline partner-portal flow.
+    if (!isStaff && m?.ownerLoginHref) return m.ownerLoginHref;
+    return isStaff
+      ? `/partner/${slug}/staff-login`
+      : `/partner-portal/${slug}/login`;
+  };
+  const isExternalFor = (slug) => {
+    const m = PARTNER_MODULES[slug];
+    return !isStaff && !!m?.ownerLoginHref;
+  };
 
   return (
     <div className="partner-hub" data-theme="dark"
@@ -56,18 +66,19 @@ const ModuleSelectorPage = ({ intent = "owner", title, subtitle }) => {
           <div className="grid sm:grid-cols-2 gap-3 mt-6">
             {MODULE_ORDER.map((slug) => {
               const m = PARTNER_MODULES[slug];
-              return (
-                <Link
-                  key={slug}
-                  to={hrefFor(slug)}
-                  data-testid={`module-selector-${slug}`}
-                  className="group rounded-2xl p-5 flex items-center gap-4 transition-all"
-                  style={{
-                    background: "var(--ph-bg-elevated)",
-                    border: "1px solid var(--ph-border)",
-                    textDecoration: "none",
-                  }}
-                >
+              const href = hrefFor(slug);
+              const external = isExternalFor(slug);
+              const commonProps = {
+                "data-testid": `module-selector-${slug}`,
+                className: "group rounded-2xl p-5 flex items-center gap-4 transition-all",
+                style: {
+                  background: "var(--ph-bg-elevated)",
+                  border: "1px solid var(--ph-border)",
+                  textDecoration: "none",
+                },
+              };
+              const inner = (
+                <>
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: `${m.color}22`, color: m.color, fontWeight: 800, fontSize: 18 }}>
                     {m.label.slice(0, 1)}
@@ -86,8 +97,11 @@ const ModuleSelectorPage = ({ intent = "owner", title, subtitle }) => {
                       {MODULE_TAGLINES[slug] || ""}
                     </div>
                   </div>
-                </Link>
+                </>
               );
+              return external
+                ? <a key={slug} href={href} {...commonProps}>{inner}</a>
+                : <Link key={slug} to={href} {...commonProps}>{inner}</Link>;
             })}
           </div>
 

@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 113 — FOODbakēd search parity with category Discovery verified GREEN. Backend 20/20 pytest passing on test_food_search_filters.py (10 new) + test_food_search.py (10 regression) in 1.32s. Frontend /foodbaked/search?q=burger renders all required data-testids: results-filter-btn, results-chip-veg, results-set-address, food-search-results-mode-{delivery,pickup,dine_in}, food-search-results-group-{all,restaurants,dishes,cuisines,reservations}. Returned 7 restaurant cards + 18 dish cards. Filter bottom sheet exposes filter-sheet + filter-tab-{sort,cuisine,rating,cost,diet,avail} + filter-apply/clear/close. Picking Trier par → rating_desc and Appliquer updates URL to ?q=burger&sort=rating_desc (filter state is URL-encoded, refresh-safe). Mode toggle Livraison→À emporter re-fetches and URL stays query-only (mode kept in global foodServiceMode context — confirmed because reloading /foodbaked/search?q=burger on mobile viewport without ?mode= still shows À emporter active). Pur Végé chip appends vegetarian=pure_veg to URL. Mobile 390x844 collapses to single column, toolbar wraps cleanly, bottom sheet opens as expected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_food_search_filters.py",
+    "/app/backend/tests/test_food_search.py",
+    "/app/test_reports/pytest/iter113_food_search.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "search.py:200 — cuisine_filter uses JSONB operator `?|` which requires the DB column to be jsonb (confirmed by existing discover.py use). Good; mirrors Discovery semantics.",
+    "search.py:231 — veg_dish_filter is injected into the dish-match EXISTS subquery only for pure_veg restaurants; however the main restaurant bucket itself has no is_veg concept at the restaurant level, which matches category page behaviour. Confirmed consistent.",
+    "search.py:263 — `price_asc`/`price_desc` ORDER BY does a correlated subquery per restaurant row; acceptable given limit*4≤96 outer rows, but if the dataset grows a LATERAL join (like the price_join block) would be more efficient. Non-blocking.",
+    "search.py:454-463 — Response payload omits a `total` or `has_more` field. Not required by spec; group tab counts come from the per-bucket array lengths. OK."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (20/20 food search + filters)", "frontend": "100% (all testids resolve, filters/mode/chip/URL-state/mobile verified)"},
+  "test_credentials": "N/A — /foodbaked/search is public.",
+  "seed_data_creation": "Used existing seeded data (Burger Hub @ 5.3484,-4.0017 within 15 km of 5.3453,-4.0244).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend endpoint /api/food/search now supports sort, cuisines, min_rating, min_price, max_price, vegetarian, open_now, lat, lng, radius_km (default 15), only_eligible, mode. When lat/lng supplied, each restaurant & dish card gains distance_km, eta_min, eta_max, delivery_eligible, pickup_eligible, reservation_eligible, mode_eligible, delivery_unavailable_reason. Pickup/dine_in modes DROP ineligible rows; delivery mode KEEPS them with delivery_eligible=False so UI can render the French banner 'Livraison indisponible à votre adresse' via data-testid=results-nondeliverable-<restaurant_id>. Filter sheet component /app/frontend/src/apps/foodbaked/components/FoodFilterSheet.jsx is now shared between FoodDiscoveryPage and FoodSearchResultsPage — any future filter addition should be done once in that component. Did not exercise the delivery-outside-zone banner path with a real seeded outside-zone restaurant; worth adding a seeded venue outside its own small radius if future regressions suspected.",
+  "rca of the issue": "N/A — new feature verification, no bugs found."
+}

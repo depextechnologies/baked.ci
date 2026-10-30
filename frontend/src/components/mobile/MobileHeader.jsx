@@ -218,7 +218,7 @@ export const MobileHeader = ({ variant = "home", title }) => {
         <div className="px-4 pb-3">
           <button
             data-testid="m-header-search"
-            onClick={() => navigate(activeModule === "shop" ? "/shop/categories" : "/products")}
+            onClick={() => navigate("/search")}
             className="w-full flex items-center gap-2 px-3.5 py-2.5 baked-input bg-secondary text-xs text-muted-foreground"
           >
             <Search size={14} />

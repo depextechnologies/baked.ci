@@ -1,0 +1,38 @@
+{
+  "summary": "SEND (module=express) homepage CMS migration tested end-to-end: backend public/admin API, insert-only seeding across backend restart, website /send (390 mobile + 1440 desktop, FR/EN), tile routing, Admin Homepage Management SENDbakēd module + editors + preview link, native Expo SEND home (order, testIDs, routing, offline cache, tablet 820/1024, EN), live sync (title change, tile disable, movers first, trust text, map disabled, tiles above pickup) on website mobile+desktop and native, then exact restore (DIFF []). Regression: native SHOP/MART/FOOD CMS homes render, website /, /shop, /food render. All requested features PASS; only minor UX issues found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests (pre-existing)", "issue": "test_mart_homepage_cms.py::test_ten_sections_in_order + test_trust_strip_bilingual fail when run together with test_homepage_cms.py under pytest-xdist (pytest.ini forces -n); test_homepage_cms mutates MART CI rows concurrently. Pass 9/9 when run alone. Test isolation issue, not app bug."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Website /send desktop 1440 when send_map_hero disabled", "issues": ["Grid keeps md:grid-cols-[45%_1fr]; right 55% becomes empty black space. Left panel should go full width (or 1-col grid) when mapSection is absent."]},
+      {"screen": "Admin Homepage Management – send_service_tiles editor", "issues": ["Field label says 'Tiles (order = display)' but the list editor has no move up/down controls – admin can only reorder tiles by Remove + re-Add. Add reorder buttons for list items.", "List item sub-fields reuse identical data-testids (hp-field-key, hp-field-title_fr ... repeated 6x) and Remove button has no data-testid."]},
+      {"screen": "Native SEND home", "issues": ["Stale 'module-next-phase-note' ('Le parcours complet de commande arrive très bientôt dans l’app…') still renders under the trust banner although SEND booking (/send/book, /send/movers) is live in the app – contradicts the CMS home; consider hiding it for express.", "390px: 'Déménagement & Transport' breaks mid-word ('Déménagem ent & …') on native and is clipped ('Déménageme') on website mobile/desktop tiles."]},
+      {"screen": "Website /send (code)", "issues": ["While /api/homepage loads (sections=null) or on error (sections=[]) the mobile page renders only the top bar and desktop only the header – no skeleton and no fallback to the built-in 6 tiles (native has an offline cache, website does not).", "ExpressHomeMobile/ExpressDesktopHome still fetch /express/vehicles and define start/shortcutCards which are now unused (dead code + wasted request)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_send_homepage_cms.py", "/app/backend/tests/cms_mutate_send.py", "/app/test_reports/pytest/send_cms.xml"],
+  "action_items": [
+    "Desktop /send: collapse to single-column left panel when send_map_hero is disabled",
+    "Admin list editor: add up/down reorder for tiles (label promises order = display)",
+    "Hide module-next-phase-note on native express home",
+    "Optional: website /send loading skeleton + fallback when /api/homepage fails; remove unused vehicles fetch in ExpressHome.jsx"
+  ],
+  "critical_code_review_comments": [
+    "ExpressHome.jsx: vehicles fetch/start/shortcutCards unused after CMS migration.",
+    "SendServiceTiles.jsx: title always FR (title_fr || title_en) even in EN mode – matches 'FR primary / EN secondary' design, intended.",
+    "Native multi tile routes to /send/book?service=multiple_shipments while website uses dedicated /send/multi-shipments wizard – matches spec, but UX differs between platforms.",
+    "Native routes /send/book and /send/movers redirect unauthenticated users to /login?redirect=... correctly."
+  ],
+  "updated_files": ["/app/backend/tests/test_send_homepage_cms.py", "/app/backend/tests/cms_mutate_send.py"],
+  "success_rate": {"backend": "100% (11/11 SEND tests; 40/42 combined, 2 pre-existing flaky MART tests due to parallel mutation)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "None persisted. Temporary TEST_x rows created/deleted by tests; CI express rows mutated and restored exactly (restore DIFF [] extra []).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "SEND CMS works. Helper: REACT_APP_BACKEND_URL=... python /app/backend/tests/cms_mutate_send.py apply|restore|show (backup /tmp/send_backup.json): changes tiles[0].title_fr→TEST_Moto QA, disables fresh, moves movers first, trust text_fr→TEST_Confiance QA, disables map hero, tiles display_order 15. Website testids: send-cms-map/pickup/trust, send-services-grid, send-tile-<key>, exp-home-pickup, exp-home-add-stop. Native testIDs: cms-send-<map|pickup|tiles|trust>-<id>, cms-send-pickup-btn, cms-send-add-stop, send-tile-<key>, cms-offline. Native lang key baked_language='\"en\"'; website lang key baked_language='en'. pytest.ini enforces xdist; run test_mart_homepage_cms.py separately from test_homepage_cms.py."
+}

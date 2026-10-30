@@ -26,6 +26,9 @@ const GOVERNANCE = [
   { to: "/admin/insights", icon: Brain, label: "AI Business Insights" },
   { to: "/admin/finance", icon: DollarSign, label: "Finance" },
   { to: "/admin/homepage-management", icon: HomeIcon2, label: "Homepage" },
+  { to: "/admin/returns", icon: ClipboardCheck, label: "Returns & Refunds" },
+  // Vendor Settlement moved under /admin/modules/food/finance — it's a
+  // FOODbakēd-only workspace and belongs with the module it serves.
   { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
   { to: "/admin/api-management", icon: Plug, label: "API Management" },

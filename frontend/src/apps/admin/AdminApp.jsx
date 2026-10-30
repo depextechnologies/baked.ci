@@ -34,6 +34,12 @@ import { AdminSupplierDetail } from "@/pages/admin/AdminSupplierDetail";
 import { AdminMartAttributes } from "@/pages/admin/AdminMartAttributes";
 import { AdminDriverApplications } from "@/pages/admin/AdminDriverApplications";
 import { AdminHomepageManagement } from "@/pages/admin/AdminHomepageManagement";
+import { AdminReturns } from "@/pages/admin/AdminReturns";
+import { AdminVendorSettlement } from "@/pages/admin/AdminVendorSettlement";
+import { AdminFoodRestaurants, AdminFoodCuisines, AdminFoodCategories } from "@/pages/admin/AdminFood";
+import { AdminFoodMenuManager } from "@/pages/admin/AdminFoodMenuManager";
+import { AdminFoodApplications } from "@/pages/admin/AdminFoodApplications";
+import { AdminFoodAnalytics } from "@/pages/admin/AdminFoodAnalytics";
 import { AdminShopCatalog } from "@/pages/admin/AdminShopCatalog";
 import { AdminShopAttributes } from "@/pages/admin/AdminShopAttributes";
 import { AdminShopProductApprovals } from "@/pages/admin/AdminShopProductApprovals";
@@ -60,6 +66,13 @@ const ProductsSwitch = () => {
   const { code } = useOutletContext() || {};
   return code === "shop" ? <AdminShopProducts /> : <ModuleProducts />;
 };
+// FOOD has its own dedicated seller-onboarding queue; other modules keep the
+// legacy generic Partner Applications component. Both used the same route
+// path before this switch was introduced (routing collision fix).
+const ApplicationsSwitch = () => {
+  const { code } = useOutletContext() || {};
+  return code === "food" ? <AdminFoodApplications /> : <ModulePartnerApplications />;
+};
 
 export const AdminApp = () => (
   <Routes>
@@ -85,6 +98,12 @@ export const AdminApp = () => (
       <Route path="driver-payouts" element={<AdminDriverPayouts />} />
       <Route path="driver-applications" element={<AdminDriverApplications />} />
       <Route path="homepage-management" element={<AdminHomepageManagement />} />
+      <Route path="returns" element={<AdminReturns />} />
+      {/* Legacy `/admin/vendor-settlement` — this workspace is FOODbakēd-only
+          (every API call targets `/admin/vendor-settlement/food/*`) so it now
+          lives under the FOOD module workspace. Keep the old URL as a
+          redirect so existing bookmarks keep working. */}
+      <Route path="vendor-settlement" element={<Navigate to="/admin/modules/food/finance" replace />} />
       {/* Fixing_Prompt v5 — old duplicate routes redirect into the unified
           Suppliers workflow. Bookmarks keep working, one authoritative queue. */}
       <Route path="mart-partner-approvals" element={<Navigate to="/admin/modules/mart/approvals" replace />} />
@@ -100,7 +119,7 @@ export const AdminApp = () => (
       <Route path="modules/:code" element={<ModuleWorkspace />}>
         <Route index element={<ModuleOverview />} />
         <Route path="vendors" element={<ModuleVendors />} />
-        <Route path="applications" element={<ModulePartnerApplications />} />
+        <Route path="applications" element={<ApplicationsSwitch />} />
         <Route path="partners/applications" element={<ModulePartnerApplications />} />
         <Route path="products" element={<ProductsSwitch />} />
         <Route path="catalog" element={<CatalogSwitch />} />
@@ -124,7 +143,21 @@ export const AdminApp = () => (
         <Route path="pricing" element={<ModulePricing />} />
         <Route path="bookings" element={<ModuleBookings />} />
         <Route path="inventory" element={<AdminInventoryControlTower />} />
-        <Route path="finance" element={<ModuleComingSoon title="Finance & Settlements" />} />
+        {/* Homepage Management — MART/SHOP/FOOD each drive their landing
+            page from the shared homepage_management schema. Route the
+            same component; the page reads `code` from useParams. */}
+        <Route path="homepage-management" element={<AdminHomepageManagement />} />
+        {/* FOODbakēd workspaces (Phase 1 — restaurants/categories/cuisines). */}
+        <Route path="restaurants" element={<AdminFoodRestaurants />} />
+        <Route path="restaurants/:id/menu" element={<AdminFoodMenuManager />} />
+        <Route path="restaurants/:id/analytics" element={<AdminFoodAnalytics />} />
+        <Route path="cuisines" element={<AdminFoodCuisines />} />
+        <Route path="categories" element={<AdminFoodCategories />} />
+        {/* Applications route is handled above via ApplicationsSwitch */}
+        {/* FOODbakēd — Finance & Settlements lives here (not in the main
+            admin menu) because every API call it makes is scoped to the
+            FOOD module. */}
+        <Route path="finance" element={<AdminVendorSettlement />} />
         <Route path="ai" element={<ModuleComingSoon title="AI Operations" />} />
         <Route path="analytics" element={<ModuleComingSoon title="Module analytics" />} />
         <Route path="promotions" element={<ModuleComingSoon title="Promotions & Marketing" />} />

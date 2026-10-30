@@ -1,0 +1,39 @@
+{
+  "summary": "Iter91: End-to-end testing of FOOD Restaurant Analytics (admin + partner). Backend: analytics suite 7/7 passing, full FOOD suite 43/43 (1 flaky ReadTimeout on test_submit_requires_docs_and_bank, passes on retry). New iter91 pytest file (3 tests) verifying seed auth guard (401), seed idempotency with clear=true (7 daily, 24 hourly buckets, non-negative KPIs), and empty-restaurant analytics returning 200 (burger_hub_in) — all pass. Backend cross-tenant isolation confirmed: partner token for burger_hub_ci gets 200 on own analytics and 403 on burger_hub_in. Frontend admin: /admin/modules/food/restaurants shows 5 icon actions per row, analytics icon (admin-food-restaurant-analytics-burger_hub_ci) navigates to /admin/modules/food/restaurants/burger_hub_ci/analytics, all 4 KPIs render (Orders 31, Gross 175.6k XOF, Net 142.2k XOF, Prep 24.4 min after seed clear=true 7d), 3 range chips work (7d↔90d values change), 8 top items with proportional bars, all 6 charts render (chart-daily, chart-prep, status-mix, type-mix, payment-mix, hourly), seed button visible. Frontend partner: /partner/food/login → sidebar has exactly 3 nav items (Tableau de bord, Analytics NEW, Menu), Analytics loads partner-analytics-page + partner-restaurant-analytics scoped to own restaurant, no restaurant selector exposed. No blocking console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/food/apply/... (test_submit_requires_docs_and_bank)", "issue": "Flaky ReadTimeout (15s) once in the full suite run; passes on retry"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "admin restaurants page", "issues": ["Non-blocking console warning: 'An empty string (\"\") was passed to the src attribute' on some img tags — should render null instead of empty string"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_analytics.py",
+    "/app/backend/tests/test_food_analytics_seed_iter91.py",
+    "/app/test_reports/pytest/food_full_iter91.xml"
+  ],
+  "action_items": [
+    "(Low) Fix empty-string src on <img> tags in admin FOOD restaurants list to remove console warnings."
+  ],
+  "critical_code_review_comments": [
+    "Analytics component is properly reused between admin and partner with only the axios instance and testId prefix differing — good DRY.",
+    "Partner isolation enforced at backend (403) and at UI (no restaurant selector) — solid tenant boundary.",
+    "Seed endpoint response uses key 'seeded' — reference note in task said 'created'; harmless but doc could be aligned."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_food_analytics_seed_iter91.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Admin: depexopenai@gmail.com / baked@2026#!$@ ; FOOD partner (created this run): test-partner-ci@baked.dev / PartnerTest123! for burger_hub_ci",
+  "seed_data_creation": "Seeded burger_hub_ci with days=7 daily_avg=5 clear=true (~30 orders) via admin endpoint. Created partner account test-partner-ci@baked.dev on burger_hub_ci.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Analytics feature fully validated end-to-end. Seed endpoint returns {seeded, restaurant_id, days, daily_avg} not {created}. Partner login path /partner/food/login uses POST /api/food/partner/auth/login (JWT role food_partner). Cross-tenant returns 403. Only cosmetic issue: empty-string img src warnings.",
+  "rca of the issue": "N/A — no blocking issues."
+}

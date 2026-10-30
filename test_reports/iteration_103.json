@@ -1,0 +1,37 @@
+{
+  "summary": "P0 checkout bug (subtotal=0 after guest-cart login merge + min-order gate blocking small carts) is CONFIRMED FIXED on both backend and frontend. Backend regression suite /app/backend/tests/test_min_order_eligibility.py: 6/6 PASS against preview URL. Frontend live E2E: Guest in country=IN added 2 FOOD items from Burger Hub (Crispy Wings ₹279 + Coca-Cola ₹49 = ₹328; Mozzarella Sticks ₹199 add attempt timed out on modal — flaky UI click, NOT the reported bug — see note). After phone+OTP login the user lands on /paiement and sees: FOOD subtotal ₹328.00, Sous-total ₹328.00 (NOT ₹0), Total ₹328.00, FOOD red chip on every item line (not MART), NO '…more to reach minimum' warning, Place order button enabled, no MART/SHOP subtotal lines rendered (correct — those buckets are empty).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_scenarios_executed": [
+    {"name": "E2E Test #1 — Guest IN adds FOOD items → OTP login → /checkout shows correct FOOD subtotal/total, no min warning, Place order enabled", "status": "PASS (2 of 3 items added; Mozzarella Sticks modal failed to render add-to-cart button in 5s window — looks like variant-selection modal flakiness, not the reported bug. Core subtotal/FOOD-bucket/total/no-min-warning/enabled-CTA all PASS.)"},
+    {"name": "Backend smoke #1 — GET /api/mart/cart/eligibility (TestCartEligibility) returns eligible=true, min_order=0, shortfall=0 for both single-item (₹400) and multi-item carts", "status": "PASS (2/2)"},
+    {"name": "Backend smoke #2 — POST /api/orders with cart below old ₹3000 CI minimum returns 200 (not 400), total == subtotal + delivery_fee, GET /api/orders/{id} persists same total", "status": "PASS (2/2)"},
+    {"name": "Backend smoke #3 — Country config endpoint still exposes CI with delivery_fee=500 but API no longer enforces min_order", "status": "PASS"},
+    {"name": "Backend smoke #4 — Order tracking regression (stage/timeline/driver/geo) still functional after min-order removal", "status": "PASS"},
+    {"name": "/paiement route is auth-gated — anonymous visit shows PhoneLoginDialog (expected)", "status": "PASS"}
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_min_order_eligibility.py",
+    "/app/test_reports/pytest/iter103_min_order.xml"
+  ],
+  "action_items": [
+    "(Minor, non-blocking, NOT part of this fix) The food item detail modal sometimes does not surface the add-to-cart button quickly for items with required variants (e.g., Mozzarella Sticks). The locator [data-testid=\"food-add-to-cart-btn\"] was absent after opening the modal — likely the variant/addon section was shown and the CTA was below the viewport or disabled until a variant was selected. Worth E1 double-checking whether the modal auto-selects the first variant by default so single-click Add works."
+  ],
+  "critical_code_review_comments": [
+    "CheckoutPage.jsx now derives subtotal/hasMart/hasFood/hasShop directly from cart.items via module filtering — this correctly bypasses the 0-fallback trap of `cart.mart?.subtotal ?? 0` after a guest-login merge. Good single-source-of-truth refactor.",
+    "lib/checkout.js checkOrderEligibility() stub returning {eligible:true, shortfall:0, min_order:0} is a reasonable short-circuit, but consider adding a brief JSDoc note that the server contract is also neutered (v1.1) so a future dev doesn't 're-enable' this on the frontend only.",
+    "Backend check_order_eligibility() always returning eligible=true is clean, but the response still carries min_order from the DB column. Consider forcing min_order:0 in the response too (currently done — verified) so a stray UI reading that field won't resurrect the warning. ✅ already done.",
+    "The CI delivery_fee=500 column in config/countries is still exposed — just unused for gating. Fine as-is."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6 pytest)", "frontend": "P0 scenario PASS (FOOD subtotal, total, no-min-warning, Place-Order-enabled, FOOD chip all verified live)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file /app/backend/tests/test_min_order_eligibility.py is the authoritative suite for the min-order removal — rerun on any carts/orders refactor. Frontend selectors to reuse: [data-testid=food-item-card-<id>], [data-testid=food-add-to-cart-btn], [data-testid=top-nav-cart-button], [data-testid=cart-drawer-checkout], [data-testid=auth-phone-input/send-code-btn/dev-code-hint/otp-input-<i>/verify-code-btn], and [data-testid=checkout-summary-{mart|food|shop}-subtotal / checkout-summary-subtotal / checkout-summary-total / checkout-place-order-btn / checkout-item-<id>]. Country override: localStorage.setItem('baked_location', JSON.stringify({country:'IN',country_code:'IN',code:'IN',name:'India'})); localStorage.setItem('baked_country','IN'); then NAVIGATE (not reload) to the restaurant URL — reloading drops the baked_country for some reason, direct navigation preserves it. Burger Hub IN menu item IDs: burger_hub_in_crispy_wings (₹279), burger_hub_in_mozz_sticks (₹199), burger_hub_in_coke (₹49). Dev OTP code is in the dialog text 'Development mode — OTP: XXXXXX'.",
+  "rca_of_the_issue": "RCA (as described by E1 and verified): CheckoutPage used `cart.mart?.subtotal ?? 0` — nullish-coalescing does NOT fall back when value is literally 0, which it was after guest-cart login merge because FOOD items live only in localStorage (Phase 2 — no server FOOD cart) and the merged MART bucket legitimately returned 0 while cart.items still contained the 3 FOOD items. Compound bug: the UI module-chip logic also mislabelled anything not SHOP as MART, hiding FOOD items in the MART bucket, and the frontend+backend both enforced a ₹3000 CI min-order against a bucket that was now empty, producing the exact 'Add ₹170 more to reach ₹199 minimum' + Total=₹29 (delivery only) screenshot. Fix: derive subtotal/hasMart/hasFood/hasShop from cart.items with explicit 3-way module filter; drop min-order enforcement on both /api/mart/cart/eligibility and POST /api/orders; expose FOOD-order submission from CheckoutPage.placeOrder mirroring CartDrawer. All verified live."
+}

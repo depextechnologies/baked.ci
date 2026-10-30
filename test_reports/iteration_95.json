@@ -1,0 +1,39 @@
+{
+  "summary": "Verified P0 FOODbakēd unified search + FR/EN language switch. Backend: 9/9 pytest passing (test_food_search.py) plus live curl checks for indien→Spice Nation cross-language, table→burger-hub reservation gating, empty q→422, zzzzz→all empty buckets. Frontend E2E via Playwright confirmed: FR default hero copy, global language toggle switches FR/EN including hero and mode buttons, debounced dropdown appears for 'burg' with all 4 grouped sections (restaurants/dishes/cuisines/reservations testids), empty-state testid renders for 'zzzzz-invalid', Enter on 'burger' navigates to /foodbaked/search?q=burger&mode=delivery, results page renders with tabs, dine_in mode toggle syncs URL to mode=dine_in, and NO FOODbakēd-specific language/cart/location selectors were introduced (verified via absent testids). One localization gap found: several non-hero homepage sections have missing FR i18n keys.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/food (FOODbakēd homepage, FR)",
+        "issues": [
+          "Missing FR i18n keys: customer:food.promo1_line1, food.promo1_line2, food.promo1_sub, food.promo1_cta, food.promo2_title, food.promo2_sub, food.promo2_note, food.promo2_cta, food.cuisines_title, food.why_title, food.usp1_title, food.usp1_sub, food.usp2_title, food.usp2_sub, food.usp3_title, food.usp3_sub, food.usp4_title, food.usp4_sub, food.testimonial_quote, food.testimonial_meta. Repeatedly logged as '[i18n] missing key customer:food.<key> for fr' in console. Task requires ALL FOODbakēd homepage strings respect FR/EN switch; these sections currently fall back to EN when in FR. Add keys to /app/frontend/src/i18n/locales/fr/customer.json."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_search.py",
+    "/app/test_reports/pytest/food_search_results.xml"
+  ],
+  "action_items": [
+    "Add missing FR translations in /app/frontend/src/i18n/locales/fr/customer.json for food.promo1_*, food.promo2_*, food.cuisines_title, food.why_title, food.usp1..usp4_*, food.testimonial_* to eliminate EN fallback on FR homepage sections below the hero."
+  ],
+  "critical_code_review_comments": [
+    "Backend /app/backend/modules/food/search.py: cross-language cuisine expansion via _matched_cuisine_codes and reservation_public gate are both correctly enforced (verified in tests and via live API).",
+    "Frontend FoodSearchDropdown uses 280ms debounce with stale-response protection — good; recommend also handling AbortController on unmount if not already, to avoid setState after unmount warnings.",
+    "Frontend FoodHome sources countryCode from useApp() (global BAKED context) — good; no FOODbakēd-specific selectors were created (verified)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "95%"},
+  "test_credentials": "Not required for search flow (public endpoint).",
+  "seed_data_creation": "None. Used existing demo tenants (burger-hub CI reservation_public=true, spice-nation, etc.).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend food/search pytest suite is stable (9/9). Frontend: hero + dropdown + results page + language toggle all working. Only outstanding item is FR i18n key gap for homepage sections below the hero (promo1/promo2/cuisines_title/why_title/usp1-4/testimonial). After main agent adds those keys, quickly reload /food in FR and confirm the [i18n] missing key console warnings are gone.",
+  "rca of the issue": "N/A — no P0 bugs. i18n gap is due to those keys never being added to the fr/customer.json locale file; EN fallback is triggered by react-i18next when key is absent."
+}

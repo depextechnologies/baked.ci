@@ -1,0 +1,24 @@
+{
+  "summary": "Iter92: Verified the FOODbaked Restaurant Seller onboarding wizard runtime-error fix end-to-end. All 3 fixes hold: (1) <html translate=\"no\"> + <meta name=\"google\" content=\"notranslate\"> + body.notranslate confirmed present at runtime; (2) Step 2 Upload label text wrapped in <span> — confirmed via outerHTML inspection; (3) WizardErrorBoundary present around SellersApp routes but never triggered during the flow (which is the desired outcome). Full flow tested against public REACT_APP_BACKEND_URL: signup with unique email/phone via dual dev-OTP → dashboard 'Brouillon · Draft' → Step1 save (no nav) + Next → Step2 (5 doc rows) → back/forward/reload survives → simulated Google-Translate DOM mutation (injected <font> wrappers around .cursor-pointer span text nodes) then triggered re-render via back-next: NO error boundary triggered, NO pageerror, NO console error → Step2 Next disabled as expected (no required docs uploaded) → advanced directly to Step3 via URL → Step3 timing (pmin=15, pmax=25, close Monday) → Step4 (cuisine burgers, avgprice 1500, notes) → Step5 (bank_account, holder, SGBCI, IBAN) → Step6 review shows 'QA Resto' + wizard-submit button visible (not clicked, per instructions). Save-and-resume: logout via portal-logout, phone-OTP re-login succeeded and rehydrated the dashboard. Route regression: /foodbaked/sellers/apply/step-999 correctly redirected to /dashboard via StepRedirect. Total: 0 pageerror events, 0 non-benign console errors throughout the entire flow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Step2 defense-in-depth <span> wrap is applied only to the 'Téléverser · Upload' label text — other bilingual strings in the wizard (e.g. 'Suivant · Next' in WizardShell line 513, 'Retour' line 507, 'Enregistrer · Save draft' line 510, status labels in Dashboard, all bilingual · separators in ReviewRow labels) still render bare text with the middle-dot separator. If a rogue translator extension bypasses the translate=\"no\" hint (some Chrome extensions ignore it), these could still trigger insertBefore errors. Consider wrapping the FR/EN strings globally in a small <BiLabel fr en/> helper as a longer-term hardening, but not blocking.",
+    "WizardErrorBoundary.reset() forces a full window.location.reload() which loses in-flight React state. Acceptable as a last-resort recovery, worth noting.",
+    "SellersApp.jsx is 1043 lines — approaching the 700-line split guideline. Consider extracting Step1..Step6 into ./steps/*.jsx for maintainability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100%"},
+  "test_credentials": "Created transient applicant qa-<ts>@test.example + phone +22507<ts> during test — dev OTP codes captured from inline label text.",
+  "seed_data_creation": "Created one draft FOOD applicant during the test (dashboard status draft, wizard partially filled up to Step 6, application NOT submitted per instructions).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 3 translate/error-boundary fixes verified end-to-end. Fresh applicant created (email qa-<timestamp>@test.example) still lives in DB as a draft — safe to ignore. To rerun, generate a new unique email/phone. wizard-next-2 has an empty 'disabled' attribute (present but empty string) which means disabled=true — Playwright's get_attribute returns '' for boolean-present attribute; use is_disabled() if you need a boolean check.",
+  "rca of the issue": "N/A — no bugs found. Fix is validated."
+}

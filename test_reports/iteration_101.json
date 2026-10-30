@@ -1,0 +1,45 @@
+{
+  "summary": "Verified BAKED Global Search end-to-end. Backend: 13/13 primary + 9/9 extra regression tests pass (22/22). FOOD regression tests (test_food_orders, test_food_search, test_food_partner_menu, test_food_dispatch_bridge) remain green. Contract shape, cross-module hits (coca cola MART, pizza FOOD, milk FOOD+MART, dress/shoes SHOP), intents (send_parcel/book_truck/shift_home/book_table FR+EN with locale-correct action_labels), normalization (accent + punctuation + hyphen tolerant), module filter, short-circuit (q<2), click endpoint fire-and-forget, event_id emission all confirmed on preview URL. Frontend: desktop typeahead (coca cola, pizza stale-request handling, envoyer-un-colis intent), results page (/search?q=...), tabs, module query sync, FR-only empty state, intent routing to /send/book/parcel, and backward compat all work. Two frontend issues found: (1) MAJOR mobile — the `top-nav-search-input-mobile` chevron is never rendered because `MobileHeader` replaces `TopNav` below md, and its `m-header-search` button navigates to `/products` instead of `/search`, so mobile users bypass global search entirely; (2) MINOR — `/products?search=foo` is silently redirected to the French-slug `/produits?search=foo` by the locale router (page renders correctly with results, but user asked for 'do NOT redirect').",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "MobileHeader (components/mobile/MobileHeader.jsx line ~221)",
+        "issue": "Mobile global-search entrypoint missing. `data-testid='top-nav-search-input-mobile'` chevron (defined in TopNav.jsx with md:hidden) is never rendered on mobile because MobileShell swaps TopNav for MobileHeader. MobileHeader's `m-header-search` button navigates to `/products` (legacy MART search) or `/shop/categories`, NOT to `/search`. Global search is therefore unreachable from the mobile header.",
+        "selector": "[data-testid='m-header-search']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Backward compat /products?search=",
+        "issue": "URL redirects to French slug /produits?search=foo. Results render correctly (MART page shows 2 Riz items for q=riz) but spec said 'do NOT redirect'. Likely locale-slug middleware. Minor.",
+        "affected_selectors": ["url"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_global_search.py",
+    "/app/backend/tests/test_global_search_extra.py",
+    "/app/test_reports/pytest/global_search_combined.xml"
+  ],
+  "action_items": [
+    "Fix MobileHeader: either rename & re-wire `m-header-search` to navigate to `/search` and expose `data-testid='top-nav-search-input-mobile'` (dual testid), or replace MobileHeader's search button with a shared chevron that routes to /search. Current behaviour makes global search unreachable from the mobile header.",
+    "Decide on backward-compat redirect for /products?search=foo. If intended, update the spec/comment; if not, exempt /products from the locale slug redirect so the URL stays as /products?search=foo."
+  ],
+  "critical_code_review_comments": [
+    "GlobalSearchHeaderBox portal pattern + outside-click detection correctly accounts for the portal via document.querySelector of dropdown testid — good.",
+    "search response groups are a list (not a dict keyed by module) — confirm this is the stabilised contract; the request spec described keyed groups. All 13 existing tests expect the list shape so this is consistent, but update docs if needed.",
+    "Mobile UX: MobileHeader bypasses the newly added global search feature; consider centralising header search behind a single component rather than duplicating button logic across TopNav + MobileHeader."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_global_search_extra.py (new file - 9 extra regression tests)"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "~85%" },
+  "test_credentials": "Not required for /api/search (public).",
+  "seed_data_creation": "None — relied on existing seeded intents and catalogs.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "22/22 search backend tests pass. The only remaining frontend gap is the mobile entrypoint: `top-nav-search-input-mobile` is defined on TopNav with md:hidden, but TopNav itself is swapped out by MobileShell on <md viewports, so the chevron never mounts. Mobile users land on the old /products MART search via `m-header-search` instead of /search. Also `/products?search=` 302-redirects to `/produits?search=` (locale slug) but the MART page still renders correctly."
+}

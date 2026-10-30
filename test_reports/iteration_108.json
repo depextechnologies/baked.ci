@@ -1,0 +1,61 @@
+{
+  "summary": "Iteration 108 — tested FOODbakēd P0 Location-Aware Discovery (backend + frontend). All 21 backend tests pass (13 existing + 8 new review-specific) and all frontend scenarios in the request verify green. Only minor i18n warnings observed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "i18n", "issue": "FR translations missing keys 'customer:food.categories_title' and 'customer:food.categories_subtitle' — console warnings on /food; category subtitle text ('Choisissez votre repas') is not translated when EN is selected."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/food (EN)", "issues": ["Browse-by-type subtitle still shows French 'Choisissez votre repas' when language is EN — i18n key missing"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_discovery.py",
+    "/app/backend/tests/test_food_discovery_iter108.py",
+    "/app/test_reports/pytest/iter108_discovery.xml",
+    "/app/test_reports/pytest/iter108_review.xml"
+  ],
+  "action_items": [
+    "Add FR translations for 'customer:food.categories_title' and 'customer:food.categories_subtitle' so EN users don't see French subtitle text."
+  ],
+  "critical_code_review_comments": [
+    "discovery.py is clean & well-documented single-source-of-truth — no issues.",
+    "Admin POST /api/admin/food/restaurants derives id deterministically from slug+country and silently ignores any client-supplied id — consider returning the final id prominently or documenting this in the OpenAPI docstring.",
+    "Admin food restaurants page lives at /admin/modules/food/restaurants (not /admin/food/restaurants). /admin/food/restaurants renders a blank page — either redirect to the modules path or add a Route alias to avoid confusion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_food_discovery_iter108.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (all verified scenarios green)"},
+  "test_credentials": "Super Admin: depexopenai@gmail.com / baked@2026#!$@ at /admin/login (login endpoint: POST /api/admin/auth/login)",
+  "seed_data_creation": "Created & deleted test restaurant r_iter108_... during pytest. Also cleaned up one stale leftover (r_iter108_b9939b68_ci) via DELETE /api/admin/food/restaurants/{rid}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend file test_food_discovery_iter108.py covers the review-specific scenarios: discovery items shape+radius, far-away=0 items, no-coords fallback, unique brands/top, discovery/check for burger_hub_ci, search distance_km, homepage food_top_brands section, admin POST+PATCH delivery-zone persistence and eligibility flip. Admin food route is /admin/modules/food/restaurants.",
+  "verified_scenarios": {
+    "backend": [
+      "GET /api/food/discovery?country=CI&lat=5.3484&lng=-4.0017&mode=delivery → 200, items have distance_km, eta_min, eta_max, mode_eligible, all within delivery_radius_km",
+      "GET /api/food/discovery (lat=10.5,lng=-5.0) → 0 items",
+      "GET /api/food/discovery (no lat/lng) → items with has_customer_coords=false",
+      "GET /api/food/brands/top → unique brands (one per name), eta/distance present",
+      "GET /api/food/discovery/check?restaurant_id=burger_hub_ci → delivery_eligible=true",
+      "GET /api/food/search?q=burger → restaurants with distance_km populated",
+      "GET /api/homepage?country=CI&module=food → contains food_top_brands section (also CI+IN seeded)",
+      "POST /api/admin/food/restaurants with lat/lng/radius persists; GET returns saved values; /food/discovery picks it up",
+      "PATCH /api/admin/food/restaurants/{rid} with delivery_radius_km=2 flips delivery_eligible to false for a 3 km caller"
+    ],
+    "frontend": [
+      "/food with activeAddress → food-section-top-brands visible with 7 top-brand-card-* and top-brands-prev/next buttons",
+      "/food without activeAddress → food-home-set-address banner + food-home-set-address-btn visible",
+      "Click top-brand-card → navigates to /foodbaked/restaurants/<slug>",
+      "FR default: 'Les meilleures enseignes près de chez vous' / 'Vos marques préférées à portée de clic' renders",
+      "EN: 'Top brands for you' / 'Your favourite brands, delivered' renders",
+      "Admin Homepage Mgmt (FOODbakēd tab): 'FOOD · Top Brands For You (location-aware carousel)' section type available in Add Section dropdown; existing row 'Les meilleures enseignes près de chez vous' shows as food_top_brands type",
+      "Admin Food Restaurants edit modal exposes rest-form-lat / rest-form-lng / rest-form-radius / rest-form-delivery-enabled / rest-form-pickup-enabled"
+    ]
+  }
+}

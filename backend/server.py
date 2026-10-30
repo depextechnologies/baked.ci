@@ -56,6 +56,7 @@ from shared.notifications.routes import (  # noqa: E402
     supplier_router as notif_supplier_router,
     partner_router as notif_partner_router,
     admin_router as notif_admin_router,
+    customer_router as notif_customer_router,
 )
 from modules.mart.routes import router as mart_router  # noqa: E402
 from modules.mart.orders import router as orders_router  # noqa: E402
@@ -71,6 +72,62 @@ from modules.driver.routes import (  # noqa: E402
     track_router as driver_track_router,
 )
 from modules.realtime.routes import router as realtime_router  # noqa: E402
+from modules.food.routes import (  # noqa: E402
+    router as food_router,
+    admin_router as food_admin_router,
+    partner_router as food_partner_router,
+    manage_router as food_manage_router,
+)
+from modules.food.applications import (  # noqa: E402
+    applicant_router as food_applicant_router,
+    apply_admin_router as food_apply_admin_router,
+    activation_router as food_partner_activation_router,
+    public_apply_router as food_public_apply_router,
+)
+from modules.food.analytics import (  # noqa: E402
+    analytics_router as food_analytics_router,
+    seed_router as food_seed_router,
+)
+from modules.food.reservations import (  # noqa: E402
+    public_router   as food_reservations_public_router,
+    customer_router as food_reservations_customer_router,
+    manage_router   as food_reservations_manage_router,
+)
+from modules.food.microsite import (  # noqa: E402
+    public_router   as food_microsite_public_router,
+    manage_router   as food_microsite_manage_router,
+)
+from modules.food.reservation_config import (  # noqa: E402
+    manage_router   as food_reservation_config_manage_router,
+)
+from modules.food.reviews import (  # noqa: E402
+    public_router   as food_reviews_public_router,
+    customer_router as food_reviews_customer_router,
+)
+from modules.food.search import public_router as food_search_public_router  # noqa: E402
+from modules.food.discovery import router as food_discovery_router  # noqa: E402
+from modules.food.discover  import router as food_discover_page_router  # noqa: E402
+from modules.cart_quote import router as cart_quote_router  # noqa: E402
+from modules.food.favourites import customer_router as food_favourites_customer_router  # noqa: E402
+from modules.returns import (  # noqa: E402
+    customer_router as returns_customer_router,
+    partner_router  as returns_partner_router,
+    admin_router    as returns_admin_router,
+    policy_router   as returns_policy_router,
+)
+from modules.vendor_settlement import (  # noqa: E402
+    partner_router as settlement_partner_router,
+    admin_router   as settlement_admin_router,
+)
+from modules.vendor_settlement_cron import (  # noqa: E402
+    cron_router    as settlement_cron_router,
+    admin_router   as settlement_cron_admin_router,
+)
+from modules.search import router as global_search_router  # noqa: E402
+from modules.food.orders import (  # noqa: E402
+    customer_router as food_orders_customer_router,
+    partner_router  as food_orders_partner_router,
+)
 from seed import run_seed  # noqa: E402
 
 app = FastAPI(title="BAKĒD Platform API", version="1.0.0")
@@ -111,6 +168,7 @@ async def health():
 # --- Shared Platform Foundation ---
 api_router.include_router(auth_router)
 api_router.include_router(customer_router)
+api_router.include_router(global_search_router)
 api_router.include_router(addresses_router)
 api_router.include_router(express_router)
 api_router.include_router(config_router)
@@ -141,6 +199,7 @@ api_router.include_router(inv_admin_router)
 api_router.include_router(notif_supplier_router)
 api_router.include_router(notif_partner_router)
 api_router.include_router(notif_admin_router)
+api_router.include_router(notif_customer_router)
 
 # --- Business Domain Modules ---
 api_router.include_router(mart_router)
@@ -176,6 +235,47 @@ api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
 api_router.include_router(driver_track_router)
 api_router.include_router(realtime_router)
+# --- FOODbakēd (Phase 1 — 2026-02) ---
+# Public /food/* + admin /admin/food/* routes for the FoodHome + admin
+# workspace under /admin/modules/food.
+api_router.include_router(food_discover_page_router)             # /food/restaurants/discover + /food/categories (MUST be before food_router so /restaurants/discover isn't captured by the /restaurants/{slug} route)
+api_router.include_router(food_router, prefix="/food")
+api_router.include_router(food_discovery_router)                 # /food/discovery + /brands/top
+# food_discover_page_router registered earlier (above food_router) to avoid
+# the /food/restaurants/{slug} capture; comment left here for discoverability.
+api_router.include_router(cart_quote_router)                     # /cart/quote — unified pricing engine
+api_router.include_router(food_admin_router)
+api_router.include_router(food_partner_router)
+api_router.include_router(food_manage_router)
+# FOODbakēd onboarding — applicant portal (`/foodbaked/sellers`) + admin queue.
+api_router.include_router(food_public_apply_router)      # doc-requirements
+api_router.include_router(food_applicant_router)         # OTP + wizard
+api_router.include_router(food_apply_admin_router)       # admin review
+api_router.include_router(food_partner_activation_router)  # POST /food/partner/activate
+api_router.include_router(food_analytics_router)           # GET /food/manage/{rid}/analytics
+api_router.include_router(food_seed_router)                # POST /admin/food/restaurants/{rid}/seed-orders
+# FOODbakēd — Table reservations + real-time partner notification engine (2026-02).
+api_router.include_router(food_reservations_public_router)     # /food/restaurants/{slug}/reservation-*
+api_router.include_router(food_reservations_customer_router)   # /food/customer/reservations
+api_router.include_router(food_reservations_manage_router)     # /food/manage/{rid}/reservation-* + WS
+# FOODbakēd — Restaurant microsite (Overview/Photos/Menu/Reviews foundation).
+api_router.include_router(food_microsite_public_router)        # /food/restaurants/{slug}/microsite + /photos
+api_router.include_router(food_microsite_manage_router)        # /food/manage/{rid}/profile + /photos CRUD
+api_router.include_router(food_reservation_config_manage_router)  # /food/manage/{rid}/reservation-areas + tables + activate
+api_router.include_router(food_reviews_public_router)             # /food/restaurants/{slug}/reviews
+api_router.include_router(food_reviews_customer_router)           # /food/customer/reviews[/eligible]
+api_router.include_router(food_search_public_router)              # /food/search
+api_router.include_router(food_orders_customer_router)            # /food/customer/orders
+api_router.include_router(food_orders_partner_router)             # /food/manage/{rid}/orders
+api_router.include_router(food_favourites_customer_router)        # /food/customer/favourites
+api_router.include_router(returns_partner_router)                 # /returns/partner  (must come first — else /returns/{id} shadows it)
+api_router.include_router(returns_customer_router)                # /returns
+api_router.include_router(returns_admin_router)                   # /admin/returns
+api_router.include_router(returns_policy_router)                  # /admin/return-policies
+api_router.include_router(settlement_partner_router)              # /food/partner/wallet
+api_router.include_router(settlement_admin_router)                # /admin/vendor-settlement
+api_router.include_router(settlement_cron_admin_router)           # /admin/vendor-settlement/{preview,run-now,...}
+api_router.include_router(settlement_cron_router)                 # /cron/vendor-settlement/run
 
 # --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity
@@ -208,6 +308,20 @@ from pathlib import Path as _Path  # noqa: E402
 _uploads_root = _Path(os.environ.get("STORAGE_LOCAL_PATH") or "/app/backend/uploads").resolve()
 _uploads_root.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(_uploads_root)), name="uploads")
+
+# BAKĒD mobile app — Expo Web export for design review (built from /app/mobile).
+_app_preview_root = _Path("/app/mobile/dist")
+class _SpaStaticFiles(StaticFiles):
+    """Serves index.html for unknown paths so in-app deep links survive a refresh."""
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except Exception:  # noqa: BLE001 — starlette raises HTTPException(404)
+            return await super().get_response("index.html", scope)
+
+
+if _app_preview_root.is_dir():
+    app.mount("/api/app-preview", _SpaStaticFiles(directory=str(_app_preview_root), html=True), name="app-preview")
 
 # ---- Postgres-outage-friendly middleware ----
 # When Postgres goes briefly unreachable (container restart, VM reschedule),
@@ -324,7 +438,7 @@ async def _on_startup():
     from core.db import engine as _engine
 
     logger.info("baked.startup waiting for postgres…")
-    for attempt in range(30):
+    for attempt in range(180):
         try:
             async with _engine.begin() as conn:
                 await conn.execute(text("SELECT 1"))

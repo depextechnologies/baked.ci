@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useApp, useCart, useAuth } from "../contexts/BakedContexts";
 import { formatMoney } from "../lib/i18n";
 import { useLocalePath } from "../i18n/routes";
-import { checkOrderEligibility } from "../lib/checkout";
+// checkOrderEligibility — removed in v1.1. Pricing lives in /cart/quote now.
 import { getCartTheme, lineAccent, CART_MODE } from "../lib/cartTheme";
 import { CART } from "../constants/testIds";
 import { Button } from "../components/ui/button";
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 export const CartPage = () => {
   const { t } = useTranslation("customer");
   const { country } = useApp();
-  const { cart, updateItem, removeItem, clear } = useCart();
+  const { cart, quote, updateItem, removeItem, clear } = useCart();
   const { customer, openLogin } = useAuth();
   const navigate = useNavigate();
   const path = useLocalePath();
@@ -25,20 +25,23 @@ export const CartPage = () => {
   const theme = getCartTheme(cart);
   const unavailable = cart.unavailable_items || [];
   const hasUnavailable = unavailable.length > 0;
-  // Split by module: min-order + delivery fee are MART-only concerns.
-  // SHOP items ship from sellers and don't count toward the MART min-order.
-  const martSubtotal = cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
-  const shopSubtotal = cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
-  const martCount = cart.mart?.item_count ?? items.filter((i) => i.module !== "shop").reduce((s, i) => s + i.quantity, 0);
+  // Backend quote is the single source of truth (fixing_prompt P0 — one
+  // calculation engine). Fallbacks below only run until the first quote
+  // lands so the UI never flashes stale numbers.
+  const martSubtotal = quote?.mart?.subtotal ?? cart.mart?.subtotal ?? items.filter((i) => i.module !== "shop" && i.module !== "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const shopSubtotal = quote?.shop?.subtotal ?? cart.shop?.subtotal ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + (i.line_total || 0), 0);
+  const foodSubtotal = quote?.food?.subtotal ?? cart.food?.subtotal ?? items.filter((i) => i.module === "food").reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
+  const martCount = cart.mart?.item_count ?? items.filter((i) => i.module !== "shop" && i.module !== "food").reduce((s, i) => s + i.quantity, 0);
   const shopCount = cart.shop?.item_count ?? items.filter((i) => i.module === "shop").reduce((s, i) => s + i.quantity, 0);
+  const foodCount = cart.food?.item_count ?? items.filter((i) => i.module === "food").reduce((s, i) => s + i.quantity, 0);
   const hasMart = martCount > 0;
   const hasShop = shopCount > 0;
-  const elig = checkOrderEligibility(martSubtotal, country);
-  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
-  // If cart is SHOP-only we skip the MART min-order gate (SHOP has no min).
-  const minOrderOk = hasMart ? martEligible : true;
-  const total = (hasMart ? elig.total : 0) + shopSubtotal;
-  const subtotal = martSubtotal + shopSubtotal;
+  const hasFood = foodCount > 0;
+  const martDelivery = quote?.mart?.delivery_fee ?? 0;
+  const foodDelivery = quote?.food?.delivery_fee ?? 0;
+  const minOrderOk = true;                                      // v1.1 — no min
+  const subtotal = quote?.subtotal ?? (martSubtotal + shopSubtotal + foodSubtotal);
+  const total    = quote?.total    ?? (subtotal + martDelivery + foodDelivery);
 
   const doCheckout = () => {
     // Guests can review the cart freely — login is required only at the
@@ -47,7 +50,6 @@ export const CartPage = () => {
     // their (now merged) cart intact.
     if (!customer) { openLogin?.(path("checkout")); return; }
     if (hasUnavailable) { toast.error("Remove items marked 'Coming soon' before checking out"); return; }
-    if (!minOrderOk) { toast.error(`Add ${formatMoney(shortfall, country.currency, country.currency_symbol)} more to reach the ${formatMoney(minOrder, country.currency, country.currency_symbol)} minimum order`); return; }
     // Always route to the global /checkout — it now handles mixed and
     // SHOP-only carts internally (per Fixing_Prompt.docx §2).
     navigate(path("checkout"));
@@ -148,30 +150,33 @@ export const CartPage = () => {
             {hasMart && (
               <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-mart-subtotal">MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({martCount})</span></span><span className="font-medium">{formatMoney(martSubtotal, country.currency, country.currency_symbol)}</span></div>
             )}
+            {hasFood && (
+              <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-food-subtotal">FOOD {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({foodCount})</span></span><span className="font-medium">{formatMoney(foodSubtotal, country.currency, country.currency_symbol)}</span></div>
+            )}
             {hasShop && (
               <div className="flex justify-between"><span className="text-muted-foreground" data-testid="cart-summary-shop-subtotal">SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({shopCount})</span></span><span className="font-medium">{formatMoney(shopSubtotal, country.currency, country.currency_symbol)}</span></div>
             )}
             <div className="flex justify-between"><span className="text-muted-foreground" data-testid={CART.subtotal}>{t("cart.subtotal")}</span><span className="font-medium">{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
             {hasMart && (
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("cart.delivery_fee")} (MART)</span><span className="font-medium">{deliveryFee === 0 ? t("cart.delivery_free") : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("cart.delivery_fee")} (MART)</span><span className="font-medium">{martDelivery === 0 ? t("cart.delivery_free") : formatMoney(martDelivery, country.currency, country.currency_symbol)}</span></div>
+            )}
+            {hasFood && (
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("cart.delivery_fee")} (FOOD)</span><span className="font-medium" data-testid="cart-summary-food-delivery">{foodDelivery === 0 ? t("cart.delivery_free") : formatMoney(foodDelivery, country.currency, country.currency_symbol)}</span></div>
             )}
             {hasShop && (
               <div className="flex justify-between"><span className="text-muted-foreground">{t("cart.delivery_fee")} (SHOP)</span><span className="text-[11px] text-muted-foreground">Calculated by seller</span></div>
             )}
             <div className="h-px bg-border my-2" />
-            <div className="flex justify-between text-base"><span className="font-semibold">{t("cart.total")}</span><span className="font-bold">{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
+            <div className="flex justify-between text-base"><span className="font-semibold">{t("cart.total")}</span><span className="font-bold" data-testid="cart-summary-total">{formatMoney(total, country.currency, country.currency_symbol)}</span></div>
           </div>
           {hasUnavailable && (
             <div data-testid="cart-unavailable-warning" className="text-[12px] mt-3 p-3 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
               <b>{unavailable.length} item(s) not available in your area yet</b> — MARTbakēd is coming soon to more stores. Please remove them to continue.
             </div>
           )}
-          {!minOrderOk && (
-            <div data-testid="cart-min-order-warning" className="text-[11px] mt-3 p-2 rounded-lg bg-yellow-500/10 text-yellow-500">
-              Add <b>{formatMoney(shortfall, country.currency, country.currency_symbol)}</b> more to reach the {formatMoney(minOrder, country.currency, country.currency_symbol)} minimum.
-            </div>
-          )}
-          <Button data-testid={CART.checkoutBtn} disabled={customer && (!minOrderOk || hasUnavailable)} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold disabled:opacity-60" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
+          {/* Min-order banner removed in v1.1 — the /cart/quote engine owns
+              eligibility and no module currently enforces a minimum. */}
+          <Button data-testid={CART.checkoutBtn} disabled={customer && hasUnavailable} onClick={doCheckout} className="w-full mt-5 h-12 baked-btn font-semibold disabled:opacity-60" style={{ backgroundColor: theme.accent, color: theme.text_on }}>
             {customer ? t("cart.checkout_cta") : t("cart.sign_in_to_checkout")}
           </Button>
           {theme.mode === "MIXED" && (

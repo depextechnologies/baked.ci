@@ -202,7 +202,12 @@ export const MobileActivities = () => {
                 <div className="text-[11px] text-muted-foreground mt-1">{t("activities.empty_orders_body")}</div>
                 <Button onClick={() => nav("/")} className="baked-btn mt-4 h-9 px-4 font-bold text-black text-xs" style={{ backgroundColor: "#77BC1F" }}>{t("activities.browse_stores")}</Button>
               </div>
-            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F"; const orderRoute = o.module === "shop" ? `/shop/order/${o.id}` : path("order", { id: o.id });
+            ) : filteredOrders.map((o) => { const M = MODULE_LOGO[o.module] || ShoppingCart; const tone = MODULE_TONE[o.module] || "#77BC1F";
+              // FOOD orders get their own live-tracking page that embeds the
+              // SEND driver infrastructure under a FOOD-themed shell.
+              const orderRoute = o.module === "shop" ? `/shop/order/${o.id}`
+                                : o.module === "food" ? `/foodbaked/orders/${o.id}/track`
+                                : path("order", { id: o.id });
               // Green pill for terminal-success states across modules
               // (MART: delivered · SHOP: shipped + delivered). Everything
               // else stays module-tone to signal in-progress.

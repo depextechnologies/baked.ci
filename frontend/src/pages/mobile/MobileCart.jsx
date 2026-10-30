@@ -4,18 +4,17 @@ import { useTranslation } from "react-i18next";
 import { useApp, useAuth, useCart } from "../../contexts/BakedContexts";
 import { formatMoney } from "../../lib/i18n";
 import { useLocalePath } from "../../i18n/routes";
-import { checkOrderEligibility } from "../../lib/checkout";
 import { getCartTheme, lineAccent } from "../../lib/cartTheme";
 import { QuantityStepper } from "../../components/mobile/QuantityStepper";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCart, AlertCircle } from "lucide-react";
+import { ArrowLeft, Trash2, ShoppingBag, ShieldCheck, Info, Sparkles, ShoppingCart } from "lucide-react";
 
 export const MobileCart = () => {
   const { t } = useTranslation("customer");
   const nav = useNavigate();
   const path = useLocalePath();
   const { country } = useApp();
-  const { cart, loaded: cartLoaded, updateItem, removeItem } = useCart();
+  const { cart, quote, loaded: cartLoaded, updateItem, removeItem } = useCart();
   const { customer, openLogin } = useAuth() || {};
   const [note, setNote] = useState("");
   // Mobile cart follows the same three-mode branding as CartPage
@@ -23,19 +22,27 @@ export const MobileCart = () => {
   const theme = getCartTheme(cart);
   const ccy = country?.currency_symbol || country?.currency;
 
-  // Split by module: min-order + delivery fee are MART-only.
+  // Backend quote is the SINGLE source of truth for subtotal / fees / total
+  // (fixing_prompt P0 — mobile and desktop must never diverge). The local
+  // fallbacks below only run when `quote` is null (first paint, offline,
+  // backend error) so the UI never flashes stale numbers.
   const items = cart.items || [];
-  const martItems = items.filter((i) => i.module !== "shop");
+  const martItems = items.filter((i) => i.module !== "shop" && i.module !== "food");
   const shopItems = items.filter((i) => i.module === "shop");
-  const martSubtotal = cart.mart?.subtotal ?? martItems.reduce((s, i) => s + (i.line_total || (i.product?.price || 0) * i.quantity), 0);
-  const shopSubtotal = cart.shop?.subtotal ?? shopItems.reduce((s, i) => s + (i.line_total || 0), 0);
+  const foodItems = items.filter((i) => i.module === "food");
   const hasMart = martItems.length > 0;
   const hasShop = shopItems.length > 0;
-  const elig = checkOrderEligibility(martSubtotal, country);
-  const { delivery_fee: deliveryFee, min_order: minOrder, shortfall, eligible: martEligible } = elig;
-  const minOrderOk = hasMart ? martEligible : true;
-  const total = (hasMart ? elig.total : 0) + shopSubtotal;
-  const subtotal = martSubtotal + shopSubtotal;
+  const hasFood = foodItems.length > 0;
+
+  const martSubtotal = quote?.mart?.subtotal ?? (cart.mart?.subtotal ?? 0);
+  const shopSubtotal = quote?.shop?.subtotal ?? (cart.shop?.subtotal ?? 0);
+  const foodSubtotal = quote?.food?.subtotal ?? (cart.food?.subtotal ?? 0);
+  const subtotal     = quote?.subtotal        ?? (martSubtotal + shopSubtotal + foodSubtotal);
+  const martDelivery = quote?.mart?.delivery_fee ?? 0;
+  const foodDelivery = quote?.food?.delivery_fee ?? 0;
+  const total        = quote?.total ?? (subtotal + martDelivery + foodDelivery);
+  // v1.1 — no minimum-order block; backend enforces this authoritatively.
+  const minOrderOk   = true;
   const savings = martItems.reduce((s, i) => {
     const p = i.product || {};
     const strike = p.compare_at_price || p.original_price;
@@ -89,6 +96,7 @@ export const MobileCart = () => {
       <div className="px-4 mt-3 space-y-3">
         {cart.items.map((i) => {
           const isShop = i.module === "shop";
+          const isFood = i.module === "food";
           // SHOP items carry a slightly different shape — normalise so the row
           // renders regardless of module.
           const p = isShop
@@ -102,6 +110,15 @@ export const MobileCart = () => {
             : (i.product || {});
           const strike = p.compare_at_price || p.original_price;
           const off = strike && strike > p.price ? Math.round(((strike - p.price) / strike) * 100) : 0;
+          // Badge colour + label follow the item's REAL module, not whatever
+          // tab the customer is currently browsing. This is the bug the
+          // mobile cart used to have — FOOD items showed as MART because
+          // the badge check only distinguished SHOP vs non-SHOP.
+          const badge = isShop
+            ? { label: "SHOP", bg: "rgba(251,191,36,.15)", fg: "#F59E0B", bd: "rgba(251,191,36,.3)" }
+            : isFood
+              ? { label: "FOOD", bg: "rgba(239,68,68,.15)", fg: "#EF4444", bd: "rgba(239,68,68,.3)" }
+              : { label: "MART", bg: "rgba(119,188,31,.15)", fg: "#77BC1F", bd: "rgba(119,188,31,.3)" };
           return (
             <div key={i.id} data-testid={`m-cart-line-${i.id}`} className="baked-card bg-card border border-border p-3 flex gap-3">
               <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary/40 shrink-0">
@@ -116,12 +133,12 @@ export const MobileCart = () => {
                         data-cart-module-badge={i.id}
                         className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
                         style={{
-                          background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
-                          color: isShop ? "#F59E0B" : "#77BC1F",
-                          border: `1px solid ${isShop ? "rgba(251,191,36,.3)" : "rgba(119,188,31,.3)"}`,
+                          background: badge.bg,
+                          color: badge.fg,
+                          border: `1px solid ${badge.bd}`,
                         }}
                       >
-                        {isShop ? "SHOP" : "MART"}
+                        {badge.label}
                       </span>
                       <div className="text-sm font-semibold leading-snug line-clamp-2">{p.name}</div>
                     </div>
@@ -162,14 +179,20 @@ export const MobileCart = () => {
           <div className="text-sm font-bold mb-3">{t("checkout.order_summary")}</div>
           <div className="space-y-2 text-xs">
             {hasMart && (
-              <Row label={<span>MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-mart-subtotal" label={<span>MART {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.mart?.item_count ?? martItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(martSubtotal, country?.currency, ccy)} />
+            )}
+            {hasFood && (
+              <Row data-testid="cart-summary-food-subtotal" label={<span>FOOD {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({foodItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(foodSubtotal, country?.currency, ccy)} />
             )}
             {hasShop && (
-              <Row label={<span>SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-shop-subtotal" label={<span>SHOP {t("cart.subtotal").toLowerCase()} <span className="text-[10px] text-muted-foreground">({cart.shop?.item_count ?? shopItems.reduce((s,i)=>s+i.quantity,0)})</span></span>} value={formatMoney(shopSubtotal, country?.currency, ccy)} />
             )}
             <Row label={t("cart.subtotal")} value={formatMoney(subtotal, country?.currency, ccy)} />
             {hasMart && (
-              <Row label={`${t("cart.delivery_fee")} (MART)`} value={deliveryFee === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(deliveryFee, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-mart-delivery" label={`${t("cart.delivery_fee")} (MART)`} value={martDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(martDelivery, country?.currency, ccy)} />
+            )}
+            {hasFood && (
+              <Row data-testid="cart-summary-food-delivery" label={`${t("cart.delivery_fee")} (FOOD)`} value={foodDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(foodDelivery, country?.currency, ccy)} />
             )}
             {hasShop && (
               <Row label={`${t("cart.delivery_fee")} (SHOP)`} value={<span className="text-[10px] text-muted-foreground">{t("cart.delivery_shop_note")}</span>} />
@@ -177,23 +200,18 @@ export const MobileCart = () => {
             {savings > 0 && <Row label="Discount" value={<span style={{ color: "#77BC1F" }}>- {formatMoney(savings, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />
             <div className="flex items-center justify-between text-sm font-bold pt-1">
-              <span>{t("cart.total")}</span><span data-testid="m-cart-total">{formatMoney(total, country?.currency, ccy)}</span>
+              <span>{t("cart.total")}</span>
+              <span data-testid="m-cart-total">{formatMoney(total, country?.currency, ccy)}</span>
             </div>
+            <div data-testid="cart-summary-total" className="sr-only">{formatMoney(total, country?.currency, ccy)}</div>
           </div>
         </div>
       </div>
 
-      {/* Min-order banner (only when below threshold) */}
-      {!minOrderOk && (
-        <div className="px-4 mt-3">
-          <div data-testid="m-cart-min-order-warning" className="baked-card p-3 flex items-start gap-2.5 border" style={{ backgroundColor: "#FCC44C1a", borderColor: "#FCC44C88" }}>
-            <AlertCircle size={16} className="shrink-0 mt-0.5" style={{ color: "#FCC44C" }} />
-            <div className="text-[11px] leading-snug">
-              Add <b style={{ color: "#FCC44C" }}>{formatMoney(shortfall, country?.currency, ccy)}</b> more to reach the <b>{formatMoney(minOrder, country?.currency, ccy)}</b> minimum order.
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Min-order banner removed in v1.1 (fixing_prompt §8) — the pricing
+          engine owns eligibility now and no minimum is enforced for FOOD /
+          MART / SHOP. Keeping the component commented out intentionally so
+          we remember NOT to re-add it. */}
 
       {/* Trust strip */}
       <div className="px-4 mt-3 flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
@@ -218,8 +236,8 @@ export const MobileCart = () => {
   );
 };
 
-const Row = ({ label, value }) => (
-  <div className="flex items-center justify-between">
+const Row = ({ label, value, "data-testid": testId }) => (
+  <div className="flex items-center justify-between" data-testid={testId}>
     <span className="text-muted-foreground">{label}</span>
     <span className="font-semibold">{value}</span>
   </div>

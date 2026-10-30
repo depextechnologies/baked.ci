@@ -150,6 +150,11 @@ const errMsg = (e) => {
 /*                                Login page                                  */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/*                   (removed PortalSwitcher — see ModuleSelectorPage)        */
+/* -------------------------------------------------------------------------- */
+
+
 const PartnerLoginPage = () => {
   const { login, partner } = usePartner();
   const nav = useNavigate();

@@ -1,0 +1,25 @@
+{
+  "summary": "FOODbakēd Pass 3 (Menu CRUD + Duplicate + Section reorder + Quick Sold-Out panel + i18n cleanup) tested end-to-end. Backend: 26/26 pytest green (test_food_partner_menu_pass3 4/4 + test_food_partner_menu 9/9 + test_food_dispatch_bridge 7/7 + test_food_orders 6/6). Frontend E2E on live preview verified: FR/EN monolingual rendering with zero bilingual concatenation, Quick Sold-Out strip on both Dashboard and Menu pages, section reorder (up/down + persist across reload + disabled on boundaries), 'Par défaut'/'Default' variant badge (exactly one per item), Duplicate button creates '{name} (Copie)' clone as Épuisé in the same section, Restock button updates strip in-place AND makes item visible on the public /api/food/restaurants/burger_hub_ci/menu endpoint without page refresh.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_food_partner_menu_pass3.py",
+    "/app/backend/tests/test_food_partner_menu.py",
+    "/app/backend/tests/test_food_dispatch_bridge.py",
+    "/app/backend/tests/test_food_orders.py",
+    "/app/test_reports/pytest/pass3_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MenuManager.jsx uses detectFr() ternary everywhere - works but duplicates the i18n lookup per label; a tiny useMemo-wrapped dict would reduce re-render churn. Non-blocking.",
+    "Section reorder uses sequential PATCH loop (not a single bulk endpoint) - acceptable for ≤~20 sections per restaurant but could become slow at scale. Non-blocking."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "100% (all P0 + P1 flows verified)"},
+  "test_credentials": "Partner qa-burger@test.example / QaBurger123! (burger_hub_ci) - works. Super-admin creds not required for this pass.",
+  "seed_data_creation": "Duplicate test created 1 clone 'Mozzarella Sticks (Copie)' in Starters section via the UI endpoint; restocked via the strip. Harmless demo rows '(Copie)/(Copy)' from earlier passes still present (as expected per request note).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pass 3 Menu CRUD is fully green. If next iteration touches /api/food/manage/*/items/{iid}/duplicate or MenuManager.jsx, re-run backend/tests/test_food_partner_menu_pass3.py plus a quick FR/EN i18n smoke on /partner/food/menu. Language toggle is driven by localStorage keys (baked_lang / lang / i18nextLng) - setting any to 'en' + reload swaps labels; no visible UI switcher found on the partner portal (not in scope here).",
+  "rca_of_the_issue": "N/A - no bugs encountered. Verified: Duplicate endpoint deep-clones with new IDs (item + variants + addons), honours X-Lang header (default FR -> '(Copie)', en -> '(Copy)'), returns 404 for unknown iid, clone lands with is_available=false. Section PATCH sort_order flows through to the public GET menu ORDER BY sort_order,id. Sidebar sections ('Starters/Entrées', 'Burgers', 'Sides/Accompagnements', 'Drinks/Boissons') render monolingually per locale."
+}

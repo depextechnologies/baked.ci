@@ -1,0 +1,37 @@
+{
+  "summary": "FOODbakēd Pass 2.5 — Live Driver Map on /foodbaked/orders/{orderId}/track. Verified map gating logic, 3 markers (restaurant/customer/driver), WS wiring to /api/express/ws/bookings/{booking_id}, FR/EN legend parity, mobile 390x844 viewport, pickup-order map hiding, and full backward compat with Pass 2 testids. Backend regression: 16/16 pass on test_food_dispatch_bridge.py + test_food_dispatch_bridge_pass2_ext.py (after seed-data repair, see action_items).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "seed data (food_restaurants.burger_hub_ci)", "issue": "restaurant row had latitude=NULL, longitude=NULL which caused dispatch_bridge to raise 'restaurant_coords_missing' and silently kill all delivery dispatches (confirmed in backend.err.log). All 11 bridge tests were failing because of this one missing seed. Fixed in-DB (lat=5.3599517, lng=-4.0082563 — Abidjan). Main agent should persist this in the seed/migration so future environments don't regress."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_food_dispatch_bridge.py",
+    "/app/backend/tests/test_food_dispatch_bridge_pass2_ext.py",
+    "/app/test_reports/pytest/pass2_regression_i99.xml"
+  ],
+  "action_items": [
+    "Backfill food_restaurants.latitude/longitude for burger_hub_ci in the seed script (fixtures/seed_food.sql or equivalent). Current in-DB fix: 5.3599517, -4.0082563. Without it, dispatch_bridge raises restaurant_coords_missing on every preparing transition and the Live Driver Map feature never surfaces because no express_bookings row is created."
+  ],
+  "critical_code_review_comments": [
+    "FoodOrderTrackPage.jsx L209: `showMap = GMAPS_KEY && pickup && drop && (driverAssigned || driverLoc)` — correct, verified live: (a) order without driver assigned → food-track-map ABSENT, driver chip + stages still render; (b) pickup order with order_type='pickup' and null delivery_address → food-track-map ABSENT regardless of status.",
+    "FoodOrderTrackPage.jsx L145-172: WS lifecycle good — `stopped` latch prevents racey reconnect, 3s reconnect timer, cleanup on unmount. The `onmessage` handler updates liveLoc from both `snapshot.driver_location` and `location.driver_location`.",
+    "FoodOrderTrackPage.jsx L248-251: Google Maps SDK logs a warning 'A Map's styles property cannot be set when a mapId is present. When a mapId is present, map styles are controlled via the cloud console' — harmless but noisy. Consider dropping the `styles={[...]}` prop when `mapId` is set, or moving POI hiding to a Cloud-console map style. Not a functional bug.",
+    "Backend untouched as advertised — /api/express/ws/bookings/{bid} returns an identical `snapshot` frame on both FOOD-delivery bookings (type:'snapshot', driver_location:{lat,lng} present) and legacy SEND bookings (type:'snapshot', extra keys driver_id + drop). SEND tracking UI /send/track/{bid} still renders its 'security token missing' guard page when no ?t= is passed — expected.",
+    "Realtime module logs 'realtime.pubsub redis unavailable — falling back to inproc' every startup. In-process pubsub works for same-process WS fanout (so tracking.transition_status → connected customer WS works), but across uvicorn workers it won't. Not a Pass 2.5 blocker since current deploy is single-worker, but worth tracking."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (16/16 after seed repair)", "frontend": "100% on P0+P1 scope (map gating, 3 markers, FR/EN legend, mobile viewport, backward-compat testids all green)"},
+  "test_credentials": "Customer dev-OTP flow (country_code='+225', phone=random 07XXXXXXXX → dev_code → verify with {challenge_id,country_code,phone,code}). Admin: depexopenai@gmail.com / baked@2026#!$@ (POST /api/admin/auth/login).",
+  "seed_data_creation": "In-DB: set food_restaurants.burger_hub_ci latitude=5.3599517, longitude=-4.0082563 (previously NULL — root cause of dispatch failures). Seeded 3 food orders for live frontend testing: ord_c04b48365f8e428d (delivery, preparing, driver_assigned + driver_location={5.350,-4.012} — map SHOULD render), ord_4406b3331f274eaf (delivery, preparing, no driver — map must be ABSENT), ord_bc49b1e5fcd94803 (pickup, preparing — map must be ABSENT). Driver stub drv_d99d93e5bd5c4983 reused.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pass 2.5 Live Driver Map ships green. The only non-code finding is the burger_hub_ci lat/lng seed gap — fix in /app/scripts/seed_food.* so fresh environments don't silently kill dispatch. WS endpoint /api/express/ws/bookings/{bid} is reused for both FOOD and SEND and both return the expected `snapshot` frame with driver_location.{lat,lng}. Frontend testids verified live on mobile 390x844: food-track-map, food-track-pickup-pin, food-track-drop-pin, food-track-driver-pin, plus all 6 food-track-stage-{key} + food-track-page/order-number/stages/driver/driver-status/summary. FR legend 'Livreur · Restaurant · Vous' and EN legend 'Driver · Restaurant · You' — monolingual, no bilingual concat. No horizontal overflow at 390x844. 'Pickup PIN' never appears on customer side.",
+  "rca of the issue": "Backend regression (seed-level, NOT code): food_restaurants.burger_hub_ci was persisted with latitude=NULL, longitude=NULL. dispatch_bridge.py L168-170 raises DispatchError('restaurant_coords_missing') when either is None, which the food.orders PATCH handler swallows into a WARN log and skips express_bookings creation. Downstream: no delivery row → delivery object = None on /api/food/customer/orders/{id}/track → FoodOrderTrackPage shows no map, no driver chip, breaks all 11 dispatch tests. Reproduction: UPDATE food_restaurants SET latitude=NULL, longitude=NULL WHERE id='burger_hub_ci'; pytest -q backend/tests/test_food_dispatch_bridge*.py — 11 fail. Mitigation: UPDATE food_restaurants SET latitude=5.3599517, longitude=-4.0082563 WHERE id='burger_hub_ci'; or add COALESCE in seed."
+}

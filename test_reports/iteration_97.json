@@ -1,0 +1,32 @@
+{
+  "summary": "FOODbakēd Pass 1 retest after main-agent fixes. P0 FR/EN parity, P1 WS stale-closure refs, P1 QA partner seed — ALL VERIFIED. Partner Portal sidebar/login/dashboard/modal strings are now 100% monolingual per i18n locale (no '·' bilingual concatenations). Modal testid renamed to 'new-food-order-modal' and reject reason input to 'reject-reason-input' as spec'd. Live WS fanout confirmed: placing a customer order via POST /api/food/customer/orders triggers the modal on the already-mounted partner portal without refresh; FR strings seen in-modal: 'Nouvelle commande', 'À emporter', '1 article(s)', 'Refuser', 'Accepter'. EN strings seen: 'NEW ORDER', 'Pickup', '1 item(s)', 'Reject', 'Accept'. Reject reason options are now unilingual per locale (FR: 'Restaurant trop occupé','Article indisponible','Fermeture imminente','Impossible de préparer','Autre'; EN: 'Too busy','Item unavailable','Closing soon','Unable to fulfil','Other'). QA partner seed_qa_partner() in /app/backend/scripts/seed_food_microsite_demo.py is idempotent and upserts qa-burger@test.example / QaBurger123! on burger_hub_ci — verified by re-running the seed and successfully logging in via POST /api/food/partner/auth/login (200). CartDrawer line 425 now reads t('cart.food_checkout_cta') with FR='Commander' and EN='Place food order' present in locales. Stale-closure fix verified in code (audioReadyRef+settingsRef written to on every settings/audioReady change and read inside WS onmessage); dedupe via seenEventIdsRef with event_id or type+entity_id key is correctly implemented.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "RestaurantNotificationEngine arm-audio pill", "issue": "The 'Activer les alertes' / 'Enable alerts' button is positioned at z-[120] but the IncomingOrderModal uses z-[140] with a full-screen backdrop. When a modal is open, the arm-audio pill becomes unclickable (intercepted). This conflicts with the retest scenario 'order BEFORE arming → then click Enable alerts while modal is up'. Workaround: dismiss or accept the modal first, then click Enable alerts. Minor UX / testability nit — functionally the arm action still works outside a modal.", "selector": "[data-testid=partner-arm-audio]", "priority": "LOW"},
+      {"component": "PartnerLayout NavLink testid for dashboard entry", "issue": "The dashboard nav item resolves to data-testid='partner-nav-food' instead of 'partner-nav-dashboard' because `to.split('/').pop()` of '/partner/food' returns 'food'. All other nav testids are correct (orders, reservations, profile, analytics, menu, settings). Consider using an explicit key per nav item for stability.", "selector": "[data-testid=partner-nav-food]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_food_orders.py", "/app/backend/tests/test_food_order_ws_fanout.py"],
+  "action_items": [
+    "LOW: Raise z-index of partner-arm-audio pill to z-[150] (above modal backdrop z-140) so partners can arm audio while a modal is already visible — matches the retest scenario where audio is enabled AFTER the first incoming order renders.",
+    "LOW: Fix dashboard nav testid: in PartnerApp.jsx line 133 use an explicit `key` map (e.g. `/partner/food` → `dashboard`) rather than `to.split('/').pop() || 'dashboard'`, which currently emits `partner-nav-food`."
+  ],
+  "critical_code_review_comments": [
+    "RestaurantNotificationEngine.jsx lines 119-127 correctly introduce audioReadyRef and settingsRef updated via useEffect on changes, and are read inside WS onmessage (lines 171-172). Stale-closure bug is fixed.",
+    "RestaurantNotificationEngine.jsx lines 161-170 dedupe on event_id OR type+entity_id with a 500-key cap and trim to 250 — correctly addresses WS replay/re-ring across reconnects and route changes while the provider wraps PartnerLayout (persists across sub-routes).",
+    "All partner JSX uses `isFr ? 'FR' : 'EN'` ternary derived from localStorage i18nextLng — monolingual output verified live in both locales. No '·' bilingual anywhere in portal shell, modals, dashboard, nav, logout, arm pill, reject options.",
+    "seed_food_microsite_demo.py seed_qa_partner() is called in main() and idempotently upserts the QA partner — confirmed working on re-run.",
+    "customer.json locales contain cart.food_checkout_cta (FR='Commander', EN='Place food order'); CartDrawer line 425 uses t() with no fallback literal."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (prior iteration 24/24, not re-run this iteration)", "frontend": "100% for P0/P1 scope — all retest items pass"},
+  "test_credentials": "Partner: qa-burger@test.example / QaBurger123! (restaurant burger_hub_ci) — now reliably provisioned by seed_food_microsite_demo.py seed_qa_partner().",
+  "seed_data_creation": "Re-ran /app/backend/scripts/seed_food_microsite_demo.py — qa_partner upserted=1, settings=17, reservations enabled=17. Several additional test food_orders created on burger_hub_ci during live modal verification (FD-F98322, FD-8BA681, FD-E1587F etc).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P0 bilingual-parity and P1 WS stale-closure / seed fixes are all landed and verified live. Partner Portal strings switch cleanly between FR and EN via localStorage.i18nextLng. New data-testids: 'new-food-order-modal' (was partner-order-modal), 'reject-reason-input' (was partner-order-modal-reason). Partner-notification-modal (reservations) testid unchanged. Two minor UX nits identified: (1) arm-audio pill z-index too low to click over an open modal, (2) dashboard nav testid is 'partner-nav-food' instead of 'partner-nav-dashboard'. Neither blocks the Pass 1 live order flow.",
+  "rca of the issue": "N/A — this iteration confirms fixes from iteration_96 action items landed correctly. Retest scope: FR/EN parity (fixed), WS stale closure (fixed via refs), QA partner seed (fixed via idempotent upsert in seed_food_microsite_demo.py), modal testid rename (done)."
+}

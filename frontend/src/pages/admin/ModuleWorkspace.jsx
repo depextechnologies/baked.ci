@@ -5,43 +5,57 @@ import {
   ShoppingBasket, Utensils, ShoppingBag, Truck, Car, Home as HomeIcon,
   LayoutDashboard, Store, Package, ClipboardList, Users, Bike, DollarSign,
   Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
-  Activity, Building2, Package as PackageIcon,
+  Activity, Building2, Package as PackageIcon, ClipboardCheck,
 } from "lucide-react";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
 
 // Per PRD §7 — sub-nav for each Business Module admin workspace
 // Flags:
-//   martOnly     → visible only on MARTbakēd workspace
-//   expressOnly  → visible only on SENDbakēd workspace
-//   notForExpress→ hidden on SENDbakēd (catalog surfaces that don't apply
-//                  to a delivery-network module)
+//   martOnly      → visible only on MARTbakēd workspace
+//   expressOnly   → visible only on SENDbakēd workspace
+//   foodOnly      → visible only on FOODbakēd workspace
+//   shopOrMartOnly→ visible only on SHOP or MART (homepage-management etc.)
+//   notForExpress → hidden on SENDbakēd
+//   notForFood    → hidden on FOODbakēd (Phase 1 — FOOD uses its own
+//                   restaurants/cuisines/categories surfaces, not the
+//                   MART-style vendor/products/catalog stack)
 const MODULE_NAV = [
   { seg: "", exact: true, label: "Overview", icon: LayoutDashboard },
-  { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores", notForExpress: true },
+  { seg: "vendors", label: "Vendors", icon: Store, note: "Partner stores", notForExpress: true, notForFood: true },
   { seg: "applications", label: "Applications", icon: ClipboardList, martOnly: true, note: "Partner applications" },
-  { seg: "products", label: "Products", icon: Package, note: "Read-only browse", notForExpress: true },
-  { seg: "catalog", label: "Catalog", icon: Boxes, note: "Categories & sub-categories", notForExpress: true },
-  { seg: "attributes", label: "Attributes", icon: Tag, note: "Dynamic category attributes", notForExpress: true },
-  { seg: "approvals", label: "Approvals", icon: Sparkles, note: "Product review queue", notForExpress: true },
+  { seg: "products", label: "Products", icon: Package, note: "Read-only browse", notForExpress: true, notForFood: true },
+  { seg: "catalog", label: "Catalog", icon: Boxes, note: "Categories & sub-categories", notForExpress: true, notForFood: true },
+  { seg: "attributes", label: "Attributes", icon: Tag, note: "Dynamic category attributes", notForExpress: true, notForFood: true },
+  { seg: "approvals", label: "Approvals", icon: Sparkles, note: "Product review queue", notForExpress: true, notForFood: true },
   { seg: "category-requests", label: "Category Requests", icon: Sparkles, martOnly: true, note: "Partner-proposed categories" },
-  // Phase 1 (2026-03): un-gated for SHOP so admins can review SHOP seller
-  // applications from /admin/modules/shop/suppliers. Backend filters by
-  // Supplier.modules ? 'SHOP'. Product Requests still MART-only (SHOP uses
-  // a different catalogue model — Phase 2 will add a SHOP-native flow).
-  { seg: "suppliers", label: "Suppliers", icon: Building2, note: "Seller onboarding & governance", notForExpress: true },
+  { seg: "suppliers", label: "Suppliers", icon: Building2, note: "Seller onboarding & governance", notForExpress: true, notForFood: true },
   { seg: "suppliers/product-requests", label: "Product Requests", icon: PackageIcon, martOnly: true, note: "Supplier-proposed products" },
   { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
   { seg: "purchase-orders", label: "Purchase Orders", icon: PackageIcon, martOnly: true, note: "Cross-network PO oversight" },
   { seg: "invoices", label: "Invoices", icon: PackageIcon, martOnly: true, note: "Supplier invoicing & 3-way match" },
+  // FOODbakēd-native surfaces (restaurants + their catalogue). These are the
+  // FOOD equivalents of vendors/products/catalog for MART. Backed by the
+  // food_restaurants / food_categories / food_cuisines tables and gated with
+  // foodOnly so they never appear inside other modules' workspaces.
+  { seg: "restaurants", label: "Restaurants", icon: Store, foodOnly: true, note: "Restaurant partners" },
+  { seg: "applications", label: "Applications", icon: ClipboardCheck, foodOnly: true, note: "Restaurant onboarding queue" },
+  { seg: "categories", label: "Categories", icon: Boxes, foodOnly: true, note: "Cuisine-category chips" },
+  { seg: "cuisines", label: "Cuisines", icon: Tag, foodOnly: true, note: "Cuisine grid" },
   { seg: "orders", label: "Orders", icon: ClipboardList },
   { seg: "bookings", label: "Bookings", icon: Activity, expressOnly: true },
   { seg: "customers", label: "Customers", icon: Users, note: "Module-scoped" },
   { seg: "drivers", label: "Drivers", icon: Bike },
   { seg: "driver-applications", label: "Driver Applications", icon: ClipboardList, expressOnly: true, note: "KYC review queue" },
   { seg: "driver-payouts", label: "Driver Payouts", icon: DollarSign, expressOnly: true, note: "Weekly settlements & payouts" },
+  // Homepage Management — same shared component as MART/SHOP, reading `code`
+  // from the URL. FOODbakēd homepage lives at /admin/modules/food/homepage-management.
+  { seg: "homepage-management", label: "Homepage Management", icon: LayoutDashboard, shopOrMartOrFoodOnly: true, note: "Landing-page composer" },
   { seg: "pricing", label: "Pricing", icon: Tag, expressOnly: true },
-  { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true },
+  // Finance — "Coming Soon" for every module EXCEPT FOODbakēd, where it
+  // hosts the full Vendor Settlement workspace (commissions, scheduled
+  // payouts, mark-paid, dry-run preview).
+  { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true, foodLive: true, note: "Commissions, payout schedule & settlements" },
   { seg: "ai", label: "AI Operations", icon: Sparkles, comingSoon: true },
   { seg: "analytics", label: "Analytics", icon: BarChart3, comingSoon: true },
   { seg: "promotions", label: "Promotions", icon: Megaphone, comingSoon: true },
@@ -80,7 +94,14 @@ export const ModuleWorkspace = () => {
       {/* Sub-nav */}
       <div className="border-b border-border overflow-x-auto">
         <div className="flex items-center gap-1 min-w-max pb-2">
-          {MODULE_NAV.filter((n) => (!n.martOnly || code === "mart") && (!n.expressOnly || code === "express") && (!n.notForExpress || code !== "express")).map((n) => {
+          {MODULE_NAV.filter((n) => (
+            (!n.martOnly || code === "mart") &&
+            (!n.expressOnly || code === "express") &&
+            (!n.foodOnly || code === "food") &&
+            (!n.notForExpress || code !== "express") &&
+            (!n.notForFood || code !== "food") &&
+            (!n.shopOrMartOrFoodOnly || ["shop", "mart", "food"].includes(code))
+          )).map((n) => {
             const path = n.seg ? `${base}/${n.seg}` : base;
             const isAct = active(n.seg, n.exact);
             const IconEl = n.icon;
@@ -90,7 +111,8 @@ export const ModuleWorkspace = () => {
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium motion-fast whitespace-nowrap ${isAct ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
                 style={isAct ? { backgroundColor: meta.color, color: "#0a1200" } : {}}>
                 <IconEl size={14} /> {n.label}
-                {n.comingSoon && <span className="text-[9px] uppercase tracking-wider opacity-60">soon</span>}
+                {n.comingSoon && !(n.foodLive && code === "food") &&
+                  <span className="text-[9px] uppercase tracking-wider opacity-60">soon</span>}
               </NavLink>
             );
           })}

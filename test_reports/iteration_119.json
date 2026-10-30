@@ -1,0 +1,40 @@
+{
+  "summary": "Retest of the iteration_118 fixes (Expo web preview 390x844 + backend pytest). PASSES: multi-stop SEND end to end (2 drops Plateau + Treichville -> vehicles from service_type=multiple_shipments [bike, three_wheeler, mini_truck, truck]; prices match /quote/multi_stop; booking exp_ffbcf305170a412a created as multiple_shipments, top-level drop = first drop, 2 stops, total 4206 = send-fare-total, confirmed via GET); single-drop moto regression (2570 = /quote/parcel); WS 4403 for empty, bad and other-customer tokens (browser makes 1 attempt, no reconnect loop, header shows offline); {code,message} error detail shown as message (mocked 400); web map placeholder now French; Activity chips 'Payée' / 'Recherche d’un livreur'; weight chips '≤ 5 kg', '5–15 kg', '> 30 kg'. FAILS: (1) after cancel the socket often stays open and 'En direct' stays visible (root cause: 4 uvicorn workers, so the in-process WS broadcast is lost); (2) mixed MART+SHOP checkout goes to /activity and is then bounced to /cart (reproduced 2 out of 2 times).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "WS /api/express/ws/customer/bookings/{id} + tracking.ConnectionManager", "issue": "The backend runs uvicorn with --workers 4, but ConnectionManager._rooms is in-process memory. A status change (cancel, driver location push) that runs on a different worker than the socket is never broadcast. A direct WS + cancel test got the cancelled snapshot only 2 out of 5 times. This also affects live driver tracking in production. Use Redis/Mongo pub-sub across workers, or make the client close the socket on its own (see frontend item)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "useBookingSocket", "issue": "After cancel, the track screen shows 'Annulée' but send-live ('En direct') stays visible and the WS stays open (still open 17 s later). The hook only closes the socket when a terminal snapshot arrives over the WS. The refresh() result (terminal=true) never closes it, and because of the multi-worker issue the snapshot often never comes.", "selector": "[data-testid=send-live]", "priority": "MEDIUM"},
+      {"component": "checkout.tsx", "issue": "Mixed MART+SHOP checkout creates both orders and calls router.replace('/activity'), but `await reload()` empties the carts first. The guard `if (!hasMart && !food.length && !shop.length) return <Redirect href=\"/cart\" />` then fires, so the user lands on the empty /cart. Navigation sequence seen: ['/activity', '/cart']. Fix: set a placedRef/state before reload() and skip the empty-cart redirect once an order was placed, or navigate before reloading.", "selector": "[data-testid=checkout-place-order]", "priority": "MEDIUM"},
+      {"component": "send/track (foreign or unknown booking)", "issue": "Opening another customer's booking shows an endless skeleton card. No 'not found' or 'no access' state after the 4403/404.", "selector": "[data-testid=send-offline]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "SEND track", "issues": ["The title 'Recherche d’un livreur' is repeated as the subtitle 'Recherche d’un livreur…'"]},
+      {"screen": "SEND details", "issues": ["Package type and preference chips are still in English (known: no name_fr in the backend data)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_phase_d_shop_send.py", "/app/test_reports/pytest/pytest_phase_d_119.xml"],
+  "action_items": [
+    "useBookingSocket: add an effect so that when `terminal` becomes true (including via refresh()/fetchOnce), it closes the ws, sets live=false and stops polling. Do not rely only on a server snapshot.",
+    "checkout.tsx: stop the empty-cart <Redirect href='/cart'> from overriding router.replace('/activity') or '/order/...' after a successful order (use a placed flag, or navigate before reload()).",
+    "Backend: WS broadcasts are lost across the 4 uvicorn workers (in-memory ConnectionManager). Add cross-worker pub-sub, otherwise live tracking events are dropped about 75% of the time.",
+    "Optional: send/track error state for 403/404 bookings instead of an endless skeleton."
+  ],
+  "critical_code_review_comments": [
+    "useBookingSocket: on a 4403 close it only calls fetchOnce() and never starts polling. That is fine for foreign bookings, but a token that expires mid-session leaves the screen frozen with no updates.",
+    "ConnectionManager is per process while the server runs with --workers 4. The same problem affects the legacy /ws/bookings socket and the driver location push."
+  ],
+  "updated_files": ["/app/backend/tests/test_mobile_phase_d_shop_send.py"],
+  "success_rate": {"backend": "100% (18 passed, 1 legacy test skipped)", "frontend": "~78% (7 of 9 checks passed)"},
+  "test_credentials": "Customer +225 0700000001 (OTP dev_code shown on screen or returned by the API)",
+  "seed_data_creation": "Several TEST_ SEND bookings (most cancelled), 2 MART + 2 SHOP COD orders for customer 0700000001, and 1 booking exp_2bcc8cca2bf440bd for a random second customer",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0. The multi-stop contract is now multiple_shipments with drop = drops[0]. For the WS-after-cancel test, check that send-live disappears within a few seconds of cancel (accept the window.confirm dialog). For mixed checkout, seed the server carts (/carts/me/items with module mart + /shop/cart/items), then place the order and check that the final URL is /activity.",
+  "rca of the issue": "Cancel/live: the cancel route calls transition_status, which broadcasts to the in-memory room of the worker that handled the cancel. The customer WS usually lives on another of the 4 workers, so no terminal snapshot reaches the client and the hook keeps the socket open. Checkout: reload() empties the cart state, and the render-time Redirect to /cart overrides the router.replace to /activity."
+}

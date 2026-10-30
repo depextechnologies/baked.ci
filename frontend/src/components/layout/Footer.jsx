@@ -83,6 +83,7 @@ export const Footer = () => {
     [t("footer.partner"),          "/partner"],
     [t("footer.sell"),             "/Sell-on-baked"],
     [t("footer.delivery_partner"), "/driver"],
+    [t("footer.partner_login"),    "/partner-portal/login"],
     [t("footer.invest"),           "/invest"],
   ];
   const SUPPORT = [

@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 110 — tested the new /api/cart/quote single pricing engine (backend) and its wiring to CartDrawer (desktop) and MobileCart (/cart). Backend is 10/10 green and matches the acceptance grid exactly (subtotal 478, delivery_fee 29, total 507, pickup=0, empty-cart zeros, multi-restaurant fees summed per restaurant, unavailable item ids surfaced, INR vs XOF). Frontend is BROKEN: the CartProvider in BakedContexts.jsx never issues the /api/cart/quote request for food guest-cart lines, so both the desktop CartDrawer AND the mobile /cart page render Delivery fee (FOOD) = Gratuit and Total = ₹478.00 instead of the required ₹29.00 / ₹507.00. The 'ships-only-one-quote-engine' promise is therefore not kept — the UI is still falling back to the pre-quote math because `quote` stays null.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CartDrawer.jsx (desktop)", "issue": "Delivery fee (FOOD) renders 'Gratuit' and Total = Subtotal (₹478.00) instead of ₹29.00 / ₹507.00. Root cause: no POST /api/cart/quote request is made at all — see integration_issues below.", "selector": "[data-testid='cart-drawer-delivery-food'] / [data-testid='cart-drawer-total']", "priority": "CRITICAL"},
+      {"component": "MobileCart.jsx (/cart)", "issue": "Same bug on mobile: Frais de livraison (FOOD) = GRATUIT, Total = ₹478.00 (expected ₹507.00). FOOD badges and no-min-order banner are correct.", "selector": "[data-testid='m-cart-total']", "priority": "CRITICAL"},
+      {"component": "CartDrawer.jsx", "issue": "React warning in console: 'Each child in a list should have a unique key prop. Check the render method of CartDrawer.' Low priority but should be fixed.", "selector": "CartDrawer render", "priority": "LOW"},
+      {"component": "MobileCart.jsx", "issue": "data-testids promised in review spec are missing on mobile: cart-summary-food-subtotal, cart-summary-food-delivery, cart-summary-total, m-cart-badge-{itemId}. m-cart-total exists. Add the missing testids so later regressions can be automated.", "selector": "[data-testid='cart-summary-food-subtotal'] etc.", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "CartProvider → POST /api/cart/quote", "issue": "The useEffect in /app/frontend/src/contexts/BakedContexts.jsx (lines 685-720) builds the request body with `menu_item_id: i.product_id || i.product?.id` for food lines. Guest-cart food items are persisted with the key `menu_item_id` (not `product_id`), so this expression evaluates to undefined, the row is dropped by the filter on line 700, items.length becomes 0, setQuote(null) is called and NO network request is ever made. Verified via page.on('response') — zero /api/cart/quote hits for a guest cart with 2 FOOD lines. Because `quote` stays null the drawer/mobile cart fall back to the pre-quote math and display Gratuit + 478. Fix: `menu_item_id: i.menu_item_id || i.product_id || i.product?.id` (and apply the same symmetry for restaurant_id / mart product_id if it has the same issue).", "affected_selectors": ["[data-testid='cart-drawer-delivery-food']","[data-testid='cart-drawer-total']","[data-testid='m-cart-total']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cart_quote.py",
+    "/app/test_reports/pytest/iter110_cart_quote.xml"
+  ],
+  "action_items": [
+    "FIX /app/frontend/src/contexts/BakedContexts.jsx line ~695: change `menu_item_id: i.product_id || i.product?.id` to `menu_item_id: i.menu_item_id || i.product_id || i.product?.id`. Also confirm the shop/mart branches handle guest-cart stored keys the same way.",
+    "After fix, re-verify desktop drawer and mobile /cart show Delivery fee (FOOD) ₹29.00 and Total ₹507.00 for the seeded IN cart.",
+    "Add the missing data-testids on MobileCart: cart-summary-food-subtotal, cart-summary-food-delivery, cart-summary-total, m-cart-badge-{itemId}. Review request documents them but they're not present in the DOM.",
+    "Fix React 'unique key prop' warning in CartDrawer render loop (items.map most likely missing key)."
+  ],
+  "critical_code_review_comments": [
+    "BakedContexts.jsx:695 — single-source-of-truth promise is undermined by a shape mismatch between how guest cart lines are persisted (`menu_item_id`) and how the quote builder reads them (`product_id`). This is the exact kind of bug the new pricing engine was supposed to prevent; add a unit-ish Jest test for the builder output next to the file to lock the contract.",
+    "CartDrawer.jsx:102 — `const foodDelivery = quote?.food?.delivery_fee ?? 0;` silently masks the 'quote missing' failure mode. Consider rendering '—' or `t('cart.loading')` when `quote === null && items.length > 0` so operators see a clear visual signal of the regression instead of a plausible-but-wrong Gratuit.",
+    "Review spec promises a 'Added at checkout' placeholder be replaced by the real fee; after fix, verify no legacy copy keys remain in locales (cart.delivery_added_at_checkout etc.).",
+    "test_cart_quote.py is well-scoped (TC-01..TC-29 mapped as comments) and runs in 1.2s — good regression anchor. Add one more test: `menu_item_id` only (no `product_id`) to encode the frontend-contract we just discovered.",
+    "CartProvider useEffect dep array includes `cart.items` (object reference) — since items array is rebuilt from localStorage on every reload this is correct, but confirm addItem/updateItem return a NEW array (immutable spread) to avoid stale quotes."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_110.json (new)",
+    "/app/test_reports/pytest/iter110_cart_quote.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "20% (badges + no-min-order ok; delivery fee + total + /api/cart/quote integration broken)"},
+  "test_credentials": "N/A — guest flow only this iteration",
+  "seed_data_creation": "None. Used existing burger_hub_in seed (crispy_wings ₹279, mozz_sticks ₹199, delivery_fee 29 INR).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent fixes BakedContexts.jsx menu_item_id mapping, retest: (1) desktop 1920x1080 → /food → pre-seed localStorage (baked_country=IN, baked_active_address with lat/lng, baked_guest_cart with the two FOOD lines) → click header cart icon → assert [data-testid='cart-drawer-delivery-food'] shows ₹29.00 and [data-testid='cart-drawer-total'] shows ₹507.00 AND that POST /api/cart/quote fires. (2) Mobile 390x844 → /cart same seed → assert m-cart-total = ₹507.00 and the missing testids (cart-summary-food-subtotal etc.) now exist. (3) OTP guest→login cart-preservation flow was NOT tested this iteration because the primary bug blocked verification; retest after fix. (4) MART+FOOD mixed cart regression also pending.",
+  "rca of the issue": "GUEST cart food lines are persisted in localStorage with keys `menu_item_id` and `restaurant_id` directly on the line (see page.evaluate() dump: {module:'food', restaurant_id:'burger_hub_in', menu_item_id:'burger_hub_in_crispy_wings', quantity:1, snapshot:{…}}). CartProvider's quote useEffect at BakedContexts.jsx:691-700 maps a food line as `{module:'food', restaurant_id: i.product?.restaurant_id || i.restaurant_id, menu_item_id: i.product_id || i.product?.id, quantity: i.quantity}`. restaurant_id resolves fine but menu_item_id is undefined because the line has neither `product_id` nor `product.id`. The filter `row.quantity > 0 && (row.product_id || row.menu_item_id || row.variant_id)` then drops the row because menu_item_id is undefined. With items.length === 0 the effect short-circuits with setQuote(null) and never POSTs. CartDrawer and MobileCart therefore read quote?.food?.delivery_fee ?? 0 → 0 → render 'Gratuit' / GRATUIT and total = subtotal. Mitigation: patch the mapping to `menu_item_id: i.menu_item_id || i.product_id || i.product?.id` (one-line change). Reproduction: seed baked_guest_cart with the review-spec payload, open /food desktop or /cart mobile, inspect network — zero /api/cart/quote hits; UI shows ₹478 total."
+}

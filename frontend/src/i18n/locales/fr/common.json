@@ -89,12 +89,25 @@
     "free_delivery_over": "Livraison gratuite dès {{amount}}",
     "popular_near_you": "Populaire près de chez vous",
     "shop_by_category": "Achetez par catégorie",
-    "shop_by_department": "Achetez par département"
+    "shop_by_department": "Achetez par département",
+    "partner_login": "Connexion partenaire"
   },
   "trust": {
-    "fast":    { "title": "Livraison ultra-rapide", "desc": "10-15 min en moyenne" },
-    "range":   { "title": "Large gamme de produits", "desc": "Tout ce qu'il vous faut" },
-    "prices":  { "title": "Meilleurs prix & offres", "desc": "Économisez chaque jour" },
-    "returns": { "title": "Retours faciles", "desc": "Remboursement sans souci" }
+    "fast": {
+      "title": "Livraison ultra-rapide",
+      "desc": "10-15 min en moyenne"
+    },
+    "range": {
+      "title": "Large gamme de produits",
+      "desc": "Tout ce qu'il vous faut"
+    },
+    "prices": {
+      "title": "Meilleurs prix & offres",
+      "desc": "Économisez chaque jour"
+    },
+    "returns": {
+      "title": "Retours faciles",
+      "desc": "Remboursement sans souci"
+    }
   }
 }

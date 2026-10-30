@@ -387,11 +387,12 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #77BC1F55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #77BC1F33, transparent 60%)",
   },
   {
-    code: "FOOD", label: "FOODbakēd", color: "#FF6B6B", icon: Utensils,
+    code: "FOOD", label: "FOODbakēd", color: "#00A651", icon: Utensils,
     key: "food",
-    cardHref: "https://food.partner.baked.ci",
-    applyHref: "https://food.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FF6B6B55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FF6B6B33, transparent 60%)",
+    cardHref: "/foodbaked/sellers",
+    applyHref: "/foodbaked/sellers/apply",
+    internal: true,
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #00A65155, transparent 60%), radial-gradient(500px 300px at 80% 70%, #00A65133, transparent 60%)",
   },
   {
     code: "SHOP", label: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag,
