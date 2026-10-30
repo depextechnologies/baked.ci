@@ -5,11 +5,13 @@ in Postgres and is editable from Super Admin. Booking status transitions are
 recorded in `express_booking_timeline` for auditability.
 """
 from __future__ import annotations
+
+import asyncio
 import secrets
 from typing import Optional, List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, BackgroundTasks
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,6 +57,50 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
 
 
 # ---------- Configuration reads ----------
+@router.get("/drivers/nearby")
+async def nearby_drivers(
+    country: str = Query(..., min_length=2, max_length=2),
+    lat: float = Query(..., ge=-90, le=90),
+    lng: float = Query(..., ge=-180, le=180),
+    radius_km: float = Query(5.0, gt=0, le=15),
+    session: AsyncSession = Depends(get_session),
+):
+    """Real online SEND drivers around a point for the homepage map.
+
+    Same eligibility as dispatch (linked real driver, active, available, fresh GPS ping).
+    Privacy: no ids/names; coordinates rounded to ~110 m.
+    """
+    from datetime import timedelta
+    from core.models import ModuleDriver
+    from modules.express.dispatch import STALE_AFTER_SECONDS, _haversine_km
+
+    stale_before = datetime.now(timezone.utc) - timedelta(seconds=STALE_AFTER_SECONDS)
+    import math
+    deg = radius_km / 111.0
+    lng_deg = deg / max(math.cos(math.radians(lat)), 0.01)
+    rows = (await session.execute(
+        select(ModuleDriver.vehicle_type, ModuleDriver.current_lat, ModuleDriver.current_lng).where(
+            ModuleDriver.module == "express",
+            ModuleDriver.country == country.upper(),
+            ModuleDriver.status == "active",
+            ModuleDriver.is_available.is_(True),
+            ModuleDriver.deleted_at.is_(None),
+            ModuleDriver.linked_driver_id.isnot(None),
+            ModuleDriver.last_seen_at >= stale_before,
+            ModuleDriver.current_lat.between(lat - deg, lat + deg),
+            ModuleDriver.current_lng.between(lng - lng_deg, lng + lng_deg),
+        ).limit(200)
+    )).all()
+    drivers = []
+    for vt, dlat, dlng in rows:
+        km = _haversine_km(lat, lng, float(dlat), float(dlng))
+        if km <= radius_km:
+            drivers.append({"vehicle_type": vt, "lat": round(float(dlat), 3), "lng": round(float(dlng), 3), "distance_km": round(km, 1)})
+    drivers.sort(key=lambda d: d["distance_km"])
+    return {"radius_km": radius_km, "count": len(drivers), "drivers": drivers[:30],
+            "stale_after_s": STALE_AFTER_SECONDS, "as_of": datetime.now(timezone.utc).isoformat()}
+
+
 @router.get("/vehicles")
 async def list_vehicles(
     country: str = Query("CI"),
@@ -268,13 +314,13 @@ class MoversQuoteIn(BaseModel):
     drop_lat: float
     drop_lng: float
     items: List[MoverItemIn] = []
-    labour_movers: int = 2
-    floors_pickup: int = 0
-    floors_drop: int = 0
+    labour_movers: int = Field(2, ge=1, le=10)
+    floors_pickup: int = Field(0, ge=0, le=60)
+    floors_drop: int = Field(0, ge=0, le=60)
     stairs_pickup: bool = False
     stairs_drop: bool = False
     declared_value: Optional[float] = None
-    time_slot_surcharge: float = 0.0
+    time_slot_surcharge: float = Field(0.0, ge=0)
 
 
 @router.post("/quote/movers")
@@ -577,19 +623,26 @@ async def create_parcel_booking(
     return data
 
 
+class MoverBuildingIn(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    floor: int = Field(0, ge=0, le=60)
+    elevator: bool = False
+    stairs: bool = False
+
+
 class MoversBookingIn(BaseModel):
     country: str = "CI"
     move_type: str
     pickup: AddressPoint
     drop: AddressPoint
-    pickup_building: dict = {}
-    drop_building: dict = {}
+    pickup_building: MoverBuildingIn = MoverBuildingIn()
+    drop_building: MoverBuildingIn = MoverBuildingIn()
     items: List[MoverItemIn] = []
     custom_items: List[dict] = []
     scheduled_date: Optional[str] = None
     time_slot_code: Optional[str] = None
     declared_value: Optional[float] = None
-    labour_movers: int = 2
+    labour_movers: int = Field(2, ge=1, le=10)
     payment_method: str = "cod"
 
 
@@ -599,6 +652,15 @@ async def create_movers_booking(
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_session),
 ):
+    move_type_ok = (
+        await session.execute(select(ExpressMoveType.id).where(ExpressMoveType.code == payload.move_type, ExpressMoveType.active.is_(True)))
+    ).first()
+    if not move_type_ok:
+        raise HTTPException(400, {"code": "invalid_move_type", "message": "Unknown move type"})
+    if not payload.items and not payload.custom_items:
+        raise HTTPException(400, {"code": "no_items", "message": "Add at least one item"})
+    if payload.scheduled_date and _parse_dt(payload.scheduled_date) is None:
+        raise HTTPException(400, {"code": "invalid_date", "message": "Invalid scheduled date"})
     time_slot_surcharge = 0.0
     if payload.time_slot_code:
         slot = (
@@ -610,7 +672,9 @@ async def create_movers_booking(
                 )
             )
         ).scalar_one_or_none()
-        time_slot_surcharge = float(slot.surcharge) if slot else 0.0
+        if not slot:
+            raise HTTPException(400, {"code": "invalid_time_slot", "message": "Unknown time slot"})
+        time_slot_surcharge = float(slot.surcharge)
     quote = await quote_movers(
         session,
         country=payload.country,
@@ -618,10 +682,10 @@ async def create_movers_booking(
         drop_lat=payload.drop.latitude, drop_lng=payload.drop.longitude,
         items=[it.model_dump() for it in payload.items],
         labour_movers=payload.labour_movers,
-        floors_pickup=int(payload.pickup_building.get("floor") or 0),
-        floors_drop=int(payload.drop_building.get("floor") or 0),
-        stairs_pickup=bool(payload.pickup_building.get("stairs")),
-        stairs_drop=bool(payload.drop_building.get("stairs")),
+        floors_pickup=payload.pickup_building.floor,
+        floors_drop=payload.drop_building.floor,
+        stairs_pickup=payload.pickup_building.stairs,
+        stairs_drop=payload.drop_building.stairs,
         declared_value=payload.declared_value,
         time_slot_surcharge=time_slot_surcharge,
     )
@@ -642,8 +706,8 @@ async def create_movers_booking(
         **_address_columns("pickup", payload.pickup),
         **_address_columns("drop", payload.drop),
         move_type=payload.move_type,
-        movers_pickup_access=payload.pickup_building,
-        movers_drop_access=payload.drop_building,
+        movers_pickup_access=payload.pickup_building.model_dump(),
+        movers_drop_access=payload.drop_building.model_dump(),
         custom_items=payload.custom_items,
         quote_breakdown=quote,
         advance=quote["advance"],
@@ -733,6 +797,45 @@ async def ws_booking(ws: WebSocket, booking_id: str):
                 break
     finally:
         await ws_manager.disconnect(booking_id, ws)
+
+
+# Authenticated per-booking stream for the BAKĒD mobile app. Same ws_manager
+# fan-out as the website socket above — only the subscription is guarded.
+@router.websocket("/ws/customer/bookings/{booking_id}")
+async def ws_customer_booking(ws: WebSocket, booking_id: str, token: str = ""):
+    from core.security import decode_token
+    claims = None
+    try:
+        claims = decode_token(token) if token else None
+    except Exception:  # noqa: BLE001
+        claims = None
+    async with SessionLocal() as session:
+        booking = await session.get(ExpressBooking, booking_id)
+        if not claims or not booking or booking.customer_id != claims.get("sub"):
+            await ws.accept()
+            await ws.close(code=4403)
+            return
+        await ws.accept()
+        data = await booking_to_dict(session, booking)
+    from modules.realtime import get_pubsub
+    sub = await get_pubsub().subscribe(f"express.booking.{booking_id}")
+
+    async def forward():
+        async for msg in sub:
+            await ws.send_json(msg)
+
+    pump = asyncio.create_task(forward())
+    try:
+        await ws.send_json({"type": "snapshot", **public_booking_fields(data)})
+        while True:
+            msg = await ws.receive_text()
+            if msg == "ping":
+                await ws.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        pump.cancel()
+        await sub.close()
 
 
 # ---------- Driver-app status endpoint (production path) ----------

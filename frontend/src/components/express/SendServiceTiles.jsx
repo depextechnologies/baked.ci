@@ -1,7 +1,7 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Info, X } from "lucide-react";
 import { useApp } from "../../contexts/BakedContexts";
 import { useExpressBooking } from "../../contexts/ExpressContext";
 import { SEND_TILE_ASSETS } from "../../lib/expressAssets";
@@ -39,42 +39,58 @@ const TILE_META = {
   multi:          { titleKey: "send.tile.multi_title",          enKey: "send.tile.multi_title_en",          descKey: "send.tile.multi_desc" },
 };
 
-const SendTileCard = ({ tile, onClick, layout }) => {
+// Compact 3-per-row tile: image + one-language short name + "i" (description sheet). Tapping the card books.
+const SendTileCard = ({ tile, onClick, onInfo, layout }) => {
   const { t } = useTranslation("customer");
-  const meta = TILE_META[tile.key];
+  const meta = TILE_META[tile.key] || {};
+  const title = tile.title || t(meta.titleKey);
   const isDesktop = layout === "desktop";
   return (
-    <button
-      data-testid={`send-tile-${tile.key}`}
-      onClick={onClick}
-      className={`send-tile group relative rounded-2xl overflow-hidden text-left border border-border bg-card motion-fast active:scale-[0.985] transition-shadow hover:shadow-[0_18px_40px_rgba(0,0,0,0.35)] hover:border-[#FCC44C55] flex flex-col ${isDesktop ? "min-h-[248px]" : "min-h-[212px]"}`}
-    >
-      <div
-        className={`relative w-full flex items-center justify-center overflow-hidden ${isDesktop ? "h-40" : "h-32"}`}
-        style={{ background: `radial-gradient(circle at 50% 45%, ${YELLOW}1F, transparent 68%)` }}
+    <div className="relative">
+      <button
+        data-testid={`send-tile-${tile.key}`}
+        onClick={onClick}
+        className="send-tile w-full rounded-2xl overflow-hidden text-left border border-border bg-card motion-fast active:scale-[0.98] transition-shadow hover:border-[#FCC44C55] flex flex-col"
       >
-        <img
-          src={tile.asset}
-          alt={t(meta.titleKey)}
-          loading="lazy"
-          className={`w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.45)] ${isDesktop ? "max-h-36" : "max-h-28"}`}
-        />
-      </div>
-      <div className="flex-1 px-3 sm:px-4 pt-3 pb-3 flex items-end gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-foreground font-semibold text-[0.95rem] leading-tight line-clamp-2">{t(meta.titleKey)}</div>
-          <div className="text-muted-foreground text-[0.72rem] font-medium mt-0.5 truncate">{t(meta.enKey)}</div>
-          <div className="text-muted-foreground text-[0.7rem] font-normal mt-1.5 line-clamp-2 leading-snug">{t(meta.descKey)}</div>
-        </div>
         <div
-          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md"
-          style={{ backgroundColor: YELLOW }}
-          aria-hidden="true"
+          className={`relative w-full flex items-center justify-center overflow-hidden ${isDesktop ? "h-32" : "aspect-[1.15]"}`}
+          style={{ background: `radial-gradient(circle at 50% 45%, ${YELLOW}1F, transparent 70%)` }}
         >
-          <ArrowRight size={15} color="#0a0a0a" strokeWidth={2.6} />
+          <img src={tile.asset} alt={title} loading="lazy" className="max-h-[84%] max-w-[88%] w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.4)]" />
         </div>
+        <div className="min-h-[42px] px-1.5 py-2 flex items-center justify-center">
+          <div data-testid={`send-tile-name-${tile.key}`} className="text-foreground font-semibold text-[0.75rem] sm:text-[0.85rem] leading-tight text-center line-clamp-2">{title}</div>
+        </div>
+      </button>
+      <button
+        data-testid={`send-tile-info-${tile.key}`}
+        aria-label={t("send.service_info")}
+        onClick={(e) => { e.stopPropagation(); onInfo(tile); }}
+        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center bg-black/60 border border-white/20 text-white"
+      >
+        <Info size={14} />
+      </button>
+    </div>
+  );
+};
+
+const TileInfoSheet = ({ tile, onClose, onBook }) => {
+  const { t } = useTranslation("customer");
+  if (!tile) return null;
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/60 flex items-end sm:items-center justify-center" onClick={onClose} data-testid="send-tile-info-backdrop">
+      <div className="relative w-full sm:max-w-md bg-card border border-border rounded-t-3xl sm:rounded-3xl p-5 pb-8" onClick={(e) => e.stopPropagation()} data-testid="send-tile-info-sheet">
+        <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground" data-testid="send-tile-info-close" aria-label="close"><X size={18} /></button>
+        <div className="h-32 rounded-2xl flex items-center justify-center mb-4" style={{ background: `${YELLOW}14` }}>
+          <img src={tile.asset} alt="" className="max-h-28 w-auto object-contain" />
+        </div>
+        <div className="text-lg font-bold" data-testid="send-tile-info-title">{tile.title}</div>
+        <p className="text-sm text-muted-foreground mt-1.5" data-testid="send-tile-info-desc">{tile.desc}</p>
+        <button onClick={onBook} data-testid="send-tile-info-book" className="mt-5 w-full h-12 rounded-xl font-bold text-black flex items-center justify-center gap-2" style={{ backgroundColor: YELLOW }}>
+          {t("send.book_service")} <ArrowRight size={16} />
+        </button>
       </div>
-    </button>
+    </div>
   );
 };
 
@@ -84,8 +100,20 @@ const SendTileCard = ({ tile, onClick, layout }) => {
  * Props:
  *   layout: "mobile" | "desktop"  — controls tile height + column count.
  */
-export const SendServiceTiles = ({ layout = "mobile" }) => {
-  const { t } = useTranslation("customer");
+export const SendServiceTiles = ({ layout = "mobile", section = null }) => {
+  const { t, i18n } = useTranslation("customer");
+  const fr = i18n.language !== "en";
+  // CMS (send_service_tiles): ordered tiles with FR primary / EN secondary labels; falls back to the built-in six.
+  const tiles = section
+    ? (section.config?.tiles || []).filter((x) => x.enabled !== false && x.key).map((x) => ({
+        key: x.key,
+        asset: x.image || SEND_TILE_ASSETS[x.key],
+        title: fr ? x.title_fr || x.title_en : x.title_en || x.title_fr,
+        desc: fr ? x.desc_fr || x.desc_en : x.desc_en || x.desc_fr,
+      }))
+    : SERVICES;
+  const heading = section ? (fr ? section.config?.title_fr || section.title : section.title || section.config?.title_fr) : t("send.services_heading");
+  const subheading = section ? (fr ? section.config?.subtitle_fr || section.subtitle : section.subtitle || section.config?.subtitle_fr) : t("send.services_sub");
   const navigate = useNavigate();
   const { activeAddress } = useApp();
   const { setDraft } = useExpressBooking();
@@ -132,23 +160,24 @@ export const SendServiceTiles = ({ layout = "mobile" }) => {
     navigate("/send/book/location");
   }, [activeAddress, navigate, setDraft]);
 
-  const gridClass = layout === "desktop"
-    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-    : "grid grid-cols-2 gap-3";
+  const [info, setInfo] = useState(null);
+  const gridClass = "grid grid-cols-3 gap-2.5 sm:gap-3";
 
   return (
     <section data-testid="send-services-grid" className={layout === "desktop" ? "" : "px-4 mt-5"}>
       <div className={`${layout === "desktop" ? "" : "mb-3"} flex items-end justify-between`}>
         <div>
-          <h2 className="text-foreground font-bold tracking-tight text-xl sm:text-2xl leading-tight">{t("send.services_heading")}</h2>
-          <p className="text-muted-foreground text-[0.78rem] mt-1">{t("send.services_sub")}</p>
+          <h2 className="text-foreground font-bold tracking-tight text-xl sm:text-2xl leading-tight">{heading}</h2>
+          <p className="text-muted-foreground text-[0.78rem] mt-1">{subheading}</p>
         </div>
       </div>
       <div className={`${gridClass} ${layout === "desktop" ? "mt-4" : ""}`}>
-        {SERVICES.map((tile) => (
-          <SendTileCard key={tile.key} tile={tile} layout={layout} onClick={() => handleClick(tile.key)} />
+        {tiles.map((tile) => (
+          <SendTileCard key={tile.key} tile={{ ...tile, title: tile.title, desc: tile.desc || t(TILE_META[tile.key]?.descKey) }} layout={layout}
+                        onClick={() => handleClick(tile.key)} onInfo={setInfo} />
         ))}
       </div>
+      <TileInfoSheet tile={info} onClose={() => setInfo(null)} onBook={() => { const k = info.key; setInfo(null); handleClick(k); }} />
     </section>
   );
 };

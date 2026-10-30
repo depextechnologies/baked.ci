@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import {
   ArrowRight, ChevronLeft, ChevronRight, Loader2, Smartphone, Store,
   Truck, Car, Home as HomeIcon, Package,
-  Bike, Clock, Wallet, Tag, RotateCcw, MapPin,
+  Bike, Clock, Wallet, Tag, RotateCcw, MapPin, ShieldCheck,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useApp } from "../contexts/BakedContexts";
@@ -79,8 +79,6 @@ export const ConfigHomepage = () => {
       {sections.map((s, i) => (
         <SectionRenderer key={s.id} section={s} index={i} country={country} />
       ))}
-      {/* Persistent trust strip — always at the tail so admin can't accidentally hide it */}
-      <TrustStrip />
     </div>
   );
 };
@@ -723,16 +721,18 @@ const CtaStrip = ({ section }) => {
  * TRUST STRIP — always-on footer badges
  * ============================================================================ */
 
-const TrustStrip = () => {
-  const { t } = useTranslation("common");
-  const TRUST = [
-    { icon: Bike,    color: "#77BC1F", key: "fast" },
-    { icon: Package, color: "#F97316", key: "range" },
-    { icon: Tag,     color: "#06B6D4", key: "prices" },
-    { icon: RotateCcw, color: "#A855F7", key: "returns" },
-  ];
+// Migrated to CMS (section_type `trust_strip`, config.items[{icon,color,title(_fr),subtitle(_fr)}]).
+const TRUST_ICONS = { bike: Bike, package: Package, tag: Tag, rotate: RotateCcw, shield: ShieldCheck, truck: Truck };
+const TrustStrip = ({ section }) => {
+  const { i18n } = useTranslation("common");
+  const fr = i18n.language === "fr";
+  const TRUST = (section.config?.items || []).map((it) => ({
+    icon: TRUST_ICONS[it.icon] || Package, color: it.color || "#77BC1F",
+    title: (fr && it.title_fr) || it.title, desc: (fr && it.subtitle_fr) || it.subtitle,
+  }));
+  if (!TRUST.length) return null;
   return (
-  <div className="baked-container mt-14 md:mt-16">
+  <div className="baked-container">
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 rounded-2xl bg-card border border-border p-5 md:p-6" data-testid="hp-trust-strip">
       {TRUST.map((row, i) => {
         const Icon = row.icon;
@@ -743,8 +743,8 @@ const TrustStrip = () => {
               <Icon size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold leading-tight">{t(`trust.${row.key}.title`)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{t(`trust.${row.key}.desc`)}</div>
+              <div className="text-sm font-bold leading-tight">{row.title}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{row.desc}</div>
             </div>
           </div>
         );
@@ -769,6 +769,7 @@ const RENDERERS = {
   brand_carousel:      BrandCarousel,
   app_promotion:       AppPromotion,
   cta_strip:           CtaStrip,
+  trust_strip:         TrustStrip,
 };
 
 export default ConfigHomepage;

@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend testing of the native FOOD CMS home (Expo web preview, build is current) compared with the website /food. Everything requested passes: 8 CMS sections show in order (hero first) with the expected testIDs, FR/EN texts match the config, and the old ModuleHome hero and 'Restaurants près de vous' list are gone (module-hero count 0). Navigation works: favourites -> /food/favourites (sends you to login when logged out), category -> /food/discover?category=burgers, 'all' does nothing, top brand -> /food/restaurant/burger_hub_ci, featured card -> restaurant, Voir tout -> /food/discover, promo CTA (/foodbaked) -> /food/discover, cuisine -> /food/discover?cuisines=indian, and discover sends cuisines=indian and shows only Spice Nation. Featured restaurants and top brands match /api/food/home and /api/food/brands/top for 5.36/-3.98. With the far address 5.9/-4.5, Burger Hub drops out of both lists, as the backend says. Pickup and dine_in refetch both endpoints. Pickup shows the empty texts 'Aucun restaurant à emporter à proximité.' and the top-brands empty text. Dine_in shows Burger Hub with 'Réserver une table' and opens /food/reserve/burger_hub_ci. EN titles: Good Food / Brings People Together, Browse by type, Top brands for you, Featured Restaurants, Cuisines You'll Love, Customer Reviews; promos, usps and testimonials also in EN. Live sync works on both native and website: promo headline_fr changed to TEST_Promo QA Titre, usps hidden, cuisines moved above featured. The data was restored exactly (DIFF [] extra []). Offline: aborting /api/homepage shows the cached sections plus the cms-offline banner. Tablet 820 and 1024: promos side by side, usps in 2 then 4 columns, 2 testimonial cards per view, scrollWidth equals viewport width. Regression OK: SHOP and MART CMS homes render, restaurant page works, FoodModeToggle is on discover, no page errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "No address -> top brands", "issue": "The review request expects top brands to be hidden when there is no address. /api/food/brands/top without lat/lng returns 6 brands (has_customer_coords=false), so native shows all 6 (top-brand-card-* count 6), and so does the website. Native matches the website, but neither meets the stated rule. FoodTopBrands returns null only when the list is empty and there is no address. Product needs to decide: if 'hidden' is the rule, return null when !address in native (and in the website TopBrandsCarousel).", "affected_selectors": ["cms-food-top-brands-hps_food_ci_025_food_top_brands", "top-brand-card-*"]}
+    ],
+    "design_issues": [
+      {"screen": "Native FOOD home EN", "issues": ["The usps title stays 'Pourquoi FOODbakēd ?' in EN because the CMS row has no config.title_en. The website shows the same, so this is a content gap: add title_en in Super Admin."]},
+      {"screen": "Native/website FOOD cards", "issues": ["Featured cards show raw cuisine codes ('burgers · fast_food'); the restaurant page shows 'fast food'. Same on the website.", "The images for the 'Africain' cuisine tile and the Grill House brand show stairs with numbers, which has nothing to do with food (data image, same on the website)."]},
+      {"screen": "/food/discover?cuisines=", "issues": ["The cuisine filter coming from the home page has no visible chip or way to clear it; only 'Tous' is highlighted while results are filtered."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/cms_mutate_food.py"],
+  "action_items": [
+    "Decide the no-address top-brands rule. If it must be hidden, return null in FoodTopBrands (native) and TopBrandsCarousel (website) when there are no coords.",
+    "Optional: add title_en for hps_food_ci_060_food_usps; on discover, show a clearable chip when the cuisines param is set; replace the unrelated african cuisine and Grill House images."
+  ],
+  "critical_code_review_comments": [
+    "FoodSections.tsx and FoodBlocks.tsx each define their own G constant, and FoodSections duplicates the HERO_BG fallback. Small, acceptable.",
+    "FoodTopBrands and FoodDataProvider each fetch on every mode change. That is fine and matches the website."
+  ],
+  "updated_files": ["/app/backend/tests/cms_mutate_food.py (new helper)"],
+  "success_rate": {"backend": "N/A", "frontend": "97%"},
+  "seed_data_creation": "None. The CMS mutations were restored exactly (DIFF [] extra []).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "FOOD native CMS works. Helper: `REACT_APP_BACKEND_URL=... python /app/backend/tests/cms_mutate_food.py apply|restore` (backup in /tmp/food_backup.json). It changes promo banner[0].headline_fr, disables usps, and swaps the cuisines/featured display_order. Native language key: localStorage baked_language='\"en\"'. Website /food testIDs use the food-section-* prefix. Next round: SEND native home."
+}

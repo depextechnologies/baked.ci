@@ -230,11 +230,15 @@ const HeroCarousel = ({ slides, resolveLink, lang }) => {
       } : undefined}
     >
       {slides.map((sl, i) => (
-        <img key={i} src={abs(sl.image)} alt="" aria-hidden={i !== idx}
-             loading={i === 0 ? "eager" : "lazy"}
-             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i === idx ? "opacity-100" : "opacity-0"}`}
-             style={{ zIndex: 0 }}
-             onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        <picture key={i}>
+          {sl.image_mobile && <source media="(max-width: 767px)" srcSet={abs(sl.image_mobile)} />}
+          {sl.image_tablet && <source media="(max-width: 1023px)" srcSet={abs(sl.image_tablet)} />}
+          <img src={abs(sl.image)} alt="" aria-hidden={i !== idx}
+               loading={i === 0 ? "eager" : "lazy"}
+               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${i === idx ? "opacity-100" : "opacity-0"}`}
+               style={{ zIndex: 0 }}
+               onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        </picture>
       ))}
       <div className="absolute inset-0 pointer-events-none"
            style={{ background: "linear-gradient(90deg, rgba(0,0,0,.85) 0%, rgba(0,0,0,.5) 45%, rgba(0,0,0,.05) 100%)" }} />

@@ -1,0 +1,50 @@
+{
+  "summary": "Tested the native Expo web preview (390x844 and 360x740) and website /send (390 and 1440). Backend pytest: 5/5 pass (emergent/session invalid id 401, missing or short id 422, OTP request+verify, mart categories). LOGIN: logo, FR/EN texts, red 'votre univers.', placeholder, 7 country codes (selecting IN shows 'IN +91' and closes the menu), red submit, 'OU' divider, Google button, email button (shows 'La connexion par email arrive bientôt.' as a window.alert), create-account (opens OTP). The wrong code shows 'Code incorrect'. EN toggle changes all texts. No horizontal overflow at 360. Google button goes to auth.emergentagent.com/oauth/?redirect=https://baked-platform.preview.emergentagent.com/api/app-preview/login and then Google sign-in. SEND HOME: order is header, map (top 68, height 388 = 46% of 844; 340 at 740), pickup bar, services, trust. No address-bar or home-search for SEND; both are still present on SHOP/MART/FOOD. Real Google map with zoom controls and a nearby chip. The address bar shows '57, Sector 18, Noida, Uttar Pradesh, India'. Changing the address to Connaught Place updated the bar and moved the map. Add-stop opens /send/book and the pickup button opens /address. TILES: 3 per row and 6 tiles on native, website mobile and website desktop (left panel). FR and EN names match the spec, there are no descriptions on cards, and FR and EN never appear together. The info sheet shows the localized title and description and does not navigate. Close and backdrop dismiss it, and 'Réserver ce service' books. All native and website card routes match the spec, except that native movers redirects to /login first (see issues). EXPLORER: SEND shows 6 services that route to booking. MART shows 9 categories, routing to /mart/category/fruits-vegetables. SHOP shows categories with 76 subcategory links, routing to /shop/category/mode-femme?sub=robes-femme (filtered). FOOD shows categories and cuisines, routing to /food/discover?category=burgers and ?cuisines=indian. The Super App context shows the old cross-module Explorer. Switching to MART in Apps updates Explorer. Search is scoped: 'robe' in SHOP returns shop hits, 'pizza' in SHOP returns empty. BOOKING (moto, not logged in): route, then details (Continue disabled until name and phone are filled; weight and prefs chips; no package-type chips for IN), then vehicle (bike/three_wheeler/truck with INR prices, fare breakdown, 40 'later' slots). 'Se connecter pour réserver' opens /login?redirect=/send/book?service=moto&resume=1. After OTP it returns to the vehicle step with receiver, phone and notes kept, and booking navigates to /send/track/exp_0254dd8329bb4eda. Multi: 2 stops, then straight to vehicle (no receiver step), stop surcharge included, back goes to route. No page errors in any native or website run.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/emergent/session", "issue": "The httpx call to the Emergent session URL is not wrapped in try/except. A timeout or connection error would return 500 instead of 401/503."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Native SendBook vehicle step (resume after login)", "issue": "Intermittent, 1 of 2 runs. After the OTP resume, the selected Bike showed '…' with no quote. The Book button was disabled with the label 'Réserver · ' and the other vehicles showed '720 CFA' / '2 884 CFA' instead of ₹. Root cause: money() falls back to q?.currency || 'XOF' when the selected vehicle has no quote. A failed quote is silently dropped (catch → null) and never retried. Going back and forward again fixed it.", "selector": "[data-testid^='send-vehicle-price-'], [data-testid='send-book']", "priority": "MEDIUM"},
+      {"component": "Native login error", "issue": "The error is stored as an already-translated string, so after the EN toggle 'Saisissez un numéro de mobile valide.' stays in French.", "selector": "[data-testid='login-error']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Google sign-in during booking (native web build)", "issue": "The booking draft (module-level `saved` in book.tsx and the SendDraftContext pickup/drops) only lives in memory. The Google OAuth web redirect reloads the whole page, so /send/book?resume=1 comes back empty at the route step. OTP login keeps the draft; Google login loses it. Persist the draft to sessionStorage/prefs before startGoogle.", "affected_selectors": ["login-google", "send-book"]},
+      {"flow": "Native movers tile vs website", "issue": "Native /send/movers redirects to /login when not logged in (movers.tsx:104). The website /send/movers opens without login and the user can browse types and quotes. This breaks parity with 'can go through all steps before login'.", "affected_selectors": ["send-tile-movers", "explore-item-movers"]},
+      {"flow": "Fresh produce in IN", "issue": "/api/express/vehicles?country=IN&service_type=fresh_products returns [], so the native flow ends on 'no vehicle'. This is a data/config gap.", "affected_selectors": ["send-tile-fresh"]}
+    ],
+    "design_issues": [
+      {"screen": "Native Explorer SHOP", "issues": ["All category tiles are empty dark boxes because /api/shop/catalogue categories have image=null. Add an icon fallback like the SHOP home tiles.", "Subcategory links are truncated at 390px, e.g. 'Mode contem…', 'Costumes & M…'."]},
+      {"screen": "Native Explorer FOOD", "issues": ["The 'Poulet' category tile has no image."]},
+      {"screen": "Native Explorer (module contexts)", "issues": ["The search placeholder is still 'Produits, restaurants, plats, services…' even though search is scoped to one module. Use a module-specific placeholder."]},
+      {"screen": "Native login email", "issues": ["'Coming soon' uses a blocking window.alert on web; the website uses a toast."]},
+      {"screen": "Native OTP", "issues": ["The Verify button is green-tinted, but the login CTA is red."]},
+      {"screen": "Website /send mobile", "issues": ["Bottom nav labels (Home/Bookings/Services/Profile) and movers type names are English in FR mode. This was already there before this change."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_emergent_google_session.py", "/app/test_reports/pytest/pytest_results_127.xml"],
+  "action_items": [
+    "SendBook: currency should not fall back to XOF. Use each quote's own currency (quotes[v.code].currency) or the country currency. Retry or report failed quotes instead of silently dropping them, and do not show 'Réserver · ' with an empty total.",
+    "Persist the SEND booking draft (pickup/drops/form/vehicle/step) to sessionStorage before the Google web redirect so resume=1 works after Google login.",
+    "Decide on movers parity: allow browsing /send/movers on native before login, as on the website.",
+    "Wrap the httpx call in /auth/emergent/session in try/except and return 401/503 instead of 500.",
+    "Add an image/icon fallback for SHOP Explorer categories and the FOOD 'Poulet' tile; use module-scoped search placeholders.",
+    "Store login errors as i18n keys so they re-translate on the language toggle."
+  ],
+  "critical_code_review_comments": [
+    "book.tsx: `let saved` at module scope is lost on any reload. SendDraftContext is not persisted.",
+    "book.tsx: money() uses q?.currency of the selected vehicle for every row, so it shows the wrong currency when the selected quote is missing.",
+    "googleAuth.ts: the web flow stores the redirect in sessionStorage and uses origin+pathname, which matches auth_testing.md. consumeWebCallback clears the hash. OK.",
+    "routes.py emergent_google_session: there is no handling for httpx exceptions or non-JSON bodies."
+  ],
+  "updated_files": ["/app/backend/tests/test_emergent_google_session.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "~92% (core flows pass; 1 intermittent quote/currency bug, Google-login draft loss, movers parity)"},
+  "test_credentials": "Customer OTP +225 0700000000 (dev code shown on the OTP screen). +91 0700000000 also used.",
+  "seed_data_creation": "Created SEND booking exp_0254dd8329bb4eda (IN, moto, TEST Receiver) via native flow; customers +2250700000000 / +910700000000 may have been created.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Native lang key is localStorage baked_language='\"en\"' (JSON string); website uses baked_language='en'. Native context is baked_active_context='\"express\"|\"mart\"|\"shop\"|\"food\"|\"baked\"'. Tab test IDs: tab-home/tab-explore/tab-switcher; switcher-card-<code>. Address results: address-result-<placeId>. Native notify() = window.alert on web (use page.on('dialog')). OTP input auto-submits on 6 digits."
+}

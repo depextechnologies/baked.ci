@@ -46,6 +46,8 @@ const _SLIDE_FIELDS = [
   F.text("headline", "Headline"),
   F.area("description", "Description"),
   F.image("image", "Background image"),
+  F.image("image_tablet", "Tablet image (optional)", "Used on tablets (768–1023px). Falls back to the background image."),
+  F.image("image_mobile", "Mobile image (optional)", "Used on phones (<768px) — website and apps. Falls back to the background image."),
   F.text("badge", "Badge (optional, e.g. NEW, 30% off)"),
   F.text("cta_label", "Primary CTA label"),
   F.url("cta_link", "Primary CTA link"),
@@ -169,6 +171,16 @@ const SECTION_SCHEMAS = {
     top: [F.text("title", "Headline"), F.text("subtitle", "Subline")],
     config: [F.text("cta_label", "CTA label"), F.url("cta_link", "CTA link")],
   },
+  trust_strip: {
+    label: "Trust Strip (badges)",
+    top: [],
+    config: [F.list("items", "Badges (4 recommended)", [
+      F.text("icon", "Icon key (bike / package / tag / rotate / shield / truck)"),
+      F.text("color", "Accent colour (hex)"),
+      F.text("title", "Title (EN)"), F.text("title_fr", "Titre (FR)"),
+      F.text("subtitle", "Subtitle (EN)"), F.text("subtitle_fr", "Sous-titre (FR)"),
+    ])],
+  },
 
   // ---------------- FOODbakēd homepage sections (Feb 2026) ------------------
   // Every food_* schema is FR-first / EN-second. The customer FoodHome page
@@ -288,6 +300,88 @@ const SECTION_SCHEMAS = {
       F.image("background_image", "Legacy background image"),
     ],
   },
+  send_map_hero: {
+    label: "SEND · Carte en direct · Live map hero",
+    modules: ["express"],
+    top: [],
+    config: [F.bool("show_drivers", "Afficher les chauffeurs à proximité · Show nearby drivers")],
+  },
+  send_pickup_bar: {
+    label: "SEND · Barre de ramassage · Pickup bar",
+    modules: ["express"],
+    top: [],
+    config: [
+      F.text("placeholder_fr", "Texte FR · ex: Votre lieu de ramassage ?"), F.text("placeholder", "Placeholder EN"),
+      F.text("add_stop_label_fr", "Bouton FR · ex: Ajouter un arrêt"), F.text("add_stop_label", "Button EN"),
+    ],
+  },
+  send_service_tiles: {
+    label: "SEND · Services (tuiles) · Service tiles",
+    modules: ["express"],
+    top: [F.text("title", "Title EN"), F.text("subtitle", "Subtitle EN")],
+    config: [
+      F.text("title_fr", "Titre FR · ex: Nos services"), F.text("subtitle_fr", "Sous-titre FR"),
+      F.list("tiles", "Tuiles (ordre = affichage) · Tiles (order = display)", [
+        F.text("key", "Service key: moto / cargo / fresh / between_cities / movers / multi"),
+        F.bool("enabled", "Afficher · Show"),
+        F.image("image", "Illustration"),
+        F.text("title_fr", "Titre FR"), F.text("title_en", "Title EN"),
+        F.text("desc_fr", "Description FR"), F.text("desc_en", "Description EN"),
+      ]),
+    ],
+  },
+  app_module_grid: {
+    label: "App · Grille des services · Module grid",
+    modules: ["baked"],
+    top: [],
+    config: [
+      F.list("items", "Tuiles (ordre = affichage, 3 colonnes) · Tiles (order = display, 3 columns)", [
+        F.text("module", "Module: express / food / mart / shop / immo / auto"),
+        F.bool("enabled", "Afficher · Show"),
+        F.text("tagline_fr", "Accroche FR · ex: Livrez tout"), F.text("tagline_en", "Tagline EN · e.g. Deliver Anything"),
+        F.image("image", "Illustration (PNG/WebP transparent)"),
+        F.text("accent", "Couleur d'accent · Accent colour (hex, e.g. #F5A524)"),
+      ], "IMMO et AUTO affichent un badge « Bientôt » tant que le module n'est pas lancé."),
+    ],
+  },
+  app_category_row: {
+    label: "App · Rangée de catégories · Category row",
+    modules: ["baked"],
+    top: [F.text("title", "Title EN · e.g. Order your bites")],
+    config: [
+      F.text("title_fr", "Titre FR · ex: Commandez vos envies"),
+      F.text("source_module", "Module source: food / mart / shop", "Les catégories viennent du catalogue existant du module."),
+      F.text("accent", "Couleur « Voir tout » · View-all colour (hex)"),
+      F.num("max_items", "Nombre max de tuiles · Max tiles"),
+      F.list("items", "Catégories (ordre = affichage). Vide = toutes · Categories (order = display). Empty = all", [
+        F.text("key", "Code / slug de la catégorie existante · Existing category code / slug"),
+        F.bool("enabled", "Afficher · Show"),
+        F.image("image", "Image (optionnelle, sinon image de la catégorie)"),
+        F.text("label_fr", "Libellé FR (optionnel)"), F.text("label_en", "Label EN (optional)"),
+      ]),
+    ],
+  },
+  app_promo_slider: {
+    label: "App · Bannières promo · Promo slider",
+    modules: ["baked"],
+    top: [],
+    config: [
+      F.list("items", "Bannières (ordre = affichage) · Banners (order = display)", [
+        F.bool("enabled", "Afficher · Show"),
+        F.text("title_fr", "Titre FR"), F.text("title_en", "Title EN"),
+        F.text("cta_label_fr", "Bouton FR · ex: Commander"), F.text("cta_label_en", "Button EN · e.g. Order Now"),
+        F.url("link", "Lien · Link (/food, /mart, /shop, /send, /mart/category/<slug> …)"),
+        F.image("image", "Image de fond · Background image"),
+        F.text("accent", "Couleur du bouton · Button colour (hex)"),
+      ]),
+    ],
+  },
+  send_trust_banner: {
+    label: "SEND · Bandeau confiance · Trust banner",
+    modules: ["express"],
+    top: [],
+    config: [F.area("text_fr", "Texte FR"), F.area("text", "Text EN")],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -298,7 +392,10 @@ const MODULES_META = [
   { code: "mart", label: "MARTbakēd" },
   { code: "shop", label: "SHOPbakēd" },
   { code: "food", label: "FOODbakēd" },
+  { code: "express", label: "SENDbakēd" },
+  { code: "baked", label: "BAKĒD App" },
 ];
+const PREVIEW_PATH = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
 
 // Section types allowed for each module. Sections tagged with `modules: [...]`
 // are restricted; untagged sections are shared (available everywhere) but we
@@ -306,7 +403,7 @@ const MODULES_META = [
 const _isSectionForModule = (schema, module) => {
   if (schema.modules) return schema.modules.includes(module);
   // Untagged sections were built for MART/SHOP originally.
-  return module !== "food";
+  return module !== "food" && module !== "express" && module !== "baked";
 };
 
 const errMsg = (e) => e?.response?.data?.detail || e?.message || "Error";
@@ -439,13 +536,13 @@ export const AdminHomepageManagement = () => {
                   data-testid="hp-country-select">
             {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
-          {module === "food" && (
+          {PREVIEW_PATH[module] && (
             <a
-              href={`/food?preview_country=${country}`}
+              href={`${PREVIEW_PATH[module]}?preview_country=${country}`}
               target="_blank" rel="noreferrer"
               className="h-9 px-3 rounded-lg text-xs uppercase tracking-widest font-semibold bg-secondary text-foreground border border-border hover:bg-accent flex items-center gap-1"
               data-testid="hp-preview-btn"
-              title="Opens the live FOODbakēd homepage in a new tab with the selected country">
+              title="Opens the live module homepage in a new tab with the selected country">
               <Eye size={14} /> Preview
             </a>
           )}
@@ -489,7 +586,7 @@ export const AdminHomepageManagement = () => {
                   data-testid={`hp-row-${row.id}`}>
                 <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.display_order}</td>
                 <td className="px-4 py-3">
-                  <div className="font-medium">{row.title || <span className="italic text-muted-foreground">Untitled</span>}</div>
+                  <div className="font-medium">{row.title || <span className="italic text-muted-foreground">{SECTION_SCHEMAS[row.section_type]?.label || "Untitled"}</span>}</div>
                   <div className="text-[11px] text-muted-foreground truncate max-w-md">{row.subtitle}</div>
                 </td>
                 <td className="px-4 py-3 text-xs">
@@ -565,6 +662,12 @@ const SectionEditor = ({ row, creating, module, onClose, onSave }) => {
   const rmListItem = (listName, itemIdx) => setDraft((d) => ({
     ...d, config: { ...d.config, [listName]: (d.config?.[listName] || []).filter((_, i) => i !== itemIdx) },
   }));
+  const moveListItem = (listName, from, to) => setDraft((d) => {
+    const xs = [...(d.config?.[listName] || [])];
+    if (to < 0 || to >= xs.length) return d;
+    [xs[from], xs[to]] = [xs[to], xs[from]];
+    return { ...d, config: { ...d.config, [listName]: xs } };
+  });
   // Grouped field setter — writes to `config[groupName][subField]`.
   const setGroupField = (groupName, subField, value) => setDraft((d) => ({
     ...d,
@@ -588,14 +691,23 @@ const SectionEditor = ({ row, creating, module, onClose, onSave }) => {
                 <div key={i} className="rounded-lg border border-border p-3 mb-2 space-y-2"
                      data-testid={`hp-editor-list-item-${f.name}-${i}`}>
                   {f.itemFields.map((sub) => (
-                    <FieldRenderer key={sub.name} field={sub}
+                    <FieldRenderer key={sub.name} field={{ ...sub, name: `${f.name}-${i}-${sub.name}` }}
                                    value={item[sub.name]}
                                    onChange={(v) => setListItem(f.name, i, sub.name, v)} />
                   ))}
-                  <button onClick={() => rmListItem(f.name, i)}
-                          className="text-[10px] uppercase tracking-widest text-rose-400">
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => moveListItem(f.name, i, i - 1)} disabled={i === 0}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border disabled:opacity-30"
+                            data-testid={`hp-editor-list-up-${f.name}-${i}`}>↑ Up</button>
+                    <button onClick={() => moveListItem(f.name, i, i + 1)} disabled={i === rows.length - 1}
+                            className="text-[10px] uppercase tracking-widest px-2 py-1 rounded border border-border disabled:opacity-30"
+                            data-testid={`hp-editor-list-down-${f.name}-${i}`}>↓ Down</button>
+                    <button onClick={() => rmListItem(f.name, i)}
+                            className="text-[10px] uppercase tracking-widest text-rose-400"
+                            data-testid={`hp-editor-list-remove-${f.name}-${i}`}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
               {rows.length === 0 && (

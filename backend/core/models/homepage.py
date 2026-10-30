@@ -15,6 +15,10 @@ from core.models.base import Base, new_id
 
 
 HOMEPAGE_SECTION_TYPES = [
+    # BAKĒD Super App main home (module "baked") — native app grid, category rows, promo slider.
+    "app_module_grid",
+    "app_category_row",
+    "app_promo_slider",
     "hero",
     "category_grid",
     "product_carousel",
@@ -23,6 +27,7 @@ HOMEPAGE_SECTION_TYPES = [
     "brand_carousel",
     "app_promotion",
     "cta_strip",
+    "trust_strip",
     # FOODbakēd (Feb 2026) — customer FoodHome sections. Full CMS wiring —
     # each row maps to a distinct block in FoodHome. Multiple rows of the
     # SAME type are rendered in `display_order` so admins can e.g. ship
@@ -34,6 +39,12 @@ HOMEPAGE_SECTION_TYPES = [
     "food_promos",
     "food_usps",
     "food_testimonial",
+    "food_top_brands",
+    # SENDbakēd (2026-06) — migrated from the hardcoded website ExpressHome.
+    "send_map_hero",
+    "send_pickup_bar",
+    "send_service_tiles",
+    "send_trust_banner",
 ]
 
 

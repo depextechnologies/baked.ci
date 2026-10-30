@@ -40,14 +40,15 @@
 ## SENDbakēd Test Driver (phone OTP)
 - Country: IN (India)
 - Phone: `+919990001234`
-- Driver ID: `drv_80fb10f9def94f95`
-- Status: `approved` + `is_online=true` (KYC + admin approval already done in DB)
+- Driver ID: `drv_d0a9e4fad49048a1` (changes after a DB reset — look it up by phone)
+- Status: `approved` + `is_online=true` (KYC + admin approval already done in DB). After a DB reset run `/root/.venv/bin/python /app/backend/scripts/dev_approve_test_driver.py` to re-approve it.
+- Verify OTP body: `{"phone_e164":"+919990001234","code":"<dev_hint>"}` (request-otp body needs `country: "IN"`). Go online: `POST /api/driver/me/online {is_online:true,lat,lng}`; ping `POST /api/driver/me/location {lat,lng}` (stale after 60 s).
 - PWA login: `https://baked-platform.preview.emergentagent.com/driver`
 - **How to get the OTP** (mocked SMS): after tapping Continue on the phone-entry screen, open DevTools → Network → the response to `/api/driver/auth/request-otp` returns `dev_hint` = the 6-digit code. It's also printed to `/var/log/supervisor/backend.err.log`. OTP is valid for 10 minutes.
 - Active demo job auto-dispatched — you'll see an incoming-request overlay right after login. Accept it to walk the delivery + chat + wallet flows.
 - **Customer tracking page** (public, no login):
   - Format: `https://baked-platform.preview.emergentagent.com/send/track/{JOB_ID}?t={SHARE_TOKEN}`
-  - To dispatch a fresh job + get a fresh tracking link, hit `POST /api/admin/drivers/drv_80fb10f9def94f95/dispatch-demo-job` with the Super Admin JWT — the response includes `id` and `share_token`.
+  - To dispatch a fresh job + get a fresh tracking link, hit `POST /api/admin/drivers/drv_d0a9e4fad49048a1/dispatch-demo-job` with the Super Admin JWT — the response includes `id` and `share_token`.
 
 ## Notes
 - **SENDbakēd real dispatch (Phase A, 2026-02)**: real driver → real customer end-to-end.
@@ -116,3 +117,12 @@
 - `drv_seed_pend1` — Priya Kumar · IN · pending_review (full KYC — approve me)
 - `drv_seed_pend2` — Kouame Bakayoko · CI · pending_review (full KYC)
 - `drv_seed_appr1` — Existing Driver · IN · approved
+
+## BAKĒD Mobile Super App (Expo, /app/mobile) — customer phone OTP
+- Web preview: `https://baked-platform.preview.emergentagent.com/api/app-preview/` (open root, then navigate in-app; use a mobile viewport ~390x844)
+- Any CI mobile number, e.g. country `+225`, phone `0700000001` (8+ digits). OTP_PROVIDER=dev → the code is shown on the OTP screen ("Code de test") and returned as `dev_code` from `POST /api/auth/otp/request`.
+- Expo Go: scan `https://baked-platform.preview.emergentagent.com/api/app-preview/expo-go-qr.png` (tunnel served by supervisor program `expo-mobile`).
+
+
+## Note (2026-10-29)
+- Preview DB was reset by a workspace restart and re-seeded. Customer OTP is now random: the code is shown on the OTP screen ("dev code") in the preview/test APK. QA partner `qa-burger@test.example` no longer exists until recreated.

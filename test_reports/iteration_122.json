@@ -1,0 +1,37 @@
+{
+  "summary": "SHOP website-to-native CMS parity, end to end. Backend: 9/9 pytest pass. GET /api/homepage returns a 16-hex `version` and `updated_at` with Cache-Control no-cache. /homepage/version returns the same version. The version changes after config, title, is_enabled, reorder, create and delete. Native Expo preview at 390x844 renders the 5 CMS sections in display_order with the expected testIDs, in French by default (hero headline, 'Acheter par catégorie' with sub-category counts, 'Nouveautés', 'Moins de 10 000 XOF', 'Marques en vedette'). It matches the website /shop at 390 for order, text and images. Add-to-cart from the rail works (header-cart-count=1, cart bar shows). Live-sync tests passed on both clients at the same time: banner headline_fr + image + image_mobile change (native and website at 390 both used image_mobile), category/products reorder, disabling under_10k, and a new promo at display_order 15 rendered second. All CMS data was restored and checked by exact config diff; the TEST_ promo was deleted. EN toggle passes: Shop by category / Fresh drops / Fashion, tech & home / Browse categories. Foreground version check passes: a PATCH while the page was hidden, then visibilitychange to visible, refetched and showed the new headline. Offline passes: with /api/homepage aborted, cached sections (localStorage baked_hp_shop_CI) render with cms-offline and no crash. Switching modules MART->FOOD->SHOP->SEND(express)->MART keeps each module's branding; only SHOP uses CMS. Tablet: hero is 16:9 (1.78) at 820 and 1024, the product rail shows 3 and 4 cards, no horizontal overflow. However the category grid shows 4 columns at 1024 instead of 6 (bug). Admin Homepage Management loads, and the hero Slides tab shows the 'Tablet image (optional)' and 'Mobile image (optional)' fields.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/admin/homepage-sections/reorder", "issue": "Unknown ids are skipped silently but still counted in the 'count' field; no 404/400 for them."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "mobile CategoryGrid (native)", "issue": "At a 1024px viewport the grid shows 4 columns instead of 6. cols() gets the content width (screen - 32 = 992), which is below its >=1000 threshold for 6 columns. Fix: pass the screen width from useWindowDimensions to cols(), or lower the threshold to about 960.", "selector": "[data-testid^=cms-category-tile-]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Website /shop hero at 390px (existing website issue, not changed)", "issues": ["Secondary CTA 'Nouveautés' is clipped at the bottom of the 16/10 hero and overlaps the dots indicator. The native version fits."]},
+      {"screen": "Website /shop bottom nav at 390px", "issues": ["Labels are English (Home/Categories/Cart/Profile) while the rest of the page is French. Existing issue, for information only."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_homepage_version_cms.py", "/app/backend/tests/cms_mutate.py", "/app/test_reports/pytest/pytest_homepage_version.xml"],
+  "action_items": [
+    "Fix the native CategoryGrid column breakpoint so 1024px tablets get 6 columns: use the screen width or a threshold of about 960 (then rebuild with npm run export:web).",
+    "Update the review request / docs: the Super Admin password is 'baked@2026#!$@' as in /app/memory/test_credentials.md; 'depex12345' returns 401."
+  ],
+  "critical_code_review_comments": [
+    "_version() hashes id:display_order:updated_at of enabled rows. It depends on HomepageSection.updated_at having an onupdate; that works today (title and config PATCH changed the version).",
+    "useHomepage AppState handler sets offline=true on any version-check failure even when fresh data is shown. Consider only flagging offline when there is no fresh data.",
+    "HeroCarousel autoplay calls scrollToOffset inside the setIdx updater (a side effect inside a state updater); it can double-fire under StrictMode. Move the scroll into a useEffect on idx.",
+    "The api() retry makes 2 /api/homepage calls when offline. This is expected and harmless."
+  ],
+  "updated_files": ["/app/backend/tests/test_homepage_version_cms.py", "/app/backend/tests/cms_mutate.py"],
+  "success_rate": {"backend": "100%", "frontend": "95% (1 tablet column bug)"},
+  "test_credentials": "Super Admin depexopenai@gmail.com / baked@2026#!$@ (works). depex12345 is invalid.",
+  "seed_data_creation": "None kept. Temporary TEST_ promo sections were created and deleted; hero config was restored to its exact original.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Native preview: set localStorage baked_onboarding_done='true' and baked_active_context='\"shop\"', then reload /api/app-preview/. Module switch: tab-switcher -> switcher-card-<mart|food|shop|express>. Lang: tab-profile -> lang-en/lang-fr. Admin page defaults to MART; click hp-module-shop, then hp-edit-<id>, then hp-editor-tab-slides for the responsive image fields. The cms_mutate.py apply|restore helper saves the hero backup to /tmp/hero_backup.json."
+}

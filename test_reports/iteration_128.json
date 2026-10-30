@@ -1,0 +1,40 @@
+{
+  "summary": "Retest of the iteration_127 fixes on the native Expo web preview (390x844) and website /send. BACKEND: 11/11 pytest pass. emergent/session invalid returns 401; missing or short id returns 422. Unit tests with httpx patched: ConnectError and ReadTimeout both return 503. Parcel quotes come back as INR for IN and XOF for CI. Movers quote is public (CI). SENDBOOK OTP RESUME (CI, not logged in): Plateau to Cocody, then receiver, then vehicle (4 prices in CFA), then 'Se connecter pour réserver'. This saved sessionStorage baked_resume_send and went to /login?redirect=/send/book?service=moto&resume=1. After OTP it was back on the vehicle step with the same prices, 'Réserver · 3 569 CFA' and the fare total. Receiver name, phone and notes were restored. Booking went to /send/track/exp_de73bd5325fa4c55 and the draft was cleared. SENDBOOK GOOGLE-REDIRECT SIM (IN): draft injected into sessionStorage and the page reloaded at /send/book?service=moto&resume=1. Step, vehicle, prices in ₹ (363,47 ₹ ...), receiver and pickup/drop all came back. BUG: the map stays on the default Abidjan view with no markers or route. MOVERS: /send/movers opens without login and all 6 steps can be browsed with a quote (23 970 CFA, deposit 5 000). 'Se connecter pour réserver' led to login, then OTP, then /send/movers?resume=1 at review with the state restored. 'Confirmer · 5 000 CFA' went to /send/track/mov_17528a3fb7eb462a. BUG: in the reload/Google case (cold page load at /send/movers?resume=1), the quote never loads (skeleton forever, Book disabled). LOGIN: login-error re-translates FR to EN to FR. login-submit and otp-verify are red #FF4C52 with white text. A wrong OTP shows 'Code incorrect'. EXPLORER: SHOP shows 19 tiles, all with category SVG icons when image is null, and 76 subcategory links that wrap to 2 lines (4 long ones still end in '…'). MART shows 9 tiles with images. SEND shows 6 tiles. FOOD shows 'Poulet' as a BLANK tile: its image URL returns 404 and the fallback icon only appears when image is null. The placeholder is module-specific but reads 'Rechercher sur BAKĒD · SHOP/SEND/FOOD/MART', not '· SENDbakēd'. The Super App context keeps the generic placeholder. REGRESSION: website /send shows 6 tiles in 2 rows of 3 at 390 and at 1440. Native SEND home has no address-bar, a single pickup bar and map, and 3-column tiles. No page errors in any run.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Native SendMap (web) – SendMap.web.tsx", "issue": "On a cold page load where the points already exist (Google redirect resume, deep link with a restored draft), the map never shows markers or the route and stays on the Abidjan default. RCA: the loadMaps().then() callback calls draw() from the first render's closure, where points=[]. The draw effect on points ran earlier, when map.current was still null, so it was a no-op. Fix: store the latest points/route/nearby in refs, or add a mapReady state and include it in the draw effect deps.", "selector": "[data-testid='send-map-google']", "priority": "MEDIUM"},
+      {"component": "Explorer FOOD tile 'Poulet' (ModuleExplore.tsx)", "issue": "The food category 'chicken' image https://images.unsplash.com/photo-1626082927389-6cd097cee6a6 returns 404, so the tile is a blank square. The fallback icon only renders when image is null, not when the image fails to load. Add onError on the expo-image and fall back to the icon. Also replace the broken image URL in the food categories data.", "selector": "[data-testid='explore-item-chicken']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Movers resume after a page reload (Google OAuth redirect case)", "issue": "On /send/movers?resume=1 with the draft only in sessionStorage, the review step shows a skeleton forever and mv-book is disabled. RCA: in movers.tsx the quote useEffect has deps [step] only. On mount, pickup/drop from SendDraftContext are still null because setPoint runs in the sibling restore effect, so the effect returns early and never re-runs. Fix: add pickup/drop lat/lng (and slots.data for the slot surcharge) to the quote effect deps. The OTP path works because SendDraftContext survives in memory.", "affected_selectors": ["mv-book", "mv-review-summary"]}
+    ],
+    "design_issues": [
+      {"screen": "Explorer search placeholder", "issues": ["It shows 'Rechercher sur BAKĒD · SEND' (MODULES label), but the request spec says 'Rechercher sur BAKĒD · SENDbakēd'. Confirm the intended wording."]},
+      {"screen": "Movers (IN)", "issues": ["IN has no movers items (/api/express/movers/items?country=IN returns []), so IN users cannot get past step 3. This is a data gap. Also, curr = quote?.currency || 'XOF' means item and slot prices before the quote would show CFA for non-XOF countries; use country?.currency as the fallback, like book.tsx does."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter128_resume_fixes.py", "/app/backend/tests/test_emergent_google_session.py", "/app/test_reports/pytest/pytest_results_128.xml"],
+  "action_items": [
+    "movers.tsx: re-run the review quote effect when pickup/drop (and slots.data) become available, so the cold-load resume works",
+    "SendMap.web.tsx: fix the stale-closure draw() after loadMaps, so markers and route appear when points exist before Google Maps loads",
+    "ModuleExplore: add an image onError fallback to the module icon, and fix the 404 image for the FOOD 'chicken' category",
+    "movers.tsx: fall back to country?.currency instead of the hard-coded 'XOF'",
+    "Confirm the search placeholder wording ('· SEND' vs '· SENDbakēd')"
+  ],
+  "critical_code_review_comments": [
+    "bookingResume.takeResume does not clear sessionStorage. That is fine because restore is gated by ?resume=1 and cleared on booking, but an abandoned draft stays for the whole session.",
+    "book.tsx: if all 3 quote retries fail, the button stays disabled with the label 'Se connecter pour réserver' or 'Réserver · …'. There is no error or retry CTA for the user.",
+    "login.tsx: server-provided error messages (setErr(e.message)) still won't re-translate on toggle (only the client keys do). This is acceptable."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter128_resume_fixes.py"],
+  "success_rate": {"backend": "100%", "frontend": "85%"},
+  "seed_data_creation": "Created a parcel booking exp_de73bd5325fa4c55 and a movers booking mov_17528a3fb7eb462a (CI) as customer +225 0700000000",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Native preview at /api/app-preview/. Country comes from localStorage baked_active_address (a JSON PickedAddress with country:'IN' gives the IN flow). Resume drafts are sessionStorage baked_resume_send / baked_resume_movers. To simulate the Google redirect, inject the draft and goto ...?resume=1. OTP: customer phone 0700000000 (+225); dev_code is in the /otp request response; fill otp-input. Movers items exist only for CI. Address picker: address-search-input then the first [data-testid^=address-result-].",
+  "rca of the issue": "Movers cold resume: the quote effect deps are [step], and the restored points are applied asynchronously via context, so the effect runs once with pickup=null. SendMap: the closure captured at mount is used after the async Maps script load."
+}

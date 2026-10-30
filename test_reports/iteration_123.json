@@ -1,0 +1,40 @@
+{
+  "summary": "MART homepage parity, end to end (round 2). Backend: 18/18 pytest pass (10 new MART tests + 8 SHOP regression), but only after a backend restart. Before the restart, admin POST section_type=trust_strip returned 400 'Unknown section_type' because the running process had stale code (see RCA). GET /api/homepage?country=CI&module=mart returns 10 sections in the expected order, and trust_strip (display_order 110) carries 4 bilingual items. Admin create, patch, toggle and delete of trust_strip work, and a bogus type is rejected with 400. Website / at 390 and 1440: all 10 hp-section-* render, hp-trust-strip is last and shows FR/EN text, no overflow. Native Expo MART at 390x844: the 10 cms-section-<type>-<id> appear in CMS order. Hero shows the pill, title and both CTAs (-> /mart/category/all). The delivery panel shows 10-15 min, free over 15 000 CFA, fee 500 CFA, min order 3 000 CFA and Côte d'Ivoire. Categories show 'Achetez par catégorie' / 'Catégories' with 6 tiles routing to /mart/category/<slug>. The green promo (OFFRE LIMITÉE, white CTA) routes to /mart/category/all. Both product carousels load, and Ajouter makes header-cart-count=1. The 4 banner tiles route to /mart/category/<cat>. Brands, app promo (title, Google Play, App Store, QR), CTA strip and trust strip (4 badges) all render. No old native-only MART blocks remain. Live sync: hero background_image, app promo title, promo moved above categories and trust strip disabled all showed on website AND native after reload. Everything was restored with an exact diff (DIFF [] extra []). Tablet 820/1024: hero and panel side by side, categories in 6 columns on 1 row, app promo with phone mockup on the right, trust strip in 1 row of 4, no overflow. Offline: cached baked_hp_mart_CI renders all 10 sections plus cms-offline, and the notice clears once back online. EN toggle on native: trust strip, eyebrows and delivery panel switch to EN; CMS titles stay French (same as website). Module switch MART->FOOD->SHOP->SEND->MART keeps each module's branding. SHOP CMS home still renders its 5 sections; FOOD and SEND are unchanged (no CMS). Admin Homepage Management lists the Trust Strip row (110), and its editor shows the 4 badge items with EN/FR fields.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/homepage-sections (section_type=trust_strip)", "issue": "Returned 400 'Unknown section_type: trust_strip' until the backend was restarted. Backend runs `uvicorn --workers 4` with no --reload, so editing core/models/homepage.py (06:53) after the process started (06:41) was never loaded. Fixed by `sudo supervisorctl restart backend`; it now passes."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MartPromo badge (native)", "issue": "The 'OFFRE LIMITÉE' text sits too high inside its 24px pill. styles.caps adds marginBottom:6 and is reused inside the badge. Visible at 820/1024.", "selector": "cms-mart-promo-hps_ci_040_promotional_banner", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Homepage Management - Trust Strip editor", "issues": ["The icon hint lists 'shield / truck', but the website and native TRUST_ICONS only map bike/package/tag/rotate. shield/truck silently fall back to the Package icon.", "The table row shows 'Untitled' for the trust strip because its title is null; a default label would help admins."]},
+      {"screen": "Native MART hero at tablet (820/1024)", "issues": ["The delivery panel stretches to the hero height with justifyContent:space-between, which leaves large empty gaps between the ETA, fee and location blocks. Consider justify-start or a fixed gap."]},
+      {"screen": "MART category grid / banner row (website and native)", "issues": ["The CMS rows have no image fields, so category tiles show placeholder store icons and banner tiles are plain dark gradients on both clients. Parity is correct, but the home looks bare; seed images would help."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mart_homepage_cms.py", "/app/backend/tests/test_homepage_version_cms.py", "/app/backend/tests/cms_mutate_mart.py", "/app/test_reports/pytest/pytest_mart_cms.xml"],
+  "action_items": [
+    "Remember the backend has NO hot reload (uvicorn --workers 4): run `sudo supervisorctl restart backend` after every backend code edit (this time it blocked admin trust_strip create)",
+    "Remove marginBottom from the caps style used inside the MartPromo badge (native) so the badge text is centred",
+    "Either add shield/truck to TRUST_ICONS in ConfigHomepage.jsx and MartBlocks.tsx, or remove them from the admin hint",
+    "Optional: give the trust_strip row a display label in the admin table instead of 'Untitled'; tighten the delivery panel spacing at tablet"
+  ],
+  "critical_code_review_comments": [
+    "MartBlocks/MartHero/MartSections are each under 200 lines, and registry componentFor falls back to SECTION_REGISTRY cleanly",
+    "nativeLink: /products?promo=1 maps to /mart/category/all, so the promo filter is dropped on native (the website keeps the promo query). Acceptable, but the native promo CTA does not land on a deals list",
+    "MartCategoryGrid hardcodes the 'Categories' title check to swap in the i18n label. That is brittle if an admin edits the title to 'Catégories'",
+    "MartAppPromo store buttons call Linking.openURL without catching errors"
+  ],
+  "updated_files": ["/app/backend/tests/test_mart_homepage_cms.py", "/app/backend/tests/cms_mutate_mart.py"],
+  "success_rate": {"backend": "100% (18/18 after restart)", "frontend": "98% (one low-priority badge alignment bug)"},
+  "seed_data_creation": "None persisted. The TEST_ trust_strip row created during pytest was deleted. All MART CMS mutations were restored and verified by exact diff.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "MART native CMS works. Helper: `REACT_APP_BACKEND_URL=... python /app/backend/tests/cms_mutate_mart.py apply|restore` (backup in /tmp/mart_backup.json; changes hero bg, app title, promo/category order, disables trust). Run pytest with `-n 0` when mutating tests could collide (pytest.ini enables xdist). Native preview: localStorage baked_onboarding_done='true', baked_active_context='\"mart\"'. Module switch: tab-switcher -> switcher-card-<mart|food|shop|express>. Lang: tab-profile -> lang-en/lang-fr. Website lang: localStorage baked_language. Next round is the FOOD and SEND native homes.",
+  "rca of the issue": "trust_strip admin 400: HOMEPAGE_SECTION_TYPES was updated on disk, but the supervisor backend runs uvicorn --workers 4 without --reload. Process start was 06:41 and the model edit was 06:53, so the meta endpoint's section_types still lacked trust_strip. The seeded row existed because the seed/export happened separately. Reproduced with POST -> 400; a restart fixed it and POST then returned 201."
+}

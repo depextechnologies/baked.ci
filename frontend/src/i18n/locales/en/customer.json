@@ -620,23 +620,23 @@
     "services_heading": "Our services",
     "services_sub": "Pick the service that fits your shipment",
     "tile": {
-      "moto_title": "Envoyer par moto",
-      "moto_title_en": "Send by Motorcycle",
+      "moto_title": "Bike",
+      "moto_title_en": "Bike",
       "moto_desc": "Fast parcels and documents in the city",
-      "cargo_title": "Envoyer par CARGO",
-      "cargo_title_en": "Send by CARGO",
+      "cargo_title": "Cargo",
+      "cargo_title_en": "Cargo",
       "cargo_desc": "Tricycle, mini truck or truck",
-      "fresh_title": "Envoyer des produits frais",
-      "fresh_title_en": "Send Fresh Products",
+      "fresh_title": "Fresh Produce",
+      "fresh_title_en": "Fresh Produce",
       "fresh_desc": "Refrigerated vehicles — fish, meat, vegetables",
-      "between_cities_title": "Envoyer entre villes",
-      "between_cities_title_en": "Send Between Cities",
+      "between_cities_title": "Between Cities",
+      "between_cities_title_en": "Between Cities",
       "between_cities_desc": "Long-distance inter-city delivery",
-      "movers_tile_title": "Déménagement & Transport",
-      "movers_tile_title_en": "Packers & Movers",
+      "movers_tile_title": "Movers",
+      "movers_tile_title_en": "Movers",
       "movers_tile_desc": "Turnkey home shifting with a full crew",
-      "multi_title": "Expéditions multiples",
-      "multi_title_en": "Multiple Shipments",
+      "multi_title": "Multi Shipments",
+      "multi_title_en": "Multi Shipments",
       "multi_desc": "Several stops, one vehicle, one trip"
     },
     "multi": {
@@ -895,7 +895,11 @@
       "book_another": "Book another",
       "continue": "Continue",
       "step_x_of_y": "Step {{current}} of {{total}}"
-    }
+    },
+    "nearby_drivers": "{{count}} driver(s) nearby",
+    "no_nearby_drivers": "No drivers nearby",
+    "service_info": "Service details",
+    "book_service": "Book this service"
   },
   "activities": {
     "signin_title": "Sign in to view your activities",

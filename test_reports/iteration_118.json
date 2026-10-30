@@ -1,0 +1,52 @@
+{
+  "summary": "Phase D M1 (Expo web preview, 390x844) tested end to end. SHOP passes: categories and products, all-products search, product page variants (9 900 / 14 900), add + stepper, guest device cart, merge into /api/shop/cart/me at login, checkout via POST /api/shop/checkout (COD), /order/shop/<id> timeline, Activity row. SEND single-drop passes: pickup prefilled, Plateau search, vehicles with images and prices matching /quote/parcel, fare breakdown, details form, scheduled slot, booking, track screen with send-live over the authenticated WS (first frame is a snapshot), cancel → Annulée, Activity → /send/track/<id>. Backend WS security passes: snapshot, ping→pong, 403 for empty/bad/other-customer token, legacy socket unchanged. CRITICAL: multi-stop booking is broken in both paths. Live driver push NOT TESTED because the test driver account is not approved.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/express/bookings/parcel (mobile multi-stop, service_type=moto/cargo/... with 2 drops)", "issue": "Backend only uses stops[] when service_type=='multiple_shipments'. For moto with 2 drops the app shows the multi_stop quote (bike 4 608 CFA) but the booking is priced as a single trip from pickup to the last drop (3 168 CFA) and stops=null. Customer is shown one price and charged another, and stop 1 is lost. Reproduced via the UI (exp_f44dd36afa4c4e23) and in pytest.", "priority": "CRITICAL"},
+      {"endpoint": "POST /api/express/bookings/parcel (service_type=multiple_shipments)", "issue": "Returns 400 multi_stop_head_mismatch. book.tsx sends top-level drop = drops[last], but the backend requires stops[0].drop == top-level drop. Multi-shipments booking cannot be created from the app (UI only shows the alert 'HTTP 400').", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "WS /api/express/ws/customer/bookings/{id}", "issue": "The server calls ws.close(4403) before accept, so the client gets an HTTP 403 handshake failure (browser close code 1006), not 4403. The 4403 branch in useBookingSocket never runs. Unauthorized or foreign bookings reconnect forever (backoff up to 15 s) and poll every 10 s. Fix: accept() then close(4403), or stop retrying after N handshake failures."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "lib/api.ts detailToMessage", "issue": "Does not handle detail objects like {code, message}, so backend errors show as 'HTTP 400' (seen on SEND booking error).", "selector": "n/a", "priority": "MEDIUM"},
+      {"component": "SendMap web placeholder", "issue": "Debug text in English is visible to users: '2 pts · 2 route · no driver'.", "selector": "[data-testid=send-map-web]", "priority": "LOW"},
+      {"component": "useBookingSocket", "issue": "After the booking reaches a terminal state (cancelled), the socket stays open and the header still shows 'En direct'. Close the WS once terminal.", "selector": "[data-testid=send-live]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "SEND multi-stop booking", "issue": "See backend critical items. Fix in book.tsx (send service_type 'multiple_shipments' when drops.length>1 and top-level drop = drops[0]) or relax the backend to honour stops[] for any service with drop = first leg. Vehicle eligibility for multiple_shipments matches moto (bike, three_wheeler, mini_truck, truck), but other services such as fresh_products/cargo would need their own handling.", "affected_selectors": ["send-add-stop", "send-book"]},
+      {"flow": "Mixed cart checkout (MART + SHOP)", "issue": "Both orders are created, but the app goes to /order/mart/<id> (first created), not the SHOP order. The SHOP order is only reachable from Activity. Acceptable, but consider a multi-order confirmation screen.", "affected_selectors": ["checkout-place-order"]}
+    ],
+    "design_issues": [
+      {"screen": "Activity + SHOP order screen", "issues": ["Status chips are not translated: SHOP shows 'paid', SEND shows 'searching' (MART/FOOD are translated, e.g. 'Confirmée'/'Annulée')"]},
+      {"screen": "SHOP order screen", "issues": ["Item title is in English ('Premium Motorcycle Parts & Accessories') although the UI is French and title_fr exists"]},
+      {"screen": "SEND details step", "issues": ["Package type, weight and preference chips are in English (Documents, Food Package, Up to 5 kg, Call before...) in the French UI; send name_fr or a localised label"]},
+      {"screen": "SHOP home / all products", "issues": ["Category tiles all use the same generic bag icon (no images)", "Several products have blank image placeholders (e.g. 'Weekend Autres accessoires auto', 'Essentiel Outils & entretien')"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_phase_d_shop_send.py", "/app/backend/tests/test_mobile_send_driver_push.py", "/app/test_reports/pytest/pytest_phase_d.xml"],
+  "action_items": [
+    "CRITICAL: fix multi-stop booking so the price charged matches the multi_stop quote shown and stops[] (2 legs) is saved. Today moto+2 drops is under-charged with stops=null, and multiple_shipments gets 400 multi_stop_head_mismatch (top-level drop must equal stops[0].drop)",
+    "Make lib/api.ts detailToMessage read detail.message for object details",
+    "Customer WS: accept-then-close(4403) so the client stops reconnecting on auth failure; close the socket once the booking is terminal",
+    "Translate status chips (paid/searching) and the SEND package/weight/preference labels; use title_fr for SHOP order items",
+    "Remove the debug text from the web SendMap placeholder",
+    "Update /app/memory/test_credentials.md: +919990001234 now maps to drv_ad44c5e3d2e94a12 with status=onboarding (not approved), so it cannot go online and the live driver-push flow cannot be tested"
+  ],
+  "critical_code_review_comments": [
+    "book.tsx: `multi` is true for any service with >1 drop, but the payload keeps service_type=service and drop=drops[last]. Neither matches the backend contract",
+    "CartContext.reload: the guest SHOP merge posts each line with .catch(()=>{}) and then always removes guest_shop_cart, so failed merges are silently lost. Concurrent reload() calls (setShopQty→reload) could also double-post guest lines before the key is removed",
+    "useBookingSocket: setLastFix is called inside a setState updater (side effect in a reducer; can double-fire in StrictMode)",
+    "SEND receiver phone is sent raw ('0701020304') without the country dial code"
+  ],
+  "updated_files": ["/app/backend/tests/test_mobile_phase_d_shop_send.py", "/app/backend/tests/test_mobile_send_driver_push.py"],
+  "success_rate": {"backend": "87.5% (14/16; the 2 failures are the multi-stop bugs)", "frontend": "~85% (SHOP and single-drop SEND flows pass; multi-stop booking fails)"},
+  "test_credentials": "Customer +225 0700000001 (OTP dev_code) works. Driver +919990001234 is NOT approved (status onboarding), so the credentials doc is stale.",
+  "seed_data_creation": "Created SHOP orders SHOP-CI-2026-00001/00002 and MART order ord_4676ea4afca24cf9 for customer 0700000001. All TEST_ SEND bookings were cancelled.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest with `-n 0` (pytest.ini enables xdist and the tests share booking_id). Web preview: /api/app-preview/. The SHOP/SEND module switcher opens via tab-switcher → switcher-card-<code>. The web cancel confirm uses window.confirm (accept the dialog). Retest multi-stop for moto and multiple_shipments: compare booking total with the /quote/multi_stop total and check len(stops)==2. The driver push test skips until a CI- or IN-approved online driver exists.",
+  "rca of the issue": "Multi-stop: create_parcel_booking (express/routes.py ~L455) only enters the multi-stop branch when service_type=='multiple_shipments' and then requires stops[0] == top-level pickup/drop. Mobile book.tsx L79-81 sends service_type=<tile service> and drop=drops[drops.length-1]. Result: moto falls back to quote_parcel(pickup→last drop) with stops=None; multiple_shipments fails the head check with 400. Repro: tests TestSend.test_mobile_multi_moto_booking / test_mobile_multi_multiple_shipments_booking."
+}

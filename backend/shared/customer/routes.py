@@ -141,6 +141,7 @@ class PreferencesIn(BaseModel):
     currency: Optional[str] = None
     region: Optional[str] = None
     dark_mode: Optional[bool] = None
+    theme: Optional[str] = Field(None, pattern="^(dark|light|system)$")
     marketing_opt_in: Optional[bool] = None
 
 

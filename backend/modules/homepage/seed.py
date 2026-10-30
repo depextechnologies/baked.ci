@@ -52,12 +52,12 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "config": {
                 "columns": 6,
                 "categories": [
-                    {"slug": "fruits-vegetables", "name": texts["cat_produce"]},
-                    {"slug": "dairy-eggs",       "name": texts["cat_dairy"]},
-                    {"slug": "beverages",         "name": texts["cat_beverages"]},
-                    {"slug": "bakery-bread",      "name": texts["cat_bakery"]},
-                    {"slug": "meat-seafood",      "name": texts["cat_meat"]},
-                    {"slug": "grocery",           "name": texts["cat_grocery"]},
+                    {"slug": "fruits-vegetables", "name": texts["cat_produce"], "image": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=70&auto=format&fit=crop"},
+                    {"slug": "dairy-eggs",       "name": texts["cat_dairy"], "image": "https://images.pexels.com/photos/11363573/pexels-photo-11363573.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"slug": "beverages",         "name": texts["cat_beverages"], "image": "https://images.pexels.com/photos/7414290/pexels-photo-7414290.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"slug": "bakery-bread",      "name": texts["cat_bakery"], "image": "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=600&q=70&auto=format&fit=crop"},
+                    {"slug": "meat-seafood",      "name": texts["cat_meat"], "image": "https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=600&q=70&auto=format&fit=crop"},
+                    {"slug": "grocery",           "name": texts["cat_grocery"], "image": "https://images.pexels.com/photos/17546505/pexels-photo-17546505.jpeg?auto=compress&cs=tinysrgb&w=600"},
                 ],
             },
             "display_order": 30,
@@ -96,10 +96,10 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "subtitle": None,
             "config": {
                 "banners": [
-                    {"label": texts["trio_1_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_1_subtitle"], "link": "/products?category=fruits-vegetables"},
-                    {"label": texts["trio_2_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_2_subtitle"], "link": "/products?category=beverages"},
-                    {"label": texts["trio_3_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_3_subtitle"], "link": "/products?category=grocery"},
-                    {"label": texts["trio_4_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_4_subtitle"], "link": "/products?category=bakery-bread"},
+                    {"label": texts["trio_1_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_1_subtitle"], "link": "/products?category=fruits-vegetables", "image": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=70&auto=format&fit=crop"},
+                    {"label": texts["trio_2_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_2_subtitle"], "link": "/products?category=beverages", "image": "https://images.pexels.com/photos/7414290/pexels-photo-7414290.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"label": texts["trio_3_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_3_subtitle"], "link": "/products?category=grocery", "image": "https://images.pexels.com/photos/17546505/pexels-photo-17546505.jpeg?auto=compress&cs=tinysrgb&w=600"},
+                    {"label": texts["trio_4_label"], "eyebrow": texts["trio_eyebrow"], "subtitle": texts["trio_4_subtitle"], "link": "/products?category=bakery-bread", "image": "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=600&q=70&auto=format&fit=crop"},
                 ],
             },
             "display_order": 60,
@@ -147,6 +147,22 @@ def _shape(country: str, texts: dict) -> list[dict]:
             "subtitle": texts["cta_subtitle"],
             "config": {"cta_label": texts["cta_label"], "cta_link": "/products"},
             "display_order": 100,
+            "is_enabled": True,
+        },
+        {
+            # Migrated from the website's hardcoded footer trust badges (2026-06).
+            "id": f"hps_{country.lower()}_110_trust_strip",
+            "country": country,
+            "section_type": "trust_strip",
+            "title": None,
+            "subtitle": None,
+            "config": {"items": [
+                {"icon": "bike", "color": "#77BC1F", "title": "Super fast delivery", "title_fr": "Livraison ultra-rapide", "subtitle": "10-15 min average", "subtitle_fr": "10-15 min en moyenne"},
+                {"icon": "package", "color": "#F97316", "title": "Wide range of products", "title_fr": "Large gamme de produits", "subtitle": "Everything you need", "subtitle_fr": "Tout ce qu'il vous faut"},
+                {"icon": "tag", "color": "#06B6D4", "title": "Best prices & offers", "title_fr": "Meilleurs prix & offres", "subtitle": "Save more every day", "subtitle_fr": "Économisez chaque jour"},
+                {"icon": "rotate", "color": "#A855F7", "title": "Easy returns", "title_fr": "Retours faciles", "subtitle": "Hassle-free refunds", "subtitle_fr": "Remboursement sans souci"},
+            ]},
+            "display_order": 110,
             "is_enabled": True,
         },
     ]
@@ -322,7 +338,7 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
              config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
         dict(seq=60, type="food_usps",                 title="Pourquoi FOODbakēd ?",
              subtitle=None,
-             config={"usps": [
+             config={"title_fr": "Pourquoi FOODbakēd ?", "title_en": "Why FOODbakēd?", "usps": [
                  {"icon": "clock",    "title_fr": "Livraison rapide",      "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",       "subtitle_en": "Hot meals at your door"},
                  {"icon": "utensils", "title_fr": "Grande variété",         "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
                  {"icon": "tag",      "title_fr": "Super offres",           "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",            "subtitle_en": "Save more every day"},
@@ -394,7 +410,7 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
         dict(seq=50, type="food_cuisines",             title="Cuisines You'll Love", subtitle="From Mumbai to Milan",
              config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
         dict(seq=60, type="food_usps",                 title="Why FOODbakēd?", subtitle=None,
-             config={"usps": [
+             config={"title_fr": "Pourquoi FOODbakēd ?", "title_en": "Why FOODbakēd?", "usps": [
                  {"icon": "clock",    "title_fr": "Livraison rapide",       "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",         "subtitle_en": "Hot meals at your door"},
                  {"icon": "utensils", "title_fr": "Grande variété",          "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
                  {"icon": "tag",      "title_fr": "Super offres",            "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",             "subtitle_en": "Save more every day"},
@@ -469,6 +485,49 @@ async def seed_food_homepage(session: AsyncSession) -> dict[str, int]:
     return counts
 
 
+# SENDbakēd homepage — migrated 1:1 from the hardcoded website ExpressHome (map, pickup bar, 6 tiles, trust banner).
+_SEND_TILES = [
+    ("moto", "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/kkvj338q_Bike_baked.png",
+     "Moto", "Bike", "Colis rapides et documents en ville", "Fast parcels and documents in the city"),
+    ("cargo", "/send-tiles/send_by_cargo.png", "Cargo", "Cargo", "Tricycle, mini camion ou camion", "Tricycle, mini truck or truck"),
+    ("fresh", "/send-tiles/fresh_products.png", "Produits frais", "Fresh Produce",
+     "Véhicules frigorifiques — poisson, viande, légumes", "Refrigerated vehicles — fish, meat, vegetables"),
+    ("between_cities", "/send-tiles/between_cities.png", "Intervilles", "Between Cities",
+     "Livraison inter-villes longue distance", "Long-distance inter-city delivery"),
+    ("movers", "/send-tiles/packers_movers.png", "Déménagement", "Movers",
+     "Déménagement clé en main avec équipe", "Turnkey home shifting with a full crew"),
+    ("multi", "/send-tiles/multiple_shipments.png", "Envois multiples", "Multi Shipments",
+     "Plusieurs arrêts, un seul véhicule, un seul trajet", "Several stops, one vehicle, one trip"),
+]
+
+
+def _send_rows(country: str) -> list[dict]:
+    cc = country.lower()
+    tiles = [{"key": k, "image": img, "title_fr": tfr, "title_en": ten, "desc_fr": dfr, "desc_en": den, "enabled": True}
+             for k, img, tfr, ten, dfr, den in _SEND_TILES]
+    rows = [
+        (10, "send_map_hero", None, None, {"show_drivers": True}),
+        (20, "send_pickup_bar", None, None, {"placeholder": "Your Pick-up Location?", "placeholder_fr": "Votre lieu de ramassage ?",
+                                             "add_stop_label": "Add Stop", "add_stop_label_fr": "Ajouter un arrêt"}),
+        (30, "send_service_tiles", "Our services", "Pick the service that fits your shipment",
+         {"title_fr": "Nos services", "subtitle_fr": "Choisissez le service adapté à votre envoi", "tiles": tiles}),
+        (40, "send_trust_banner", None, None, {"text": "All deliveries are insured · verified drivers · live tracking on every order.",
+                                               "text_fr": "Toutes les livraisons sont assurées · chauffeurs vérifiés · suivi en direct sur chaque commande."}),
+    ]
+    return [{"id": f"hps_send_{cc}_{seq:03d}_{t}", "country": country, "module": "express", "section_type": t,
+             "title": title, "subtitle": sub, "config": cfg, "display_order": seq, "is_enabled": True}
+            for seq, t, title, sub, cfg in rows]
+
+
+async def seed_send_homepage(session: AsyncSession) -> dict[str, int]:
+    """Insert-only-if-missing SEND stack per country (admin edits/deletes are preserved)."""
+    counts: dict[str, int] = {}
+    for country in ("CI", "IN"):
+        stmt = pg_insert(HomepageSection).values(_send_rows(country)).on_conflict_do_nothing(index_elements=["id"])
+        counts[country] = (await session.execute(stmt)).rowcount or 0
+    await session.commit()
+    return counts
+
 
 async def seed_homepage(session: AsyncSession) -> dict[str, int]:
     """Idempotently insert the default homepage stack for each supported country.
@@ -498,5 +557,69 @@ async def seed_homepage(session: AsyncSession) -> dict[str, int]:
         stmt = pg_insert(HomepageSection).values(rows).on_conflict_do_nothing(index_elements=["id"])
         result = await session.execute(stmt)
         counts[country] = result.rowcount or 0
+    await session.commit()
+    return counts
+
+
+# ---------------------------------------------------------------------------
+# BAKĒD Super App main home (module "baked") — native app only.
+# Category rows reference EXISTING FOOD/MART/SHOP category keys; images are
+# optional per-item overrides (the category's own image is used otherwise).
+# ---------------------------------------------------------------------------
+_IMG = "/app-home/{}.webp"
+
+_APP_TILES = [
+    ("express", "Livrez tout", "Deliver Anything", "tile_send", "#FCC44C"),
+    ("food", "Commandez à manger", "Order Foods", "tile_food", "#77BC1F"),
+    ("mart", "Courses en minutes", "Groceries in minutes", "tile_mart", "#77BC1F"),
+    ("shop", "Achetez la mode", "Shop Fashion", "tile_shop", "#FCC44C"),
+    ("immo", "Explorez l’immobilier", "Explore Properties", "tile_immo", "#A659FF"),
+    ("auto", "Explorez les voitures", "Explore Cars", "tile_auto", "#FF4C52"),
+]
+
+_APP_ROWS = [
+    (20, "food", "Order your bites", "Commandez vos envies", "#77BC1F", [
+        ("burgers", "cat_burger", None, None), ("pizza", "cat_pizza", None, None), ("chicken", "cat_chicken", None, None),
+        ("african", "cat_african", None, None), ("desserts", "cat_desserts", None, None)]),
+    (30, "mart", "Groceries in minutes", "Vos courses en minutes", "#1D9BF0", [
+        ("fruits-vegetables", "cat_fruits", "Fruits", "Fruits"), ("dairy-eggs", "cat_dairy", "Crèmerie", "Dairy"),
+        ("snacks", "cat_snacks", None, "Snacks"), ("beverages", "cat_beverages", None, None), ("household", "cat_household", None, "Household")]),
+    (40, "shop", "Trending fashions", "Tendances mode", "#C13CFF", [
+        ("mode-femme", "cat_women", "Femme", "Women"), ("mode-homme", "cat_men", "Homme", "Men"),
+        ("chaussures-sneakers", "cat_footwear", "Chaussures", "Footwear"), ("sacs-bagages", "cat_bags", "Sacs", "Bags"),
+        ("bijoux-montres-lunettes", "cat_accessories", "Accessoires", "Accessories")]),
+]
+
+
+def _baked_rows(country: str) -> list[dict]:
+    cc = country.lower()
+    rows = [{
+        "seq": 10, "type": "app_module_grid", "title": None, "subtitle": None,
+        "config": {"items": [{"module": m, "enabled": True, "tagline_fr": fr, "tagline_en": en, "image": _IMG.format(img), "accent": ac}
+                             for m, fr, en, img, ac in _APP_TILES]},
+    }]
+    for seq, src, title, title_fr, accent, items in _APP_ROWS:
+        rows.append({"seq": seq, "type": "app_category_row", "title": title, "subtitle": None, "config": {
+            "title_fr": title_fr, "source_module": src, "accent": accent, "max_items": 12,
+            "items": [{"key": k, "enabled": True, "image": _IMG.format(img), "label_fr": lfr, "label_en": len_}
+                      for k, img, lfr, len_ in items],
+        }})
+    rows.append({"seq": 50, "type": "app_promo_slider", "title": None, "subtitle": None, "config": {"items": [
+        {"enabled": True, "title_fr": "Plats délicieux livrés vite", "title_en": "Delicious Food Delivered Fast",
+         "cta_label_fr": "Commander", "cta_label_en": "Order Now", "link": "/food", "image": _IMG.format("banner_food"), "accent": "#F5A524"},
+        {"enabled": True, "title_fr": "Courses fraîches tous les jours", "title_en": "Fresh Groceries Everyday",
+         "cta_label_fr": "Acheter", "cta_label_en": "Shop Now", "link": "/mart", "image": _IMG.format("banner_grocery"), "accent": "#77BC1F"},
+    ]}})
+    return [{"id": f"hps_baked_{cc}_{r['seq']:03d}_{r['type']}", "country": country, "module": "baked",
+             "section_type": r["type"], "title": r["title"], "subtitle": r["subtitle"], "config": r["config"],
+             "display_order": r["seq"], "is_enabled": True} for r in rows]
+
+
+async def seed_baked_homepage(session: AsyncSession) -> dict[str, int]:
+    """Insert-only-if-missing Super App main home per country (admin edits/deletes are preserved)."""
+    counts: dict[str, int] = {}
+    for country in ("CI", "IN"):
+        stmt = pg_insert(HomepageSection).values(_baked_rows(country)).on_conflict_do_nothing(index_elements=["id"])
+        counts[country] = (await session.execute(stmt)).rowcount or 0
     await session.commit()
     return counts

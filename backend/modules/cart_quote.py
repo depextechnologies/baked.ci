@@ -90,7 +90,8 @@ class QuoteItemIn(BaseModel):
     product_id:    Optional[str] = None   # mart product OR food menu-item id (legacy frontends)
     menu_item_id:  Optional[str] = None   # food
     restaurant_id: Optional[str] = None   # food
-    variant_id:    Optional[str] = None   # shop
+    variant_id:    Optional[str] = None   # shop variant OR food item variant
+    addon_ids:     list[str] = Field(default_factory=list)  # food add-ons (priced server-side)
 
     def food_item_id(self) -> Optional[str]:
         return self.menu_item_id or self.product_id
@@ -147,6 +148,16 @@ async def _price_food(
           FROM food_menu_items WHERE id = ANY(:ids)
     """), {"ids": all_item_ids})).fetchall()}
 
+    # Food options are repriced from their own tables (never trusted from the client).
+    var_ids = [it.variant_id for its in rows_by_rid.values() for it in its if it.variant_id]
+    add_ids = [a for its in rows_by_rid.values() for it in its for a in it.addon_ids]
+    variants = {v.id: v for v in (await session.execute(text(
+        "SELECT id, item_id, price_delta FROM food_item_variants WHERE id = ANY(:ids)"
+    ), {"ids": var_ids or [""]})).fetchall()}
+    addons = {a.id: a for a in (await session.execute(text(
+        "SELECT id, item_id, price FROM food_item_addons WHERE id = ANY(:ids)"
+    ), {"ids": add_ids or [""]})).fetchall()}
+
     groups: list[dict[str, Any]] = []
     total_sub = Decimal("0")
     total_fee = Decimal("0")
@@ -162,7 +173,15 @@ async def _price_food(
             if not m or m.restaurant_id != rid or not m.is_available:
                 unavailable.append(fid)
                 continue
-            sub += _d(m.base_price) * it.quantity
+            unit = _d(m.base_price)
+            v = variants.get(it.variant_id) if it.variant_id else None
+            if v and v.item_id == fid:
+                unit += _d(v.price_delta)
+            for aid in it.addon_ids:
+                a = addons.get(aid)
+                if a and a.item_id == fid:
+                    unit += _d(a.price)
+            sub += unit * it.quantity
 
         # Eligibility: delivery → coord check within radius; pickup → wider
         # radius; dine_in → reservations enabled & public.
@@ -230,6 +249,10 @@ async def _price_mart(
           FROM mart_products WHERE id = ANY(:ids)
     """), {"ids": pids})).fetchall()}
 
+    # Same partner-price overlay as /mart/products, eligibility and POST /orders.
+    from modules.mart_partner.allocation import effective_partner_price
+    partner_prices = await effective_partner_price(session, list(products.keys()), country=country.upper(), module="mart")
+
     sub = Decimal("0")
     unavailable: list[str] = []
     currency: Optional[str] = None
@@ -239,7 +262,8 @@ async def _price_mart(
             if it.product_id:
                 unavailable.append(it.product_id)
             continue
-        sub += _d(p.price) * it.quantity
+        pp = partner_prices.get(p.id)
+        sub += _d(pp["partner_price"] if pp else p.price) * it.quantity
         currency = currency or (p.currency or None)
 
     # Country rules — reads the same `countries` columns the frontend

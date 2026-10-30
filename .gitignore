@@ -157,3 +157,10 @@ frontend/node_modules/.cache/default-development/12.pack_
 frontend/node_modules/.cache/default-development/21.pack
 frontend/node_modules/.cache/default-development/22.pack
 frontend/node_modules/.cache/default-development/24.pack
+
+# Android release signing (never commit)
+/signing/
+*.jks
+*.keystore
+/frontend/public/downloads/
+signing/mapping-v2.txt

@@ -14,6 +14,7 @@ Admin (requires admin auth):
 `section_type` — see `SECTION_SCHEMAS` on the frontend for field lists.
 """
 from __future__ import annotations
+import hashlib
 from datetime import datetime, timezone
 from typing import Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -78,22 +79,48 @@ class ReorderIn(BaseModel):
 
 # ---------------------------------------------------------------- public ---
 
-@router.get("/homepage")
-async def get_public_homepage(
-    country: str = Query(..., min_length=2, max_length=2),
-    module: str = Query("mart", min_length=2, max_length=16),
-    session: AsyncSession = Depends(get_session),
-):
-    """Return every ENABLED section for the given country + module, ordered."""
-    rows = (await session.execute(
+async def _enabled_rows(session: AsyncSession, country: str, module: str):
+    return (await session.execute(
         select(HomepageSection).where(
             HomepageSection.country == country.upper(),
             HomepageSection.module == module.lower(),
             HomepageSection.is_enabled == True,  # noqa: E712
         ).order_by(HomepageSection.display_order.asc())
     )).scalars().all()
-    return {"country": country.upper(), "module": module.lower(),
+
+
+def _version(rows) -> str:
+    """Content hash of the published layout — changes on any edit, reorder or toggle."""
+    raw = "|".join(f"{r.id}:{r.display_order}:{r.updated_at.isoformat() if r.updated_at else ''}" for r in rows)
+    return hashlib.sha1(raw.encode()).hexdigest()[:16]
+
+
+@router.get("/homepage")
+async def get_public_homepage(
+    response: Response,
+    country: str = Query(..., min_length=2, max_length=2),
+    module: str = Query("mart", min_length=2, max_length=16),
+    session: AsyncSession = Depends(get_session),
+):
+    """Published homepage shared by the website and the native apps: every ENABLED section, ordered."""
+    rows = await _enabled_rows(session, country, module)
+    response.headers["Cache-Control"] = "no-cache"
+    updated = max((r.updated_at for r in rows if r.updated_at), default=None)
+    return {"country": country.upper(), "module": module.lower(), "version": _version(rows),
+            "updated_at": updated.isoformat() if updated else None,
             "sections": [_dict(r) for r in rows]}
+
+
+@router.get("/homepage/version")
+async def get_public_homepage_version(
+    response: Response,
+    country: str = Query(..., min_length=2, max_length=2),
+    module: str = Query("mart", min_length=2, max_length=16),
+    session: AsyncSession = Depends(get_session),
+):
+    """Cheap freshness check so native clients refetch only when the published layout changed."""
+    response.headers["Cache-Control"] = "no-cache"
+    return {"version": _version(await _enabled_rows(session, country, module))}
 
 
 # ---------------------------------------------------------------- admin ----
@@ -141,10 +168,12 @@ async def admin_reorder_sections(
     session: AsyncSession = Depends(get_session),
     admin: AdminUser = Depends(get_current_admin),
 ):
+    rows = {i.id: await session.get(HomepageSection, i.id) for i in payload.items}
+    missing = [k for k, v in rows.items() if v is None]
+    if missing:
+        raise HTTPException(404, {"code": "section_not_found", "ids": missing})
     for item in payload.items:
-        row = await session.get(HomepageSection, item.id)
-        if row:
-            row.display_order = item.display_order
+        rows[item.id].display_order = item.display_order
     await session.commit()
     return {"ok": True, "count": len(payload.items)}
 

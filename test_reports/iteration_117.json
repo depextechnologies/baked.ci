@@ -1,0 +1,29 @@
+{
+  "summary": "Retest of the iteration_116 fixes for Phase C (mobile MART + FOOD) on the web preview (390x844) plus backend pytest. All 6 fixes are verified and the regression happy path passes. Backend: 20/20 pass. FIX 1: logged in, cart-subtotal and cart-total matched GET /mart/cart/eligibility after every +/- press (10 checks with MART only, including rapid presses), and also with a FOOD line in the cart (9 checks, including a FOOD qty change). FIX 2: /cart/quote prices Banane x2 at 1800; it matches eligibility (x3 = 2700); the guest cart total of 6000 (1800 + 3700 + 500) stays the same after login. FIX 3: the FOOD order shows 'Passée' in order-status and in the Activity badge. FIX 4: in pickup mode the warning reads 'Ce restaurant ne propose pas la vente à emporter…' and cart-checkout has aria-disabled=true and opacity 0.5; in delivery mode there is no warning and opacity is 1. FIX 5: pickup at burger_hub_ci returns 409 'Ce restaurant ne propose pas la vente à emporter.'; delivery with delivery_enabled=false (pizza_palace_ci switched off for the test, then restored) returns 409 'Ce restaurant ne propose pas la livraison.'; delivery orders still return 201. FIX 6: slot chips read 'Dès que possible', '09:34 – 10:04', 'mar. 20 09:00 – 11:00' and so on. Regression: guest adds MART (Banane x2) and FOOD (Crispy Wings + Sauce extra, 3700) -> cart -> checkout -> login -> OTP -> back to /checkout -> COD -> both orders placed -> MART tracking screen (Confirmée, timeline, driver) -> FOOD order cancelled (server says cancelled) -> reorder goes to the cart with the line (3700).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "useReorder (FOOD)", "issue": "Still open from iter116: reordered FOOD lines have no image (blank thumbnail in the cart).", "selector": "[data-testid^=cart-food-line-]", "priority": "LOW"},
+      {"component": "order/[module]/[id] (guest)", "issue": "Opening an order deep link without a session shows 'Connexion impossible. Vérifiez votre réseau' instead of asking the user to log in.", "selector": "[data-testid=order-screen]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_mobile_phase_c_commerce.py", "/app/test_reports/pytest/pytest_phase_c.xml"],
+  "action_items": [
+    "(LOW) Store the item image on reordered FOOD lines",
+    "(LOW) When an order deep link returns 401, show a login prompt instead of the network error"
+  ],
+  "critical_code_review_comments": [
+    "CartContext.setMartQty: when a product is added while logged in, the line has no server id until reload() finishes. A second tap in that window sends another POST instead of a PATCH. In testing the quantities stayed correct (rapid presses on an existing line were fine), but it is worth guarding by disabling the stepper while a mutation is in flight."
+  ],
+  "updated_files": ["/app/backend/tests/test_mobile_phase_c_commerce.py"],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% of the requested fixes and the regression flow"},
+  "seed_data_creation": "No seed data was changed. pizza_palace_ci.delivery_enabled was set to false only for the 409 check and then restored to true. Test orders and carts were created for +225 0700000001 and random 07xxxxxxxx numbers.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "In test_mobile_phase_c_commerce.py, the pickup order test now expects 409, test_cancel_after_accept uses delivery, and there is a new TestMartQuotePrice class (Banane partner price, quote vs eligibility). For the UI, inject the session with page.request OTP and localStorage baked_access_token / baked_onboarding_done / baked_active_address. Each browser_automation run starts with empty localStorage, so re-inject the token. FOOD cart can be preloaded through localStorage baked_food_cart (JSON FoodLine[]). Burger Hub FOOD delivery fee is 0 (Gratuit)."
+}
