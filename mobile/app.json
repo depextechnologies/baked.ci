@@ -81,6 +81,17 @@
     "experiments": {
       "typedRoutes": false,
       "reactCompiler": false
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "4595f050-413f-4c01-abfa-cad0168fefd4"
+      }
+    },
+    "owner": "depex19jan"
   }
 }

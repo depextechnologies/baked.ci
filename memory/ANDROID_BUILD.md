@@ -8,3 +8,4 @@
 - Production checklist pending: verify https://baked.ci/api, security audit, then build production apk+aab with BAKED_ANDROID_VERSION_CODE.
 - Memory: stop frontend + expo-mobile during the R8 step if anon memory > 6 GB (guard pkill pattern does not catch the Gradle java process).
 - Run builds via scripts/run-build-safely.sh <test|production> <apk|aab|both> (auto setup, pauses expo-mobile, pauses frontend if memory > 5.8 GB, restarts both). If NDK prebuilt/linux-x86_64 is a real dir (not symlink) the setup was interrupted: rm -rf /opt/android/sdk/ndk /opt/android/.toolchain-ok and rerun.
+- Expo Go: expo-mobile supervisor command exports EXPO_TOKEN from backend/.env (account depex19jan); tunnel exp://wioq6zo-depex19jan-8081.exp.direct. /etc/supervisor change may need redoing after workspace reset.
