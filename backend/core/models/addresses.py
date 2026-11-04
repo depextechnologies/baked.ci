@@ -36,6 +36,8 @@ class CustomerAddress(Base, AuditMixin):
     formatted_address: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     region: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     postal_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    recipient_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    recipient_phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 
 class RecentAddressSearch(Base):

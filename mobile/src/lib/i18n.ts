@@ -17,7 +17,7 @@ const frBase = {
   'common.login_required': 'Connectez-vous pour accéder à cette section.',
   'common.login': 'Se connecter',
 
-  'onb.1.title': 'Bienvenue sur BAKĒD',
+  'onb.1.title': 'Bienvenue sur BAKED',
   'onb.1.body': 'Une seule app pour tout ce dont vous avez besoin, au quotidien.',
   'onb.2.title': 'FOOD, MART, SHOP et SEND',
   'onb.2.body': 'Repas, courses, shopping et livraisons — réunis au même endroit.',
@@ -25,7 +25,7 @@ const frBase = {
   'onb.3.body': 'Suivez chaque commande et chaque colis en temps réel, en toute simplicité.',
 
   'loc.title': 'Où devons-nous livrer ?',
-  'loc.body': 'BAKĒD utilise votre position pour afficher les restaurants, produits et services disponibles près de chez vous, et pour livrer à la bonne adresse.',
+  'loc.body': 'BAKED utilise votre position pour afficher les restaurants, produits et services disponibles près de chez vous, et pour livrer à la bonne adresse.',
   'loc.point1': 'Offres et restaurants dans un rayon de 15 km',
   'loc.point2': 'Estimation précise des délais et frais de livraison',
   'loc.point3': 'Votre position n’est jamais partagée sans votre accord',
@@ -50,7 +50,7 @@ const frBase = {
   'addr.delivering_to': 'Livraison à',
   'addr.tap_to_set': 'Définissez votre adresse de livraison',
 
-  'welcome.title': 'Tout BAKĒD, avec un seul compte',
+  'welcome.title': 'Tout BAKED, avec un seul compte',
   'welcome.body': 'Connectez-vous avec votre numéro de mobile pour commander, payer et suivre vos livraisons.',
   'welcome.phone': 'Continuer avec mon numéro',
   'welcome.guest': 'Explorer en tant qu’invité',
@@ -77,7 +77,7 @@ const frBase = {
   'otp.dev_code': 'Code de test (pré-production) : {code}',
   'otp.success': 'Connexion réussie',
 
-  'home.search_ph': 'Rechercher sur BAKĒD',
+  'home.search_ph': 'Rechercher sur BAKED',
   'home.wallet': 'Portefeuille',
   'home.wallet_login': 'Se connecter',
   'home.rewards': 'Récompenses',
@@ -99,7 +99,7 @@ const frBase = {
   'mod.shop.short': 'Électronique & Lifestyle',
   'mod.immo.short': 'Immobilier',
   'mod.auto.short': 'Véhicules & Services',
-  'mod.coming_soon_msg': '{name} arrive bientôt sur BAKĒD.',
+  'mod.coming_soon_msg': '{name} arrive bientôt sur BAKED.',
 
   'module.categories': 'Catégories',
   'module.services': 'Services',
@@ -115,7 +115,7 @@ const frBase = {
   'send.between_cities': 'Intervilles',
   'send.multiple_shipments': 'Envois multiples',
 
-  'switcher.eyebrow': 'L’ÉCOSYSTÈME BAKĒD',
+  'switcher.eyebrow': 'L’ÉCOSYSTÈME BAKED',
   'switcher.title': 'Choisissez une app',
   'switcher.footer': 'Un compte · Un panier · Six services',
 
@@ -127,7 +127,7 @@ const frBase = {
 
   'explore.title': 'Explorer',
   'explore.ph': 'Produits, restaurants, plats, services…',
-  'explore.services': 'Services BAKĒD',
+  'explore.services': 'Services BAKED',
   'explore.send_services': 'Nos services',
   'explore.try': 'Essayez',
   'explore.empty': 'Aucun résultat pour « {q} ».',
@@ -149,7 +149,7 @@ const frBase = {
   'profile.appearance': 'Apparence',
   'profile.appearance_value': 'Sombre',
   'theme.title': 'Apparence',
-  'theme.sub': 'Choisissez l’apparence de BAKĒD. Elle s’applique immédiatement à tous les services.',
+  'theme.sub': 'Choisissez l’apparence de BAKED. Elle s’applique immédiatement à tous les services.',
   'theme.dark': 'Mode sombre',
   'theme.dark_sub': 'Par défaut · fond noir premium',
   'theme.light': 'Mode clair',
@@ -216,7 +216,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'common.login_required': 'Log in to access this section.',
   'common.login': 'Log in',
 
-  'onb.1.title': 'Welcome to BAKĒD',
+  'onb.1.title': 'Welcome to BAKED',
   'onb.1.body': 'One app for everything you need, every day.',
   'onb.2.title': 'FOOD, MART, SHOP and SEND',
   'onb.2.body': 'Meals, groceries, shopping and deliveries — all in one place.',
@@ -224,7 +224,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'onb.3.body': 'Track every order and every parcel in real time, seamlessly.',
 
   'loc.title': 'Where should we deliver?',
-  'loc.body': 'BAKĒD uses your location to show restaurants, products and services available near you, and to deliver to the right address.',
+  'loc.body': 'BAKED uses your location to show restaurants, products and services available near you, and to deliver to the right address.',
   'loc.point1': 'Offers and restaurants within 15 km',
   'loc.point2': 'Accurate delivery times and fees',
   'loc.point3': 'Your location is never shared without your consent',
@@ -249,7 +249,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'addr.delivering_to': 'Delivering to',
   'addr.tap_to_set': 'Set your delivery address',
 
-  'welcome.title': 'All of BAKĒD, one account',
+  'welcome.title': 'All of BAKED, one account',
   'welcome.body': 'Log in with your mobile number to order, pay and track your deliveries.',
   'welcome.phone': 'Continue with my number',
   'welcome.guest': 'Explore as a guest',
@@ -276,7 +276,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'otp.dev_code': 'Test code (pre-production): {code}',
   'otp.success': 'Logged in',
 
-  'home.search_ph': 'Search in BAKĒD',
+  'home.search_ph': 'Search in BAKED',
   'home.wallet': 'Wallet',
   'home.wallet_login': 'Log in',
   'home.rewards': 'Rewards',
@@ -298,7 +298,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'mod.shop.short': 'Electronics & Lifestyle',
   'mod.immo.short': 'Real Estate & Property',
   'mod.auto.short': 'Vehicles & Services',
-  'mod.coming_soon_msg': '{name} is coming soon to BAKĒD.',
+  'mod.coming_soon_msg': '{name} is coming soon to BAKED.',
 
   'module.categories': 'Categories',
   'module.services': 'Services',
@@ -314,7 +314,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'send.between_cities': 'Between Cities',
   'send.multiple_shipments': 'Multi Shipments',
 
-  'switcher.eyebrow': 'THE BAKĒD ECOSYSTEM',
+  'switcher.eyebrow': 'THE BAKED ECOSYSTEM',
   'switcher.title': 'Choose an app',
   'switcher.footer': 'One account · One cart · Six services',
 
@@ -326,7 +326,7 @@ const enBase: Record<keyof typeof frBase, string> = {
 
   'explore.title': 'Explore',
   'explore.ph': 'Products, restaurants, dishes, services…',
-  'explore.services': 'BAKĒD services',
+  'explore.services': 'BAKED services',
   'explore.send_services': 'Our services',
   'explore.try': 'Try',
   'explore.empty': 'No results for “{q}”.',
@@ -348,7 +348,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'profile.appearance': 'Appearance',
   'profile.appearance_value': 'Dark',
   'theme.title': 'Appearance',
-  'theme.sub': 'Choose how BAKĒD looks. It applies instantly across every service.',
+  'theme.sub': 'Choose how BAKED looks. It applies instantly across every service.',
   'theme.dark': 'Dark mode',
   'theme.dark_sub': 'Default · premium black background',
   'theme.light': 'Light mode',

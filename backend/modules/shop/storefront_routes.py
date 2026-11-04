@@ -311,6 +311,7 @@ class CheckoutIn(BaseModel):
     payment_method: str = Field("cash_on_delivery", pattern="^(cash_on_delivery|stripe|wallet)$")
     delivery_address: Optional[dict] = None
     instructions: Optional[str] = Field(None, max_length=400)
+    client_request_id: Optional[str] = Field(None, max_length=80)
 
 
 async def _next_shop_order_number(session: AsyncSession) -> str:
@@ -330,8 +331,7 @@ async def _next_shop_order_number(session: AsyncSession) -> str:
     return f"{prefix}{count + 1:05d}"
 
 
-@router.post("/checkout", status_code=201)
-async def shop_checkout(
+async def _shop_checkout_impl(
     payload: CheckoutIn,
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_session),
@@ -558,3 +558,29 @@ async def get_my_shop_order(
 # and reads it aloud at the door. See `expose_pin` in `_order_dict`.
 # ---------------------------------------------------------------------------
 
+
+
+@router.post("/checkout", status_code=201)
+async def shop_checkout(
+    payload: CheckoutIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    """Idempotent wrapper: a retried request (same client_request_id) returns the order it already created."""
+    from shared import idempotency
+    rid = payload.client_request_id
+    try:
+        existing = await idempotency.claim(customer.id, "shop", rid)
+    except RuntimeError:
+        raise HTTPException(409, {"code": "order_in_progress", "message": "Order is still being processed"})
+    if existing:
+        return {"id": existing, "idempotent_replay": True}
+    try:
+        out = await _shop_checkout_impl(payload, customer, session)
+    except Exception:
+        await idempotency.release(customer.id, "shop", rid)
+        raise
+    oid = out.get("id") if isinstance(out, dict) else None
+    if oid:
+        await idempotency.complete(customer.id, "shop", rid, oid)
+    return out

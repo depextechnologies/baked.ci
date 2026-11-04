@@ -457,6 +457,20 @@ async def _on_startup():
     # any index that depends on it, and every schema change lands with a
     # proper revision history instead of implicit auto-DDL from Python
     # models.
+    # Serialise migrations + seed across concurrent boots (reloader / extra workers) with a
+    # Postgres advisory lock — two processes racing `alembic upgrade` crashed startup.
+    from sqlalchemy import text as _sql_text
+    _lock_conn = await engine.connect()
+    await _lock_conn.execute(_sql_text("SELECT pg_advisory_lock(727001)"))
+    try:
+        await _migrate_and_seed()
+    finally:
+        await _lock_conn.execute(_sql_text("SELECT pg_advisory_unlock(727001)"))
+        await _lock_conn.close()
+    await _post_migrate_startup()
+
+
+async def _migrate_and_seed() -> None:
     try:
         logger.info("baked.startup running alembic upgrade head…")
         from alembic.config import Config
@@ -480,6 +494,9 @@ async def _on_startup():
         await run_seed()
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.seed_failed err=%s", e)
+
+
+async def _post_migrate_startup() -> None:
 
     # ---- 3) Object storage init (best-effort — logs but never blocks boot). ----
     try:

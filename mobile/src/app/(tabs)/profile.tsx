@@ -25,7 +25,7 @@ export default function Profile() {
   const gate = (p: string) => router.push((isAuthed ? p : `/login?redirect=${p}`) as any);
 
   const items: Item[] = [
-    { id: 'addresses', icon: MapPin, label: t('profile.addresses'), onPress: () => router.push('/address') },
+    { id: 'addresses', icon: MapPin, label: t('profile.addresses'), onPress: () => router.push('/addresses' as any) },
     { id: 'wallet', icon: Wallet, label: t('profile.wallet'), onPress: () => gate('/wallet') },
     { id: 'favourites', icon: Heart, label: t('food.favourites'), onPress: () => gate('/food/favourites') },
     { id: 'cart', icon: ShoppingBag, label: t('cart.title'), onPress: () => router.push('/cart') },

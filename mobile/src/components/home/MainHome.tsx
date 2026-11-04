@@ -11,7 +11,7 @@ import { Skeleton } from '../ui/StateView';
 import { AddressBar, SearchButton } from './AddressBar';
 import { MainHeader } from './MainHeader';
 
-// BAKĒD Super App home — every section below the address bar is published from Super Admin (module "baked").
+// BAKED Super App home — every section below the address bar is published from Super Admin (module "baked").
 export function MainHome() {
   const { country } = useApp();
   const { unread } = useAccountSummary();

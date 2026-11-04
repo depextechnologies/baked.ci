@@ -37,6 +37,8 @@ class AddressIn(BaseModel):
     formatted_address: Optional[str] = None
     region: Optional[str] = None
     postal_code: Optional[str] = None
+    recipient_name: Optional[str] = Field(None, max_length=120)
+    recipient_phone: Optional[str] = Field(None, max_length=32)
 
 
 @router.get("/me")
@@ -66,7 +68,7 @@ async def list_addresses(
             await session.execute(
                 select(CustomerAddress).where(
                     CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None)
-                )
+                ).order_by(CustomerAddress.is_default.desc(), CustomerAddress.created_at.desc())
             )
         )
         .scalars()
@@ -83,7 +85,13 @@ async def create_address(
 ):
     doc = payload.model_dump()
     doc["country"] = (doc.get("country") or "CI").upper()
-    if payload.is_default:
+    has_default = (await session.execute(
+        select(func.count()).select_from(CustomerAddress).where(
+            CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None), CustomerAddress.is_default.is_(True))
+    )).scalar_one()
+    if not has_default:
+        doc["is_default"] = True
+    if doc["is_default"]:
         await session.execute(
             update(CustomerAddress).where(CustomerAddress.customer_id == customer.id).values(is_default=False)
         )
@@ -106,6 +114,14 @@ async def delete_address(
     )
     if result.rowcount == 0:
         raise HTTPException(404, _t("errors.order.address_not_found", current_lang()))
+    live = CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None)
+    has_default = (await session.execute(
+        select(func.count()).select_from(CustomerAddress).where(*live, CustomerAddress.is_default.is_(True)))).scalar_one()
+    if not has_default:
+        nxt = (await session.execute(select(CustomerAddress).where(*live)
+                                     .order_by(CustomerAddress.created_at.desc()).limit(1))).scalar_one_or_none()
+        if nxt:
+            nxt.is_default = True
     await session.commit()
     return {"ok": True}
 
