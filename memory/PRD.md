@@ -1934,3 +1934,14 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 - ✅ **Homepage parity — FOOD (2026-06)**: native FOOD home CMS-driven (food_* registry, /food/home feed keeps 15 km rules), discover supports clearable cuisines filter. Tested iteration_124. Remaining: SEND.
 - ✅ **Homepage parity — SEND (2026-06)**: SEND website homepage migrated into CMS (module=express, 4 send_* types) and native SEND home renders it. Admin list editor reorder. All 4 modules CMS-driven. Tested iteration_125.
 - ✅ **Live driver markers (2026-06)**: GET /api/express/drivers/nearby (dispatch eligibility, 60 s freshness, ≤15 km, rounded coords, no identity) powers website /send maps (15 s polling, count chip, recenter) and native SEND map (nearby markers + chip, AppState-aware polling). Fake seedDrivers removed. Also: redis launcher /app/backend/scripts/redis_launcher.sh (auto-installs after pod reset), dev_approve_test_driver.py, content edits moved into seeds/migration. Tested iteration_126.
+
+## 2026-11 — Fixing_Prompt.docx stabilization milestone (3 rounds)
+### Round 1 — DONE (iteration_131: backend 8/9 → minor fixes applied, frontend 100%)
+- Root cause of the "Cloudflare" MART checkout error: backend was down/restarting (DB reset after workspace moves + 2 boots racing `alembic upgrade` → startup crash). Fix: Postgres advisory lock around migrations+seed in server.py `_on_startup`; DB-wait 180s.
+- Idempotent orders: `shared/idempotency.py` (Redis, 24h); MART POST /orders and SHOP POST /shop/checkout accept `client_request_id`; replay returns the full original order with `idempotent_replay: true`. App retries POSTs (same id) on network/5xx.
+- Friendly checkout errors (co.unconfirmed), partial results "Confirmées / Non confirmées" per module.
+- Address book: migration 0072 (recipient_name/phone); first address auto-default, always one default, default listed first; inline one-off checkout addresses hidden from the book. Native screens /addresses (list/select) and /addresses/edit (form, map/search via /address?book=1). Checkout preselects default, one-order choice via `setCheckoutAddressId` (reset after order), MART sends address_id.
+- App name BAKED (app.json name + alerts).
+- NOTE: backend supervisor runs uvicorn --workers 4 without reload in this env → restart backend after backend edits.
+### Round 2 — TODO: SHOP subcategories, filters/sort (backend-driven), quick-add +/qty on cards, variant sheet, product details; global search (FOOD menu items, SHOP, MART FR/EN synonyms, accent/typo tolerant, SEND services), module filters.
+### Round 3 — TODO: Edit Profile (name, email, photo upload via existing storage; phone change skipped by user), name placeholder "Add your name"; country/currency checks; new test APK (versionCode 4) via scripts/run-build-safely.sh.

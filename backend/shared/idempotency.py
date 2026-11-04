@@ -47,7 +47,9 @@ async def claim(customer_id: str, scope: str, request_id: Optional[str]) -> Opti
             pass
     now = time.time()
     hit = _mem.get(k)
-    if hit and hit[0] > now and hit[1] != "pending":
+    if hit and hit[0] > now:
+        if hit[1] == "pending":
+            raise RuntimeError("in_progress")
         return hit[1]
     _mem[k] = (now + 120, "pending")
     return None

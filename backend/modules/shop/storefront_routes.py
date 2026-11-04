@@ -574,7 +574,10 @@ async def shop_checkout(
     except RuntimeError:
         raise HTTPException(409, {"code": "order_in_progress", "message": "Order is still being processed"})
     if existing:
-        return {"id": existing, "idempotent_replay": True}
+        prev = await session.get(ShopOrder, existing)
+        out = _order_dict(prev) if prev else {"id": existing}
+        out["idempotent_replay"] = True
+        return out
     try:
         out = await _shop_checkout_impl(payload, customer, session)
     except Exception:

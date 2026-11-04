@@ -109,7 +109,8 @@ async def delete_address(
 ):
     result = await session.execute(
         update(CustomerAddress)
-        .where(CustomerAddress.id == address_id, CustomerAddress.customer_id == customer.id)
+        .where(CustomerAddress.id == address_id, CustomerAddress.customer_id == customer.id,
+               CustomerAddress.deleted_at.is_(None))
         .values(deleted_at=func.now())
     )
     if result.rowcount == 0:
@@ -144,6 +145,13 @@ async def update_address(
     updates["country"] = (updates.get("country") or "CI").upper()
     for k, v in updates.items():
         setattr(address, k, v)
+    await session.flush()
+    has_default = (await session.execute(
+        select(func.count()).select_from(CustomerAddress).where(
+            CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None), CustomerAddress.is_default.is_(True))
+    )).scalar_one()
+    if not has_default:  # a customer with addresses always keeps one default
+        address.is_default = True
     await session.commit()
     return row_to_dict(address)
 

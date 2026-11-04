@@ -13,7 +13,7 @@ import type { TKey } from '@/lib/i18n';
 import { notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, fonts, radius, themed } from '@/theme';
+import { accentText, colors, fonts, radius, themed } from '@/theme';
 
 type Kind = 'home' | 'office' | 'other';
 const LABELS: Record<Kind, { fr: string; en: string }> = { home: { fr: 'Domicile', en: 'Home' }, office: { fr: 'Bureau', en: 'Office' }, other: { fr: 'Autre', en: 'Other' } };
@@ -52,7 +52,7 @@ export default function EditAddress() {
   // Location picked on the map / search screen.
   useFocusEffect(useCallback(() => {
     const p = takePendingPick();
-    if (p) setF((x) => ({ ...x, line1: x.line1 || p.line1, city: p.city || x.city, latitude: p.latitude, longitude: p.longitude, place_id: p.place_id, formatted_address: p.formatted_address, country: p.country || x.country }));
+    if (p) setF((x) => ({ ...x, line1: p.line1 || x.line1, city: p.city || x.city, latitude: p.latitude, longitude: p.longitude, place_id: p.place_id, formatted_address: p.formatted_address, country: p.country || x.country }));
   }, []));
 
   const save = async () => {
@@ -80,11 +80,11 @@ export default function EditAddress() {
               <AppText weight="semibold">{t('ab.location')}</AppText>
               <AppText size={13} color={colors.textMuted} numberOfLines={2} testID="address-edit-location-text">{f.latitude != null ? (f.formatted_address || f.line1) : t('ab.pick')}</AppText>
             </View>
-            <AppText size={13} color={colors.accent} weight="semibold">{f.latitude != null ? t('ab.change') : ''}</AppText>
+            <AppText size={13} color={accentText(colors.accent)} weight="semibold">{f.latitude != null ? t('ab.change') : ''}</AppText>
           </Touchable>
           <AppText size={13} color={colors.textMuted}>{t('ab.label')}</AppText>
           <View style={styles.chips}>
-            {(['home', 'office', 'other'] as Kind[]).map((k) => <Chip key={k} testID={`address-label-${k}`} label={t(`ab.${k}` as TKey)} on={kind === k} onPress={() => setKind(k)} />)}
+            {(['home', 'office', 'other'] as Kind[]).map((k) => <Chip key={k} testID={`address-label-${k}`} label={t(`ab.${k}` as TKey)} on={kind === k} color={colors.accent} onPress={() => setKind(k)} />)}
           </View>
           {kind === 'other' ? <Field testID="address-custom-label" label={t('ab.custom')} value={custom} onValue={setCustom} /> : null}
           <Field testID="address-recipient-name" label={t('ab.recipient')} value={f.recipient_name || ''} onValue={set('recipient_name')} />

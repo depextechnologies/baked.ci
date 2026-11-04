@@ -20,7 +20,7 @@ export const deleteAddress = (id: string) => api(`/customers/me/addresses/${id}`
 export const toPicked = (a: SavedAddress): PickedAddress => ({
   id: a.id, label: a.label || '', line1: a.line1, city: a.city || '', country: a.country,
   formatted_address: a.formatted_address || [a.line1, a.city].filter(Boolean).join(', '),
-  latitude: Number(a.latitude), longitude: Number(a.longitude), place_id: a.place_id || undefined,
+  latitude: a.latitude == null ? (null as any) : Number(a.latitude), longitude: a.longitude == null ? (null as any) : Number(a.longitude), place_id: a.place_id || undefined,
 });
 
 // Location picked on the map/search screen while editing an address (handed back to the form).

@@ -11,7 +11,7 @@ import { deleteAddress, listAddresses, setCheckoutAddressId, toPicked, updateAdd
 import { confirmAsk, notify } from '@/lib/notify';
 import { useApp } from '@/state/AppContext';
 import { useSession } from '@/state/SessionContext';
-import { colors, radius, themed } from '@/theme';
+import { accentText, colors, radius, themed } from '@/theme';
 
 const iconFor = (l?: string | null) => (/home|domicile/i.test(l || '') ? Home : /office|bureau/i.test(l || '') ? Briefcase : MapPin);
 
@@ -82,7 +82,7 @@ export default function Addresses() {
                 {select ? <Check color={colors.accent} size={18} /> : null}
               </View>
               <View style={styles.actions}>
-                {!a.is_default ? <Touchable testID={`address-set-default-${a.id}`} onPress={() => makeDefault(a)} style={styles.act}><AppText size={13} color={colors.accent} weight="semibold">{t('ab.set_default')}</AppText></Touchable> : <View style={{ flex: 1 }} />}
+                {!a.is_default ? <Touchable testID={`address-set-default-${a.id}`} onPress={() => makeDefault(a)} style={styles.act}><AppText size={13} color={accentText(colors.accent)} weight="semibold">{t('ab.set_default')}</AppText></Touchable> : <View style={{ flex: 1 }} />}
                 {busy === a.id ? <ActivityIndicator color={colors.accent} /> : null}
                 <Touchable testID={`address-edit-${a.id}`} onPress={() => router.push(`/addresses/edit?id=${a.id}` as any)} style={styles.iconBtn} hitSlop={6}><Pencil color={colors.text} size={16} /></Touchable>
                 <Touchable testID={`address-delete-${a.id}`} onPress={() => remove(a)} style={styles.iconBtn} hitSlop={6}><Trash2 color={colors.danger} size={16} /></Touchable>

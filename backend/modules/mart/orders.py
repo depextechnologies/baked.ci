@@ -702,7 +702,10 @@ async def create_order(
     except RuntimeError:
         raise HTTPException(409, {"code": "order_in_progress", "message": "Order is still being processed"})
     if existing:
-        return {"id": existing, "idempotent_replay": True}
+        prev = await session.get(Order, existing)
+        out = await _order_to_dict(session, prev) if prev else {"id": existing}
+        out["idempotent_replay"] = True
+        return out
     try:
         out = await _create_order_impl(payload, customer, session)
     except Exception:
