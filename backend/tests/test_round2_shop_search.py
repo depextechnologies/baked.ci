@@ -131,3 +131,37 @@ class TestSearch:
         d = _search(s, q)
         codes = [i["intent_code"] for i in d["detected_intents"]]
         assert intent in codes, codes
+
+
+# --- Round 2 retest (iteration 133): backend fixes ---
+class TestRetestFixes:
+    def test_pizza_cuisine_has_title(self, s):
+        d = _search(s, "pizza")
+        g = _group(d, "food")
+        assert g, d["groups"]
+        assert all(i.get("title") for i in g["items"]), g["items"]
+        cu = [i for i in g["items"] if i["entity_type"] == "cuisine"]
+        assert cu and cu[0]["title"].lower() == "pizza", cu
+
+    def test_burger_no_unrelated_restaurants(self, s):
+        d = _search(s, "burger")
+        items = _group(d, "food")["items"]
+        rest = [i["title"] for i in items if i["entity_type"] == "restaurant"]
+        assert rest == ["Burger Hub"] or all("burger" in r.lower() for r in rest), rest
+        dishes = [i for i in items if i["entity_type"] == "dish"]
+        assert any("burger" in i["title"].lower() for i in dishes), [i["title"] for i in dishes]
+        # NOTE (iter133 minor): Burger Hub's own dishes are not in the top 8; dish ties (0.65) keep food-search order.
+        rels = [i["relevance"] for i in items]
+        assert rels == sorted(rels, reverse=True)
+
+    def test_min_gt_max_swapped(self, s):
+        a = _get(s, "/shop/products", country="CI", min_price=20000, max_price=10000, limit=100)
+        assert a.status_code == 200
+        a = a.json()
+        b = _get(s, "/shop/products", country="CI", min_price=10000, max_price=20000, limit=100).json()
+        assert a and {x["id"] for x in a} == {x["id"] for x in b}
+        assert all(10000 <= x["min_price"] <= 20000 for x in a)
+
+    def test_facets_min_gt_max(self, s):
+        r = _get(s, "/shop/products/facets", country="CI", category="mode-femme", min_price=20000, max_price=10000)
+        assert r.status_code == 200

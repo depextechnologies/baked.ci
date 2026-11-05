@@ -87,7 +87,7 @@ export function ShopCard({ p, icon }: { p: ShopListItem; icon?: any }) {
             <AppText size={11} color={colors.textDim} style={{ textDecorationLine: 'line-through' }}>{formatMoney(p.compare_at_price, p.currency, undefined, lang)}</AppText>
           ) : null}
         </View>
-        <View onStartShouldSetResponder={() => true}>
+        <Pressable onPress={() => {}} testID={`shop-action-${p.id}`}>
         {!p.in_stock ? null : line ? (
           <QtyStepper size="sm" qty={line.quantity} onChange={single} color={GOLD} max={p.stock_qty} testID={`shop-qty-${p.id}`} />
         ) : (
@@ -95,7 +95,7 @@ export function ShopCard({ p, icon }: { p: ShopListItem; icon?: any }) {
             <Plus color="#000" size={18} strokeWidth={2.6} />
           </Touchable>
         )}
-        </View>
+        </Pressable>
       </View>
       {p.variant_count > 1 ? <AppText size={11} color={colors.textMuted}>{t('shf.options', { n: p.variant_count })}</AppText> : null}
     </Touchable>

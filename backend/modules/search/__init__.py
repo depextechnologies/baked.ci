@@ -228,7 +228,7 @@ class FoodSearchProvider(SearchProvider):
             data = await food_search(q=q, mode=None, country=country, lat=None, lng=None,
                                      radius_km=DISCOVERY_RADIUS_KM, only_eligible=False, sort="popularity",
                                      cuisines=None, min_rating=None, min_price=None, max_price=None,
-                                     vegetarian=None, open_now=False, limit=min(limit, 50), session=session)
+                                     vegetarian=None, open_now=False, limit=50, session=session)
         except Exception as e:  # noqa: BLE001
             log.warning("food provider failed: %s", e)
             return []
@@ -285,6 +285,18 @@ class FoodSearchProvider(SearchProvider):
                 relevance=0.55,
             ))
         hits = [h for h in hits if h.title]
+        matched_rest = {normalise(r.get("name") or "") for r in data.get("restaurants", []) or [] if q_norm in normalise(r.get("name") or "")}
+        seen: set = set()
+        uniq: List[SearchHit] = []
+        for h in hits:
+            key = (h.entity_type, normalise(h.title), h.subtitle)
+            if key in seen:
+                continue
+            seen.add(key)
+            if h.entity_type == "dish" and normalise(h.subtitle or "") in matched_rest:
+                h.relevance += 0.1
+            uniq.append(h)
+        hits = uniq
         # Restaurants that only matched through an unrelated menu are dropped when better hits exist.
         if any(h.relevance > 0.5 for h in hits):
             hits = [h for h in hits if h.relevance > 0.5]
