@@ -18,8 +18,8 @@ import { useApp } from '@/state/AppContext';
 import { colors, fonts, hexA, radius, themed } from '@/theme';
 
 type Hit = { module: string; entity_type: string; entity_id?: string; title: string; subtitle?: string; image?: string; destination_url?: string };
-type Intent = { intent_code: string; module: string; action_label: string; subtitle?: string };
-type Result = { groups: { module: string; items: Hit[] }[]; detected_intents: Intent[]; suggestions: string[]; event_id: string | null };
+type Intent = { intent_code: string; module: string; action_label: string; subtitle?: string; destination?: string };
+type Result = { groups: { module: string; items: Hit[] }[]; detected_intents: Intent[]; suggestions: string[]; event_id: string | null; query?: string; corrected_from?: string };
 
 const toCode = (m: string): ModuleCode => (m === 'send' ? 'express' : (m as ModuleCode));
 const FILTERS: (ModuleCode | 'all')[] = ['all', 'mart', 'food', 'shop', 'express'];
@@ -56,7 +56,16 @@ export default function Explore() {
     openModule(code);
     const target = hit?.entity_id || hit?.destination_url?.split('?')[0].split('/').filter(Boolean).pop();
     if (target && code === 'mart' && hit?.entity_type === 'product') router.push(`/mart/product/${target}`);
-    else if (target && code === 'food' && hit?.entity_type === 'restaurant') router.push(`/food/restaurant/${target}`);
+    else if (target && code === 'food' && (hit?.entity_type === 'restaurant' || hit?.entity_type === 'dish')) router.push(`/food/restaurant/${target}`);
+    else if (code === 'food' && hit?.entity_type === 'cuisine') router.push(`/food/discover?q=${encodeURIComponent(res?.query || q)}` as any);
+    else if (target && code === 'shop' && hit?.entity_type === 'product') router.push(`/shop/product/${target}`);
+  };
+
+  const openIntent = (it: Intent) => {
+    const code = toCode(it.module);
+    openModule(code);
+    const d = it.destination || '';
+    if (code === 'express') router.push((/mover|shift|demenag/.test(d) ? '/send/movers' : '/send/book') as any);
   };
 
   const empty = res && res.groups.length === 0 && res.detected_intents.length === 0;
@@ -92,7 +101,7 @@ export default function Explore() {
         {res?.detected_intents.map((it) => {
           const m = MODULES[toCode(it.module)];
           return (
-            <Touchable key={it.intent_code} testID={`explore-intent-${it.intent_code}`} onPress={() => open(it.module)} style={[styles.intent, { borderColor: hexA(m.color, 0.5) }]}>
+            <Touchable key={it.intent_code} testID={`explore-intent-${it.intent_code}`} onPress={() => openIntent(it)} style={[styles.intent, { borderColor: hexA(m.color, 0.5) }]}>
               <View style={[styles.iconBox, { backgroundColor: hexA(m.color, 0.18) }]}><Package color={m.color} size={20} /></View>
               <View style={{ flex: 1 }}>
                 <AppText weight="bold" size={15}>{it.action_label}</AppText>
@@ -102,6 +111,7 @@ export default function Explore() {
             </Touchable>
           );
         })}
+        {res?.corrected_from ? <AppText size={13} color={colors.textMuted} style={{ marginHorizontal: 18, marginTop: 10 }} testID="explore-corrected">{t('explore.showing_for', { q: res.query || '' })}</AppText> : null}
         {res?.groups.map((g) => (
           <View key={g.module} style={{ marginTop: 18 }} testID={`explore-group-${toCode(g.module)}`}>
             <View style={styles.groupHead}><BrandName code={toCode(g.module)} size={16} /></View>

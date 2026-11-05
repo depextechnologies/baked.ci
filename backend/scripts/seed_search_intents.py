@@ -30,6 +30,8 @@ INTENTS = [
     dict(module="send", code="send_parcel",
          phrases=[
              "send parcel", "send a parcel", "book parcel", "book a parcel",
+             "courier", "coursier", "livreur", "envoyer", "envoi", "envoyer un colis", "colis express",
+             "livraison colis", "deliver anything", "livrez tout", "send",
              "parcel", "parcel delivery", "parcel booking", "send package",
              "deliver package", "deliver parcel", "deliver a parcel",
              "courier", "courier service", "send document", "send documents",

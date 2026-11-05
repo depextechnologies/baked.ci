@@ -223,8 +223,12 @@ class FoodSearchProvider(SearchProvider):
             return []
         try:
             from modules.food.search import search as food_search  # type: ignore
-            data = await food_search(q=q, mode=None, country=country,
-                                     limit=limit, session=session)
+            # Called directly (not via FastAPI) → pass every filter explicitly, else Query() defaults leak in.
+            from modules.food.search import DISCOVERY_RADIUS_KM  # type: ignore
+            data = await food_search(q=q, mode=None, country=country, lat=None, lng=None,
+                                     radius_km=DISCOVERY_RADIUS_KM, only_eligible=False, sort="popularity",
+                                     cuisines=None, min_rating=None, min_price=None, max_price=None,
+                                     vegetarian=None, open_now=False, limit=min(limit, 50), session=session)
         except Exception as e:  # noqa: BLE001
             log.warning("food provider failed: %s", e)
             return []
@@ -238,7 +242,7 @@ class FoodSearchProvider(SearchProvider):
                 1.0 if n_name == q_norm else
                 0.9 if n_name.startswith(q_norm) else
                 0.75 if q_norm in n_name else
-                0.6
+                0.5
             )
             hits.append(SearchHit(
                 module="food", entity_type="restaurant",
@@ -559,6 +563,7 @@ async def global_search(
     language: str = Query("fr"),
     request: Request = None,
     session: AsyncSession = Depends(get_session),
+    _retry: bool = Query(False, include_in_schema=False),
 ):
     t0 = time.perf_counter()
     q = q or ""
@@ -598,6 +603,15 @@ async def global_search(
 
     results_by_module = dict(await asyncio.gather(*[_run(p) for p in wanted]))
     intents = await detect_intents(session, q_norm, language=lang)
+    if not intents and not any(results_by_module.values()) and len(q_norm) >= 4 and not _retry:
+        corrected = await _closest_term(session, q_norm)
+        if corrected and corrected != q_norm:
+            out = await global_search(request=request, q=corrected, country=country, language=language,
+                                      module=module, limit=limit, session=session, _retry=True)
+            out["corrected_from"] = q
+            return out
+    for k in results_by_module:
+        results_by_module[k] = sorted(results_by_module[k], key=lambda h: -h.relevance)
 
     # Build groups — hide empty modules per spec.
     groups: List[Dict[str, Any]] = []
@@ -648,6 +662,34 @@ async def global_search(
         "latency_ms": latency_ms,
         "event_id": event_id,
     }
+
+
+_VOCAB: dict = {"at": 0.0, "words": []}
+
+
+async def _closest_term(session: AsyncSession, q_norm: str) -> Optional[str]:
+    """Typo tolerance: nearest catalogue/intent word or phrase (difflib, cached 10 min)."""
+    import difflib
+    if time.time() - _VOCAB["at"] > 600:
+        words: set = set()
+        for sql in ("SELECT name FROM mart_products",
+                    "SELECT name FROM food_menu_items",
+                    "SELECT name FROM food_restaurants",
+                    "SELECT name_en FROM food_cuisines", "SELECT name_fr FROM food_cuisines",
+                    "SELECT title FROM shop_products",
+                    "SELECT title_fr FROM shop_products WHERE title_fr IS NOT NULL",
+                    "SELECT jsonb_array_elements_text(phrases) FROM search_intents"):
+            try:
+                for (v,) in (await session.execute(text(sql))).all():
+                    n = normalise(v or "")
+                    if n:
+                        words.add(n)
+                        words.update(w for w in n.split() if len(w) >= 4)
+            except Exception:  # noqa: BLE001
+                await session.rollback()
+        _VOCAB.update(at=time.time(), words=sorted(words))
+    m = difflib.get_close_matches(q_norm, _VOCAB["words"], n=1, cutoff=0.75)
+    return m[0] if m else None
 
 
 @router.post("/click")
