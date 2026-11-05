@@ -234,6 +234,8 @@ async def shop_list_products(
     session: AsyncSession = Depends(get_session),
 ):
     """List published SHOP products (backend-driven filters + sort + offset pagination)."""
+    if min_price is not None and max_price is not None and min_price > max_price:
+        min_price, max_price = max_price, min_price
     rows = await _shop_list_raw(session, country, category, subcategory)
     out = [r for r in rows if r["min_price"] is not None or not (min_price or max_price)]
     if brand:
@@ -278,7 +280,7 @@ async def shop_product_facets(
 
 
 async def _shop_list_raw(session: AsyncSession, country: str, category: Optional[str], subcategory: Optional[str]) -> list[dict]:
-    limit = 500
+    limit = 2000
     q = (
         select(ShopProduct)
         .where(
@@ -303,7 +305,7 @@ async def _shop_list_raw(session: AsyncSession, country: str, category: Optional
         sub = (
             (await session.execute(
                 select(ShopSubcategory.id).where(ShopSubcategory.slug == subcategory,
-                                                 ShopSubcategory.country == country.upper())
+                                                 ShopSubcategory.country == country.upper()).limit(1)
             )).scalar_one_or_none()
         )
         if not sub:

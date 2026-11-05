@@ -279,11 +279,16 @@ class FoodSearchProvider(SearchProvider):
             n = int(c.get("restaurant_count") or 0)
             hits.append(SearchHit(
                 module="food", entity_type="cuisine",
-                title=(c.get("name") or "").title(),
+                title=(c.get("name") or c.get("label_fr") or c.get("label_en") or c.get("code") or "").title(),
                 subtitle=(f"{n} restaurants" if n > 0 else ""),
                 destination_url=f"/foodbaked/search?q={q}",
                 relevance=0.55,
             ))
+        hits = [h for h in hits if h.title]
+        # Restaurants that only matched through an unrelated menu are dropped when better hits exist.
+        if any(h.relevance > 0.5 for h in hits):
+            hits = [h for h in hits if h.relevance > 0.5]
+        hits.sort(key=lambda h: -h.relevance)
         return hits[:limit]
 
 

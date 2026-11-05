@@ -24,7 +24,7 @@ type V = { id: string; title_suffix?: string; price: number; compare_at_price?: 
 // Size/colour picker shown when a product has several variants (no forced trip to the details page).
 function VariantSheet({ p, title, onClose }: { p: ShopListItem; title: string; onClose: () => void }) {
   const { t, lang } = useApp();
-  const { setShopQty } = useCart();
+  const { shop, setShopQty } = useCart();
   const { data } = useFetch<{ variants: V[] }>(`/shop/products/${p.id}`, [p.id]);
   const vs = (data?.variants || []).filter((v) => v.is_active);
   const [vid, setVid] = useState<string | null>(null);
@@ -35,7 +35,7 @@ function VariantSheet({ p, title, onClose }: { p: ShopListItem; title: string; o
     if (!v) return;
     setBusy(true);
     try {
-      await setShopQty({ id: v.id, price: v.price, currency: v.currency, title_suffix: v.title_suffix, image: v.images?.[0] || p.images?.[0], product_id: p.id, product_title: title }, Math.min(qty, v.stock_qty));
+      await setShopQty({ id: v.id, price: v.price, currency: v.currency, title_suffix: v.title_suffix, image: v.images?.[0] || p.images?.[0], product_id: p.id, product_title: title }, Math.min(qty + (shop.find((l) => l.variant_id === v.id)?.quantity || 0), v.stock_qty));
       notify(t('shf.added')); onClose();
     } catch (e: any) { notify(e?.message || t('common.network_error')); }
     setBusy(false);
@@ -43,7 +43,7 @@ function VariantSheet({ p, title, onClose }: { p: ShopListItem; title: string; o
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
       <Pressable style={styles.scrim} onPress={onClose} testID="shop-variant-sheet-close" />
-      <View style={styles.sheet} testID="shop-variant-sheet">
+      <View style={styles.sheet} testID="shop-variant-sheet" onStartShouldSetResponder={() => true}>
         <AppText weight="bold" size={17} numberOfLines={2}>{title}</AppText>
         <AppText size={13} color={colors.textMuted}>{t('shf.choose_variant')}</AppText>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
@@ -72,6 +72,7 @@ export function ShopCard({ p, icon }: { p: ShopListItem; icon?: any }) {
   const single = (q: number) => p.first_variant_id && setShopQty({ id: p.first_variant_id, price: p.min_price, currency: p.currency, image: p.images?.[0], product_id: p.id, product_title: title }, Math.min(q, p.stock_qty))
     .catch((e) => notify(e?.message || t('common.network_error')));
   return (
+    <>
     <Touchable testID={`shop-product-${p.id}`} onPress={() => router.push(`/shop/product/${p.id}`)} style={styles.card} scale={0.98}>
       <View style={styles.img}>
         <Thumb src={p.images?.[0]} color={GOLD} icon={icon} testID={`shop-product-img-${p.id}`} />
@@ -86,6 +87,7 @@ export function ShopCard({ p, icon }: { p: ShopListItem; icon?: any }) {
             <AppText size={11} color={colors.textDim} style={{ textDecorationLine: 'line-through' }}>{formatMoney(p.compare_at_price, p.currency, undefined, lang)}</AppText>
           ) : null}
         </View>
+        <View onStartShouldSetResponder={() => true}>
         {!p.in_stock ? null : line ? (
           <QtyStepper size="sm" qty={line.quantity} onChange={single} color={GOLD} max={p.stock_qty} testID={`shop-qty-${p.id}`} />
         ) : (
@@ -93,10 +95,12 @@ export function ShopCard({ p, icon }: { p: ShopListItem; icon?: any }) {
             <Plus color="#000" size={18} strokeWidth={2.6} />
           </Touchable>
         )}
+        </View>
       </View>
       {p.variant_count > 1 ? <AppText size={11} color={colors.textMuted}>{t('shf.options', { n: p.variant_count })}</AppText> : null}
-      {sheet ? <VariantSheet p={p} title={title} onClose={() => setSheet(false)} /> : null}
     </Touchable>
+    {sheet ? <VariantSheet p={p} title={title} onClose={() => setSheet(false)} /> : null}
+    </>
   );
 }
 

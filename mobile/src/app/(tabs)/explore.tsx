@@ -15,7 +15,7 @@ import { api } from '@/lib/api';
 import { ModuleExplore } from '@/components/explore/ModuleExplore';
 import { MODULES, SWITCHER_ORDER, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, fonts, hexA, radius, themed } from '@/theme';
+import { accentText, colors, fonts, hexA, radius, themed } from '@/theme';
 
 type Hit = { module: string; entity_type: string; entity_id?: string; title: string; subtitle?: string; image?: string; destination_url?: string };
 type Intent = { intent_code: string; module: string; action_label: string; subtitle?: string; destination?: string };
@@ -82,7 +82,7 @@ export default function Explore() {
         ) : null}
       </View>
       {activeContext !== 'baked' ? <View style={styles.filters} testID="explore-module-head"><BrandName code={activeContext} size={15} /></View> : (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} style={{ flexGrow: 0 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} style={{ flexGrow: 0, flexShrink: 0, minHeight: 52 }}>
         {FILTERS.map((f) => {
           const on = filter === f;
           const c = f === 'all' ? colors.text : MODULES[f].color;
@@ -129,6 +129,7 @@ export default function Explore() {
         {empty ? (
           <View style={{ padding: 24, alignItems: 'center', gap: 10 }} testID="explore-empty">
             <AppText size={15} color={colors.textMuted} align="center">{t('explore.empty', { q })}</AppText>
+            {filter !== 'all' ? <Touchable testID="explore-search-everywhere" onPress={() => setFilter('all')}><AppText weight="semibold" color={accentText(colors.accent)}>{t('explore.everywhere')}</AppText></Touchable> : null}
             {res!.suggestions.map((s) => (
               <Touchable key={s} testID="explore-suggestion" onPress={() => setQ(s)}><AppText weight="semibold" color={colors.accent}>{t('explore.did_you_mean', { q: s })}</AppText></Touchable>
             ))}
