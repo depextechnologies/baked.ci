@@ -56,12 +56,12 @@ function FilterSheet({ facets, value, onApply, onClose }: { facets: any; value: 
 }
 
 export default function ShopCategory() {
-  const { slug, sub: subParam } = useLocalSearchParams<{ slug: string; sub?: string }>();
+  const { slug, sub: subParam, brand } = useLocalSearchParams<{ slug: string; sub?: string; brand?: string }>();
   const { t, lang, country } = useApp();
   const cc = country?.code || 'CI';
   const [sub, setSub] = useState<string | undefined>(subParam);
   const [sort, setSort] = useState<(typeof SORTS)[number]>('relevance');
-  const [filters, setFilters] = useState<Filters>(NONE);
+  const [filters, setFilters] = useState<Filters>(brand ? { ...NONE, brands: [brand] } : NONE);
   const [sheet, setSheet] = useState(false);
   const [items, setItems] = useState<ShopListItem[] | null>(null);
   const [more, setMore] = useState(true);

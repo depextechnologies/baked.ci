@@ -52,6 +52,8 @@ export default function MoversBook() {
   const [date, setDate] = useState<string | null>(r0?.date || null);
   const [slot, setSlot] = useState<string | null>(r0?.slot || null);
   const [quote, setQuote] = useState<Record<string, any> | null>(null);
+  const [quoteErr, setQuoteErr] = useState<string | null>(null);
+  const [quoteTry, setQuoteTry] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const types = useFetch<any[]>('/express/movers/move-types', []);
@@ -71,7 +73,7 @@ export default function MoversBook() {
   const count = chosen.reduce((s, i) => s + i.qty, 0);
   const kg = chosen.reduce((s, i) => s + i.qty * (items.data?.find((x) => x.id === i.item_id)?.weight_kg || 0), 0);
   const slotRow = slots.data?.find((s) => s.code === slot);
-  const curr = quote?.currency || country?.currency || 'XOF';
+  const curr = quote?.currency || country?.currency;
 
   const pickSize = async (s: Size) => {
     if (count > 0 && !(await confirmAsk(t('mv.replace_confirm'), t('mv.replace'), t('common.cancel')))) return;
@@ -80,14 +82,20 @@ export default function MoversBook() {
     setQty(Object.fromEntries(Object.entries(SIZE_PRESET[s]).filter(([n]) => byName[n]).map(([n, q]) => [byName[n], q])));
   };
 
+  // Quote is fetched whenever the review inputs are ready (incl. coordinates restored after login), never fabricated.
+  const quoteBody = step === 'review' && pickup?.latitude != null && drop?.latitude != null ? JSON.stringify({
+    country: cc, pickup_lat: pickup.latitude, pickup_lng: pickup.longitude, drop_lat: drop.latitude, drop_lng: drop.longitude, items: chosen, labour_movers: labour,
+    floors_pickup: from.floor, floors_drop: to.floor, stairs_pickup: !from.elevator && from.floor > 0, stairs_drop: !to.elevator && to.floor > 0, time_slot_code: slot || undefined,
+  }) : null;
   useEffect(() => {
-    if (step !== 'review' || !pickup || !drop) return;
-    setQuote(null);
-    api<any>('/express/quote/movers', { method: 'POST', auth: false, body: {
-      country: cc, pickup_lat: pickup.latitude, pickup_lng: pickup.longitude, drop_lat: drop.latitude, drop_lng: drop.longitude, items: chosen, labour_movers: labour,
-      floors_pickup: from.floor, floors_drop: to.floor, stairs_pickup: !from.elevator && from.floor > 0, stairs_drop: !to.elevator && to.floor > 0, time_slot_surcharge: slotRow?.surcharge || 0,
-    } }).then(setQuote).catch((e) => notify(e?.message || t('common.network_error')));
-  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!quoteBody) return;
+    let live = true;
+    setQuote(null); setQuoteErr(null);
+    api<any>('/express/quote/movers', { method: 'POST', auth: false, body: JSON.parse(quoteBody), retries: 1 })
+      .then((q) => { if (live) setQuote(q); })
+      .catch((e) => { if (live) setQuoteErr(e?.status === 0 ? t('common.network_error') : e?.message || t('mv.quote_failed')); });
+    return () => { live = false; };
+  }, [quoteBody, quoteTry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const book = async () => {
     if (!pickup || !drop || !moveType) return;
@@ -182,7 +190,7 @@ export default function MoversBook() {
               {days.map((d) => <Chip key={d} testID={`mv-date-${d}`} label={fmtDay(d)} on={date === d} color={ORANGE} onPress={() => setDate(d)} />)}
             </ScrollView>
             <AppText weight="bold" size={15}>{t('mv.slot')}</AppText>
-            {(slots.data || []).map((s) => <SlotCard key={s.code} s={s} on={slot === s.code} currency={curr} onPress={() => setSlot(s.code)} />)}
+            {(slots.data || []).map((s) => <SlotCard key={s.code} s={s} on={slot === s.code} currency={curr as string} onPress={() => setSlot(s.code)} />)}
           </>
         ) : (
           <>
@@ -191,7 +199,18 @@ export default function MoversBook() {
               <AppText size={13} color={colors.textMuted}>{pickup?.line1} → {drop?.line1}</AppText>
               <AppText size={13} color={colors.textMuted}>{date ? fmtDay(date) : ''}{slotRow ? ` · ${sendLabel(lang, slotRow.code, slotRow.name)}` : ''} · {t('mv.labour')}: {labour}</AppText>
             </View>
-            {quote ? <MoversFare q={quote} /> : <Skeleton h={260} />}
+            {quote ? <MoversFare q={quote} /> : quoteErr ? (
+              <View style={[styles.option, { alignItems: 'center', gap: 10, paddingVertical: 20 }]} testID="mv-quote-error">
+                <AppText weight="bold" size={15} align="center">{t('mv.quote_failed')}</AppText>
+                <AppText size={13} color={colors.textMuted} align="center" testID="mv-quote-error-msg">{quoteErr}</AppText>
+                <Button testID="mv-quote-retry" variant="secondary" label={t('common.retry')} onPress={() => setQuoteTry((n) => n + 1)} />
+              </View>
+            ) : (
+              <View testID="mv-quote-loading" style={{ gap: 8 }}>
+                <AppText size={13} color={colors.textMuted}>{t('mv.quote_loading')}</AppText>
+                <Skeleton h={260} />
+              </View>
+            )}
           </>
         )}
       </ScrollView>

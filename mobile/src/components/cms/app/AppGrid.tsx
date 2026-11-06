@@ -11,6 +11,7 @@ import { useApp } from '@/state/AppContext';
 import { colors, fonts, getScheme, hexA, themed } from '@/theme';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
+import { SafeImage } from '../../ui/SafeImage';
 import type { SectionProps } from '../types';
 
 type TileCfg = { module: ModuleCode; enabled?: boolean; tagline_fr?: string; tagline_en?: string; tagline?: string; image?: string; accent?: string };
@@ -32,7 +33,8 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
     <Touchable testID={`app-tile-${cfg.module}`} disabled={soon} accessibilityState={{ disabled: soon }} onPress={() => openModule(cfg.module)}
       style={[styles.tile, { borderColor: hexA(accent, 0.55) }]} scale={0.96}>
       <LinearGradient colors={[hexA(accent, 0.26), hexA(accent, 0.06), colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 0.9, y: 1 }} style={StyleSheet.absoluteFill} />
-      <Image source={absUrl(cfg.image) || m.image} placeholder={m.image} style={styles.img} contentFit="contain" transition={200} />
+      <SafeImage testID={`app-tile-img-${cfg.module}`} source={absUrl(cfg.image) || m.image} placeholder={m.image} style={styles.img} contentFit="contain" transition={200}
+        fallback={<Image source={m.image} style={styles.img} contentFit="contain" testID={`app-tile-img-fallback-${cfg.module}`} />} />
       {soon ? (
         <View style={[styles.soon, { borderColor: hexA(accent, 0.7) }]} testID={`app-tile-soon-${cfg.module}`}>
           <AppText weight="bold" size={9} color={ink} style={{ letterSpacing: 0.8 }}>{t('common.soon').toUpperCase()}</AppText>

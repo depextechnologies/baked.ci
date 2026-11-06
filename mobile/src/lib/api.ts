@@ -56,3 +56,25 @@ export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
     }
   }
 }
+
+// Multipart upload (photos). Body is a FormData built by the caller.
+export async function apiUpload<T = any>(path: string, form: FormData, timeoutMs = 60000): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-BAKED-Language': language };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_URL}${path}`, { method: 'POST', headers, body: form, signal: ctrl.signal });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      if (res.status === 401 && authToken) onUnauthorized?.();
+      throw new ApiError(res.status, detailToMessage(data?.detail) || `HTTP ${res.status}`);
+    }
+    return data as T;
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(0, 'network');
+  } finally {
+    clearTimeout(timer);
+  }
+}

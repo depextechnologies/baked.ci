@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowRight, Sparkles } from 'lucide-react-native';
@@ -9,6 +8,7 @@ import { assetFor, nativeLink, pick } from '@/lib/cms';
 import { useApp } from '@/state/AppContext';
 import { AppText, OnDark } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
+import { SafeImage } from '../ui/SafeImage';
 import type { SectionProps } from './types';
 import { themed } from '@/theme';
 
@@ -43,7 +43,8 @@ export function HeroCarousel({ section, accent, module, width }: SectionProps) {
           const desc = pick(s, 'description', lang);
           return (
             <View style={{ width, height: h }} testID={`cms-hero-slide-${i}`}><OnDark>
-              {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" testID={`cms-hero-img-${i}`} /> : null}
+              <SafeImage source={img} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} testID={`cms-hero-img-${i}`}
+                fallback={<LinearGradient colors={['#0a0a0a', `${accent}66`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} testID={`cms-hero-img-fallback-${i}`} />} />
               <LinearGradient colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.05)']} locations={[0, 0.45, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
               <View style={styles.body}>
                 {eyebrow ? <View style={styles.row}><Sparkles color={accent} size={11} /><AppText size={10} weight="semibold" color={accent} style={styles.eyebrow}>{eyebrow}</AppText></View> : null}

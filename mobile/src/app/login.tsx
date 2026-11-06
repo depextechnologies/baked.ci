@@ -10,7 +10,7 @@ import { Logo } from '@/components/Logo';
 import { AppText } from '@/components/ui/AppText';
 import { Button, Touchable } from '@/components/ui/Button';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
-import { requestOtp } from '@/lib/auth';
+import { PHONE_CODES as CODES, requestOtp } from '@/lib/auth';
 import { finishAuthFlow } from '@/lib/authFlow';
 import { consumeWebCallback, startGoogle } from '@/lib/googleAuth';
 import { notify } from '@/lib/notify';
@@ -19,8 +19,6 @@ import { useSession } from '@/state/SessionContext';
 import { colors, fonts, radius, themed } from '@/theme';
 
 const RED = '#FF4C52';
-// Same list as the website PhoneLoginDialog.
-const CODES = [['CI', '+225'], ['GB', '+44'], ['IN', '+91'], ['SN', '+221'], ['GH', '+233'], ['NG', '+234'], ['KE', '+254']];
 
 export default function Login() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();

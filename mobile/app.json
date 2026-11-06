@@ -76,7 +76,15 @@
           "locationWhenInUsePermission": "BAKĒD utilise votre position pour afficher les restaurants, produits et services disponibles près de vous et livrer à la bonne adresse."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BAKĒD utilise vos photos pour mettre à jour votre photo de profil.",
+          "cameraPermission": "BAKĒD utilise l'appareil photo pour prendre votre photo de profil.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,

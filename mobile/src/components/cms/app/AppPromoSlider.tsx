@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
@@ -7,7 +6,9 @@ import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native'
 
 import { useModuleNav } from '@/hooks/useModuleNav';
 import { absUrl, nativeLink } from '@/lib/cms';
-import type { ModuleCode } from '@/lib/modules';
+import { MODULES, type ModuleCode } from '@/lib/modules';
+import { ModuleIcon } from '../../ModuleIcon';
+import { SafeImage } from '../../ui/SafeImage';
 import { useApp } from '@/state/AppContext';
 import { colors, hexA, themed } from '@/theme';
 import { AppText } from '../../ui/AppText';
@@ -40,7 +41,7 @@ export function AppPromoSlider({ section }: SectionProps) {
           const cta = (lang === 'en' ? b.cta_label_en : b.cta_label_fr) || b.cta_label_fr || b.cta_label_en;
           return (
             <Touchable key={i} testID={`app-promo-${i}`} onPress={() => go(b.link)} scale={0.98} style={[styles.card, { width: cardW, borderColor: hexA(accent, 0.6) }]}>
-              {b.image ? <Image source={absUrl(b.image)} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
+              <SafeImage source={absUrl(b.image)} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} fallback={<PromoArt link={b.link} accent={accent} testID={`app-promo-${i}-fallback`} />} />
               <LinearGradient colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.35)', 'transparent']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
               <View style={styles.body}>
                 <AppText weight="black" size={18} color="#fff" numberOfLines={3} style={{ lineHeight: 21 }} testID={`app-promo-${i}-title`}>{title}</AppText>
@@ -63,8 +64,20 @@ export function AppPromoSlider({ section }: SectionProps) {
   );
 }
 
+// Branded artwork shown when a banner image is missing or fails to load (same card size).
+function PromoArt({ link, accent, testID }: { link?: string; accent: string; testID: string }) {
+  const mod = MODULE_LINKS[(link || '').replace(/\/$/, '')];
+  return (
+    <View style={StyleSheet.absoluteFill} testID={testID}>
+      <LinearGradient colors={[hexA(accent, 0.15), hexA(accent, 0.55)]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      {mod ? <View style={styles.art}><ModuleIcon icon={MODULES[mod].icon} color={accent} size={56} /></View> : null}
+    </View>
+  );
+}
+
 const styles = themed(() => StyleSheet.create({
   rail: { paddingHorizontal: 14, gap: 10 },
+  art: { position: 'absolute', right: 22, top: 0, bottom: 0, justifyContent: 'center', opacity: 0.9 },
   card: { height: 132, borderRadius: 16, borderWidth: 1.2, overflow: 'hidden', backgroundColor: '#111' },
   body: { flex: 1, width: '56%', padding: 14, justifyContent: 'space-between' },
   cta: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 14, borderRadius: 999 },

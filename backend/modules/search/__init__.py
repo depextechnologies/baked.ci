@@ -424,7 +424,7 @@ class ShopSearchProvider(SearchProvider):
                     module="shop", entity_type="brand",
                     title=b.name,
                     subtitle="Marque",
-                    destination_url=f"/shop?brand={b.slug or b.id}",
+                    destination_url=f"/shop?brand={b.id}",
                     relevance=0.55,
                 ))
         except Exception as e:  # noqa: BLE001
@@ -620,8 +620,9 @@ async def global_search(
 
     results_by_module = dict(await asyncio.gather(*[_run(p) for p in wanted]))
     intents = await detect_intents(session, q_norm, language=lang)
-    if not intents and not any(results_by_module.values()) and len(q_norm) >= 4 and not _retry:
-        corrected = await _closest_term(session, q_norm)
+    if not intents and not any(results_by_module.values()) and len(q_norm) >= 3 and not _retry:
+        close = await _close_terms(session, q_norm, count=1, cutoff=0.75)
+        corrected = close[0] if close else None
         if corrected and corrected != q_norm:
             out = await global_search(request=request, q=corrected, country=country, language=language,
                                       module=module, limit=limit, session=session, _retry=True)
@@ -668,9 +669,10 @@ async def global_search(
                                  result_count=result_count, modules_hit=modules_hit,
                                  latency_ms=latency_ms)
 
+    # "Did you mean?" — only real catalogue / intent terms, never a truncated query.
     suggestions: List[str] = []
-    if result_count == 0 and len(q_norm) >= 4:
-        suggestions.append(q_norm[:-1])
+    if result_count == 0 and len(q_norm) >= 3:
+        suggestions = [w for w in await _close_terms(session, q_norm, count=3, cutoff=0.6) if w != q_norm]
     return {
         "query": q, "query_norm": q_norm, "language": lang,
         "detected_intents": intents,
@@ -684,8 +686,8 @@ async def global_search(
 _VOCAB: dict = {"at": 0.0, "words": []}
 
 
-async def _closest_term(session: AsyncSession, q_norm: str) -> Optional[str]:
-    """Typo tolerance: nearest catalogue/intent word or phrase (difflib, cached 10 min)."""
+async def _close_terms(session: AsyncSession, q_norm: str, *, count: int, cutoff: float) -> List[str]:
+    """Typo tolerance: nearest catalogue/intent words or phrases (difflib, cached 10 min)."""
     import difflib
     if time.time() - _VOCAB["at"] > 600:
         words: set = set()
@@ -701,12 +703,11 @@ async def _closest_term(session: AsyncSession, q_norm: str) -> Optional[str]:
                     n = normalise(v or "")
                     if n:
                         words.add(n)
-                        words.update(w for w in n.split() if len(w) >= 4)
+                        words.update(w for w in n.split() if len(w) >= 3)
             except Exception:  # noqa: BLE001
                 await session.rollback()
         _VOCAB.update(at=time.time(), words=sorted(words))
-    m = difflib.get_close_matches(q_norm, _VOCAB["words"], n=1, cutoff=0.75)
-    return m[0] if m else None
+    return difflib.get_close_matches(q_norm, _VOCAB["words"], n=count, cutoff=cutoff)
 
 
 @router.post("/click")
