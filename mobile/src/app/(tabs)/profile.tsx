@@ -46,8 +46,8 @@ export default function Profile() {
           <Avatar uri={isAuthed ? customer?.picture : null} name={isAuthed ? customer?.name : null} testID="profile-avatar" />
           <View style={{ flex: 1 }}>
             <AppText weight="bold" size={18} testID="profile-name">{isAuthed ? customer?.name || customer?.phone || '—' : t('profile.guest')}</AppText>
-            <AppText size={13} color={colors.textMuted} testID="profile-contact">{isAuthed ? customer?.phone || customer?.email : t('profile.guest_sub')}</AppText>
-            {isAuthed && customer?.phone && customer?.email ? <AppText size={12} color={colors.textMuted} numberOfLines={1} testID="profile-email">{customer.email}</AppText> : null}
+            <AppText size={13} color={colors.textMuted} testID="profile-contact">{isAuthed ? (customer?.name ? customer?.phone || customer?.email : customer?.phone ? customer?.email : null) : t('profile.guest_sub')}</AppText>
+            {isAuthed && customer?.name && customer?.phone && customer?.email ? <AppText size={12} color={colors.textMuted} numberOfLines={1} testID="profile-email">{customer.email}</AppText> : null}
           </View>
           {isAuthed ? <View style={styles.editBadge}><Pencil color={colors.text} size={15} /></View> : null}
         </Touchable>

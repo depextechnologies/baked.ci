@@ -1,0 +1,42 @@
+{
+  "summary": "Round 3 tested end to end (backend pytest plus the Expo web preview at 390x844). Backend: 22/22 passed. Covered: PATCH /customers/me name trimming, lowercased email, invalid_email, invalid_name and email_taken matched regardless of letter case; photo upload, serve and delete, with text/plain giving 400 and a path outside the avatar folder giving 404; phone change with phone_taken, same_phone, invalid_phone, wrong code giving otp_incorrect and the right code updating the phone, and login works with the new number afterwards; movers quote returns XOF/CFA, time_slot_code adds the server-side surcharge, an unknown slot gives 400 invalid_time_slot and country ZZ gives 409 movers_pricing_unavailable; search for lait/milk, piza->pizza, burgr->burger, xyzqw (no groups, no suggestions), colis/parcel/demenagement and robe/shoes. Frontend checked: login via the phone code works; the Profile card and the 'Modifier le profil' row both open /profile-edit; Save is disabled until a field changes; invalid and duplicate email show inline errors; saving shows 'Profil enregistré' and the Profile tab shows the new name, email and initial avatar. Photo: the sheet has no camera option on web, upload via the file chooser updated profile-edit-avatar-img, and the remove option appears afterwards. Phone change: code sent and dev code shown, wrong code shows an error, right code updates profile-edit-phone. Home images: with /app-home/ images blocked, every tile, category and promo showed its module fallback at the same size (116x136, 92x104, 312x132). Movers: with the quote request blocked, mv-quote-error and mv-quote-retry showed, no fare and booking disabled; after unblocking, Retry showed the fare (20 048 CFA, 300 CFA slot surcharge). Explorer: lait opens the MART product, burger dish opens the restaurant with food-item-sheet, robe opens the SHOP product, colis opens /send/book, piza shows 'Résultats pour « pizza »', clear (also when clearing mid-search) resets everything and shows Discover again, and the module header plus 'Chercher partout' switch to filter chips.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/customers/me", "issue": "Account deletion clears email, phone and name but NOT customer.picture. The avatar is still served publicly without auth at /api/customers/photos/... (with immutable cache), so personal data is kept after deletion."},
+      {"endpoint": "POST/DELETE /api/customers/me/photo", "issue": "Replaced or removed avatars are never deleted from object storage, so orphaned personal photos stay reachable by URL."},
+      {"endpoint": "POST /api/express/quote/movers", "issue": "The client can still send time_slot_surcharge directly when time_slot_code is left out. It can only raise the price (ge=0), but it is still a client-controlled price input. Consider ignoring it."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SEND movers review footer", "issue": "While the quote is loading or failed, the disabled CTA reads 'Confirmer ·' with a dangling separator and no amount.", "selector": "[data-testid='mv-book']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Explorer scope after opening a result", "issue": "Opening a global search hit (e.g. a MART product) sets activeContext, and it persists across reloads. The next Explorer visit is silently scoped to that module, so searching 'burger' gave 'Aucun résultat' under MART until the user taps 'Chercher partout'. This works as coded, but it can confuse users.", "affected_selectors": ["explore-module-head", "explore-search-all"]}
+    ],
+    "design_issues": [
+      {"screen": "Profile tab / Edit profile", "issues": ["A customer without a name shows the phone number twice on the account card (title and subtitle).", "A customer without a name cannot save only an email: the empty name triggers 'Entrez votre nom' first, which is fine but not obvious."]},
+      {"screen": "Search data", "issues": ["Seed data: 'Classic Cheeseburger' appears under Sushi Central (catalog oddity, not code)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_round3_profile_movers_search.py", "/app/test_reports/pytest/round3.xml"],
+  "action_items": [
+    "Scrub customer.picture (and ideally delete the stored object) in DELETE /customers/me",
+    "Optional: delete old avatar objects on replace or remove",
+    "Optional: ignore client time_slot_surcharge in movers quote",
+    "Optional: hide the ' · ' in the mv-book label when there is no quote",
+    "Optional: consider not keeping the module scope after opening a hit from global (unscoped) search"
+  ],
+  "critical_code_review_comments": [
+    "customer/routes.py: _EMAIL_RE is defined after update_me. This is fine at runtime, but moving it to the top would be cleaner.",
+    "Phone change and login share the OtpChallenge table without a purpose field, so a login challenge id could verify a phone change and vice versa. Both need the SMS code for that phone, so the risk is low, but adding a purpose column would be safer.",
+    "SafeImage retry uses a ?r=n query (cache-bust). It works with the static /app-home/ assets."
+  ],
+  "updated_files": ["/app/backend/tests/test_round3_profile_movers_search.py"],
+  "success_rate": {"backend": "100% (22/22)", "frontend": "100% of requested flows (minor UX notes only)"},
+  "seed_data_creation": "Created random +2250 7xxxxxxxx TEST customers (name TEST_...). The UI-test customer and the pytest customer are soft-deleted through DELETE /customers/me (the pytest fixture now does this). One customer from the first pytest run was left behind. The seeded customer +225700000098 was only read (duplicate checks), never changed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Web preview: set localStorage baked_onboarding_done='true' and baked_access_token=<jwt> to skip onboarding and login. Movers review can be seeded via sessionStorage baked_resume_movers plus /send/movers?resume=1 (step, moveType, qty, pickup/drop with latitude/longitude). Explorer keeps the module scope (activeContext), so click explore-search-all before global searches. Movers time slots: early_morning (0), late_morning (300)."
+}

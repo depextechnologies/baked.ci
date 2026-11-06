@@ -126,3 +126,7 @@
 
 ## Note (2026-10-29)
 - Preview DB was reset by a workspace restart and re-seeded. Customer OTP is now random: the code is shown on the OTP screen ("dev code") in the preview/test APK. QA partner `qa-burger@test.example` no longer exists until recreated.
+
+## Customer test accounts (Round 3)
+- `+225 0700000098` (stored +225700000098) — name "QA Profile", email qa.profile@test.example. OTP code = dev_code from POST /api/auth/otp/request (shown on OTP screen).
+- `+225 0700000097` — second customer used for duplicate email/phone tests.

@@ -217,7 +217,7 @@ export default function MoversBook() {
       <View style={styles.footer}>
         {step === 'items' || step === 'access' ? <AppText size={13} color={colors.textMuted} align="center" testID="mv-items-count" style={{ marginBottom: 8 }}>{count ? t('mv.items_count', { n: count, kg: Math.round(kg) }) : t('mv.no_items')}</AppText> : null}
         {step === 'review'
-          ? <Button testID="mv-book" color={ORANGE} loading={busy} disabled={!quote} label={isAuthed ? t('mv.book', { total: quote ? formatMoney(quote.advance, curr, undefined, lang) : '' }) : t('send.login_to_book')} onPress={book} />
+          ? <Button testID="mv-book" color={ORANGE} loading={busy} disabled={!quote} label={!isAuthed ? t('send.login_to_book') : quote ? t('mv.book', { total: formatMoney(quote.advance, curr, undefined, lang) }) : t('mv.book_plain')} onPress={book} />
           : <Button testID={`mv-next-${step}`} color={ORANGE} label={t('send.continue')} disabled={!canNext} onPress={() => setStep(STEPS[idx + 1])} />}
         {idx > 0 ? <Touchable testID="mv-back" onPress={() => setStep(STEPS[idx - 1])} style={{ alignSelf: 'center', marginTop: 10 }}>
           <AppText size={13} color={colors.textMuted}>← {t(`mv.step_${STEPS[idx - 1]}` as any)}</AppText></Touchable> : null}

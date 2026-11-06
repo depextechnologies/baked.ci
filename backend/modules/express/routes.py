@@ -329,6 +329,7 @@ async def movers_quote(payload: MoversQuoteIn, session: AsyncSession = Depends(g
     data = payload.model_dump()
     items = data.pop("items")
     slot_code = data.pop("time_slot_code")
+    data["time_slot_surcharge"] = 0.0
     if slot_code:
         slot = (await session.execute(select(ExpressTimeSlot).where(
             ExpressTimeSlot.code == slot_code, ExpressTimeSlot.country == payload.country.upper(), ExpressTimeSlot.active.is_(True),

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from pydantic import BaseModel, Field
 
 from core.providers import object_storage
+from core.providers.storage.factory import get_storage_provider
 from core.providers.otp_provider import generate_code, get_otp_provider
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,6 +90,13 @@ async def update_me(
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 _PHOTO_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heic"}
 MAX_PHOTO_BYTES = 5 * 1024 * 1024
+_PHOTO_PREFIX = "/api/customers/photos/"
+
+
+def _drop_photo(url: Optional[str]) -> None:
+    """Best-effort removal of a stored avatar (Google-hosted pictures are left alone)."""
+    if url and url.startswith(_PHOTO_PREFIX):
+        get_storage_provider().delete(url[len(_PHOTO_PREFIX):])
 
 
 @router.post("/me/photo")
@@ -110,13 +118,15 @@ async def upload_photo(
         object_storage.put_object(key, data, file.content_type)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, {"code": "upload_failed", "message": f"Upload failed: {e}"})
-    customer.picture = f"/api/customers/photos/{key}"
+    _drop_photo(customer.picture)
+    customer.picture = f"{_PHOTO_PREFIX}{key}"
     await session.commit()
     return customer_to_dict(customer)
 
 
 @router.delete("/me/photo")
 async def delete_photo(customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)):
+    _drop_photo(customer.picture)
     customer.picture = None
     await session.commit()
     return customer_to_dict(customer)
@@ -353,6 +363,8 @@ async def delete_me(
 ):
     """GDPR: soft-delete the account and scrub PII."""
     customer.deleted_at = func.now()
+    _drop_photo(customer.picture)
+    customer.picture = None
     customer.email = None
     customer.phone = None
     customer.name = "Deleted user"
