@@ -16,12 +16,12 @@ const LOGO = {
 };
 
 // Per-module wordmarks (b-badge + coloured name). Official dark-mode PNGs (transparent);
-// light mode and IMMO/AUTO use the text logo until their official files are supplied.
+// IMMO/AUTO use the text logo until their official files are supplied.
 const MODULE_LOGO = {
-  mart: { dark: "/logos/v2/bmart-dark.png" },
-  food: { dark: "/logos/v2/bfood-dark.png" },
-  shop: { dark: "/logos/v2/bshop-dark.png" },
-  express: { dark: "/logos/v2/bsend-dark.png" },
+  mart: { dark: "/logos/v2/bmart-dark.png", light: "/logos/v2/bmart-light.png" },
+  food: { dark: "/logos/v2/bfood-dark.png", light: "/logos/v2/bfood-light.png" },
+  shop: { dark: "/logos/v2/bshop-dark.png", light: "/logos/v2/bshop-light.png" },
+  express: { dark: "/logos/v2/bsend-dark.png", light: "/logos/v2/bsend-light.png" },
 };
 const BADGE = { dark: "/logos/v2/badge-on-dark.png", light: "/logos/v2/badge-on-light.png" };
 
