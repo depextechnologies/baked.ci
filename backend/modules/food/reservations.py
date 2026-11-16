@@ -1,4 +1,4 @@
-"""FOODbakēd — Table reservations + real-time partner notification engine.
+"""bFOOD — Table reservations + real-time partner notification engine.
 
 Endpoint surface
 ----------------
@@ -21,7 +21,7 @@ Restaurant partner OR super-admin (per `_get_menu_writer` — tenant isolated):
 
 Real-time
 ---------
-Shared FOODbakēd Restaurant Notification Engine. Publishes to
+Shared bFOOD Restaurant Notification Engine. Publishes to
 `food:restaurant:{restaurant_id}` on the existing pubsub bus. Frames:
 
     {"type": "food.reservation.created", "reservation": {…}}
@@ -1009,7 +1009,7 @@ async def _send_reservation_emails(*, kind: str, restaurant_name: str,
          <strong>Date:</strong> {when}<br/>
          <strong>Personnes · Party:</strong> {party}<br/>
          <strong>Référence · Reference:</strong> {ref}</p>
-      <p style="color:#666; font-size:12px;">Envoyé automatiquement par FOODbakēd · Sent automatically by FOODbakēd.</p>
+      <p style="color:#666; font-size:12px;">Envoyé automatiquement par bFOOD · Sent automatically by bFOOD.</p>
     </div>
     """
     try:

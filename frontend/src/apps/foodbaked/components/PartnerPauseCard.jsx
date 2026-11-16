@@ -17,7 +17,7 @@ import { Pause, Play, Bike, ShoppingBag, Clock, AlertTriangle, Loader2 } from "l
 import { partnerApi } from "../../../contexts/FoodPartnerContext";
 import { useRestaurantNotifications } from "./RestaurantNotificationEngine";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 const AMBER = "#F59E0B";
 
 const detectFr = () =>

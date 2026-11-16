@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 9 checkout engine tests."""
+"""bSHOP — Slice 9 checkout engine tests."""
 from __future__ import annotations
 import os
 import subprocess

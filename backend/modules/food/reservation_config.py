@@ -1,4 +1,4 @@
-"""FOODbakēd — Reservation Areas + Tables + Activation flow.
+"""bFOOD — Reservation Areas + Tables + Activation flow.
 
 Adds the CRUD surface that lets partners configure the physical
 capacity of their restaurant, plus the "Activate reservations" flow

@@ -1,5 +1,5 @@
 /**
- * Super Admin — MARTbakēd Supplier Applications review UI.
+ * Super Admin — bMART Supplier Applications review UI.
  *
  * Buckets: draft / submitted / under_review / action_required / approved / rejected
  * Actions: approve · reject (notes required) · request info (notes required) · suspend / unsuspend
@@ -47,7 +47,7 @@ export const AdminSupplierApplications = ({ embedded = false, module = "mart" })
   // /admin/modules/mart/suppliers/* (unified Supplier model); the SHOP view
   // just adds `module=SHOP` so only suppliers with SHOP in their modules[]
   // JSONB array appear.
-  const MOD_LABEL = module === "shop" ? "SHOPbakēd" : "MARTbakēd";
+  const MOD_LABEL = module === "shop" ? "bSHOP" : "bMART";
   const MOD_ACCENT = module === "shop" ? "#FCC44C" : "#77BC1F";
 
   const load = async () => {

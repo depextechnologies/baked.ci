@@ -2,7 +2,7 @@
  * Super Admin — Category Requests (Phase 1).
  *
  * Partner-store submits new category → SA reviews → approve merges into
- * mart_categories, reject requires notes. Nested under MARTbakēd module.
+ * mart_categories, reject requires notes. Nested under bMART module.
  */
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -45,7 +45,7 @@ export const AdminCategoryRequests = () => {
   return (
     <div className="space-y-5" data-testid="admin-category-requests">
       <div>
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">bMART</div>
         <h2 className="text-xl font-bold flex items-center gap-2"><LayersIcon size={18} /> Category Requests</h2>
         <p className="text-xs text-muted-foreground">Every new category a partner or supplier proposes lands here for approval before it goes live in the marketplace.</p>
       </div>

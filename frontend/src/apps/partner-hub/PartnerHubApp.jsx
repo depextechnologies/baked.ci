@@ -178,7 +178,7 @@ const Hero = () => (
 
         <Reveal delay={200}>
           <p className="ph-body-lg mt-8 max-w-2xl">
-            Whether you want to operate a MARTbakēd dark store, lease your
+            Whether you want to operate a bMART dark store, lease your
             property, sell your products on our marketplace, or join the
             delivery network — BAKĒD has an opportunity for you.
           </p>
@@ -227,8 +227,8 @@ const OPPORTUNITIES = [
     id: "dark-store",
     icon: Warehouse,
     tag: "Dark Store",
-    title: "MARTbakēd Dark Store",
-    desc: "Operate a smart local fulfillment centre and serve thousands of customers through the MARTbakēd platform. AI inventory, live orders, packing stations — all handled.",
+    title: "bMART Dark Store",
+    desc: "Operate a smart local fulfillment centre and serve thousands of customers through the bMART platform. AI inventory, live orders, packing stations — all handled.",
     cta: "Become a Dark Store Partner",
     href: "/partner/apply",
     loginHref: "/partner-portal/martbaked/login",

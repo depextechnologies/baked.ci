@@ -1,4 +1,4 @@
-"""FOODbakēd — Pass 2 Driver Dispatch bridge regression.
+"""bFOOD — Pass 2 Driver Dispatch bridge regression.
 
 Validates the FOOD → EXPRESS shadow-booking flow end-to-end:
   • `preparing` creates exactly one shadow express_booking (idempotent on retry)

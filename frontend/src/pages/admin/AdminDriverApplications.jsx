@@ -1,5 +1,5 @@
 /**
- * Super Admin — SENDbakēd Driver Applications review UI (Social.docx §5).
+ * Super Admin — bSEND Driver Applications review UI (Social.docx §5).
  *
  * Fixes the "new drivers get stuck in limbo" bug: previously no admin page
  * consumed the /api/admin/drivers endpoint, so every newly signed-up driver
@@ -72,7 +72,7 @@ export const AdminDriverApplications = () => {
     <div className="p-6 space-y-4" data-testid="admin-driver-applications">
       <div className="flex items-center gap-3 justify-between">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SENDbakēd</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">bSEND</div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Bike size={22} /> Driver Applications</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Review and approve incoming driver signups. Newly-registered drivers land in{" "}

@@ -1,4 +1,4 @@
-"""Backend tests for MARTbakēd Slice 8 — Inventory Allocation Engine.
+"""Backend tests for bMART Slice 8 — Inventory Allocation Engine.
 
 Covers:
   - Multi-partner order routing (customer sees 1 Order, backend creates N PartnerOrders)

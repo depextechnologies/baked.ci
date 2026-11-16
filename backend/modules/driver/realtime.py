@@ -1,4 +1,4 @@
-"""SENDbakēd Driver realtime hub — per-driver WebSocket connections + a
+"""bSEND Driver realtime hub — per-driver WebSocket connections + a
 `notify_driver()` helper the dispatch service uses to push job offers.
 
 Design

@@ -118,7 +118,7 @@ class ExpressBooking(Base, TimestampMixin):
     time_slot_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     labour_movers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
-    # --- Pass 2 (0062): FOODbakēd dispatch bridge ---
+    # --- Pass 2 (0062): bFOOD dispatch bridge ---
     # `source_module` identifies non-EXPRESS originators (currently only
     # 'food'). `food_order_id` back-references food_orders.id so cascades
     # (delivered → food_orders.status) can look up the right FOOD row.
@@ -187,7 +187,7 @@ class ModuleDriver(Base, AuditMixin):
     # vehicle capability). Kept as a column on module_drivers so the dispatch
     # query stays index-only and doesn't need to join capabilities.
     is_refrigerated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    # Bridge back to the SENDbakēd Driver record (0032). NULL for legacy seed
+    # Bridge back to the bSEND Driver record (0032). NULL for legacy seed
     # rows; set for real drivers going through /driver/me/online.
     linked_driver_id: Mapped[Optional[str]] = mapped_column(
         String, ForeignKey("drivers.id", ondelete="SET NULL"), nullable=True

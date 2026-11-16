@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 8 Playwright browser E2E for the customer path.
+"""bSHOP — Slice 8 Playwright browser E2E for the customer path.
 
 Complements `test_shop_e2e_roundtrip.py` (which drives the same journey
 via HTTP). This one boots a real browser and exercises the actual

@@ -1,4 +1,4 @@
-"""MARTbaked — Dynamic Category Attribute System (Fixing_Prompt v6, 2026-02-28).
+"""bMART — Dynamic Category Attribute System (Fixing_Prompt v6, 2026-02-28).
 
 Reusable engine that lets Super Admins define custom typed attributes,
 assign them to categories/subcategories with per-assignment configuration

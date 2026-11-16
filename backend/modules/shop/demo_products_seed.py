@@ -1,4 +1,4 @@
-"""SHOPbakēd — demo product seed (placeholder listings).
+"""bSHOP — demo product seed (placeholder listings).
 
 Purpose
 -------
@@ -578,12 +578,12 @@ def _description_for(sub_name_en: str, sub_name_fr: str) -> tuple[str, str]:
     """Return (english_description, french_description)."""
     en = (
         f"Demo {sub_name_en.lower()} listing — placeholder content shipped with "
-        "the SHOPbakēd storefront so customers can browse a fully populated "
+        "the bSHOP storefront so customers can browse a fully populated "
         "catalogue before real sellers list their inventory."
     )
     fr = (
         f"Article démo — {sub_name_fr.lower()} : contenu de démonstration livré avec "
-        "la boutique SHOPbakēd afin que les clients puissent naviguer dans un "
+        "la boutique bSHOP afin que les clients puissent naviguer dans un "
         "catalogue complet avant l'arrivée des vraies annonces des vendeurs."
     )
     return en, fr

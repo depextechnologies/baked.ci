@@ -235,7 +235,7 @@ api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
 api_router.include_router(driver_track_router)
 api_router.include_router(realtime_router)
-# --- FOODbakēd (Phase 1 — 2026-02) ---
+# --- bFOOD (Phase 1 — 2026-02) ---
 # Public /food/* + admin /admin/food/* routes for the FoodHome + admin
 # workspace under /admin/modules/food.
 api_router.include_router(food_discover_page_router)             # /food/restaurants/discover + /food/categories (MUST be before food_router so /restaurants/discover isn't captured by the /restaurants/{slug} route)
@@ -247,18 +247,18 @@ api_router.include_router(cart_quote_router)                     # /cart/quote �
 api_router.include_router(food_admin_router)
 api_router.include_router(food_partner_router)
 api_router.include_router(food_manage_router)
-# FOODbakēd onboarding — applicant portal (`/foodbaked/sellers`) + admin queue.
+# bFOOD onboarding — applicant portal (`/foodbaked/sellers`) + admin queue.
 api_router.include_router(food_public_apply_router)      # doc-requirements
 api_router.include_router(food_applicant_router)         # OTP + wizard
 api_router.include_router(food_apply_admin_router)       # admin review
 api_router.include_router(food_partner_activation_router)  # POST /food/partner/activate
 api_router.include_router(food_analytics_router)           # GET /food/manage/{rid}/analytics
 api_router.include_router(food_seed_router)                # POST /admin/food/restaurants/{rid}/seed-orders
-# FOODbakēd — Table reservations + real-time partner notification engine (2026-02).
+# bFOOD — Table reservations + real-time partner notification engine (2026-02).
 api_router.include_router(food_reservations_public_router)     # /food/restaurants/{slug}/reservation-*
 api_router.include_router(food_reservations_customer_router)   # /food/customer/reservations
 api_router.include_router(food_reservations_manage_router)     # /food/manage/{rid}/reservation-* + WS
-# FOODbakēd — Restaurant microsite (Overview/Photos/Menu/Reviews foundation).
+# bFOOD — Restaurant microsite (Overview/Photos/Menu/Reviews foundation).
 api_router.include_router(food_microsite_public_router)        # /food/restaurants/{slug}/microsite + /photos
 api_router.include_router(food_microsite_manage_router)        # /food/manage/{rid}/profile + /photos CRUD
 api_router.include_router(food_reservation_config_manage_router)  # /food/manage/{rid}/reservation-areas + tables + activate
@@ -277,7 +277,7 @@ api_router.include_router(settlement_admin_router)                # /admin/vendo
 api_router.include_router(settlement_cron_admin_router)           # /admin/vendor-settlement/{preview,run-now,...}
 api_router.include_router(settlement_cron_router)                 # /cron/vendor-settlement/run
 
-# --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
+# --- bSHOP (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity
 # via `suppliers.modules` JSONB. Slices 2-8 will flesh out catalogue,
 # attributes, seller portal, approvals and storefront on top of these
@@ -514,7 +514,7 @@ async def _post_migrate_startup() -> None:
     except Exception as e:  # noqa: BLE001
         logger.warning("baked.startup realtime_init_failed err=%s — WS fan-out will use inproc fallback", e)
 
-    # ---- 5) SENDbakēd dispatch offer-expiry worker (Phase A) ---------------
+    # ---- 5) bSEND dispatch offer-expiry worker (Phase A) ---------------
     try:
         from modules.express.offer_worker import run_forever as _offer_forever
         app.state.offer_worker_task = asyncio.create_task(_offer_forever(), name="express-offer-worker")

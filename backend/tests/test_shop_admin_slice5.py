@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 5 admin approval + modules-toggle tests.
+"""bSHOP — Slice 5 admin approval + modules-toggle tests.
 
 Covers:
   * SHOP product approval queue: pending / approved / rejected buckets,

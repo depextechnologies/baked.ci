@@ -14,7 +14,7 @@ import axios from "axios";
 import { Star, Loader2, X, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const T = {
   fr: {

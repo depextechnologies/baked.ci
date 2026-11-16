@@ -1,4 +1,4 @@
-"""Bridge helpers between the SENDbakēd Driver identity (`drivers`) and
+"""Bridge helpers between the bSEND Driver identity (`drivers`) and
 the dispatch pool (`module_drivers`).
 
 Rationale
@@ -9,7 +9,7 @@ booking — that was the Screenshot-3 root cause. Everything else in Phase A
 depends on this glue being correct, so keep it small, atomic and
 side-effect-free (session commit stays with the caller).
 
-Vehicle default: the SENDbakēd driver KYC captures `vehicle_type` on the
+Vehicle default: the bSEND driver KYC captures `vehicle_type` on the
 Driver row. If the field is missing we fall back to 'bike' — the smallest
 class, still eligible for parcel dispatch via FALLBACK_CHAIN.
 """
@@ -102,7 +102,7 @@ async def get_or_create_module_driver(session: AsyncSession, driver: Driver) -> 
         id=f"md_{driver.id}",
         module="express",
         name=driver.name or driver.email or f"Driver {driver.id[-6:]}",
-        # `phone` is NOT NULL in the model; if the SENDbakēd driver signed up
+        # `phone` is NOT NULL in the model; if the bSEND driver signed up
         # via email/Google we synthesise a stable placeholder that never
         # collides with real phones (namespace with `drv:`). KYC will
         # eventually collect the real number.

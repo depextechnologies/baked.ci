@@ -1,4 +1,4 @@
-"""SENDbakēd Phase D — Between-Cities eligibility regression.
+"""bSEND Phase D — Between-Cities eligibility regression.
 
 Guards the seed reconciliation: after Phase D drops `three_wheeler` from
 `between_cities`, the config table must expose ONLY mini_truck + truck for

@@ -1,5 +1,5 @@
 /**
- * MARTbakēd Partner Portal — Stage 3 (login + first-login reset + dashboard shell).
+ * bMART Partner Portal — Stage 3 (login + first-login reset + dashboard shell).
  *
  * Route: /partner-portal/*
  *   /login          → Sign-in with email + temp password
@@ -584,7 +584,7 @@ const DashboardPage = () => {
       <div className="ph-eyebrow">Welcome back</div>
       <h1 className="ph-h1 mt-2" style={{ color: "var(--ph-fg)" }}>Hi, {(partner.owner_name || partner.business_name || "").split(" ")[0] || "there"}.</h1>
       <p className="ph-body mt-2 max-w-2xl">
-        This is your MARTbakēd Partner dashboard for <b style={{ color: "var(--ph-fg)" }}>{partner.business_name}</b>
+        This is your bMART Partner dashboard for <b style={{ color: "var(--ph-fg)" }}>{partner.business_name}</b>
         {warehouse && <> — operating out of <b style={{ color: "var(--ph-fg)" }}>{warehouse.name}</b>.</>}
       </p>
 

@@ -7,7 +7,7 @@ import { QuantityStepper } from "./QuantityStepper";
 import { toast } from "sonner";
 
 /**
- * MobileProductCard — Blinkit / MARTbaked style vertical card:
+ * MobileProductCard — Blinkit / bMART style vertical card:
  *   [ image ][+ADD or stepper]
  *   ETA · Name · Unit · Price row (discounted + strike)
  */

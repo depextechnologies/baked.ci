@@ -9,7 +9,7 @@
  *   - Google OAuth (email, name, picture)
  *   - Phone + OTP
  *   - Delivery addresses & orders
- *   - Live driver location (EXPRESSbakēd)
+ *   - Live driver location (bSEND)
  */
 import React from "react";
 

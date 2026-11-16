@@ -1,5 +1,6 @@
 import React from "react";
 import { useApp } from "../../contexts/BakedContexts";
+import { getModule } from "../../lib/modules";
 
 // ------- Official brand assets -------
 // Primary BAKĒD wordmark. Provided as transparent PNGs so they blend
@@ -14,41 +15,15 @@ const LOGO = {
   },
 };
 
-// Per-module wordmark JPEGs (dark-mode originals — colored prefix + white "bakēd" on black).
-// Light-mode assets are provided only for MART; other modules fall back to the text mark
-// (same look: coloured prefix + themed "bakēd").
+// Per-module wordmarks (b-badge + coloured name). Official dark-mode PNGs (transparent);
+// light mode and IMMO/AUTO use the text logo until their official files are supplied.
 const MODULE_LOGO = {
-  mart: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/aob12pre_WhatsApp%20Image%202026-05-31%20at%208.26.50%20PM.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/ms4tx02n_WhatsApp%20Image%202026-05-31%20at%208.26.50%20PM%20%281%29.jpeg",
-  },
-  food: {
-    // FOODbakēd — official brand assets uploaded 2026-02-05 (dark on black,
-    // light on white). Stored under /public/logos so they're served from
-    // our own origin (fast cache, no cross-domain latency).
-    dark: "/logos/foodbaked-dark.jpeg",
-    light: "/logos/foodbaked-light.jpeg",
-  },
-  shop: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/e6t06vzj_WhatsApp%20Image%202026-05-31%20at%208.26.49%20PM%20%281%29.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/3icgdfzs_WhatsApp%20Image%202026-05-31%20at%208.26.48%20PM%20%282%29.jpeg",
-  },
-  express: {
-    // SENDbakēd — official brand assets. The internal module identifier
-    // remains `express` (routes, DB, permissions unchanged); only the
-    // user-facing wordmark and label are rebranded to SENDbakēd.
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/xaactaon_SENDbakedDark.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/odl93m8h_SENDbaked.jpeg",
-  },
-  auto: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/3jzhiamn_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM%20%282%29.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/mtpf8vyp_WhatsApp%20Image%202026-05-31%20at%208.26.47%20PM.jpeg",
-  },
-  immo: {
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/z62ps21t_WhatsApp%20Image%202026-05-31%20at%208.26.50%20PM%20%282%29.jpeg",
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/tmw6nkj4_WhatsApp%20Image%202026-05-31%20at%208.26.48%20PM%20%281%29.jpeg",
-  },
+  mart: { dark: "/logos/v2/bmart-dark.png" },
+  food: { dark: "/logos/v2/bfood-dark.png" },
+  shop: { dark: "/logos/v2/bshop-dark.png" },
+  express: { dark: "/logos/v2/bsend-dark.png" },
 };
+const BADGE = { dark: "/logos/v2/badge-on-dark.png", light: "/logos/v2/badge-on-light.png" };
 
 // Primary bakēd logo — theme-aware.
 export const BakedLogo = ({ size = "md", className = "", "data-testid": testId }) => {
@@ -67,13 +42,11 @@ export const BakedLogo = ({ size = "md", className = "", "data-testid": testId }
   );
 };
 
-// Text wordmark fallback — coloured prefix + themed "bakēd".
-const TextWordmark = ({ label, color, height, className = "" }) => (
-  <div className={`inline-flex items-baseline gap-0 leading-none whitespace-nowrap ${className}`}>
-    <span className="font-extrabold tracking-tight" style={{ color, fontSize: height, letterSpacing: "-0.03em" }}>{label}</span>
-    <span className="font-extrabold tracking-tight text-foreground" style={{ fontSize: height, letterSpacing: "-0.03em" }}>
-      bak<span style={{ textDecoration: "overline" }}>e</span>d
-    </span>
+// Text logo — b-badge + module name in the module colour.
+const TextWordmark = ({ label, color, height, theme, className = "" }) => (
+  <div className={`inline-flex items-center leading-none whitespace-nowrap ${className}`} style={{ gap: height * 0.18 }} aria-label={`b${label}`}>
+    <img src={theme === "dark" ? BADGE.dark : BADGE.light} alt="" style={{ height, width: height }} draggable={false} />
+    <span className="font-extrabold" style={{ color, fontSize: height * 0.86, letterSpacing: "-0.02em" }}>{label}</span>
   </div>
 );
 
@@ -87,9 +60,9 @@ export const BrandedModuleLabel = ({ code, label, color, className = "", height 
   if (!src) {
     return <TextWordmark label={label} color={color} height={height} className={className} />;
   }
-  // Express module has been rebranded to SENDbaked in the UI — reflect this
+  // Express module has been rebranded to bSEND in the UI — reflect this
   // in the alt text without touching the internal `code`.
-  const altBrand = code === "express" ? "SENDbakēd" : `${label}bakēd`;
+  const altBrand = code === "express" ? "bSEND" : `${label}bakēd`;
   return (
     <img
       src={src}
@@ -101,7 +74,7 @@ export const BrandedModuleLabel = ({ code, label, color, className = "", height 
   );
 };
 
-// Large MARTbakēd combined wordmark — kept for the MART hero, always dark variant.
+// Large bMART combined wordmark — kept for the MART hero, always dark variant.
 export const MartLogoImage = ({ height = 48, className = "", forceTheme = "dark" }) => (
   <BrandedModuleLabel code="mart" label="MART" color="#77BC1F" height={height} className={className} forceTheme={forceTheme} />
 );

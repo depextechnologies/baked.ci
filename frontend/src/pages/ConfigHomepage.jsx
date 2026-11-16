@@ -192,7 +192,7 @@ const Hero = ({ section, country }) => {
           <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 -120px 120px -60px rgba(0,0,0,.6)" }} />
           <div className="relative p-6 md:p-10 max-w-xl text-white">
             <div className="inline-flex items-center gap-2 h-7 px-3 rounded-full bg-[#77BC1F]/25 border border-[#77BC1F]/50 backdrop-blur text-[11px] font-semibold uppercase tracking-widest mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#77BC1F] animate-pulse" /> MARTbakēd
+              <span className="w-1.5 h-1.5 rounded-full bg-[#77BC1F] animate-pulse" /> bMART
             </div>
             <h1 className="text-3xl md:text-5xl font-bold leading-[1.05] tracking-tight" data-testid="hp-hero-title">
               {section.title}

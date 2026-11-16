@@ -1,4 +1,4 @@
-"""Location-aware FOODbakēd discovery (P0 Core Discovery).
+"""Location-aware bFOOD discovery (P0 Core Discovery).
 
 Single source of truth for "is this restaurant deliverable / pickable /
 reservable for THIS customer right now?". Everything the homepage, search,

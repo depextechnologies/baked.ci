@@ -1,4 +1,4 @@
-"""FOODbakēd — Pass 1 order pipeline regression."""
+"""bFOOD — Pass 1 order pipeline regression."""
 from __future__ import annotations
 
 import os

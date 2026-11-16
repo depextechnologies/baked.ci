@@ -1,5 +1,5 @@
 /**
- * SendTrackApp — public SENDbakēd customer tracking page.
+ * SendTrackApp — public bSEND customer tracking page.
  *
  * URL: /send/track/:jobId?t=<share_token>
  *
@@ -104,7 +104,7 @@ export const SendTrackApp = () => {
     return data;
   }, [jobId, token]);
 
-  useEffect(() => { document.title = "SENDbakēd · Track your delivery"; }, []);
+  useEffect(() => { document.title = "bSEND · Track your delivery"; }, []);
 
   if (error === "missing_token") return <Fallback icon="key" title="This link is missing a security token" body="Please open the tracking link from your SMS." />;
   if (error === "not_found")     return <Fallback icon="404" title="Tracking link not found" body="The link may have expired. If you were expecting a delivery, contact support." />;
@@ -121,7 +121,7 @@ export const SendTrackApp = () => {
     <Shell>
       <div className="px-6 pt-6 pb-32 space-y-4" data-testid="send-track-page">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">SENDbakēd · Delivery</div>
+          <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">bSEND · Delivery</div>
           <h1 className="text-3xl font-bold mt-2" data-testid="send-track-stage-title">{stage.title}</h1>
           <p className="text-white/60 mt-1 text-sm">{stage.sub}</p>
         </div>
@@ -185,7 +185,7 @@ export const SendTrackApp = () => {
             <div className="w-10 h-10 rounded-full bg-emerald-500/20 grid place-items-center">
               <CheckCircle2 size={18} className="text-emerald-400" />
             </div>
-            <div className="text-sm">Delivered — thanks for using SENDbakēd!</div>
+            <div className="text-sm">Delivered — thanks for using bSEND!</div>
           </div>
         )}
       </div>

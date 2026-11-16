@@ -17,7 +17,7 @@ import type { SectionProps } from '../types';
 type TileCfg = { module: ModuleCode; enabled?: boolean; tagline_fr?: string; tagline_en?: string; tagline?: string; image?: string; accent?: string };
 
 // Brand codes for the home tiles (same in dark and light); Super Admin can still override per tile.
-const BRAND: Record<ModuleCode, string> = { express: '#FCC44C', food: '#77BC1F', mart: '#77BC1F', shop: '#FCC44C', immo: '#A659FF', auto: '#FF4C52' };
+const BRAND: Record<ModuleCode, string> = Object.fromEntries(Object.values(MODULES).map((m) => [m.code, m.color])) as Record<ModuleCode, string>;
 const FALLBACK: TileCfg[] = HOME_GRID_ORDER.map((module) => ({ module }));
 
 function AppTile({ cfg }: { cfg: TileCfg }) {
@@ -41,8 +41,8 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
         </View>
       ) : null}
       <AppText size={14} numberOfLines={1} style={{ lineHeight: 17 }} testID={`app-tile-name-${cfg.module}`}>
+        <AppText size={14} style={{ fontFamily: fonts.black, color: suffix, letterSpacing: -0.4 }}>b</AppText>
         <AppText size={14} style={{ fontFamily: fonts.black, color: ink, letterSpacing: -0.4 }}>{m.label}</AppText>
-        <AppText size={12} weight="bold" color={suffix}>bakēd</AppText>
       </AppText>
       <View style={styles.foot}>
         <AppText size={10.5} color={colors.textSoft} numberOfLines={2} style={{ flex: 1, lineHeight: 13 }} testID={`app-tile-tagline-${cfg.module}`}>{tagline}</AppText>

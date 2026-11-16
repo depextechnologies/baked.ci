@@ -1,3 +1,4 @@
+import { MODULES } from '@/lib/modules';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -17,7 +18,7 @@ import { Skeleton } from '../../ui/StateView';
 import type { SectionProps } from '../types';
 import { bi, useFoodHome } from './FoodData';
 
-const G = '#77BC1F';
+const G = MODULES.food.color;
 const HERO_BG = 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=1600&h=700&fit=crop';
 const MODES: [FoodMode, any, string, string][] = [['delivery', Bike, 'Livraison', 'Delivery'], ['pickup', ShoppingBag, 'À emporter', 'Pickup'], ['dine_in', Utensils, 'Sur place', 'Dine-in']];
 

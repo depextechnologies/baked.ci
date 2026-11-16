@@ -424,7 +424,7 @@ export const AcceptInvitePage = () => {
           <div className="ph-eyebrow">Team invitation</div>
           <h1 className="ph-h2 mt-1" style={{ color: "var(--ph-fg)" }}>Set your password</h1>
           <p className="text-sm mt-2" style={{ color: "var(--ph-fg-muted)" }}>
-            Create a password to activate your MARTbakēd teammate account.
+            Create a password to activate your bMART teammate account.
           </p>
           {!token && (
             <p className="text-sm mt-4 p-3 rounded-lg"

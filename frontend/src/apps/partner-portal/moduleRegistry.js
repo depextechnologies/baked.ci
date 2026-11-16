@@ -3,7 +3,7 @@
  *
  * Maps user-facing module slugs (used in URLs) to their metadata:
  *   - code             internal module identifier (unchanged, e.g. "express")
- *   - label            user-facing brand label (e.g. "SENDbakēd")
+ *   - label            user-facing brand label (e.g. "bSEND")
  *   - color            module accent colour
  *   - isLive           whether the module has a real portal today
  *   - backendModule    slug the backend expects (JWT / permissions)
@@ -18,12 +18,12 @@ export const PARTNER_MODULES = {
   // dedicated login page instead of the generic /partner-portal/{slug}/login
   // shell. Used for modules whose portals live outside the partner-portal
   // app (FOOD, SHOP, SEND).
-  martbaked:  { code: "mart",    label: "MARTbakēd",  color: "#77BC1F", isLive: true,  backendModule: "mart"    },
-  shopbaked:  { code: "shop",    label: "SHOPbakēd",  color: "#FCC44C", isLive: true,  backendModule: "shop",    ownerLoginHref: "/shopbaked/sellers/login" },
-  foodbaked:  { code: "food",    label: "FOODbakēd",  color: "#00A651", isLive: true,  backendModule: "food",    ownerLoginHref: "/partner/food/login" },
-  autobaked:  { code: "auto",    label: "AUTObakēd",  color: "#9B87F5", isLive: false, backendModule: "auto"    },
-  immobaked:  { code: "immo",    label: "IMMObakēd",  color: "#EC4899", isLive: false, backendModule: "immo"    },
-  sendbaked:  { code: "express", label: "SENDbakēd",  color: "#F3B300", isLive: true,  backendModule: "express", ownerLoginHref: "/driver/login" },
+  martbaked:  { code: "mart",    label: "bMART",  color: "#77BC1F", isLive: true,  backendModule: "mart"    },
+  shopbaked:  { code: "shop",    label: "bSHOP",  color: "#FCC44C", isLive: true,  backendModule: "shop",    ownerLoginHref: "/shopbaked/sellers/login" },
+  foodbaked:  { code: "food",    label: "bFOOD",  color: "#00A651", isLive: true,  backendModule: "food",    ownerLoginHref: "/partner/food/login" },
+  autobaked:  { code: "auto",    label: "bAUTO",  color: "#9B87F5", isLive: false, backendModule: "auto"    },
+  immobaked:  { code: "immo",    label: "bIMMO",  color: "#EC4899", isLive: false, backendModule: "immo"    },
+  sendbaked:  { code: "express", label: "bSEND",  color: "#F3B300", isLive: true,  backendModule: "express", ownerLoginHref: "/driver/login" },
 };
 
 // The list order used by module-selector pages.

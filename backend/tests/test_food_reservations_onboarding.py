@@ -1,4 +1,4 @@
-"""FOODbakēd — Reservation onboarding + Areas/Tables + Activation regression.
+"""bFOOD — Reservation onboarding + Areas/Tables + Activation regression.
 
 Covers:
   1. Applicant answers "offers_reservations = true" in step 1.

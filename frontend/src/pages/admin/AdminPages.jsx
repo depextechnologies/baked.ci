@@ -68,7 +68,7 @@ export const AdminDashboard = () => {
           {MODULES.map((m) => (
             <Link key={m.code} to={`/admin/modules/${m.code}`} className="baked-card bg-card border border-border p-5 hover:border-current motion-fast group" style={{ color: m.color }}>
               <div className="flex items-center justify-between">
-                <div className="text-xs uppercase tracking-widest opacity-90">{m.label}<span className="text-foreground">bakēd</span></div>
+                <div className="text-xs uppercase tracking-widest opacity-90">b{m.label}</div>
                 <span className={`text-[10px] baked-chip px-2 py-0.5 ${m.status === "active" ? "bg-current text-black" : "bg-secondary text-muted-foreground"}`} style={m.status === "active" ? { color: "#0a1200", backgroundColor: m.color } : {}}>{m.status === "active" ? "ACTIVE" : "SOON"}</span>
               </div>
               <div className="mt-3 text-sm text-muted-foreground">{m.tagline}</div>

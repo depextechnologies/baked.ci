@@ -1,5 +1,5 @@
 /**
- * AdminVendorSettlement — Super Admin controls for FOODbakēd commissions + payouts.
+ * AdminVendorSettlement — Super Admin controls for bFOOD commissions + payouts.
  *
  * Two tabs:
  *   1. "Vendors"  — pick a restaurant, edit commission rate (with history),

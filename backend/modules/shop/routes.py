@@ -1,4 +1,4 @@
-"""SHOPbakēd — HTTP routes (Slice 1 Foundation).
+"""bSHOP — HTTP routes (Slice 1 Foundation).
 
 Three router surfaces:
   * public_router  — /api/shop/*                    (customer storefront)

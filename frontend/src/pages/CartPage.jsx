@@ -82,7 +82,7 @@ export const CartPage = () => {
                   name: it.title || it.product?.title,
                   image: it.images?.[0] || "",
                   unit: it.variant?.sku || "",
-                  brand: "SHOPbakēd seller",
+                  brand: "bSHOP seller",
                   price: it.unit_price ?? it.variant?.price ?? 0,
                   currency: it.currency || it.variant?.currency,
                   currency_symbol: it.currency || "XOF",
@@ -171,7 +171,7 @@ export const CartPage = () => {
           </div>
           {hasUnavailable && (
             <div data-testid="cart-unavailable-warning" className="text-[12px] mt-3 p-3 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
-              <b>{unavailable.length} item(s) not available in your area yet</b> — MARTbakēd is coming soon to more stores. Please remove them to continue.
+              <b>{unavailable.length} item(s) not available in your area yet</b> — bMART is coming soon to more stores. Please remove them to continue.
             </div>
           )}
           {/* Min-order banner removed in v1.1 — the /cart/quote engine owns

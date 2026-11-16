@@ -1,4 +1,4 @@
-"""SHOPbakēd — customer storefront endpoints (Slice 6, 2026-02).
+"""bSHOP — customer storefront endpoints (Slice 6, 2026-02).
 
 Adds:
   * `GET  /api/shop/products/{pid}`       — PDP payload (product + variants + attribute schema)

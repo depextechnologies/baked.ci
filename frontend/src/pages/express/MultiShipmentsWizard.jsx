@@ -1,5 +1,5 @@
 /**
- * SENDbakēd — Multiple Shipments dedicated 2-step booking wizard.
+ * bSEND — Multiple Shipments dedicated 2-step booking wizard.
  *
  * Product principle: BUILD YOUR TRIP → CHOOSE YOUR VEHICLE → BOOK.
  * No receiver/package/estimate detour. No unified 4-step wizard.

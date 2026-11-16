@@ -28,14 +28,14 @@ const THEMES = {
     accent:       "#77BC1F",
     accent_soft:  "rgba(119,188,31,.15)",
     accent_ring:  "#77BC1F55",
-    label:        "MARTbakēd",
+    label:        "bMART",
     text_on:      "#000000",
   },
   SHOP_ONLY: {
     accent:       "#FCC44C",
     accent_soft:  "rgba(252,196,76,.16)",
     accent_ring:  "#FCC44C66",
-    label:        "SHOPbakēd",
+    label:        "bSHOP",
     text_on:      "#000000",
   },
   MIXED: {

@@ -7,7 +7,7 @@ import { useExpressBooking } from "../../contexts/ExpressContext";
 import { SEND_TILE_ASSETS } from "../../lib/expressAssets";
 
 /**
- * SENDbakēd — Phase A 6-tile service grid.
+ * bSEND — Phase A 6-tile service grid.
  *
  * ROW 1  ·  Moto        · CARGO           · Fresh Products
  * ROW 2  ·  Between Cities · Movers        · Multiple Shipments

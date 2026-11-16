@@ -14,7 +14,7 @@ import { useAuth } from "../../../contexts/BakedContexts";
 import ReviewModal from "../components/ReviewModal";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const authHeaders = () => {
   const t = typeof window !== "undefined" ? localStorage.getItem("baked_access_token") : null;
@@ -93,7 +93,7 @@ export const MyReservationsPage = () => {
       <Link to="/food" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><ChevronLeft size={12} /> Retour · Back</Link>
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Mes réservations <span className="text-muted-foreground text-lg font-medium">· My reservations</span></h1>
-        <p className="text-sm text-muted-foreground">Suivez vos réservations FOODbakēd. · Track your FOODbakēd bookings.</p>
+        <p className="text-sm text-muted-foreground">Suivez vos réservations bFOOD. · Track your bFOOD bookings.</p>
       </div>
 
       {err && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-600 inline-flex items-center gap-1"><AlertTriangle size={12} /> {err}</div>}

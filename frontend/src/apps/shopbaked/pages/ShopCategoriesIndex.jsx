@@ -1,5 +1,5 @@
 /**
- * ShopCategoriesIndex — full SHOPbakēd category tree grid.
+ * ShopCategoriesIndex — full bSHOP category tree grid.
  * Rendered at `/shop/categories`. Fully French-first via useTranslation.
  */
 import { useEffect, useState } from "react";
@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { useApp } from "@/contexts/BakedContexts";
 import { pickCatalogueName } from "../lib/i18nCms";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const abs = (u) => (u && typeof u === "string" && u.startsWith("/")
   ? `${process.env.REACT_APP_BACKEND_URL}${u}`
@@ -51,7 +51,7 @@ export const ShopCategoriesIndex = ({ basePath = "/shop" }) => {
     <div className="pb-24 mx-auto max-w-7xl px-4 sm:px-6" data-testid="shopbaked-categories-index">
       <div className="pt-4 pb-3">
         <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: SHOP_ACCENT }}>
-          SHOPbakēd
+          bSHOP
         </div>
         <h1 className="text-2xl font-bold text-foreground">{t("shop.all_categories")}</h1>
         <p className="text-xs text-muted-foreground mt-1">
@@ -74,7 +74,7 @@ export const ShopCategoriesIndex = ({ basePath = "/shop" }) => {
                 key={c.id || c.slug}
                 to={`${basePath}/c/${c.slug}`}
                 data-testid={`shopbaked-cat-${c.slug}`}
-                className="group rounded-2xl border border-border overflow-hidden bg-card hover:border-amber-400/60 transition-colors flex flex-col"
+                className="group rounded-2xl border border-border overflow-hidden bg-card hover:border-[#1D9BF0]/60 transition-colors flex flex-col"
               >
                 <div className="aspect-square bg-secondary/40 relative overflow-hidden">
                   {img ? (

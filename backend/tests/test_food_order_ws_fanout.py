@@ -1,4 +1,4 @@
-"""FOODbakēd Pass 1 — WebSocket fanout + tenant isolation for new_food_order."""
+"""bFOOD Pass 1 — WebSocket fanout + tenant isolation for new_food_order."""
 from __future__ import annotations
 
 import json

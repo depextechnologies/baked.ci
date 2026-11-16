@@ -136,8 +136,8 @@ export const AdminSupplierDetail = () => {
 // ==========================================================================
 
 const ALL_MODULES = [
-  { code: "MART", label: "MARTbakēd", tagline: "Groceries & daily needs (default, always on)", locked: true },
-  { code: "SHOP", label: "SHOPbakēd", tagline: "Fashion, electronics, home goods — variant-heavy listings", locked: false },
+  { code: "MART", label: "bMART", tagline: "Groceries & daily needs (default, always on)", locked: true },
+  { code: "SHOP", label: "bSHOP", tagline: "Fashion, electronics, home goods — variant-heavy listings", locked: false },
 ];
 
 const ModulesTab = ({ supplier, onSaved }) => {
@@ -178,7 +178,7 @@ const ModulesTab = ({ supplier, onSaved }) => {
         <p className="text-sm text-muted-foreground mt-1">
           Choose which BAKĒD business apps this supplier can operate on. Suppliers can list
           catalogues, receive purchase orders and be surfaced to customers within the modules
-          you enable here. MARTbakēd is always on because it's the platform default.
+          you enable here. bMART is always on because it's the platform default.
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">

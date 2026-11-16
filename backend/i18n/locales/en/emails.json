@@ -64,9 +64,9 @@
     "signoff": "The BAKĒD team"
   },
   "mart_store_approved": {
-    "subject": "Your MARTbakēd store is approved — Store ID {store_code}",
+    "subject": "Your bMART store is approved — Store ID {store_code}",
     "greeting": "Hi {name},",
-    "intro": "Great news! Your MARTbakēd store “{business_name}” is approved and ready to receive orders. Your store ID is {store_code}.",
+    "intro": "Great news! Your bMART store “{business_name}” is approved and ready to receive orders. Your store ID is {store_code}.",
     "cta_dashboard": "Go to my dashboard",
     "signoff": "The BAKĒD team"
   },

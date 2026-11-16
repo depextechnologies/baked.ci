@@ -1,4 +1,4 @@
-"""SENDbakēd Driver — Slice 2 Delivery Lifecycle E2E backend test.
+"""bSEND Driver — Slice 2 Delivery Lifecycle E2E backend test.
 
 Full flow:
   register (phone -> OTP) -> KYC wizard -> submit -> admin approve -> go online

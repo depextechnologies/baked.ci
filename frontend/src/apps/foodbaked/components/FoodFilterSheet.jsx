@@ -10,7 +10,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 
-export const FILTER_GREEN = "#77BC1F";
+export const FILTER_GREEN = "#F26924";
 
 const Row = ({ value, selected, onClick, children }) => (
   <button

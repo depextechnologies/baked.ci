@@ -1,11 +1,11 @@
 /**
- * SENDbakēd — official brand asset URLs.
+ * bSEND — official brand asset URLs.
  * These are the production-approved renders. Do NOT swap for generated icons.
- * (P0 correction pass: renamed brand from EXPRESSbakēd to SENDbakēd; internal
+ * (P0 correction pass: renamed brand from bSEND to bSEND; internal
  *  module identifier `express` is intentionally preserved.)
  */
 export const EXPRESS_ASSETS = {
-  wordmark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/odl93m8h_SENDbaked.jpeg",
+  wordmark: "/logos/v2/bsend-dark.png",
   bike:     "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/kkvj338q_Bike_baked.png",
   threeW:   "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/xarw2ocr_3W-baked.png",
   truck:    "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/ftc2sme4_Truck_baked.png",
@@ -41,7 +41,7 @@ export const VEHICLE_IMAGES = {
   mini_truck:    "/send-tiles/vehicles/mini_truck.png",
   truck:         "/send-tiles/vehicles/truck.png",
   // Fresh Products / cold-chain fleet — dedicated refrigerated renders
-  // (SENDbakēd-branded reefer bodies) so the card immediately reads as
+  // (bSEND-branded reefer bodies) so the card immediately reads as
   // cold chain and cannot be visually confused with the non-refrigerated
   // silhouettes above.
   ref_tricycle:  "/send-tiles/vehicles/ref_tricycle.png",

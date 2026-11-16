@@ -34,7 +34,7 @@ Payload shape (`GrnPayload`):
           "unit_cost": 500.0, "tax_pct": 18.0, "line_total": 3540.0 },
         ...
       ],
-      "footer_note": "BAKĒD Platform · MARTbakēd · Auto-generated GRN",
+      "footer_note": "BAKĒD Platform · bMART · Auto-generated GRN",
     }
 """
 from __future__ import annotations
@@ -57,7 +57,7 @@ from reportlab.platypus import (
 
 # Register a Unicode-safe TTF (ships with ReportLab). Falls back silently
 # if unavailable — the built-in Helvetica lacks the "ē" glyph so brand
-# text (BAKĒD, MARTbakēd) would render as boxes without this.
+# text (BAKĒD, bMART) would render as boxes without this.
 _UNICODE_FONT = "Helvetica"
 _UNICODE_FONT_BOLD = "Helvetica-Bold"
 try:
@@ -125,7 +125,7 @@ def build_grn_pdf(payload: Dict[str, Any]) -> bytes:
     kind_label = "Consolidated GRN" if payload["kind"] == "consolidated" else f"Receipt GRN · #{payload.get('receipt', {}).get('sequence', 1)}"
     header = Table(
         [[
-            Paragraph("<b>BAKĒD</b> · MARTbakēd", ParagraphStyle("Brand", parent=body, textColor=BRAND_GREEN, fontSize=12, fontName=_UNICODE_FONT_BOLD)),
+            Paragraph("<b>BAKĒD</b> · bMART", ParagraphStyle("Brand", parent=body, textColor=BRAND_GREEN, fontSize=12, fontName=_UNICODE_FONT_BOLD)),
             Paragraph(f"<para align='right'><b>{kind_label}</b><br/><font color='#64748B' size='8'>{payload['grn_reference']}</font></para>", body),
         ]],
         colWidths=[95 * mm, 87 * mm],
@@ -310,7 +310,7 @@ def build_grn_xlsx(payload: Dict[str, Any]) -> bytes:
         ws.column_dimensions[get_column_letter(i)].width = w
 
     row = 1
-    ws.cell(row=row, column=1, value="BAKĒD · MARTbakēd").font = Font(bold=True, size=14, color="77BC1F")
+    ws.cell(row=row, column=1, value="BAKĒD · bMART").font = Font(bold=True, size=14, color="77BC1F")
     kind_label = "Consolidated GRN" if payload["kind"] == "consolidated" else f"Receipt GRN #{payload.get('receipt', {}).get('sequence', 1)}"
     ws.cell(row=row, column=6, value=kind_label).font = bold
     ws.cell(row=row, column=7, value=payload["grn_reference"]).font = small
@@ -492,5 +492,5 @@ def assemble_payload(
             "sequence": seq,
         },
         "lines": line_payloads,
-        "footer_note": "BAKĒD Platform · MARTbakēd · Auto-generated GRN · Not a tax invoice",
+        "footer_note": "BAKĒD Platform · bMART · Auto-generated GRN · Not a tax invoice",
     }

@@ -1,5 +1,5 @@
 /**
- * SENDbakēd dispatch hook — Phase A (2026-02)
+ * bSEND dispatch hook — Phase A (2026-02)
  *
  * Owns three responsibilities for the driver PWA while they're logged in:
  *   1. GPS watch: navigator.geolocation.watchPosition → POST /driver/me/location

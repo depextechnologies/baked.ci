@@ -1,4 +1,4 @@
-"""FOODbakēd — Customer Reviews (verified-order + verified-visit gated).
+"""bFOOD — Customer Reviews (verified-order + verified-visit gated).
 
 Endpoint surface:
 

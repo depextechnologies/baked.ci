@@ -56,7 +56,7 @@ const rowFacade = (it) => {
       name:  it.title || it.product?.title,
       image: it.images?.[0] || it.product?.images?.[0] || "",
       unit:  it.variant?.sku || "",
-      brand: "SHOPbakēd seller",
+      brand: "bSHOP seller",
       price: it.unit_price ?? it.variant?.price ?? 0,
       currency: it.currency || it.variant?.currency,
       currency_symbol: it.currency || "XOF",

@@ -1,5 +1,5 @@
 /**
- * Super Admin — MARTbakēd Supplier Product Requests review.
+ * Super Admin — bMART Supplier Product Requests review.
  *
  * Suppliers propose new master SKUs from their portal. Admins here can either
  * approve (creates a master product in mart_products AND auto-links the supplier

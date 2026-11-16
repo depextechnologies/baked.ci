@@ -1,4 +1,4 @@
-"""Inventory Allocation Engine (MARTbakēd Slice 8).
+"""Inventory Allocation Engine (bMART Slice 8).
 
 Given a customer cart + delivery address, decide which partner(s) will fulfil
 each line so that:

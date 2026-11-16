@@ -84,7 +84,7 @@
     "cannot_transition": "Transition impossible : {current} → {target}.",
     "insufficient_stock_msg": "Rupture de stock — les dernières unités viennent d'être réservées. Veuillez actualiser et réessayer.",
     "allocation_failed_msg": "Nous n'avons pas pu réserver le stock. Veuillez actualiser votre panier et réessayer dans un instant.",
-    "not_available_in_area_msg": "Certains articles de votre panier ne sont pas encore disponibles dans votre zone. MARTbakēd arrive bientôt dans d'autres magasins.",
+    "not_available_in_area_msg": "Certains articles de votre panier ne sont pas encore disponibles dans votre zone. bMART arrive bientôt dans d'autres magasins.",
     "address_not_found": "Adresse introuvable.",
     "recent_search_not_found": "Recherche récente introuvable."
   },

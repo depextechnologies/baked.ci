@@ -1,4 +1,4 @@
-"""MARTbakēd Supplier Onboarding — Phase 2A.
+"""bMART Supplier Onboarding — Phase 2A.
 
 Public routes for `/martbaked/sellers/*`:
   * POST   /api/martbaked/sellers/apply/start          — begin application (draft supplier + application row)

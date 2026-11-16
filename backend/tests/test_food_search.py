@@ -1,4 +1,4 @@
-"""FOODbakēd — unified search endpoint regression."""
+"""bFOOD — unified search endpoint regression."""
 from __future__ import annotations
 
 import os

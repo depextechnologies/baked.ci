@@ -8,7 +8,7 @@ import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext
 import FoodImageUploader from "../components/FoodImageUploader";
 import { Loader2, Save, Trash2, Star, Image as ImgIcon, AlertTriangle, FileText, Upload, ExternalLink } from "lucide-react";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 const HIGHLIGHTS = [
   ["outdoor_seating","Terrasse extérieure · Outdoor seating"], ["family_friendly","Familles · Family friendly"],
   ["air_conditioned","Climatisé · A/C"], ["wifi","Wi-Fi"], ["parking","Parking"],

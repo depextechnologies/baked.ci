@@ -1,4 +1,4 @@
-"""MARTbakēd Checkout & Orders.
+"""bMART Checkout & Orders.
 
 Flow:
   1. GET  /delivery-slots?country=CI          — upcoming windows
@@ -555,8 +555,8 @@ async def cancel_order(
 # ---------- tracking (mock/demo) ----------
 # Demo driver + store coordinates per country
 _COUNTRY_GEO = {
-    "CI": {"store": {"name": "MARTbakēd Store · Cocody", "lat": 5.3455, "lng": -4.0021}, "destination": {"lat": 5.3535, "lng": -3.9857}},
-    "LR": {"store": {"name": "MARTbakēd Store · Sinkor", "lat": 6.2833, "lng": -10.7783}, "destination": {"lat": 6.3005, "lng": -10.7969}},
+    "CI": {"store": {"name": "bMART Store · Cocody", "lat": 5.3455, "lng": -4.0021}, "destination": {"lat": 5.3535, "lng": -3.9857}},
+    "LR": {"store": {"name": "bMART Store · Sinkor", "lat": 6.2833, "lng": -10.7783}, "destination": {"lat": 6.3005, "lng": -10.7969}},
 }
 _DEMO_DRIVERS = [
     {"name": "Rahul Kumar", "rating": 4.8, "vehicle": "Electric Scooter", "vehicle_reg": "AB12 C3456", "phone": "+225 07 12 34 56 78", "photo": "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200&h=200&fit=crop&q=80"},

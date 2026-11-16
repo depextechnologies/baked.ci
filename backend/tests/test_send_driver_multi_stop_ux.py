@@ -1,4 +1,4 @@
-"""SENDbakēd — Driver Multi-Stop UX regression.
+"""bSEND — Driver Multi-Stop UX regression.
 
 Covers the new server-side lifecycle that unblocks driver-side execution of
 Phase E multi-stop bookings:

@@ -20,7 +20,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Bell, BellOff, Loader2, AlertTriangle, Smartphone, CheckCircle2 } from "lucide-react";
 import { partnerApi } from "../../../contexts/FoodPartnerContext";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 const AMBER = "#F59E0B";
 
 const detectFr = () =>

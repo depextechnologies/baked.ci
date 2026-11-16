@@ -1,5 +1,5 @@
 /**
- * WarehouseLocationPicker — MARTbakēd Dark Store map-based location capture.
+ * WarehouseLocationPicker — bMART Dark Store map-based location capture.
  *
  * Fixing_Prompt_2026-02-11_v2 §1-§9, §16-§17. Renders an interactive Google
  * Map with:
@@ -151,7 +151,7 @@ export const WarehouseLocationPicker = ({ value, onChange, country = "CI" }) => 
 
   const applyPick = (place) => {
     if (place.country && !SUPPORTED.includes(place.country.toUpperCase())) {
-      toast.error("This location is currently outside the MARTbakēd service area.");
+      toast.error("This location is currently outside the bMART service area.");
       return;
     }
     onChange({
@@ -325,7 +325,7 @@ export const WarehouseLocationPicker = ({ value, onChange, country = "CI" }) => 
                  data-testid="apply-location-country-error">
               <AlertTriangle size={12} className="mt-0.5" />
               <div className="text-[11px]">
-                This location is currently outside the MARTbakēd service area
+                This location is currently outside the bMART service area
                 ({value.country_code}). Please pick a location in Côte d&apos;Ivoire.
               </div>
             </div>

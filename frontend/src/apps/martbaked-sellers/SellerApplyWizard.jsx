@@ -1,5 +1,5 @@
 /**
- * MARTbakēd Supplier Onboarding Wizard — 9-step public application.
+ * bMART Supplier Onboarding Wizard — 9-step public application.
  *
  * Backend contract (see /app/backend/shared/suppliers/routes.py):
  *   POST  /martbaked/sellers/apply/start       — creates draft + returns application id
@@ -80,7 +80,7 @@ export const SellerApplyWizard = () => {
   // under the SHOP seller portal (Fixing_Prompt v13 QA sweep).
   const modProfile = useSellerModule?.() || { code: "mart" };
   const isShop = modProfile.code === "shop";
-  const MOD_LABEL = isShop ? "SHOPbakēd" : "MARTbakēd";
+  const MOD_LABEL = isShop ? "bSHOP" : "bMART";
   const SELLERS_HOME = isShop ? "/shopbaked/sellers" : "/martbaked/sellers";
   // Resume via ?app=<id> or start-fresh flow
   const [appId, setAppId] = useState(params.get("app") || null);

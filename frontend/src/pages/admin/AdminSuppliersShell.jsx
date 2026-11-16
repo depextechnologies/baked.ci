@@ -23,7 +23,7 @@ export const AdminSuppliersShell = () => {
   const ctx = useOutletContext() || {};
   const code = ctx.code || "mart";
   const module = code === "shop" ? "shop" : "mart";
-  const MOD_LABEL = module === "shop" ? "SHOPbakēd" : "MARTbakēd";
+  const MOD_LABEL = module === "shop" ? "bSHOP" : "bMART";
   const MOD_ACCENT = module === "shop" ? "#FCC44C" : "#77BC1F";
 
   const visibleTabs = TABS.filter((t) => !t.martOnly || module === "mart");

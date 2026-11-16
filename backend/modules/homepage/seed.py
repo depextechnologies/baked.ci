@@ -277,7 +277,7 @@ _ALL_COUNTRIES: tuple[tuple[str, dict], ...] = (
 
 
 # ============================================================================
-# FOODbakēd seed — same architecture as MART (insert-only-if-missing,
+# bFOOD seed — same architecture as MART (insert-only-if-missing,
 # deterministic ids, bilingual FR/EN config stored under *_fr / *_en keys).
 # Super Admin can edit / reorder / disable / delete; a restart NEVER
 # resurrects a deleted row (idempotent `ON CONFLICT DO NOTHING`).
@@ -300,9 +300,9 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
                  "title_en":    "Good Food",
                  "subtitle_fr": "Rassemble les gens",
                  "subtitle_en": "Brings People Together",
-                 "tagline_fr":  "Découvrez des restaurants locaux et des cuisines du monde — uniquement sur FOODbakēd.",
-                 "tagline_en":  "Discover local favourites and global cuisines — only on FOODbakēd.",
-                 "eyebrow":     "FOODbakēd",
+                 "tagline_fr":  "Découvrez des restaurants locaux et des cuisines du monde — uniquement sur bFOOD.",
+                 "tagline_en":  "Discover local favourites and global cuisines — only on bFOOD.",
+                 "eyebrow":     "bFOOD",
              }),
         dict(seq=20, type="food_categories",           title="Explorer par type",
              subtitle="Choisissez votre repas",
@@ -336,9 +336,9 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
         dict(seq=50, type="food_cuisines",             title="Cuisines du monde",
              subtitle="De l'Ivoire à l'Italie, en passant par l'Asie",
              config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
-        dict(seq=60, type="food_usps",                 title="Pourquoi FOODbakēd ?",
+        dict(seq=60, type="food_usps",                 title="Pourquoi bFOOD ?",
              subtitle=None,
-             config={"title_fr": "Pourquoi FOODbakēd ?", "title_en": "Why FOODbakēd?", "usps": [
+             config={"title_fr": "Pourquoi bFOOD ?", "title_en": "Why bFOOD?", "usps": [
                  {"icon": "clock",    "title_fr": "Livraison rapide",      "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",       "subtitle_en": "Hot meals at your door"},
                  {"icon": "utensils", "title_fr": "Grande variété",         "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
                  {"icon": "tag",      "title_fr": "Super offres",           "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",            "subtitle_en": "Save more every day"},
@@ -353,8 +353,8 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
                      {
                          "enabled": True,
                          "sort_order": 1,
-                         "quote_fr": "FOODbakēd a changé ma façon de commander. Rapide, varié, et toujours chaud à l'arrivée.",
-                         "quote_en": "FOODbakēd changed how I order. Fast, varied, and still hot when it arrives.",
+                         "quote_fr": "bFOOD a changé ma façon de commander. Rapide, varié, et toujours chaud à l'arrivée.",
+                         "quote_en": "bFOOD changed how I order. Fast, varied, and still hot when it arrives.",
                          "author_fr": "Awa K.",
                          "author_en": "Awa K.",
                          "role_fr": "Abidjan",
@@ -384,9 +384,9 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
                  "title_en":    "Good Food",
                  "subtitle_fr": "Rassemble les gens",
                  "subtitle_en": "Brings People Together",
-                 "tagline_fr":  "Découvrez des restaurants locaux et des cuisines du monde — uniquement sur FOODbakēd.",
-                 "tagline_en":  "Discover local favourites and global cuisines — only on FOODbakēd.",
-                 "eyebrow":     "FOODbakēd",
+                 "tagline_fr":  "Découvrez des restaurants locaux et des cuisines du monde — uniquement sur bFOOD.",
+                 "tagline_en":  "Discover local favourites and global cuisines — only on bFOOD.",
+                 "eyebrow":     "bFOOD",
              }),
         dict(seq=20, type="food_categories",           title="Browse by type", subtitle="Pick your meal",
              config={"title_fr": "Explorer par type", "title_en": "Browse by type"}),
@@ -409,8 +409,8 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
              ]}),
         dict(seq=50, type="food_cuisines",             title="Cuisines You'll Love", subtitle="From Mumbai to Milan",
              config={"title_fr": "Cuisines du monde", "title_en": "Cuisines You'll Love", "limit": 12}),
-        dict(seq=60, type="food_usps",                 title="Why FOODbakēd?", subtitle=None,
-             config={"title_fr": "Pourquoi FOODbakēd ?", "title_en": "Why FOODbakēd?", "usps": [
+        dict(seq=60, type="food_usps",                 title="Why bFOOD?", subtitle=None,
+             config={"title_fr": "Pourquoi bFOOD ?", "title_en": "Why bFOOD?", "usps": [
                  {"icon": "clock",    "title_fr": "Livraison rapide",       "title_en": "Quick Delivery",     "subtitle_fr": "Repas chauds à votre porte",         "subtitle_en": "Hot meals at your door"},
                  {"icon": "utensils", "title_fr": "Grande variété",          "title_en": "Wide Variety",      "subtitle_fr": "Cuisines locales et internationales", "subtitle_en": "Local & global cuisines"},
                  {"icon": "tag",      "title_fr": "Super offres",            "title_en": "Great Deals",       "subtitle_fr": "Économisez chaque jour",             "subtitle_en": "Save more every day"},
@@ -424,8 +424,8 @@ _FOOD_SECTIONS: dict[str, list[dict]] = {
                      {
                          "enabled": True,
                          "sort_order": 1,
-                         "quote_fr": "FOODbakēd est devenu mon réflexe. Rapide, varié et toujours chaud.",
-                         "quote_en": "FOODbakēd changed how I order. Fast, varied, and still hot when it arrives.",
+                         "quote_fr": "bFOOD est devenu mon réflexe. Rapide, varié et toujours chaud.",
+                         "quote_en": "bFOOD changed how I order. Fast, varied, and still hot when it arrives.",
                          "author_fr": "Priya S.",
                          "author_en": "Priya S.",
                          "role_fr": "Mumbai",
@@ -485,7 +485,7 @@ async def seed_food_homepage(session: AsyncSession) -> dict[str, int]:
     return counts
 
 
-# SENDbakēd homepage — migrated 1:1 from the hardcoded website ExpressHome (map, pickup bar, 6 tiles, trust banner).
+# bSEND homepage — migrated 1:1 from the hardcoded website ExpressHome (map, pickup bar, 6 tiles, trust banner).
 _SEND_TILES = [
     ("moto", "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/kkvj338q_Bike_baked.png",
      "Moto", "Bike", "Colis rapides et documents en ville", "Fast parcels and documents in the city"),
@@ -570,21 +570,21 @@ _IMG = "/app-home/{}.webp"
 
 _APP_TILES = [
     ("express", "Livrez tout", "Deliver Anything", "tile_send", "#FCC44C"),
-    ("food", "Commandez à manger", "Order Foods", "tile_food", "#77BC1F"),
+    ("food", "Commandez à manger", "Order Foods", "tile_food", "#F26924"),
     ("mart", "Courses en minutes", "Groceries in minutes", "tile_mart", "#77BC1F"),
-    ("shop", "Achetez la mode", "Shop Fashion", "tile_shop", "#FCC44C"),
+    ("shop", "Achetez la mode", "Shop Fashion", "tile_shop", "#1D9BF0"),
     ("immo", "Explorez l’immobilier", "Explore Properties", "tile_immo", "#A659FF"),
     ("auto", "Explorez les voitures", "Explore Cars", "tile_auto", "#FF4C52"),
 ]
 
 _APP_ROWS = [
-    (20, "food", "Order your bites", "Commandez vos envies", "#77BC1F", [
+    (20, "food", "Order your bites", "Commandez vos envies", "#F26924", [
         ("burgers", "cat_burger", None, None), ("pizza", "cat_pizza", None, None), ("chicken", "cat_chicken", None, None),
         ("african", "cat_african", None, None), ("desserts", "cat_desserts", None, None)]),
-    (30, "mart", "Groceries in minutes", "Vos courses en minutes", "#1D9BF0", [
+    (30, "mart", "Groceries in minutes", "Vos courses en minutes", "#77BC1F", [
         ("fruits-vegetables", "cat_fruits", "Fruits", "Fruits"), ("dairy-eggs", "cat_dairy", "Crèmerie", "Dairy"),
         ("snacks", "cat_snacks", None, "Snacks"), ("beverages", "cat_beverages", None, None), ("household", "cat_household", None, "Household")]),
-    (40, "shop", "Trending fashions", "Tendances mode", "#C13CFF", [
+    (40, "shop", "Trending fashions", "Tendances mode", "#1D9BF0", [
         ("mode-femme", "cat_women", "Femme", "Women"), ("mode-homme", "cat_men", "Homme", "Men"),
         ("chaussures-sneakers", "cat_footwear", "Chaussures", "Footwear"), ("sacs-bagages", "cat_bags", "Sacs", "Bags"),
         ("bijoux-montres-lunettes", "cat_accessories", "Accessoires", "Accessories")]),
@@ -606,7 +606,7 @@ def _baked_rows(country: str) -> list[dict]:
         }})
     rows.append({"seq": 50, "type": "app_promo_slider", "title": None, "subtitle": None, "config": {"items": [
         {"enabled": True, "title_fr": "Plats délicieux livrés vite", "title_en": "Delicious Food Delivered Fast",
-         "cta_label_fr": "Commander", "cta_label_en": "Order Now", "link": "/food", "image": _IMG.format("banner_food"), "accent": "#F5A524"},
+         "cta_label_fr": "Commander", "cta_label_en": "Order Now", "link": "/food", "image": _IMG.format("banner_food"), "accent": "#F26924"},
         {"enabled": True, "title_fr": "Courses fraîches tous les jours", "title_en": "Fresh Groceries Everyday",
          "cta_label_fr": "Acheter", "cta_label_en": "Shop Now", "link": "/mart", "image": _IMG.format("banner_grocery"), "accent": "#77BC1F"},
     ]}})

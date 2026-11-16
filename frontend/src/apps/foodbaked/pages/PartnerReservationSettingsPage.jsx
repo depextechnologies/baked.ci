@@ -10,7 +10,7 @@ import { Loader2, Save, PlusCircle, XCircle, Volume2, AlertTriangle, Clock } fro
 import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext";
 import { useRestaurantNotifications } from "../components/RestaurantNotificationEngine";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 const DAYS = [
   { key: "mon", fr: "Lundi",    en: "Monday" },
   { key: "tue", fr: "Mardi",    en: "Tuesday" },

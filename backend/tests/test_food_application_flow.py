@@ -1,4 +1,4 @@
-"""FOODbakēd — Applicant Onboarding + Admin Review Regression.
+"""bFOOD — Applicant Onboarding + Admin Review Regression.
 
 Covers the full wizard lifecycle and the tenant-isolation invariant:
 an applicant JWT bound to application A must NEVER be able to read/write

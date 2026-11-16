@@ -1,4 +1,4 @@
-"""EXPRESSbakēd Phase 2 — Sub-feature C: Pricing Engine Admin API tests.
+"""bSEND Phase 2 — Sub-feature C: Pricing Engine Admin API tests.
 
 Tests the admin routes at /api/admin/modules/express/pricing (aggregated GET
 + per-vehicle PATCH + movers PATCH) plus verifies edits propagate to the

@@ -379,7 +379,7 @@ const TrustBar = () => {
 
 const OPPORTUNITIES = [
   {
-    code: "MART", label: "MARTbakēd", color: "#77BC1F", icon: ShoppingBasket,
+    code: "MART", label: "bMART", color: "#77BC1F", icon: ShoppingBasket,
     key: "mart",
     cardHref: "/martbaked/sellers",
     applyHref: "/martbaked/sellers/apply",
@@ -387,7 +387,7 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #77BC1F55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #77BC1F33, transparent 60%)",
   },
   {
-    code: "FOOD", label: "FOODbakēd", color: "#00A651", icon: Utensils,
+    code: "FOOD", label: "bFOOD", color: "#00A651", icon: Utensils,
     key: "food",
     cardHref: "/foodbaked/sellers",
     applyHref: "/foodbaked/sellers/apply",
@@ -395,7 +395,7 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #00A65155, transparent 60%), radial-gradient(500px 300px at 80% 70%, #00A65133, transparent 60%)",
   },
   {
-    code: "SHOP", label: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag,
+    code: "SHOP", label: "bSHOP", color: "#FCC44C", icon: ShoppingBag,
     key: "shop",
     cardHref: "/shopbaked/sellers",
     applyHref: "/shopbaked/sellers/apply",
@@ -403,7 +403,7 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
-    code: "EXPRESS", label: "SENDbakēd", color: "#FCC44C", icon: Truck,
+    code: "EXPRESS", label: "bSEND", color: "#FCC44C", icon: Truck,
     key: "send",
     cardHref: "/driver",
     applyHref: "/driver",
@@ -411,14 +411,14 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
-    code: "AUTO", label: "AUTObakēd", color: "#9B87F5", icon: Car,
+    code: "AUTO", label: "bAUTO", color: "#9B87F5", icon: Car,
     key: "auto",
     cardHref: "https://auto.partner.baked.ci",
     applyHref: "https://auto.partner.baked.ci",
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #9B87F555, transparent 60%), radial-gradient(500px 300px at 80% 70%, #9B87F533, transparent 60%)",
   },
   {
-    code: "IMMO", label: "IMMObakēd", color: "#F97316", icon: HomeIcon,
+    code: "IMMO", label: "bIMMO", color: "#F97316", icon: HomeIcon,
     key: "immo",
     cardHref: "https://immo.partner.baked.ci",
     applyHref: "https://immo.partner.baked.ci",

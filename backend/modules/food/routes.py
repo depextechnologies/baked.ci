@@ -1,4 +1,4 @@
-"""FOODbakēd — Phase 1 public + admin routes.
+"""bFOOD — Phase 1 public + admin routes.
 
 Public endpoints power the customer FoodHome (`/food`):
     * GET /api/food/home          — everything the FoodHome page needs in one call
@@ -14,7 +14,7 @@ workspace under `/admin/modules/food`:
 
 Phase 1 is intentionally read-heavy on the customer side and admin CRUD
 is minimal (list + toggle featured / is_open / is_active). Phase 2 will
-add restaurant menu items, cart wiring and the SENDbakēd driver bridge.
+add restaurant menu items, cart wiring and the bSEND driver bridge.
 """
 from __future__ import annotations
 
@@ -354,7 +354,7 @@ async def admin_food_upload(
     kind: str = Query("misc", description="asset kind — restaurant_logo|restaurant_cover|gallery|category|cuisine|menu_item|banner|misc"),
     _admin=Depends(get_current_admin),
 ):
-    """Reusable image upload for every FOODbakēd asset (Admin & Restaurant
+    """Reusable image upload for every bFOOD asset (Admin & Restaurant
     Partner portals). Returns a permanent served URL to store in the DB.
     """
     ct = (file.content_type or "").lower()

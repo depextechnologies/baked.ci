@@ -1,5 +1,5 @@
 /**
- * ShopbakedApp — SHOPbakēd standalone shell used for the /shopbaked
+ * ShopbakedApp — bSHOP standalone shell used for the /shopbaked
  * demo route. The full customer experience at /shop is mounted inside
  * CustomerApp; this shell keeps a lightweight variant for the internal
  * demo. Language now flows from the global i18next instance instead of
@@ -22,7 +22,7 @@ export const ShopbakedApp = () => {
       <header className="border-b border-neutral-800 sticky top-0 z-30 backdrop-blur-md bg-neutral-950/80">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-6">
           <Link to="/shopbaked" className="text-xl font-semibold tracking-tight" data-testid="shopbaked-brand">
-            SHOP<span className="text-amber-400">bakēd</span>
+            <span style={{ color: "#1D9BF0" }}>bSHOP</span>
           </Link>
           <nav className="text-sm text-neutral-400 flex gap-4">
             <Link to="/shopbaked" data-testid="shopbaked-nav-home">{t("shop.nav_home")}</Link>
@@ -34,7 +34,7 @@ export const ShopbakedApp = () => {
                 key={code}
                 onClick={() => setLang(code)}
                 className={`px-3 py-1.5 rounded-full transition-colors ${
-                  lang === code ? "bg-amber-400 text-neutral-950 font-semibold" : "text-neutral-400"
+                  lang === code ? "bg-[#1D9BF0] text-white font-semibold" : "text-neutral-400"
                 }`}
                 data-testid={`shopbaked-locale-${code}`}
               >

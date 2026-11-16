@@ -182,7 +182,7 @@ const SECTION_SCHEMAS = {
     ])],
   },
 
-  // ---------------- FOODbakēd homepage sections (Feb 2026) ------------------
+  // ---------------- bFOOD homepage sections (Feb 2026) ------------------
   // Every food_* schema is FR-first / EN-second. The customer FoodHome page
   // renders these via a lightweight renderer keyed on section_type.
   food_hero: {
@@ -389,10 +389,10 @@ const SECTION_SCHEMAS = {
 // ---------------------------------------------------------------------------
 
 const MODULES_META = [
-  { code: "mart", label: "MARTbakēd" },
-  { code: "shop", label: "SHOPbakēd" },
-  { code: "food", label: "FOODbakēd" },
-  { code: "express", label: "SENDbakēd" },
+  { code: "mart", label: "bMART" },
+  { code: "shop", label: "bSHOP" },
+  { code: "food", label: "bFOOD" },
+  { code: "express", label: "bSEND" },
   { code: "baked", label: "BAKĒD App" },
 ];
 const PREVIEW_PATH = { mart: "/", shop: "/shop", food: "/food", express: "/send" };
@@ -412,7 +412,7 @@ export const AdminHomepageManagement = () => {
   const location = useLocation();
   // Detect the scoped module from URL: /admin/modules/<code>/homepage-management.
   // When scoped, the toggle is hidden and the module is locked so admins
-  // NEVER accidentally edit another module's homepage from within FOODbakēd.
+  // NEVER accidentally edit another module's homepage from within bFOOD.
   const scopedModule = React.useMemo(() => {
     const m = /\/admin\/modules\/([^/]+)\/homepage-management/.exec(location.pathname);
     return m && MODULES_META.some((x) => x.code === m[1]) ? m[1] : null;

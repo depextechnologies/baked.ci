@@ -24,12 +24,12 @@ const detectCountry = () => {
 };
 
 const MODULE_META = {
-  mart: { label_fr: "MARTbakēd", label_en: "MARTbakēd", color: "#77BC1F", icon: ShoppingCart },
-  food: { label_fr: "FOODbakēd", label_en: "FOODbakēd", color: "#00A651", icon: Utensils },
-  shop: { label_fr: "SHOPbakēd", label_en: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag },
-  send: { label_fr: "SENDbakēd", label_en: "SENDbakēd", color: "#F3B300", icon: Package },
-  auto: { label_fr: "AUTObakēd", label_en: "AUTObakēd", color: "#9B87F5", icon: Store },
-  immo: { label_fr: "IMMObakēd", label_en: "IMMObakēd", color: "#EC4899", icon: Store },
+  mart: { label_fr: "bMART", label_en: "bMART", color: "#77BC1F", icon: ShoppingCart },
+  food: { label_fr: "bFOOD", label_en: "bFOOD", color: "#00A651", icon: Utensils },
+  shop: { label_fr: "bSHOP", label_en: "bSHOP", color: "#FCC44C", icon: ShoppingBag },
+  send: { label_fr: "bSEND", label_en: "bSEND", color: "#F3B300", icon: Package },
+  auto: { label_fr: "bAUTO", label_en: "bAUTO", color: "#9B87F5", icon: Store },
+  immo: { label_fr: "bIMMO", label_en: "bIMMO", color: "#EC4899", icon: Store },
 };
 
 const GlobalSearchResultsPage = () => {
@@ -86,8 +86,8 @@ const GlobalSearchResultsPage = () => {
 
       {!q && (
         <div className="max-w-3xl mx-auto p-6 text-sm text-muted-foreground">
-          {fr ? "Tapez une recherche pour explorer MARTbakēd, FOODbakēd, SHOPbakēd et SENDbakēd."
-              : "Type a search to explore MARTbakēd, FOODbakēd, SHOPbakēd and SENDbakēd."}
+          {fr ? "Tapez une recherche pour explorer bMART, bFOOD, bSHOP et bSEND."
+              : "Type a search to explore bMART, bFOOD, bSHOP and bSEND."}
         </div>
       )}
 

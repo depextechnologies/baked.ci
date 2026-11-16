@@ -1,4 +1,4 @@
-"""Dev helper: approve the SENDbakēd test driver (+919990001234) after a DB reset so it can go online."""
+"""Dev helper: approve the bSEND test driver (+919990001234) after a DB reset so it can go online."""
 import asyncio, sys
 sys.path.insert(0, '/app/backend')
 from dotenv import load_dotenv; load_dotenv('/app/backend/.env')

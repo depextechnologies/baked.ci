@@ -1,5 +1,5 @@
 /**
- * Super Admin — SHOPbakēd Products Browser.
+ * Super Admin — bSHOP Products Browser.
  *
  * Route: /admin/modules/shop/products
  *
@@ -59,7 +59,7 @@ export const AdminShopProducts = () => {
   return (
     <div className="space-y-5" data-testid="admin-shop-products">
       <div>
-        <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>SHOPbakēd</div>
+        <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>bSHOP</div>
         <h2 className="text-xl font-bold flex items-center gap-2"><Package size={18} /> Products</h2>
         <p className="text-xs text-muted-foreground">Every SHOP product across all sellers. Sellers manage the source data — this view is for governance and reporting.</p>
       </div>

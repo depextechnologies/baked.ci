@@ -98,12 +98,12 @@ COUNTRIES = [
 ]
 
 MODULES = [
-    {"code": "mart", "name": "MARTbakēd", "tagline": "Groceries & Daily Needs", "color": "#77BC1F", "icon": "shopping-basket", "order": 1, "status": "active"},
-    {"code": "food", "name": "FOODbakēd", "tagline": "Restaurants & Food", "color": "#77BC1F", "icon": "utensils", "order": 2, "status": "coming_soon"},
-    {"code": "shop", "name": "SHOPbakēd", "tagline": "Electronics & Lifestyle", "color": "#FCC44C", "icon": "shopping-bag", "order": 3, "status": "coming_soon"},
-    {"code": "express", "name": "EXPRESSbakēd", "tagline": "Courier & Delivery", "color": "#FCC44C", "icon": "truck", "order": 4, "status": "coming_soon"},
-    {"code": "auto", "name": "AUTObakēd", "tagline": "Vehicles & Services", "color": "#FF4C52", "icon": "car", "order": 5, "status": "coming_soon"},
-    {"code": "immo", "name": "IMMObakēd", "tagline": "Real Estate & Property", "color": "#A659FF", "icon": "home", "order": 6, "status": "coming_soon"},
+    {"code": "mart", "name": "bMART", "tagline": "Groceries & Daily Needs", "color": "#77BC1F", "icon": "shopping-basket", "order": 1, "status": "active"},
+    {"code": "food", "name": "bFOOD", "tagline": "Restaurants & Food", "color": "#F26924", "icon": "utensils", "order": 2, "status": "coming_soon"},
+    {"code": "shop", "name": "bSHOP", "tagline": "Electronics & Lifestyle", "color": "#1D9BF0", "icon": "shopping-bag", "order": 3, "status": "coming_soon"},
+    {"code": "express", "name": "bSEND", "tagline": "Courier & Delivery", "color": "#FCC44C", "icon": "truck", "order": 4, "status": "coming_soon"},
+    {"code": "auto", "name": "bAUTO", "tagline": "Vehicles & Services", "color": "#FF4C52", "icon": "car", "order": 5, "status": "coming_soon"},
+    {"code": "immo", "name": "bIMMO", "tagline": "Real Estate & Property", "color": "#A659FF", "icon": "home", "order": 6, "status": "coming_soon"},
 ]
 
 CATEGORIES = [
@@ -416,14 +416,14 @@ OFFERS_CI = [
 ]
 
 STORES_CI = [
-    {"name": "MARTbakēd Cocody", "address": "Rue des Jardins, Cocody, Abidjan", "eta": "10-15 min", "rating": 4.7, "country": "CI", "latitude": 5.3600, "longitude": -4.0000},
-    {"name": "MARTbakēd Plateau", "address": "Boulevard de la République, Plateau", "eta": "12-18 min", "rating": 4.6, "country": "CI", "latitude": 5.3200, "longitude": -4.0200},
-    {"name": "MARTbakēd Marcory", "address": "Zone 4, Marcory", "eta": "15-20 min", "rating": 4.5, "country": "CI", "latitude": 5.2914, "longitude": -3.9899},
+    {"name": "bMART Cocody", "address": "Rue des Jardins, Cocody, Abidjan", "eta": "10-15 min", "rating": 4.7, "country": "CI", "latitude": 5.3600, "longitude": -4.0000},
+    {"name": "bMART Plateau", "address": "Boulevard de la République, Plateau", "eta": "12-18 min", "rating": 4.6, "country": "CI", "latitude": 5.3200, "longitude": -4.0200},
+    {"name": "bMART Marcory", "address": "Zone 4, Marcory", "eta": "15-20 min", "rating": 4.5, "country": "CI", "latitude": 5.2914, "longitude": -3.9899},
 ]
 
 STORES_LR = [
-    {"name": "MARTbakēd Sinkor", "address": "Tubman Boulevard, Sinkor, Monrovia", "eta": "15-20 min", "rating": 4.6, "country": "LR", "latitude": 6.2833, "longitude": -10.7783},
-    {"name": "MARTbakēd Congo Town", "address": "Congo Town, Monrovia", "eta": "20-25 min", "rating": 4.5, "country": "LR", "latitude": 6.2500, "longitude": -10.7500},
+    {"name": "bMART Sinkor", "address": "Tubman Boulevard, Sinkor, Monrovia", "eta": "15-20 min", "rating": 4.6, "country": "LR", "latitude": 6.2833, "longitude": -10.7783},
+    {"name": "bMART Congo Town", "address": "Congo Town, Monrovia", "eta": "20-25 min", "rating": 4.5, "country": "LR", "latitude": 6.2500, "longitude": -10.7500},
 ]
 
 # India NCR pilot hubs. Coordinates chosen so a 15km service radius covers:
@@ -432,8 +432,8 @@ STORES_LR = [
 # Together with the pincode allowlist (201301–201318) this gives full NCR
 # coverage via both hub-distance AND pincode paths.
 STORES_IN = [
-    {"name": "MARTbakēd Sector 18 Noida", "address": "Sector 18, Noida, Uttar Pradesh", "eta": "20-30 min", "rating": 4.6, "country": "IN", "latitude": 28.5691, "longitude": 77.3210},
-    {"name": "MARTbakēd Alpha 1 Greater Noida", "address": "Alpha 1, Greater Noida, Uttar Pradesh", "eta": "25-35 min", "rating": 4.5, "country": "IN", "latitude": 28.4744, "longitude": 77.5040},
+    {"name": "bMART Sector 18 Noida", "address": "Sector 18, Noida, Uttar Pradesh", "eta": "20-30 min", "rating": 4.6, "country": "IN", "latitude": 28.5691, "longitude": 77.3210},
+    {"name": "bMART Alpha 1 Greater Noida", "address": "Alpha 1, Greater Noida, Uttar Pradesh", "eta": "25-35 min", "rating": 4.5, "country": "IN", "latitude": 28.4744, "longitude": 77.5040},
 ]
 
 CITIES_CI = [
@@ -685,7 +685,7 @@ async def _seed_module_vendors_and_drivers(session: AsyncSession):
 
 
 async def _seed_demo_partners(session: AsyncSession):
-    """Idempotent seed of the two demo MARTbakēd partners.
+    """Idempotent seed of the two demo bMART partners.
 
     Preserves the developer / testing agent's ability to exercise the
     multi-partner allocation engine end-to-end after any container restart
@@ -959,23 +959,23 @@ async def run_seed():
         await seed_baked_homepage(session)
         await seed_food_homepage(session)
         await seed_send_homepage(session)
-        # SHOPbakēd catalogue (Slice 2) — 19 categories × subcategory tree per country.
+        # bSHOP catalogue (Slice 2) — 19 categories × subcategory tree per country.
         from modules.shop.seed import seed_shop_catalogue
         await seed_shop_catalogue(session)
-        # SHOPbakēd attributes (Slice 3) — 6 attrs + subcategory-scoped inheritance.
+        # bSHOP attributes (Slice 3) — 6 attrs + subcategory-scoped inheritance.
         from modules.shop.attributes_seed import seed_shop_attributes
         await seed_shop_attributes(session)
-        # SHOPbakēd homepage (Slice 7) — module-scoped rails for /shopbaked.
+        # bSHOP homepage (Slice 7) — module-scoped rails for /shopbaked.
         from modules.shop.homepage_seed import seed_shop_homepage
         await seed_shop_homepage(session)
-        # SHOPbakēd demo products — one placeholder per subcategory so
+        # bSHOP demo products — one placeholder per subcategory so
         # /shop and /shop/c/{slug} render populated tiles out-of-the-box.
         # QA v15 §4 — seed both launch markets (CI/XOF, IN/INR).
         from modules.shop.demo_products_seed import seed_shop_demo_products
         await seed_shop_demo_products(session, country="CI")
         await seed_shop_demo_products(session, country="IN")
         await session.commit()
-    # EXPRESSbakēd — vehicles, package types, pricing rules, movers items/categories.
+    # bSEND — vehicles, package types, pricing rules, movers items/categories.
     from modules.express.seed import seed_express  # local import to avoid circulars
     await seed_express()
 
@@ -988,7 +988,7 @@ async def run_seed():
         import logging
         logging.getLogger("baked.seed").warning("search intents seed skipped: %s", e)
 
-    # FOODbakēd — demo microsite + QA partner. Guarantees the restaurant
+    # bFOOD — demo microsite + QA partner. Guarantees the restaurant
     # login (qa-burger@test.example / QaBurger123!) is always valid on a
     # fresh pod. Idempotent: coords use COALESCE, password_hash is reset
     # every boot so an operator-rotated password never locks QA out.

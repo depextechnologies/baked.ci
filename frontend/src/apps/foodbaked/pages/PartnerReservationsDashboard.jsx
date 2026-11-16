@@ -18,7 +18,7 @@ import { AlertTriangle, CheckCircle2, Circle, Loader2, CalendarClock, Settings, 
 import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext";
 import { useRestaurantNotifications } from "../components/RestaurantNotificationEngine";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const CHECKLIST_LABELS = {
   fr: {
@@ -151,8 +151,8 @@ export const PartnerReservationsDashboard = () => {
       {!isEnabled && (
         <div className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground" data-testid="partner-reservations-capability-off">
           {lang === "fr"
-            ? "La capacité de réservation n'est pas activée pour votre restaurant. Contactez l'équipe FOODbakēd si vous souhaitez l'activer."
-            : "Reservation capability is not enabled for your restaurant. Contact the FOODbakēd team to enable it."}
+            ? "La capacité de réservation n'est pas activée pour votre restaurant. Contactez l'équipe bFOOD si vous souhaitez l'activer."
+            : "Reservation capability is not enabled for your restaurant. Contact the bFOOD team to enable it."}
         </div>
       )}
 

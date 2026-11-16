@@ -69,7 +69,7 @@ export const AppSelectorSheet = ({ open, onClose }) => {
                   <Icon size={22} />
                 </div>
                 <div className="text-base font-bold leading-none">
-                  {m.label}<span className="text-muted-foreground font-normal">bakēd</span>
+                  b{m.label}
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1.5 leading-snug">{m.tagline}</div>
                 {isCurrent && (

@@ -1,5 +1,5 @@
 /**
- * MARTbakēd Supplier Portal — auth-gated home for approved suppliers.
+ * bMART Supplier Portal — auth-gated home for approved suppliers.
  *
  * Structure:
  *   /martbaked/sellers/portal          → Dashboard (home)
@@ -108,7 +108,7 @@ const NAV = [
   { to: "dashboard",         label: "Dashboard",        icon: LayoutDashboard },
   { to: "profile",           label: "Business Profile", icon: Building2 },
   { to: "catalogue",         label: "Catalogue",        icon: PackageSearch },
-  { to: "shop",              label: "SHOPbakēd",        icon: ShoppingBag },
+  { to: "shop",              label: "bSHOP",        icon: ShoppingBag },
   { to: "shop-orders",       label: "SHOP Orders",      icon: Truck },
   { to: "orders",            label: "Orders",           icon: ShoppingBag },
   { to: "invoices",          label: "Invoices",         icon: Receipt },

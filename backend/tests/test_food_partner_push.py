@@ -1,4 +1,4 @@
-"""Phase 4b regression — FOODbakēd partner Web Push subscriptions.
+"""Phase 4b regression — bFOOD partner Web Push subscriptions.
 
 Covers the control plane only (subscribe / unsubscribe / status / vapid):
 dispatching a REAL push through a push service inside pytest would be

@@ -10,7 +10,7 @@ import { useLocalePath } from "../../i18n/routes";
  *
  * ► Module-aware (Fixing_Prompt v5 §3, §6):
  *    Home and Categories now resolve their destination from the currently
- *    active module. Selecting SHOPbakēd changes:
+ *    active module. Selecting bSHOP changes:
  *        Home       → /shop
  *        Categories → /shop/categories
  *    and switches the active tab tint to SHOP amber. MART / other modules

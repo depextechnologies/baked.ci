@@ -1,4 +1,4 @@
-"""SENDbakēd Phase B — Vehicle catalogue + driver capabilities regression.
+"""bSEND Phase B — Vehicle catalogue + driver capabilities regression.
 
 Coverage:
 - GET /api/express/vehicles now returns 8 vehicles per country including 3

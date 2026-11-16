@@ -1,4 +1,4 @@
-"""SENDbakēd multi-stop lifecycle helpers.
+"""bSEND multi-stop lifecycle helpers.
 
 Owns two concerns:
   1) Enriching the customer-supplied `stops[]` payload at booking creation
@@ -148,14 +148,14 @@ async def dispatch_delivery_pins(booking) -> None:
         # French-first / English-second — no ambiguous translation.
         if total > 1:
             body = (
-                f"SENDbakēd — Colis {seq}/{total} (Réf {booking.ref}).\n"
+                f"bSEND — Colis {seq}/{total} (Réf {booking.ref}).\n"
                 f"Code de livraison: {pin}\n"
                 f"Communiquez-le au livreur uniquement à la remise du colis.\n"
                 f"— Delivery PIN: {pin} (share only at handover)."
             )
         else:
             body = (
-                f"SENDbakēd — Réf {booking.ref}.\n"
+                f"bSEND — Réf {booking.ref}.\n"
                 f"Code de livraison: {pin}\n"
                 f"Communiquez-le au livreur uniquement à la remise du colis.\n"
                 f"— Delivery PIN: {pin} (share only at handover)."

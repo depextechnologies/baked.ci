@@ -1,5 +1,5 @@
 /**
- * SENDbakēd Driver — Slice 1 (Auth + KYC + Dashboard).
+ * bSEND Driver — Slice 1 (Auth + KYC + Dashboard).
  *
  * Mobile-first, dark-mode-first PWA. Enforces a phone-shaped viewport so
  * the experience mirrors what will eventually ship as the Flutter driver
@@ -45,7 +45,7 @@ import { useDriverTheme } from "./useDriverTheme";
 
 // Brand assets — served straight from customer_assets CDN (no runtime upload needed).
 const DRIVER_BG_URL     = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/8fsl36ag_Background.png";
-const SENDBAKED_LOGO_URL = "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/9a9i5naj_SENDbakedDark.jpeg";
+const SENDBAKED_LOGO_URL = "/logos/v2/bsend-dark.png";
 
 /* -------------------------------------------------------------------------- */
 /*  API + auth context                                                         */
@@ -176,7 +176,7 @@ const Gate = () => {
 /* -------------------------------------------------------------------------- */
 
 const SLIDES = [
-  { icon: Truck,   title: "Deliver anything",   body: "Food · Groceries · Retail · Parcels — one app, every delivery type SENDbakēd offers." },
+  { icon: Truck,   title: "Deliver anything",   body: "Food · Groceries · Retail · Parcels — one app, every delivery type bSEND offers." },
   { icon: Wallet,  title: "Earn on your terms", body: "Base fare + distance + peak-hour bonuses + tips. See your earnings update after every drop." },
   { icon: Star,    title: "Ride, tap, thrive",  body: "One-tap online toggle, turn-by-turn navigation, and instant payouts to your bank." },
 ];
@@ -293,7 +293,7 @@ const LoginPage = () => {
         // Auto-register on first sign-in for a smoother flow (matches customer UX).
         try {
           const { data } = await driverApi.post("/driver/auth/email-register", { email: em, password, country });
-          toast.success("Account created — welcome to SENDbakēd!");
+          toast.success("Account created — welcome to bSEND!");
           await finishLogin(data);
         } catch (err2) { toast.error(errMsg(err2)); }
       } else { toast.error(errMsg(err)); }
@@ -345,7 +345,7 @@ const LoginPage = () => {
         <div className="relative pt-16 px-6" data-testid="driver-login-hero">
           <img
             src={SENDBAKED_LOGO_URL}
-            alt="SENDbakēd"
+            alt="bSEND"
             className="h-9 w-auto object-contain"
             style={{ mixBlendMode: "screen" }}
             onError={(e) => { e.currentTarget.style.display = "none"; }}
@@ -639,7 +639,7 @@ const ForgotPasswordPage = () => {
         </button>
 
         <div className="mt-6">
-          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>bSEND · Driver</div>
           <h1 className="text-3xl font-bold mt-3">
             {step === "email" ? <>Forgot your <span style={{ color: "#FF8A1E" }}>password?</span></> : <>Enter reset <span style={{ color: "#FF8A1E" }}>code</span></>}
           </h1>
@@ -1349,7 +1349,7 @@ const ComingSoonScreen = ({ title, tagline, icon: Icon = Clock }) => {
     <Phone>
       <DriverBottomNav />
       <div className="px-6 pt-10 pb-32 min-h-screen">
-        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>bSEND · Driver</div>
         <h1 className="text-3xl font-bold mt-2">{title}</h1>
         <p className="text-sm text-white/60 mt-2 max-w-[300px]">{tagline}</p>
         <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
@@ -1385,7 +1385,7 @@ const DriverProfilePage = () => {
     <Phone>
       <DriverBottomNav />
       <div className="px-6 pt-10 pb-32 min-h-screen" data-testid="driver-profile">
-        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>SENDbakēd · Driver</div>
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: "#FF8A1E" }}>bSEND · Driver</div>
         <h1 className="text-3xl font-bold mt-2 text-foreground">Profile</h1>
         <div className="mt-6 rounded-3xl border border-border bg-card p-5 flex items-center gap-4">
           {driver?.photo_url ? (
@@ -1657,7 +1657,7 @@ const DashboardPage = () => {
     };
   }, [activeExpressJob]);
 
-  // --- Phase A: SENDbakēd real-dispatch hook (GPS + WS + offer) ---
+  // --- Phase A: bSEND real-dispatch hook (GPS + WS + offer) ---
   const dispatch = useSendbakedDispatch({
     enabled: driver?.status === "approved" && !!driver?.is_online,
     hasActiveJob: !!activeJob && activeJob.status !== "offered",
@@ -1775,7 +1775,7 @@ const DashboardPage = () => {
       <div className="px-6 pt-8 pb-24" data-testid="driver-dashboard">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">SENDbakēd · Driver</div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-orange-500">bSEND · Driver</div>
             <h1 className="text-2xl font-bold mt-2">Hey {driver?.name?.split(" ")[0] || "Driver"} 👋</h1>
           </div>
           <button onClick={() => { logout(); nav("/driver/login"); }} className="w-10 h-10 grid place-items-center rounded-full bg-white/5 border border-white/10"
@@ -2422,7 +2422,7 @@ export const DriverApp = () => {
   const { theme } = useDriverTheme();
   useEffect(() => {
     const prev = document.title;
-    document.title = "SENDbakēd Driver";
+    document.title = "bSEND Driver";
     return () => { document.title = prev; };
   }, []);
   // NOTE: `useDriverTheme` toggles the .dark class on <html>, and the

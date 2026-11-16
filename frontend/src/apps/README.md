@@ -46,4 +46,4 @@ Nginx `server_name` rules — zero application-code changes required.
 - [ ] Phase 1b — Physically relocate customer/admin pages under `apps/*`
       and adopt yarn workspaces (deferred; not blocking).
 - [ ] Phase 2 — Build partner applications in the docx-defined order
-      (MARTbakēd Partner is next).
+      (bMART Partner is next).

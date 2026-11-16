@@ -22,12 +22,12 @@ import {
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const MODULE_META = {
-  mart: { label_fr: "MARTbakēd",  label_en: "MARTbakēd",  color: "#77BC1F", icon: ShoppingCart },
-  food: { label_fr: "FOODbakēd",  label_en: "FOODbakēd",  color: "#00A651", icon: Utensils },
-  shop: { label_fr: "SHOPbakēd",  label_en: "SHOPbakēd",  color: "#FCC44C", icon: ShoppingBag },
-  send: { label_fr: "SENDbakēd",  label_en: "SENDbakēd",  color: "#F3B300", icon: Package },
-  auto: { label_fr: "AUTObakēd",  label_en: "AUTObakēd",  color: "#9B87F5", icon: Store },
-  immo: { label_fr: "IMMObakēd",  label_en: "IMMObakēd",  color: "#EC4899", icon: Store },
+  mart: { label_fr: "bMART",  label_en: "bMART",  color: "#77BC1F", icon: ShoppingCart },
+  food: { label_fr: "bFOOD",  label_en: "bFOOD",  color: "#F26924", icon: Utensils },
+  shop: { label_fr: "bSHOP",  label_en: "bSHOP",  color: "#1D9BF0", icon: ShoppingBag },
+  send: { label_fr: "bSEND",  label_en: "bSEND",  color: "#FCC44C", icon: Package },
+  auto: { label_fr: "bAUTO",  label_en: "bAUTO",  color: "#FF4C52", icon: Store },
+  immo: { label_fr: "bIMMO",  label_en: "bIMMO",  color: "#A659FF", icon: Store },
 };
 
 const detectCountry = () => {

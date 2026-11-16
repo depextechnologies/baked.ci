@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — pricing engine.
+"""bSEND — pricing engine.
 
 100% configuration-driven. No hardcoded constants: every rate comes from
 `express_pricing_rules` (seeded once, editable from Super Admin).

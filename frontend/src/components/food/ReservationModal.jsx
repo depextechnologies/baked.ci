@@ -20,7 +20,7 @@ import axios from "axios";
 import { useAuth, useApp } from "../../contexts/BakedContexts";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const authHeaders = () => {
   const t = typeof window !== "undefined" ? localStorage.getItem("baked_access_token") : null;
@@ -153,7 +153,7 @@ export const ReservationModal = ({ restaurant, onClose, onCreated }) => {
       <div className="relative w-full md:max-w-lg md:rounded-2xl md:border md:border-border bg-background overflow-hidden max-h-[92vh] flex flex-col">
         <header className="border-b border-border p-4 flex items-center justify-between shrink-0">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">FOODbakēd · Reservations</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">bFOOD · Reservations</div>
             <h2 className="text-lg font-bold">Réserver une table <span className="text-muted-foreground text-sm font-medium">· Book a table</span></h2>
             <div className="text-xs text-muted-foreground truncate">{restaurant.name}</div>
           </div>

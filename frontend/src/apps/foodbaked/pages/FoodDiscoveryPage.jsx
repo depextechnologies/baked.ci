@@ -30,7 +30,7 @@ import { FoodFilterSheet } from "@/apps/foodbaked/components/FoodFilterSheet";
 
 const API = API_BASE;
 
-const GREEN = "#77BC1F";
+const GREEN = "#F26924";
 
 // ─── Small atoms ────────────────────────────────────────────────────────
 const Chip = ({ active, onClick, children, testId, danger }) => (

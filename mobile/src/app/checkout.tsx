@@ -82,7 +82,7 @@ export default function Checkout() {
           instructions: notes || undefined, client_request_id: `mart_${attempt.current}`,
         } });
         created.push({ module: 'mart', id: o.id });
-      } catch (e: any) { errors.push(`${MODULES.mart.label}bakēd: ${friendly(e)}`); }
+      } catch (e: any) { errors.push(`b${MODULES.mart.label}: ${friendly(e)}`); }
     }
     if (shop.length && address) {
       try {
@@ -93,7 +93,7 @@ export default function Checkout() {
           instructions: notes || picked?.instructions || undefined, client_request_id: `shop_${attempt.current}`,
         } });
         created.push({ module: 'shop' as any, id: o.id });
-      } catch (e: any) { errors.push(`${MODULES.shop.label}bakēd: ${friendly(e)}`); }
+      } catch (e: any) { errors.push(`b${MODULES.shop.label}: ${friendly(e)}`); }
     }
     const groups = food.reduce<Record<string, FoodLine[]>>((acc, l) => { (acc[l.restaurant_id] ||= []).push(l); return acc; }, {});
     for (const [rid, lines] of Object.entries(groups)) {
@@ -112,7 +112,7 @@ export default function Checkout() {
     if (created.length) { placed.current = true; setCheckoutAddressId(null); }
     await reload();
     setBusy(false);
-    if (errors.length && created.length) notify(t('co.partial_ok', { ok: created.map((c) => `${MODULES[c.module].label}bakēd`).join(', '), msg: errors.join('\n') }));
+    if (errors.length && created.length) notify(t('co.partial_ok', { ok: created.map((c) => `b${MODULES[c.module].label}`).join(', '), msg: errors.join('\n') }));
     else if (errors.length) notify(errors.join('\n'), t('co.failed_title'));
     if (created.length) {
       if (!errors.length) notify(t('co.success'));

@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — Phase 2 backend tests.
+"""bSEND — Phase 2 backend tests.
 
 Covers:
 - Regression: vehicles endpoint (5 vehicles CI, still active)

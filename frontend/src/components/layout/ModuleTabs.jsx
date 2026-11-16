@@ -39,7 +39,7 @@ export const ModuleTabs = () => {
     // coming-soon page from their own route so the highlight remains correct.
     navigate(m.route);
     if (m.status !== "active") {
-      toast(`${m.label}bakēd — Coming soon`, { description: m.tagline });
+      toast(`b${m.label} — Coming soon`, { description: m.tagline });
     }
   };
 

@@ -516,7 +516,7 @@ async def my_wallet(
             "type": "purchase",
             "kind": o.module or "mart",
             "icon": module_icons.get(o.module or "mart", "shopping-bag"),
-            "label": f"{(o.module or 'mart').upper()}bakēd Order",
+            "label": f"b{({'express': 'SEND'}).get(o.module or 'mart', (o.module or 'mart').upper())} Order",
             "reference": o.number,
             "order_id": o.id,
             "amount": -float(o.total or 0),  # negative for spend

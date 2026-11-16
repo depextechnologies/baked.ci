@@ -1,4 +1,4 @@
-"""SHOPbakēd — attribute definitions + subcategory assignments seed (Slice 3).
+"""bSHOP — attribute definitions + subcategory assignments seed (Slice 3).
 
 Six starter attributes (Size, Colour, RAM, Storage, Condition, Warranty)
 are seeded into the shared `mart_attributes` table with `module="shop"`

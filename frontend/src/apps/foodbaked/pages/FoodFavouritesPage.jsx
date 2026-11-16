@@ -20,7 +20,7 @@ import FavouriteButton from "../components/FavouriteButton";
 import FoodReorderDishModal from "../components/FoodReorderDishModal";
 
 const API   = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const authHeaders = () => {
   const t = typeof window !== "undefined" ? localStorage.getItem("baked_access_token") : null;

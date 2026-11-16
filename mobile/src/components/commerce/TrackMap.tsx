@@ -23,7 +23,7 @@ export function TrackMap({ origin, destination, driver, color }: Props) {
       <MapView style={StyleSheet.absoluteFill} region={region} userInterfaceStyle={getScheme()}>
         {ok(origin) ? <Marker coordinate={{ latitude: origin.lat, longitude: origin.lng }} pinColor={color} /> : null}
         {ok(destination) ? <Marker coordinate={{ latitude: destination.lat, longitude: destination.lng }} pinColor="#FFFFFF" /> : null}
-        {ok(driver) ? <Marker coordinate={{ latitude: driver.lat, longitude: driver.lng }} pinColor="#F5A524" /> : null}
+        {ok(driver) ? <Marker coordinate={{ latitude: driver.lat, longitude: driver.lng }} pinColor="#FCC44C" /> : null}
       </MapView>
     </View>
   );

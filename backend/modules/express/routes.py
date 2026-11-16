@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — customer-facing REST endpoints.
+"""bSEND — customer-facing REST endpoints.
 
 All configuration (vehicles, package types, pricing rules, mover items) lives
 in Postgres and is editable from Super Admin. Booking status transitions are
