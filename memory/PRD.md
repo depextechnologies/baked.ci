@@ -1966,3 +1966,8 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 - Native SHOP category: sub-category chips, sort chips, filter sheet (price, brands, stock, promo, clear), pagination; ShopCard with discount/out-of-stock badges, + quick add / stepper, VariantSheet for multi-variant (adds to existing qty).
 - Search: FOOD provider fixed (was crashing on Query defaults → no dishes), relevance sort + dedupe + boost dishes of matching restaurant, cuisine titles; typo correction via difflib vocabulary (`corrected_from`), SEND intent phrases extended (coursier, livreur, envoyer…); Explore navigates dishes→restaurant, shop→product, SEND intents→/send/book or /send/movers, "search all services" link.
 ### Round 3 — TODO: Edit Profile (name, email, photo upload via existing storage; phone change skipped by user), name placeholder "Add your name"; country/currency checks; new test APK (versionCode 4) via scripts/run-build-safely.sh.
+
+## Ops note (2026-11) — Expo Go iPhone failure root cause
+- /app volume (shared with /root) hit 100%: /root/.gradle (3.3G), npm cache, 5×100MB R8 mapping files. Metro then served broken 1-module bundles ("Cannot find native module ExpoAsset", "Could not connect to development server").
+- Fix: gradle home moved to /opt/gradle-home (symlink /root/.gradle), npm cache cleaned, only latest mapping kept gzipped (/app/signing/mapping-v6.txt.gz), Expo packages aligned with `npx expo install --fix` (expo 58.0.25 etc., react-native 0.88.1) and node_modules repaired. Keep an eye on `df -h /app` before builds.
+- expo-mobile supervisor command reads EXPO_TOKEN from backend/.env or /root/.expo-token (account depex19jan).
