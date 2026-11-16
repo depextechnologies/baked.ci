@@ -148,7 +148,7 @@ const GlobalSearchDropdown = ({ anchorRef, open, onClose, query, onPickResult })
                       <Ic size={16} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[10px] uppercase tracking-widest" style={{ color: M.color }}>
+                      <div className="text-[10px] tracking-widest" style={{ color: M.color }}>
                         {fr ? M.label_fr : M.label_en}
                       </div>
                       <div className="font-semibold text-sm">{it.action_label}</div>
@@ -170,7 +170,7 @@ const GlobalSearchDropdown = ({ anchorRef, open, onClose, query, onPickResult })
                   <div className="w-5 h-5 rounded flex items-center justify-center" style={{ backgroundColor: M.color }}>
                     <Ic size={10} className="text-black" />
                   </div>
-                  <div className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: M.color }}>
+                  <div className="text-[11px] tracking-widest font-semibold" style={{ color: M.color }}>
                     {fr ? M.label_fr : M.label_en} <span className="opacity-50">({g.count})</span>
                   </div>
                 </div>

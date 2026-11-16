@@ -19,11 +19,11 @@ export const PARTNER_MODULES = {
   // shell. Used for modules whose portals live outside the partner-portal
   // app (FOOD, SHOP, SEND).
   martbaked:  { code: "mart",    label: "bMART",  color: "#77BC1F", isLive: true,  backendModule: "mart"    },
-  shopbaked:  { code: "shop",    label: "bSHOP",  color: "#FCC44C", isLive: true,  backendModule: "shop",    ownerLoginHref: "/shopbaked/sellers/login" },
-  foodbaked:  { code: "food",    label: "bFOOD",  color: "#00A651", isLive: true,  backendModule: "food",    ownerLoginHref: "/partner/food/login" },
+  shopbaked:  { code: "shop",    label: "bSHOP",  color: "#1D9BF0", isLive: true,  backendModule: "shop",    ownerLoginHref: "/shopbaked/sellers/login" },
+  foodbaked:  { code: "food",    label: "bFOOD",  color: "#F26924", isLive: true,  backendModule: "food",    ownerLoginHref: "/partner/food/login" },
   autobaked:  { code: "auto",    label: "bAUTO",  color: "#9B87F5", isLive: false, backendModule: "auto"    },
   immobaked:  { code: "immo",    label: "bIMMO",  color: "#EC4899", isLive: false, backendModule: "immo"    },
-  sendbaked:  { code: "express", label: "bSEND",  color: "#F3B300", isLive: true,  backendModule: "express", ownerLoginHref: "/driver/login" },
+  sendbaked:  { code: "express", label: "bSEND",  color: "#FCC44C", isLive: true,  backendModule: "express", ownerLoginHref: "/driver/login" },
 };
 
 // The list order used by module-selector pages.

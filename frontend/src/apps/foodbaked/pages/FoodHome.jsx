@@ -259,7 +259,7 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
           </Link>
           <div className="max-w-2xl text-white py-10 space-y-5">
             {cfg.eyebrow && (
-              <div className="text-[11px] uppercase tracking-widest font-semibold text-white/70">{cfg.eyebrow}</div>
+              <div className="text-[11px] tracking-widest font-semibold text-white/70">{cfg.eyebrow}</div>
             )}
             <h1 className="text-4xl md:text-5xl font-bold leading-tight">
               {headline}

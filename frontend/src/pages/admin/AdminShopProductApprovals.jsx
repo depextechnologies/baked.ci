@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const BUCKETS = [
   { code: "pending",  label: "Pending",  color: "#3B82F6" },

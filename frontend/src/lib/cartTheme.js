@@ -6,7 +6,7 @@
  * in Fixing_Prompt v14 §4:
  *
  *   • MART_ONLY  → MART green (#77BC1F)
- *   • SHOP_ONLY  → SHOP gold  (#FCC44C)
+ *   • SHOP_ONLY  → SHOP blue  (#1D9BF0)
  *   • MIXED      → Neutral BAKĒD (#E5E7EB) — a deliberate signal that
  *                  multiple modules are represented, so we don't misbrand
  *                  the whole cart as either one.
@@ -32,11 +32,11 @@ const THEMES = {
     text_on:      "#000000",
   },
   SHOP_ONLY: {
-    accent:       "#FCC44C",
-    accent_soft:  "rgba(252,196,76,.16)",
-    accent_ring:  "#FCC44C66",
+    accent:       "#1D9BF0",
+    accent_soft:  "rgba(29,155,240,.16)",
+    accent_ring:  "#1D9BF066",
     label:        "bSHOP",
-    text_on:      "#000000",
+    text_on:      "#FFFFFF",
   },
   MIXED: {
     // Neutral BAKĒD — dominant on the shell while individual line items
@@ -75,5 +75,5 @@ export function getCartTheme(cart) {
 // aggregate mode (Fixing_Prompt §4: "Each cart line should retain its own
 // module identity where appropriate.").
 export function lineAccent(item) {
-  return item?.module === "shop" ? "#FCC44C" : "#77BC1F";
+  return item?.module === "shop" ? "#1D9BF0" : "#77BC1F";
 }

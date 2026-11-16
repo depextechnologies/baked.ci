@@ -28,8 +28,8 @@ import { Button } from "../ui/button";
 // Per-module chip colours — matches the CartPage row badges so the drawer
 // reads as the same information surface.
 const MODULE_BADGE = {
-  shop: { bg: "rgba(251,191,36,.15)",  fg: "#F59E0B", bd: "rgba(251,191,36,.3)", label: "SHOP" },
-  food: { bg: "rgba(239,68,68,.15)",   fg: "#EF4444", bd: "rgba(239,68,68,.3)",  label: "FOOD" },
+  shop: { bg: "rgba(29,155,240,.15)",  fg: "#1D9BF0", bd: "rgba(29,155,240,.3)", label: "bSHOP" },
+  food: { bg: "rgba(242,105,36,.15)",  fg: "#F26924", bd: "rgba(242,105,36,.3)", label: "bFOOD" },
   mart: { bg: "rgba(119,188,31,.15)",  fg: "#77BC1F", bd: "rgba(119,188,31,.3)", label: "MART" },
 };
 
@@ -422,7 +422,7 @@ export const CartDrawer = () => {
                 onClick={placeFoodOrders}
                 disabled={foodPlacing}
                 className="w-full mt-2 h-11 font-semibold disabled:opacity-60 text-black"
-                style={{ backgroundColor: "#00A651" }}
+                style={{ backgroundColor: "#F26924" }}
               >
                 {foodPlacing ? "…" : t("cart.food_checkout_cta")}
               </Button>

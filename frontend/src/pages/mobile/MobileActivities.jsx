@@ -18,7 +18,7 @@ const TABS_META = [
 ];
 
 const MODULE_LOGO = { mart: ShoppingCart, food: Utensils, shop: ShoppingBag, express: Truck };
-const MODULE_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#FCC44C", express: "#FCC44C" };
+const MODULE_TONE = { mart: "#77BC1F", food: "#F26924", shop: "#1D9BF0", express: "#FCC44C" };
 
 // SHOP orders live at /api/shop/orders/me — normalise them into the shared
 // row shape the Activities/Orders list understands (module, items, address).

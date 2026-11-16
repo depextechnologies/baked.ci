@@ -115,9 +115,9 @@ export const MobileCart = () => {
           // mobile cart used to have — FOOD items showed as MART because
           // the badge check only distinguished SHOP vs non-SHOP.
           const badge = isShop
-            ? { label: "SHOP", bg: "rgba(251,191,36,.15)", fg: "#F59E0B", bd: "rgba(251,191,36,.3)" }
+            ? { label: "bSHOP", bg: "rgba(29,155,240,.15)", fg: "#1D9BF0", bd: "rgba(29,155,240,.3)" }
             : isFood
-              ? { label: "FOOD", bg: "rgba(239,68,68,.15)", fg: "#EF4444", bd: "rgba(239,68,68,.3)" }
+              ? { label: "bFOOD", bg: "rgba(242,105,36,.15)", fg: "#F26924", bd: "rgba(242,105,36,.3)" }
               : { label: "MART", bg: "rgba(119,188,31,.15)", fg: "#77BC1F", bd: "rgba(119,188,31,.3)" };
           return (
             <div key={i.id} data-testid={`m-cart-line-${i.id}`} className="baked-card bg-card border border-border p-3 flex gap-3">

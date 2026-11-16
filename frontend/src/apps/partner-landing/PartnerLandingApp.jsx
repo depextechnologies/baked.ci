@@ -278,7 +278,7 @@ const HeroEcosystemIllustration = () => {
   const modules = [
     { code: "MART", icon: ShoppingBasket, color: "#77BC1F", angle: -90  },
     { code: "FOOD", icon: Utensils,       color: "#FF6B6B", angle: -30  },
-    { code: "SHOP", icon: ShoppingBag,    color: "#FCC44C", angle:  30  },
+    { code: "SHOP", icon: ShoppingBag,    color: "#1D9BF0", angle:  30  },
     { code: "EXPRESS", icon: Truck,       color: "#FCC44C", angle:  90  },
     { code: "AUTO", icon: Car,            color: "#9B87F5", angle: 150  },
     { code: "IMMO", icon: HomeIcon,       color: "#F97316", angle: 210  },
@@ -387,20 +387,20 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #77BC1F55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #77BC1F33, transparent 60%)",
   },
   {
-    code: "FOOD", label: "bFOOD", color: "#00A651", icon: Utensils,
+    code: "FOOD", label: "bFOOD", color: "#F26924", icon: Utensils,
     key: "food",
     cardHref: "/foodbaked/sellers",
     applyHref: "/foodbaked/sellers/apply",
     internal: true,
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #00A65155, transparent 60%), radial-gradient(500px 300px at 80% 70%, #00A65133, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #F2692455, transparent 60%), radial-gradient(500px 300px at 80% 70%, #F2692433, transparent 60%)",
   },
   {
-    code: "SHOP", label: "bSHOP", color: "#FCC44C", icon: ShoppingBag,
+    code: "SHOP", label: "bSHOP", color: "#1D9BF0", icon: ShoppingBag,
     key: "shop",
     cardHref: "/shopbaked/sellers",
     applyHref: "/shopbaked/sellers/apply",
     internal: true,
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #1D9BF055, transparent 60%), radial-gradient(500px 300px at 80% 70%, #1D9BF033, transparent 60%)",
   },
   {
     code: "EXPRESS", label: "bSEND", color: "#FCC44C", icon: Truck,

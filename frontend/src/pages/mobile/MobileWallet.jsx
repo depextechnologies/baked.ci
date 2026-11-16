@@ -11,7 +11,7 @@ import { MODULES } from "../../lib/modules";
 import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
 
 const KIND_ICON = { mart: ShoppingIcon, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
-const KIND_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#1D9BF0", express: "#FCC44C", auto: "#A659FF", immo: "#FF4C52" };
+const KIND_TONE = { mart: "#77BC1F", food: "#F26924", shop: "#1D9BF0", express: "#FCC44C", auto: "#FF4C52", immo: "#A659FF" };
 
 export const MobileWallet = () => {
   const { t } = useTranslation("customer");

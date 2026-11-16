@@ -368,7 +368,7 @@ export const CheckoutPage = () => {
               const label = isShop ? (it.title || it.product?.title) : it.product?.name;
               const curr = it.currency || it.product?.currency || country.currency;
               const chipBg = isShop ? "rgba(251,191,36,.15)" : isFood ? "rgba(239,68,68,.15)" : "rgba(119,188,31,.15)";
-              const chipFg = isShop ? "#F59E0B"              : isFood ? "#EF4444"              : "#77BC1F";
+              const chipFg = isShop ? "#1D9BF0"              : isFood ? "#F26924"              : "#77BC1F";
               const chipLabel = isShop ? "SHOP" : isFood ? "FOOD" : "MART";
               return (
                 <div key={it.id} className="flex justify-between" data-testid={`checkout-item-${it.id}`}>

@@ -25,9 +25,9 @@ const detectCountry = () => {
 
 const MODULE_META = {
   mart: { label_fr: "bMART", label_en: "bMART", color: "#77BC1F", icon: ShoppingCart },
-  food: { label_fr: "bFOOD", label_en: "bFOOD", color: "#00A651", icon: Utensils },
-  shop: { label_fr: "bSHOP", label_en: "bSHOP", color: "#FCC44C", icon: ShoppingBag },
-  send: { label_fr: "bSEND", label_en: "bSEND", color: "#F3B300", icon: Package },
+  food: { label_fr: "bFOOD", label_en: "bFOOD", color: "#F26924", icon: Utensils },
+  shop: { label_fr: "bSHOP", label_en: "bSHOP", color: "#1D9BF0", icon: ShoppingBag },
+  send: { label_fr: "bSEND", label_en: "bSEND", color: "#FCC44C", icon: Package },
   auto: { label_fr: "bAUTO", label_en: "bAUTO", color: "#9B87F5", icon: Store },
   immo: { label_fr: "bIMMO", label_en: "bIMMO", color: "#EC4899", icon: Store },
 };
@@ -134,7 +134,7 @@ const GlobalSearchResultsPage = () => {
                   <Ic size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] uppercase tracking-widest" style={{ color: M.color }}>
+                  <div className="text-[10px] tracking-widest" style={{ color: M.color }}>
                     {fr ? M.label_fr : M.label_en}
                   </div>
                   <div className="font-bold text-base">{it.action_label}</div>

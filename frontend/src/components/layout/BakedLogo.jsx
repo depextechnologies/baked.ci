@@ -50,24 +50,22 @@ const TextWordmark = ({ label, color, height, theme, className = "" }) => (
   </div>
 );
 
-// Per-module branded wordmark. Uses the official JPEG when available for the current theme;
+// Per-module branded wordmark. Uses the official logo when available for the current theme;
 // otherwise falls back to the text wordmark with the correct module colour.
 export const BrandedModuleLabel = ({ code, label, color, className = "", height = 22, forceTheme }) => {
   const { theme: appTheme } = useApp() || { theme: "dark" };
   const theme = forceTheme || appTheme;
   const asset = MODULE_LOGO[code];
-  const src = asset ? (theme === "dark" ? asset.dark : asset.light) : null;
+  const src = asset ? asset[theme] : null;
+  const m = getModule(code);
   if (!src) {
-    return <TextWordmark label={label} color={color} height={height} className={className} />;
+    return <TextWordmark label={label || m.label} color={color || m.color} height={height} theme={theme} className={className} />;
   }
-  // Express module has been rebranded to bSEND in the UI — reflect this
-  // in the alt text without touching the internal `code`.
-  const altBrand = code === "express" ? "bSEND" : `${label}bakēd`;
   return (
     <img
       src={src}
-      alt={altBrand}
-      className={`inline-block select-none ${theme === "dark" ? "logo-blend-dark" : "logo-blend-light"} ${className}`}
+      alt={`b${label || m.label}`}
+      className={`inline-block select-none ${className}`}
       style={{ height, width: "auto" }}
       draggable={false}
     />

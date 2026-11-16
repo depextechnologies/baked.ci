@@ -91,7 +91,7 @@ export default function Explore() {
       <AppText weight="black" size={28} style={styles.title}>{t('explore.title')}</AppText>
       <View style={styles.search}>
         <Search color={colors.textMuted} size={20} />
-        <TextInput ref={input} testID="explore-search-input" value={q} onChangeText={setQ} placeholder={scoped ? `${t('home.search_ph')} · ${MODULES[activeContext as ModuleCode].label}` : t('explore.ph')}
+        <TextInput ref={input} testID="explore-search-input" value={q} onChangeText={setQ} placeholder={scoped ? `${t('home.search_ph')} · b${MODULES[activeContext as ModuleCode].label}` : t('explore.ph')}
           placeholderTextColor={colors.textDim} style={styles.input} autoCorrect={false} returnKeyType="search" onSubmitEditing={run} />
         {loading ? <ActivityIndicator color={colors.text} testID="explore-loading" /> : null}
         {q ? (

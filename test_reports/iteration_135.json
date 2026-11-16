@@ -1,0 +1,59 @@
+{
+  "summary": "Brand refresh testing (bMART/bFOOD/bSHOP/bSEND/bAUTO/bIMMO). I checked the config API, the website in dark and light mode (home, /food, /shop, /send, /auto, /immo, shop product page, cart drawer, the search dropdown and the /search results page), the admin dashboard and the 6 module workspaces, the food partner login and dashboard, and the mobile preview (home tiles, module switcher, Explorer, light mode via Profile > Appearance, and the bFOOD/bSHOP/bSEND module homes). The main surfaces are correct. I found several old colours and names still in the code: bFOOD shows green on the /search results page, SHOP cart chips and the cart CTA are still amber/gold, bAUTO/bIMMO show a dark badge in dark mode, and the website logo images still have alt text like 'MARTbakēd'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BakedLogo.jsx BrandedModuleLabel -> TextWordmark", "issue": "The `theme` prop is never passed to TextWordmark (line 61), so it always uses BADGE.light (a black square). In DARK mode the bAUTO/bIMMO website tabs, and any text-logo fallback, show a black badge on a black background that you can barely see. Fix: pass theme={theme}.", "selector": "[data-testid=module-tab-auto], [data-testid=module-tab-immo]", "priority": "MEDIUM"},
+      {"component": "BakedLogo.jsx BrandedModuleLabel", "issue": "The image alt text is still the old name: alt=`${label}bakēd` gives 'MARTbakēd', 'FOODbakēd' and 'SHOPbakēd' on every page (only express gives 'bSEND'). Should be `b${label}`.", "selector": "[data-testid^=module-tab-] img", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Website /search?q=burger (GlobalSearchResultsPage.jsx MODULE_META)", "issues": ["food colour is still #00A651 green: the bFOOD group header and prices show green", "shop is #FCC44C (gold), send is #F3B300, auto is #9B87F5 and immo is #EC4899. None of these match the registry (shop #1D9BF0, send #FCC44C, auto #FF4C52, immo #A659FF)"]},
+      {"screen": "Website cart drawer / cart page / checkout summary", "issues": ["lib/cartTheme.js: a SHOP-only cart uses #FCC44C gold as the accent, so the cart-drawer-checkout button is yellow for shop items. Lines 9, 35, 37 and 78.", "CartDrawer.jsx MODULE_BADGE: the shop chip is #F59E0B amber and the food chip is #EF4444 red. The labels are 'SHOP'/'FOOD'/'MART' with no b-prefix.", "CartDrawer.jsx line 425: the food checkout button is still #00A651 green", "CheckoutPage.jsx line 371: chipFg uses shop #F59E0B and food #EF4444, and labels have no b-prefix", "CartPage.jsx line 106: the shop badge is #F59E0B amber"]},
+      {"screen": "Mobile web pages inside the frontend (pages/mobile)", "issues": ["MobileCart.jsx line 118: shop badge is #F59E0B and food badge is #EF4444", "MobileActivities.jsx: shop is #FCC44C and food is #FF7043", "MobileWallet.jsx: food is #FF7043, and auto/immo colours are swapped (auto #A659FF, immo #FF4C52)"]},
+      {"screen": "Admin bSHOP pages", "issues": ["SHOP_ACCENT = '#FCC44C' in AdminShopCatalog, AdminShopProductApprovals, AdminShopAttributes and AdminShopProducts", "MOD_ACCENT shop is #FCC44C in AdminSuppliersShell and AdminSupplierApplications"]},
+      {"screen": "Partner portal / seller / partner landing", "issues": ["apps/partner-portal/moduleRegistry.js: bSHOP is #FCC44C and bFOOD is #00A651", "apps/martbaked-sellers/SellerApp.jsx line 52: bSHOP accent is #FCC44C", "apps/partner-landing/PartnerLandingApp.jsx lines 281, 390 and 398: SHOP is #FCC44C and FOOD is #00A651"]},
+      {"screen": "Food pages (web /food and mobile bFOOD home)", "issues": ["The address banner 'Choisir l'adresse' button is amber #F59E0B (mobile FoodSections.tsx addrBtn and Blocks.tsx DEEP). It might be intended as a warning style, but it clashes with the orange accent."]},
+      {"screen": "Naming leftovers (no-b prefix)", "issues": ["mobile src/lib/i18n-commerce.ts cart.empty_sub: 'Ajoutez des courses MART ou des plats FOOD' should say bMART/bFOOD", "mobile module search placeholder says 'Rechercher sur BAKED · FOOD' / 'BAKED · SHOP'", "Several labels use CSS uppercase, which turns 'bFOOD' into 'BFOOD': the search dropdown group labels, the hero pill 'BMART', the /food eyebrow 'BFOOD' and the admin dashboard module cards", "/send service images (Cargo, Intervilles, Envois multiples) and the vehicle artwork still show 'SENDbakēd' painted into the image files", "Mobile welcome hero art: the food tile has a green glow and the shop tile an amber glow (old colours in the image asset)"]},
+      {"screen": "Admin sidebar (light)", "issues": ["The top-left platform logo is nearly invisible on the white sidebar. Possibly an earlier issue: LOGO.primary dark/light file names look swapped (Baked_Black for dark, Baked_White for light)."]}
+    ]
+  },
+  "passed_checks": [
+    "GET /api/config/modules returns bMART/bFOOD/bSHOP/bSEND/bAUTO/bIMMO with mart #77BC1F, food #F26924, shop #1D9BF0, express #FCC44C, auto #FF4C52, immo #A659FF",
+    "Website dark mode: tabs show the official PNG logos for mart/food/shop/express from /logos/v2; no broken logo images; auto/immo show text logos",
+    "Website light mode: all 6 tabs show the black badge with the name in the module colour (FOOD rgb(242,105,36), SHOP rgb(29,155,240) etc.)",
+    "No visible text 'XXXbakēd' on /, /food, /shop, /send, /auto, /immo, the shop product page, admin or the partner app",
+    "Search dropdown: 'burger' gives the bFOOD group in orange; 'lait' gives the bMART group in green",
+    "/shop and the product page use #1D9BF0 blue with no amber found; /send uses yellow",
+    "Admin sidebar lists bMART..bIMMO in their colours; the 6 workspaces show bNAME headers in the module accent",
+    "Food partner: login header 'bFOOD' is orange; the dashboard accents are #F26924",
+    "Mobile: home tiles show bSEND/bFOOD/bMART/bSHOP/bIMMO/bAUTO with the right tints; switcher and Explorer show brand-logo-{mart,food,shop,express} (images load at 900px) and brand-text-{auto,immo}; light mode (app-root-light) shows brand-text-* for all 6 with coloured names; bFOOD home is orange, bSHOP blue, bSEND yellow"
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "BakedLogo.jsx: pass theme to TextWordmark (dark-mode badge for bAUTO/bIMMO) and change the alt text to `b${label}`",
+    "GlobalSearchResultsPage.jsx MODULE_META: food #F26924, shop #1D9BF0, send #FCC44C, auto #FF4C52, immo #A659FF",
+    "lib/cartTheme.js: change the SHOP accent from #FCC44C to #1D9BF0",
+    "Cart chips: change shop to #1D9BF0 and food to #F26924, with labels bSHOP/bFOOD/bMART, in CartDrawer.jsx (incl. the food CTA #00A651 on line 425), CheckoutPage.jsx, CartPage.jsx and pages/mobile/MobileCart.jsx",
+    "Change SHOP_ACCENT / MOD_ACCENT #FCC44C to #1D9BF0 in the admin shop pages, AdminSuppliersShell and AdminSupplierApplications",
+    "partner-portal/moduleRegistry.js, martbaked-sellers/SellerApp.jsx, partner-landing/PartnerLandingApp.jsx: shop #1D9BF0, food #F26924",
+    "MobileWallet.jsx / MobileActivities.jsx: food #F26924, shop #1D9BF0; fix the auto/immo swap",
+    "Mobile i18n cart.empty_sub and the search placeholder: use bMART/bFOOD/bSHOP names",
+    "Decide whether uppercase CSS ('BFOOD') is acceptable for the brand casing; if not, remove `uppercase` on the brand labels",
+    "Asset follow-up: /send service images and the welcome hero art still show the old SENDbakēd branding and old tile glows"
+  ],
+  "critical_code_review_comments": [
+    "Module colours are duplicated as hard-coded hex values in 15+ files instead of using getModule(code).color from lib/modules.js. That is why so many leftovers were missed. Centralise them.",
+    "TextWordmark has a `theme` param, but its only caller does not pass it."
+  ],
+  "test_credentials": "Admin password in /app/memory/test_credentials.md (baked@2026#!$@) works; 'depex12345' from the review request FAILS. Food partner qa-burger@test.example / QaBurger123! works at /partner/food/login. Mobile customer +225 0700000098 with the on-screen dev OTP works.",
+  "updated_files": [],
+  "success_rate": {"backend": "100% (config GET)", "frontend": "~80% of the requested checks pass; many old colours remain in secondary screens (search results page, cart, admin shop pages, partner portal)"},
+  "seed_data_creation": "None. A bSHOP product was added to an anonymous browser cart; mobile test customer's appearance was set to light (local preference).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Branding round. Re-check: the /search?q=burger colours, the cart drawer with a shop item (CTA/chip colours), the bAUTO/bIMMO badge in website dark mode (should be badge-on-dark.png), img alt text, and the admin shop pages accent. Mobile preview flow: wait 8s, tap Passer, then welcome-phone-login > login-phone-input 0700000098 > login-submit > type the 6-digit code shown on screen. Appearance: tab-profile > profile-item-appearance > appearance-option-light."
+}

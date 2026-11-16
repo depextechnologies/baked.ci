@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Package, Search, ExternalLink, Filter, ShoppingBag } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const STATUS_META = {
   draft:          { label: "Draft",     color: "#6B7280" },

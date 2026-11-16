@@ -103,7 +103,7 @@ export const CartPage = () => {
                     className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded"
                     style={{
                       background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
-                      color: isShop ? "#F59E0B" : "#77BC1F",
+                      color: isShop ? "#1D9BF0" : "#77BC1F",
                       border: `1px solid ${isShop ? "rgba(251,191,36,.3)" : "rgba(119,188,31,.3)"}`,
                     }}
                     data-testid={`cart-module-badge-${it.id}`}

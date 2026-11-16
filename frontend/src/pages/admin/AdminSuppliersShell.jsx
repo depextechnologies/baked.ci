@@ -24,7 +24,7 @@ export const AdminSuppliersShell = () => {
   const code = ctx.code || "mart";
   const module = code === "shop" ? "shop" : "mart";
   const MOD_LABEL = module === "shop" ? "bSHOP" : "bMART";
-  const MOD_ACCENT = module === "shop" ? "#FCC44C" : "#77BC1F";
+  const MOD_ACCENT = module === "shop" ? "#1D9BF0" : "#77BC1F";
 
   const visibleTabs = TABS.filter((t) => !t.martOnly || module === "mart");
   const [params, setParams] = useSearchParams();

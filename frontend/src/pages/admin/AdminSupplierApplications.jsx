@@ -48,7 +48,7 @@ export const AdminSupplierApplications = ({ embedded = false, module = "mart" })
   // just adds `module=SHOP` so only suppliers with SHOP in their modules[]
   // JSONB array appear.
   const MOD_LABEL = module === "shop" ? "bSHOP" : "bMART";
-  const MOD_ACCENT = module === "shop" ? "#FCC44C" : "#77BC1F";
+  const MOD_ACCENT = module === "shop" ? "#1D9BF0" : "#77BC1F";
 
   const load = async () => {
     setBusy(true);

@@ -49,7 +49,7 @@ const SELLER_MODULE_PROFILES = {
     code_prefix: "MART",
   },
   shop: {
-    code: "shop", label: "bSHOP", accent: "#FCC44C",
+    code: "shop", label: "bSHOP", accent: "#1D9BF0",
     basePath: "/shopbaked/sellers", tagline: "Seller Program",
     hero_desc: "List your fashion, electronics or home goods on bSHOP — vetted marketplace, national reach, seller-shipped fulfilment.",
     code_prefix: "SHOP",

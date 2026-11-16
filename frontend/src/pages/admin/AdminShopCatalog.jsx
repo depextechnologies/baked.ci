@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;

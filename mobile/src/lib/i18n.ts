@@ -19,7 +19,7 @@ const frBase = {
 
   'onb.1.title': 'Bienvenue sur BAKED',
   'onb.1.body': 'Une seule app pour tout ce dont vous avez besoin, au quotidien.',
-  'onb.2.title': 'FOOD, MART, SHOP et SEND',
+  'onb.2.title': 'bFOOD, bMART, bSHOP et bSEND',
   'onb.2.body': 'Repas, courses, shopping et livraisons — réunis au même endroit.',
   'onb.3.title': 'Commandez, envoyez, suivez',
   'onb.3.body': 'Suivez chaque commande et chaque colis en temps réel, en toute simplicité.',
@@ -137,7 +137,7 @@ const frBase = {
   'activity.title': 'Activité',
   'activity.all': 'Tout',
   'activity.empty': 'Aucune commande pour le moment.',
-  'activity.empty_sub': 'Vos commandes MART, FOOD, SHOP et réservations SEND apparaîtront ici.',
+  'activity.empty_sub': 'Vos commandes bMART, bFOOD, bSHOP et réservations bSEND apparaîtront ici.',
 
   'profile.title': 'Profil',
   'profile.guest': 'Invité',
@@ -247,7 +247,7 @@ const enBase: Record<keyof typeof frBase, string> = {
 
   'onb.1.title': 'Welcome to BAKED',
   'onb.1.body': 'One app for everything you need, every day.',
-  'onb.2.title': 'FOOD, MART, SHOP and SEND',
+  'onb.2.title': 'bFOOD, bMART, bSHOP and bSEND',
   'onb.2.body': 'Meals, groceries, shopping and deliveries — all in one place.',
   'onb.3.title': 'Order, send, track',
   'onb.3.body': 'Track every order and every parcel in real time, seamlessly.',
@@ -365,7 +365,7 @@ const enBase: Record<keyof typeof frBase, string> = {
   'activity.title': 'Activity',
   'activity.all': 'All',
   'activity.empty': 'No orders yet.',
-  'activity.empty_sub': 'Your MART, FOOD, SHOP orders and SEND bookings will appear here.',
+  'activity.empty_sub': 'Your bMART, bFOOD, bSHOP orders and bSEND bookings will appear here.',
 
   'profile.title': 'Profile',
   'profile.guest': 'Guest',
