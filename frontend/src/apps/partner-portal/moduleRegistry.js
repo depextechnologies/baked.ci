@@ -21,8 +21,8 @@ export const PARTNER_MODULES = {
   martbaked:  { code: "mart",    label: "bMART",  color: "#77BC1F", isLive: true,  backendModule: "mart"    },
   shopbaked:  { code: "shop",    label: "bSHOP",  color: "#1D9BF0", isLive: true,  backendModule: "shop",    ownerLoginHref: "/shopbaked/sellers/login" },
   foodbaked:  { code: "food",    label: "bFOOD",  color: "#F26924", isLive: true,  backendModule: "food",    ownerLoginHref: "/partner/food/login" },
-  autobaked:  { code: "auto",    label: "bAUTO",  color: "#9B87F5", isLive: false, backendModule: "auto"    },
-  immobaked:  { code: "immo",    label: "bIMMO",  color: "#EC4899", isLive: false, backendModule: "immo"    },
+  autobaked:  { code: "auto",    label: "bAUTO",  color: "#FF4C52", isLive: false, backendModule: "auto"    },
+  immobaked:  { code: "immo",    label: "bIMMO",  color: "#A659FF", isLive: false, backendModule: "immo"    },
   sendbaked:  { code: "express", label: "bSEND",  color: "#FCC44C", isLive: true,  backendModule: "express", ownerLoginHref: "/driver/login" },
 };
 

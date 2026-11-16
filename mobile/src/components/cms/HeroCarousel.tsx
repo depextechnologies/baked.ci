@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { capsBrand } from '@/lib/format';
 import { router } from 'expo-router';
 import { ArrowRight, Sparkles } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -47,7 +48,7 @@ export function HeroCarousel({ section, accent, module, width }: SectionProps) {
                 fallback={<LinearGradient colors={['#0a0a0a', `${accent}66`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} testID={`cms-hero-img-fallback-${i}`} />} />
               <LinearGradient colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.05)']} locations={[0, 0.45, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
               <View style={styles.body}>
-                {eyebrow ? <View style={styles.row}><Sparkles color={accent} size={11} /><AppText size={10} weight="semibold" color={accent} style={styles.eyebrow}>{eyebrow}</AppText></View> : null}
+                {eyebrow ? <View style={styles.row}><Sparkles color={accent} size={11} /><AppText size={10} weight="semibold" color={accent} style={styles.eyebrow}>{capsBrand(eyebrow)}</AppText></View> : null}
                 {badge ? <View style={[styles.badge, { backgroundColor: accent }]}><AppText size={10} weight="bold" color="#0a0a0a">{badge}</AppText></View> : null}
                 <AppText weight="bold" size={screen >= 768 ? 34 : 21} style={{ lineHeight: screen >= 768 ? 40 : 26 }} numberOfLines={3} testID={`cms-hero-headline-${i}`}>{pick(s, 'headline', lang)}</AppText>
                 {desc ? <AppText size={13} color="#D4D4D4" numberOfLines={2} style={{ marginTop: 8, maxWidth: 520 }}>{desc}</AppText> : null}
@@ -74,7 +75,7 @@ const styles = themed(() => StyleSheet.create({
   wrap: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#262626', backgroundColor: '#0a0a0a' },
   body: { flex: 1, justifyContent: 'center', paddingHorizontal: 22, paddingTop: 16, paddingBottom: 30, maxWidth: 640 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  eyebrow: { letterSpacing: 1.6, textTransform: 'uppercase' },
+  eyebrow: { letterSpacing: 1.6 },
   badge: { alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4, marginTop: 8, marginBottom: 4 },
   cta: { height: 38, paddingHorizontal: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   cta2: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },

@@ -100,15 +100,15 @@ export const CartPage = () => {
                 <div className="flex items-center gap-2">
                   <div className="text-sm font-semibold truncate">{productLike?.name}</div>
                   <span
-                    className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded"
+                    className="text-[9px] tracking-widest font-semibold px-1.5 py-0.5 rounded"
                     style={{
-                      background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
+                      background: isShop ? "rgba(29,155,240,.15)" : "rgba(119,188,31,.15)",
                       color: isShop ? "#1D9BF0" : "#77BC1F",
-                      border: `1px solid ${isShop ? "rgba(251,191,36,.3)" : "rgba(119,188,31,.3)"}`,
+                      border: `1px solid ${isShop ? "rgba(29,155,240,.3)" : "rgba(119,188,31,.3)"}`,
                     }}
                     data-testid={`cart-module-badge-${it.id}`}
                   >
-                    {isShop ? "SHOP" : "MART"}
+                    {isShop ? "bSHOP" : "bMART"}
                   </span>
                 </div>
                 <div className="text-[11px] text-muted-foreground">{productLike?.unit} · {productLike?.brand}</div>

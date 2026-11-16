@@ -277,11 +277,11 @@ const HeroSection = () => {
 const HeroEcosystemIllustration = () => {
   const modules = [
     { code: "MART", icon: ShoppingBasket, color: "#77BC1F", angle: -90  },
-    { code: "FOOD", icon: Utensils,       color: "#FF6B6B", angle: -30  },
+    { code: "FOOD", icon: Utensils,       color: "#F26924", angle: -30  },
     { code: "SHOP", icon: ShoppingBag,    color: "#1D9BF0", angle:  30  },
     { code: "EXPRESS", icon: Truck,       color: "#FCC44C", angle:  90  },
-    { code: "AUTO", icon: Car,            color: "#9B87F5", angle: 150  },
-    { code: "IMMO", icon: HomeIcon,       color: "#F97316", angle: 210  },
+    { code: "AUTO", icon: Car,            color: "#FF4C52", angle: 150  },
+    { code: "IMMO", icon: HomeIcon,       color: "#A659FF", angle: 210  },
   ];
   const radius = 170;
   return (
@@ -411,18 +411,18 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
-    code: "AUTO", label: "bAUTO", color: "#9B87F5", icon: Car,
+    code: "AUTO", label: "bAUTO", color: "#FF4C52", icon: Car,
     key: "auto",
     cardHref: "https://auto.partner.baked.ci",
     applyHref: "https://auto.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #9B87F555, transparent 60%), radial-gradient(500px 300px at 80% 70%, #9B87F533, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FF4C5255, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FF4C5233, transparent 60%)",
   },
   {
-    code: "IMMO", label: "bIMMO", color: "#F97316", icon: HomeIcon,
+    code: "IMMO", label: "bIMMO", color: "#A659FF", icon: HomeIcon,
     key: "immo",
     cardHref: "https://immo.partner.baked.ci",
     applyHref: "https://immo.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #F9731655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #F9731633, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #A659FF55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #A659FF33, transparent 60%)",
   },
 ];
 

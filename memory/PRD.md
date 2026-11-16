@@ -1,6 +1,14 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
-## Latest (2026-06) — Round 3: Edit Profile + 3 pending fixes + test APK v4 — COMPLETE (iteration_134: backend 22/22, frontend all flows)
+## Latest (2026-06) — Brand refresh, DARK version (iterations 135–136)
+- Modules renamed everywhere (website, admin, partner/seller portals, mobile app, backend text, DB data): bMART #77BC1F, bFOOD #F26924, bSHOP #1D9BF0, bSEND #FCC44C (was EXPRESS/SENDbakēd), bIMMO #A659FF, bAUTO #FF4C52. Internal module codes/routes unchanged (`express`, `/foodbaked/...`).
+- Official dark logos (user files, background removed → transparent PNG) at `mobile/assets/images/brand/b{food,mart,send,shop}-dark.png` and `frontend/public/logos/v2/`. Light mode + IMMO/AUTO use a TEXT logo (b-badge `badge-on-light/dark.png` + name in module colour) — swap in light files when the user supplies them (`MODULE_LOGO[code].light` in BakedLogo.jsx, `DARK_LOGO` → add LIGHT map in mobile BrandName.tsx).
+- DB migrations 0073 (rename stored text: configurations, homepage_sections, search_intents, mart_stores, shop_products) and 0074 (CMS per-module accents). Seeds updated.
+- Helpers: mobile `capsBrand()` (uppercase but keep bFOOD), `brandName(code)`; web `brandName(code)` in lib/modules.js.
+- Known leftovers: some service/vehicle artwork images have "SENDbakēd" painted in; onboarding illustration glows; admin sidebar light-mode platform logo low visibility (pre-existing); a few broken demo product/category images.
+- Pending: light-mode logos from user, then new APK (version code 5) + Expo Go refresh.
+
+## Previous (2026-06) — Round 3: Edit Profile + 3 pending fixes + test APK v4 — COMPLETE (iteration_134: backend 22/22, frontend all flows)
 - **Edit Profile** (`mobile/src/app/profile-edit.tsx`, `components/profile/{Avatar,PhotoSheet,PhoneChange}.tsx`): name, email (saved straight away; format + case-insensitive duplicate check), photo from camera or gallery (expo-image-picker, square crop, 5 MB, JPG/PNG/WEBP/HEIC), remove photo, phone change verified by a NEW SMS code. Profile tab card shows avatar/initial and opens the editor.
 - Backend (`shared/customer/routes.py`): PATCH /customers/me validation (422 invalid_name/invalid_email, 409 email_taken); POST/DELETE /customers/me/photo (stored via object_storage, served at GET /api/customers/photos/{key}; old file deleted on replace/remove/account delete); POST /customers/me/phone/request + /verify (409 phone_taken/same_phone, 422 invalid_phone, 429 rate limit, dev_code in non-prod).
 - **Image fallback**: `components/ui/SafeImage.tsx` (retries 2x with back-off, then module fallback in the same box) used by home tiles, category rows, promo slider, hero carousel, category grid, product thumbs, search thumbs.

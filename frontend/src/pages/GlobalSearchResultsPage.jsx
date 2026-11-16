@@ -28,8 +28,8 @@ const MODULE_META = {
   food: { label_fr: "bFOOD", label_en: "bFOOD", color: "#F26924", icon: Utensils },
   shop: { label_fr: "bSHOP", label_en: "bSHOP", color: "#1D9BF0", icon: ShoppingBag },
   send: { label_fr: "bSEND", label_en: "bSEND", color: "#FCC44C", icon: Package },
-  auto: { label_fr: "bAUTO", label_en: "bAUTO", color: "#9B87F5", icon: Store },
-  immo: { label_fr: "bIMMO", label_en: "bIMMO", color: "#EC4899", icon: Store },
+  auto: { label_fr: "bAUTO", label_en: "bAUTO", color: "#FF4C52", icon: Store },
+  immo: { label_fr: "bIMMO", label_en: "bIMMO", color: "#A659FF", icon: Store },
 };
 
 const GlobalSearchResultsPage = () => {

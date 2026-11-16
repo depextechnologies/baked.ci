@@ -30,14 +30,14 @@ import { Button } from "../ui/button";
 const MODULE_BADGE = {
   shop: { bg: "rgba(29,155,240,.15)",  fg: "#1D9BF0", bd: "rgba(29,155,240,.3)", label: "bSHOP" },
   food: { bg: "rgba(242,105,36,.15)",  fg: "#F26924", bd: "rgba(242,105,36,.3)", label: "bFOOD" },
-  mart: { bg: "rgba(119,188,31,.15)",  fg: "#77BC1F", bd: "rgba(119,188,31,.3)", label: "MART" },
+  mart: { bg: "rgba(119,188,31,.15)",  fg: "#77BC1F", bd: "rgba(119,188,31,.3)", label: "bMART" },
 };
 
 const ModuleChip = ({ module, itemId }) => {
   const style = MODULE_BADGE[module] || MODULE_BADGE.mart;
   return (
     <span
-      className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
+      className="text-[9px] tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
       style={{ background: style.bg, color: style.fg, border: `1px solid ${style.bd}` }}
       data-testid={`cart-drawer-module-badge-${itemId}`}
     >
@@ -370,7 +370,7 @@ export const CartDrawer = () => {
               </div>
               {hasMart && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (MART)</span>
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (bMART)</span>
                   <span className="font-medium" data-testid="cart-drawer-delivery-mart">
                     {martDelivery === 0 ? t("cart.delivery_free") : formatMoney(martDelivery, country?.currency, country?.currency_symbol)}
                   </span>
@@ -378,7 +378,7 @@ export const CartDrawer = () => {
               )}
               {hasShop && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (SHOP)</span>
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (bSHOP)</span>
                   <span className="text-[11px] text-muted-foreground">
                     {t("cart.delivery_shop_note")}
                   </span>
@@ -386,7 +386,7 @@ export const CartDrawer = () => {
               )}
               {hasFood && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (FOOD)</span>
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (bFOOD)</span>
                   <span className="font-medium" data-testid="cart-drawer-delivery-food">
                     {foodDelivery === 0
                       ? t("cart.delivery_free")

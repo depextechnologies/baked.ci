@@ -46,7 +46,7 @@ export const BakedLogo = ({ size = "md", className = "", "data-testid": testId }
 const TextWordmark = ({ label, color, height, theme, className = "" }) => (
   <div className={`inline-flex items-center leading-none whitespace-nowrap ${className}`} style={{ gap: height * 0.18 }} aria-label={`b${label}`}>
     <img src={theme === "dark" ? BADGE.dark : BADGE.light} alt="" style={{ height, width: height }} draggable={false} />
-    <span className="font-extrabold" style={{ color, fontSize: height * 0.86, letterSpacing: "-0.02em" }}>{label}</span>
+    <span className="font-extrabold" style={{ color: theme === "light" && /^#FCC44C$/i.test(color) ? "#B98A12" : color, fontSize: height * 0.86, letterSpacing: "-0.02em" }}>{label}</span>
   </div>
 );
 
