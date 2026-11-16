@@ -7,7 +7,7 @@
 - Helpers: mobile `capsBrand()` (uppercase but keep bFOOD), `brandName(code)`; web `brandName(code)` in lib/modules.js.
 - Known leftovers: some service/vehicle artwork images have "SENDbakēd" painted in; onboarding illustration glows; admin sidebar light-mode platform logo low visibility (pre-existing); a few broken demo product/category images.
 - Light-mode official logos added (iteration 137, 100%): `b{food,mart,send,shop}-light.png` (white bg removed) in mobile `assets/images/brand/` + web `public/logos/v2/`; BrandName.tsx uses LIGHT_LOGO/DARK_LOGO, BakedLogo.jsx MODULE_LOGO[code].light. bIMMO/bAUTO official dark+light logos added too (b{immo,auto}-{dark,light}.png) — all six modules now use official files; coming-soon rows show the logo at 55% opacity on mobile.
-- Test APK v5 (versionCode 5, ci.baked.app, BAKED, signed): /downloads/baked-test-v5-fd693f80bcc5579b.apk; mapping at /app/signing/mapping-v5.txt.
+- Test APK v6 (versionCode 6, ci.baked.app, BAKED, signed, all 12 official logos): /downloads/baked-test-v6-c696ca1c4fa77a01.apk; mapping at /app/signing/mapping-v6.txt.
 
 ## Previous (2026-06) — Round 3: Edit Profile + 3 pending fixes + test APK v4 — COMPLETE (iteration_134: backend 22/22, frontend all flows)
 - **Edit Profile** (`mobile/src/app/profile-edit.tsx`, `components/profile/{Avatar,PhotoSheet,PhoneChange}.tsx`): name, email (saved straight away; format + case-insensitive duplicate check), photo from camera or gallery (expo-image-picker, square crop, 5 MB, JPG/PNG/WEBP/HEIC), remove photo, phone change verified by a NEW SMS code. Profile tab card shows avatar/initial and opens the editor.
