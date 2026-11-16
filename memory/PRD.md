@@ -6,7 +6,7 @@
 - DB migrations 0073 (rename stored text: configurations, homepage_sections, search_intents, mart_stores, shop_products) and 0074 (CMS per-module accents). Seeds updated.
 - Helpers: mobile `capsBrand()` (uppercase but keep bFOOD), `brandName(code)`; web `brandName(code)` in lib/modules.js.
 - Known leftovers: some service/vehicle artwork images have "SENDbakēd" painted in; onboarding illustration glows; admin sidebar light-mode platform logo low visibility (pre-existing); a few broken demo product/category images.
-- Light-mode official logos added (iteration 137, 100%): `b{food,mart,send,shop}-light.png` (white bg removed) in mobile `assets/images/brand/` + web `public/logos/v2/`; BrandName.tsx uses LIGHT_LOGO/DARK_LOGO, BakedLogo.jsx MODULE_LOGO[code].light. bIMMO/bAUTO still text logo.
+- Light-mode official logos added (iteration 137, 100%): `b{food,mart,send,shop}-light.png` (white bg removed) in mobile `assets/images/brand/` + web `public/logos/v2/`; BrandName.tsx uses LIGHT_LOGO/DARK_LOGO, BakedLogo.jsx MODULE_LOGO[code].light. bIMMO/bAUTO official dark+light logos added too (b{immo,auto}-{dark,light}.png) — all six modules now use official files; coming-soon rows show the logo at 55% opacity on mobile.
 - Test APK v5 (versionCode 5, ci.baked.app, BAKED, signed): /downloads/baked-test-v5-fd693f80bcc5579b.apk; mapping at /app/signing/mapping-v5.txt.
 
 ## Previous (2026-06) — Round 3: Edit Profile + 3 pending fixes + test APK v4 — COMPLETE (iteration_134: backend 22/22, frontend all flows)
