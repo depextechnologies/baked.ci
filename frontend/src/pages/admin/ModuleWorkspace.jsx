@@ -7,6 +7,7 @@ import {
   Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
   Activity, Building2, Package as PackageIcon, ClipboardCheck,
 } from "lucide-react";
+import { BrandedModuleLabel } from "../../components/layout/BakedLogo";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
 
@@ -85,7 +86,7 @@ export const ModuleWorkspace = () => {
         <button data-testid="module-back" onClick={() => navigate("/admin")} className="w-9 h-9 rounded-xl flex items-center justify-center bg-secondary hover:bg-secondary/70 text-muted-foreground hover:text-foreground motion-fast" title="Back to Super Admin"><ArrowLeft size={16} /></button>
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}><Icon size={26} /></div>
         <div className="flex-1">
-          <div className="text-2xl font-bold">b{meta.label}</div>
+          <div data-testid="module-workspace-logo"><BrandedModuleLabel code={meta.code} label={meta.label} color={meta.color} height={30} /></div>
           <div className="text-sm text-muted-foreground">{meta.tagline} · Module workspace</div>
         </div>
         <span className="text-[11px] baked-chip px-3 py-1 font-semibold" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}>{meta.status === "active" ? "ACTIVE" : "COMING SOON"}</span>

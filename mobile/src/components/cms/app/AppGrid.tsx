@@ -8,8 +8,9 @@ import { useModuleNav } from '@/hooks/useModuleNav';
 import { absUrl, pick } from '@/lib/cms';
 import { HOME_GRID_ORDER, MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { colors, fonts, getScheme, hexA, themed } from '@/theme';
+import { colors, hexA, themed } from '@/theme';
 import { AppText } from '../../ui/AppText';
+import { ModuleLogo } from '../../ModuleLogo';
 import { Touchable } from '../../ui/Button';
 import { SafeImage } from '../../ui/SafeImage';
 import type { SectionProps } from '../types';
@@ -26,7 +27,6 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
   const m = MODULES[cfg.module];
   const accent = cfg.accent || BRAND[cfg.module] || m.color;
   const ink = accent;
-  const suffix = getScheme() === 'light' ? '#000000' : '#FFFFFF';
   const soon = m.status !== 'active';
   const tagline = pick(cfg, 'tagline', lang) || (lang === 'en' ? cfg.tagline_en : undefined) || t(`mod.${cfg.module}.desc` as any);
   return (
@@ -40,10 +40,9 @@ function AppTile({ cfg }: { cfg: TileCfg }) {
           <AppText weight="bold" size={9} color={ink} style={{ letterSpacing: 0.8 }}>{t('common.soon').toUpperCase()}</AppText>
         </View>
       ) : null}
-      <AppText size={14} numberOfLines={1} style={{ lineHeight: 17 }} testID={`app-tile-name-${cfg.module}`}>
-        <AppText size={14} style={{ fontFamily: fonts.black, color: suffix, letterSpacing: -0.4 }}>b</AppText>
-        <AppText size={14} style={{ fontFamily: fonts.black, color: ink, letterSpacing: -0.4 }}>{m.label}</AppText>
-      </AppText>
+      <View style={styles.name} testID={`app-tile-name-${cfg.module}`}>
+        <ModuleLogo module={cfg.module} size={18} testID={`app-tile-logo-${cfg.module}`} />
+      </View>
       <View style={styles.foot}>
         <AppText size={10.5} color={colors.textSoft} numberOfLines={2} style={{ flex: 1, lineHeight: 13 }} testID={`app-tile-tagline-${cfg.module}`}>{tagline}</AppText>
         <View style={[styles.arrow, { borderColor: accent }]}><ChevronRight color={ink} size={13} strokeWidth={2.6} /></View>
@@ -67,6 +66,7 @@ const styles = themed(() => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, paddingHorizontal: 14 },
   tile: { width: '32%', height: 136, borderRadius: 16, borderWidth: 1.2, overflow: 'hidden', padding: 9, justifyContent: 'flex-end', backgroundColor: colors.surface },
   img: { position: 'absolute', top: 6, left: 8, right: 8, height: 70 },
+  name: { height: 20, justifyContent: 'center', alignItems: 'flex-start' },
   soon: { position: 'absolute', top: 7, right: 7, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, borderWidth: 1, backgroundColor: colors.scrim },
   foot: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, minHeight: 26, marginTop: 1 },
   arrow: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
