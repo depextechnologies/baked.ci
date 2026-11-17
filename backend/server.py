@@ -17,6 +17,7 @@ load_dotenv(ROOT_DIR / ".env")
 
 from core.db import engine  # noqa: E402
 from shared.auth.routes import router as auth_router  # noqa: E402
+from shared.auth.password_routes import router as auth_password_router  # noqa: E402
 from shared.customer.routes import router as customer_router  # noqa: E402
 from shared.addresses.routes import router as addresses_router  # noqa: E402
 from modules.express.routes import router as express_router  # noqa: E402
@@ -167,6 +168,7 @@ async def health():
 
 # --- Shared Platform Foundation ---
 api_router.include_router(auth_router)
+api_router.include_router(auth_password_router)
 api_router.include_router(customer_router)
 api_router.include_router(global_search_router)
 api_router.include_router(addresses_router)

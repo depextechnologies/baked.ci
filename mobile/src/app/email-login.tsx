@@ -2,6 +2,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { api } from '@/lib/api';
+import { authError } from '@/lib/authErrors';
+import { finishAuthFlow } from '@/lib/authFlow';
+import { useSession, type Customer } from '@/state/SessionContext';
 import { A, AuthButton, AuthHeading, AuthInput, AuthShell, FooterLink, authText } from '@/components/auth/AuthUI';
 import { useApp } from '@/state/AppContext';
 
@@ -14,12 +18,19 @@ export default function EmailLogin() {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<{ email?: string; pw?: string }>({});
   const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { signIn } = useSession();
 
-  // Phase 1 (UI review): validation only — the secure email/password backend is wired after design approval.
-  const submit = () => {
+  const submit = async () => {
     const e = { email: !email.trim() ? t('auth.req') : !EMAIL.test(email.trim()) ? t('auth.bad_email') : undefined, pw: !pw ? t('auth.req') : undefined };
-    setErr(e);
-    setNote(e.email || e.pw ? null : t('auth.pending'));
+    setErr(e); setNote(null);
+    if (e.email || e.pw || busy) return;
+    setBusy(true);
+    try {
+      const r = await api<{ access_token: string; customer: Customer }>('/auth/login/email', { method: 'POST', auth: false, body: { email: email.trim(), password: pw } });
+      await signIn(r.access_token, r.customer);
+      finishAuthFlow(redirect);
+    } catch (x: any) { setNote(authError(x, t)); } finally { setBusy(false); }
   };
 
   return (
@@ -30,11 +41,11 @@ export default function EmailLogin() {
           error={err.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" />
         <AuthInput testID="email-login-password" label={t('auth.password')} placeholder={t('auth.password_ph')} value={pw} onChangeText={(v) => { setPw(v); setErr({}); }}
           error={err.pw} secure autoCapitalize="none" autoComplete="current-password" textContentType="password" />
-        <Pressable testID="email-login-forgot" onPress={() => setNote(t('auth.pending'))} style={{ alignSelf: 'flex-end' }} hitSlop={8}>
+        <Pressable testID="email-login-forgot" onPress={() => router.push({ pathname: '/forgot-password', params: { email: email.trim(), redirect: redirect || '' } } as any)} style={{ alignSelf: 'flex-end' }} hitSlop={8}>
           <Text style={authText.link}>{t('auth.forgot')}</Text>
         </Pressable>
-        <AuthButton testID="email-login-submit" variant="primary" label={t('auth.login')} onPress={submit} />
-        {note ? <Text style={[authText.muted, { color: A.blue, textAlign: 'center' }]} testID="email-login-note">{note}</Text> : null}
+        <AuthButton testID="email-login-submit" variant="primary" loading={busy} label={t('auth.login')} onPress={submit} />
+        {note ? <Text style={[authText.err, { textAlign: 'center' }]} testID="email-login-error">{note}</Text> : null}
       </View>
       <FooterLink testID="email-login-create" text={t('login.no_account')} link={t('login.create')}
         onPress={() => router.replace((redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register') as any)} />

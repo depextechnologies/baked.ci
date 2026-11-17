@@ -80,6 +80,8 @@ async def update_me(
             if taken:
                 raise HTTPException(409, {"code": "email_taken", "message": "This email is already used by another account"})
             updates["email"] = email
+        if (updates["email"] or "") != (customer.email or "").lower():
+            updates["email_verified_at"] = None
     for k, v in updates.items():
         setattr(customer, k, v)
     await session.commit()

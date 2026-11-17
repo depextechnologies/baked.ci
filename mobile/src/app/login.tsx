@@ -56,6 +56,7 @@ export default function Login() {
   return (
     <AuthShell testID="login-screen">
       <AuthHeading line1={t('login.title')} line2={t('login.your_world')} sub={t('login.body')} />
+      {redirect === '/checkout' ? <Text style={[authText.muted, { textAlign: 'center', color: A.blue, marginTop: -10, marginBottom: 14 }]} testID="login-checkout-note">{t('auth.checkout_note')}</Text> : null}
       <PhoneField cc={cc} setCc={setCc} phone={phone} setPhone={(v) => { setPhone(v); setErr(null); setInfo(null); }} placeholder={t('login.phone_ph')} error={err} />
       <Text style={[authText.label, { marginTop: 20, marginBottom: 12 }]}>{t('login.via')}</Text>
       <View style={{ flexDirection: 'row', gap: 12 }}>

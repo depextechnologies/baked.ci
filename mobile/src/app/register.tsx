@@ -3,6 +3,8 @@ import { Check } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { api } from '@/lib/api';
+import { authError } from '@/lib/authErrors';
 import { A, AuthButton, AuthHeading, AuthInput, AuthShell, FooterLink, PhoneField, authText } from '@/components/auth/AuthUI';
 import { useApp } from '@/state/AppContext';
 
@@ -17,10 +19,11 @@ export default function Register() {
   const [terms, setTerms] = useState(false);
   const [err, setErr] = useState<Errs>({});
   const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => { setF((p) => ({ ...p, [k]: v })); setErr((e) => ({ ...e, [k]: undefined })); setNote(null); };
 
-  // Phase 1 (UI review): full client validation; secure registration + phone/email verification is wired after approval.
-  const submit = () => {
+  // Validate, start a pending registration (nothing is activated yet), then verify the phone by SMS code.
+  const submit = async () => {
     const e: Errs = {
       first: f.first.trim() ? undefined : t('auth.req'),
       last: f.last.trim() ? undefined : t('auth.req'),
@@ -30,8 +33,22 @@ export default function Register() {
       pw2: !f.pw2 ? t('auth.req') : f.pw2 === f.pw ? undefined : t('auth.pw_match'),
       terms: terms ? undefined : t('auth.terms_req'),
     };
-    setErr(e);
-    setNote(Object.values(e).some(Boolean) ? null : t('auth.pending'));
+    setErr(e); setNote(null);
+    if (Object.values(e).some(Boolean) || busy) return;
+    setBusy(true);
+    try {
+      const digits = f.phone.replace(/\D/g, '');
+      const r = await api<any>('/auth/register/start', { method: 'POST', auth: false, body: {
+        first_name: f.first.trim(), last_name: f.last.trim(), country_code: cc, phone: digits, email: f.email.trim(), password: f.pw, accept_terms: terms, channel: 'sms',
+      } });
+      router.push({ pathname: '/otp', params: { reg: r.registration_id, challenge: r.challenge_id, masked: r.masked_phone, dev: r.dev_code || '', cc, phone: digits, redirect: redirect || '/' } } as any);
+    } catch (x: any) {
+      const m = authError(x, t);
+      if (x?.status === 409 && /email/i.test(x?.message || '')) setErr({ email: m });
+      else if (x?.status === 422 && /phone/i.test(x?.message || '')) setErr({ phone: m });
+      else if (x?.status === 422 && /password|guess/i.test(x?.message || '')) setErr({ pw: m });
+      else setNote(m);
+    } finally { setBusy(false); }
   };
 
   return (
@@ -59,8 +76,8 @@ export default function Register() {
           <Text style={[authText.muted, { flex: 1, color: A.text }]}>{t('auth.terms')}</Text>
         </Pressable>
         {err.terms ? <Text style={authText.err} testID="register-terms-error">{err.terms}</Text> : null}
-        <AuthButton testID="register-submit" variant="primary" label={t('auth.create')} onPress={submit} />
-        {note ? <Text style={[authText.muted, { color: A.blue, textAlign: 'center' }]} testID="register-note">{note}</Text> : null}
+        <AuthButton testID="register-submit" variant="primary" loading={busy} label={t('auth.create')} onPress={submit} />
+        {note ? <Text style={[authText.err, { textAlign: 'center' }]} testID="register-error">{note}</Text> : null}
       </View>
       <FooterLink testID="register-login" text={t('auth.have')} link={t('auth.login_link')}
         onPress={() => router.replace((redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login') as any)} />
