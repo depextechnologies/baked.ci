@@ -13,7 +13,7 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/;
 
 export default function EmailLogin() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
-  const { t } = useApp();
+  const { t, completeOnboarding } = useApp();
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<{ email?: string; pw?: string }>({});
@@ -29,6 +29,7 @@ export default function EmailLogin() {
     try {
       const r = await api<{ access_token: string; customer: Customer }>('/auth/login/email', { method: 'POST', auth: false, body: { email: email.trim(), password: pw } });
       await signIn(r.access_token, r.customer);
+      completeOnboarding();
       finishAuthFlow(redirect);
     } catch (x: any) { setNote(authError(x, t)); } finally { setBusy(false); }
   };

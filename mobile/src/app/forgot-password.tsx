@@ -14,7 +14,7 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/;
 // Two steps: request a reset code (same answer whether or not the account exists), then set a new password.
 export default function ForgotPassword() {
   const p = useLocalSearchParams<{ email?: string; redirect?: string }>();
-  const { t } = useApp();
+  const { t, completeOnboarding } = useApp();
   const { signIn } = useSession();
   const [email, setEmail] = useState(p.email || '');
   const [sent, setSent] = useState(false);
@@ -38,6 +38,7 @@ export default function ForgotPassword() {
     try {
       const r = await api<{ access_token: string; customer: Customer }>('/auth/password/reset', { method: 'POST', auth: false, body: { email: email.trim(), code: code.trim(), new_password: pw } });
       await signIn(r.access_token, r.customer);
+      completeOnboarding();
       finishAuthFlow(p.redirect || undefined);
     } catch (x) { setErr(authError(x, t)); } finally { setBusy(false); }
   };

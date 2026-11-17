@@ -5,6 +5,7 @@ verified only after its own code is confirmed. Passwords use Argon2id; codes are
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import re
@@ -16,7 +17,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import mailer
@@ -65,7 +66,7 @@ async def _email_owner(session: AsyncSession, email: str) -> Optional[Customer]:
     return (await session.execute(select(Customer).where(func.lower(Customer.email) == email, Customer.deleted_at.is_(None)))).scalars().first()
 
 
-async def _send_email_code(session: AsyncSession, customer: Customer, purpose: str, minutes: int) -> dict:
+async def _send_email_code(session: AsyncSession, customer: Customer, purpose: str, minutes: int, background: bool = False) -> dict:
     code = generate_code(6)
     row = CustomerAuthCode(purpose=purpose, target=customer.email.lower(), customer_id=customer.id, expires_at=_now() + timedelta(minutes=minutes))
     session.add(row)
@@ -77,7 +78,12 @@ async def _send_email_code(session: AsyncSession, customer: Customer, purpose: s
     what = {"email_verify": ("vérifier votre adresse e-mail", "verify your email address"), "password_reset": ("réinitialiser votre mot de passe", "reset your password")}[purpose]
     body = (f"<p>Votre code pour {what[0]} : <b style='font-size:22px'>{code}</b></p><p>Il expire dans {minutes} minutes. Ne le partagez avec personne.</p>" if fr
             else f"<p>Your code to {what[1]}: <b style='font-size:22px'>{code}</b></p><p>It expires in {minutes} minutes. Never share it.</p>")
-    sent = mailer.is_configured() and await mailer.send_email_async(to=customer.email, subject=subject, html_body=body, text_body=f"{subject}")
+    if background:  # constant-time response (no account-existence timing signal)
+        if mailer.is_configured():
+            asyncio.create_task(mailer.send_email_async(to=customer.email, subject=subject, html_body=body, text_body=subject))
+        sent = mailer.is_configured()
+    else:
+        sent = mailer.is_configured() and await mailer.send_email_async(to=customer.email, subject=subject, html_body=body, text_body=subject)
     out = {"status": "sent" if sent else "unavailable"}
     if DEV:
         out["dev_code"] = code
@@ -242,7 +248,13 @@ class EmailLoginIn(BaseModel):
 async def login_email(payload: EmailLoginIn, request: Request, session: AsyncSession = Depends(get_session)):
     email = payload.email.strip().lower()
     check_rate_limit(request, bucket="login-email", limit=30, per_seconds=900)
-    check_rate_limit(request, bucket=f"login-email:{email}", limit=6, per_seconds=900)
+    # Per-account lockout stored in the DB: independent of IP headers and worker processes; only failures count.
+    since = _now() - timedelta(minutes=15)
+    fails = (await session.execute(select(func.count()).select_from(CustomerAuthCode).where(
+        CustomerAuthCode.purpose == "login_fail", CustomerAuthCode.target == email, CustomerAuthCode.created_at > since,
+    ))).scalar_one()
+    if fails >= 6:
+        _err(429, "too_many_attempts", "Too many attempts. Try again in a few minutes.")
     customer = await _email_owner(session, email) if EMAIL_RE.match(email) else None
     try:
         _ph.verify(customer.password_hash if customer and customer.password_hash else _DUMMY_HASH, payload.password)
@@ -250,10 +262,13 @@ async def login_email(payload: EmailLoginIn, request: Request, session: AsyncSes
     except (VerifyMismatchError, InvalidHashError):
         ok = False
     if not ok:
+        session.add(CustomerAuthCode(purpose="login_fail", target=email, consumed=True, expires_at=_now() + timedelta(minutes=15)))
+        await session.commit()
         _err(401, "invalid_credentials", "Incorrect email or password")
+    await session.execute(delete(CustomerAuthCode).where(CustomerAuthCode.purpose == "login_fail", CustomerAuthCode.target == email))
     if _ph.check_needs_rehash(customer.password_hash):
         customer.password_hash = _ph.hash(payload.password)
-        await session.commit()
+    await session.commit()
     return _token(customer)
 
 
@@ -269,7 +284,7 @@ async def forgot_password(payload: ForgotIn, request: Request, session: AsyncSes
     out = {"status": "ok"}
     customer = await _email_owner(session, email) if EMAIL_RE.match(email) else None
     if customer and customer.password_hash and customer.email_verified_at:
-        res = await _send_email_code(session, customer, "password_reset", 15)
+        res = await _send_email_code(session, customer, "password_reset", 15, background=True)
         if DEV:
             out["dev_code"] = res.get("dev_code")
     return out

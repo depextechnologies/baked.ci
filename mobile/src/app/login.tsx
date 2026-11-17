@@ -14,7 +14,7 @@ import { useSession } from '@/state/SessionContext';
 
 export default function Login() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
-  const { t, country } = useApp();
+  const { t, country, completeOnboarding } = useApp();
   const { signIn } = useSession();
   const [cc, setCc] = useState(country?.phone_code || '+225');
   const [phone, setPhone] = useState('');
@@ -25,7 +25,7 @@ export default function Login() {
   const digits = phone.replace(/\D/g, '');
 
   useEffect(() => {
-    consumeWebCallback().then(async (r) => { if (r) { await signIn(r.out.access_token, r.out.customer); finishAuthFlow(r.redirect); } })
+    consumeWebCallback().then(async (r) => { if (r) { await signIn(r.out.access_token, r.out.customer); completeOnboarding(); finishAuthFlow(r.redirect); } })
       .catch(() => notify(t('login.google_failed')));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -48,7 +48,7 @@ export default function Login() {
     setGBusy(true);
     try {
       const out = await startGoogle(redirect || '/');
-      if (out) { await signIn(out.access_token, out.customer); finishAuthFlow(redirect); }
+      if (out) { await signIn(out.access_token, out.customer); completeOnboarding(); finishAuthFlow(redirect); }
     } catch { notify(t('login.google_failed')); } finally { setGBusy(false); }
   };
   const withRedirect = (p: string) => (redirect ? `${p}?redirect=${encodeURIComponent(redirect)}` : p);
@@ -68,7 +68,7 @@ export default function Login() {
       <View style={{ gap: 12 }}>
         <AuthButton testID="login-google" loading={gBusy} label={t('login.google')} icon={<GoogleIcon />} onPress={google} />
         <AuthButton testID="login-email" label={t('login.email')} icon={<Mail color={A.text} size={22} />} onPress={() => router.push(withRedirect('/email-login') as any)} />
-        <AuthButton testID="login-guest" label={t('login.guest')} icon={<UserRound color={A.text} size={22} />} onPress={() => router.replace('/')} />
+        <AuthButton testID="login-guest" label={t('login.guest')} icon={<UserRound color={A.text} size={22} />} onPress={() => { completeOnboarding(); router.replace('/'); }} />
       </View>
       <FooterLink testID="login-create" text={t('login.no_account')} link={t('login.create')} onPress={() => router.push(withRedirect('/register') as any)} />
     </AuthShell>
