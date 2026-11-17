@@ -46,7 +46,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
           </View>
         </View>
       </OnDark></View>
-      <View style={[styles.panel, wide && { flex: 0.9, justifyContent: 'flex-start', gap: 22 }]} testID="cms-mart-delivery-panel">
+      {wide ? <View style={[styles.panel, wide && { flex: 0.9, justifyContent: 'flex-start', gap: 22 }]} testID="cms-mart-delivery-panel">
         <View>
           <AppText size={11} weight="semibold" color={colors.textMuted} style={styles.caps}>{t('cms.delivery_in')}</AppText>
           <View style={styles.etaRow}>
@@ -65,7 +65,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
           <MapPin color={accent} size={14} style={{ marginTop: 2 }} />
           <View><AppText size={12} color={colors.textMuted}>{t('cms.popular_near')}</AppText><AppText size={14} weight="semibold">{country?.name}</AppText></View>
         </View>
-      </View>
+      </View> : null}
     </View>
   );
 }
