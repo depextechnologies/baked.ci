@@ -1971,3 +1971,8 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 - /app volume (shared with /root) hit 100%: /root/.gradle (3.3G), npm cache, 5×100MB R8 mapping files. Metro then served broken 1-module bundles ("Cannot find native module ExpoAsset", "Could not connect to development server").
 - Fix: gradle home moved to /opt/gradle-home (symlink /root/.gradle), npm cache cleaned, only latest mapping kept gzipped (/app/signing/mapping-v6.txt.gz), Expo packages aligned with `npx expo install --fix` (expo 58.0.25 etc., react-native 0.88.1) and node_modules repaired. Keep an eye on `df -h /app` before builds.
 - expo-mobile supervisor command reads EXPO_TOKEN from backend/.env or /root/.expo-token (account depex19jan).
+
+## 2026-11 — Fixing_Prompt.docx: official module logos (iteration 138)
+- New reusable `mobile/src/components/ModuleLogo.tsx` ({module, variant, size small|medium|large|number, showName}) loads official assets (b*-dark/light.png; icon-only badge cropped from official file). `BrandName` is now a thin wrapper. Home tiles (AppGrid) use ModuleLogo instead of text "b"+name.
+- Web: AppSelectorSheet (mobile module switcher) + Admin ModuleWorkspace header use BrandedModuleLabel images; BakedLogo/BrandedModuleLabel fall back to the <html> theme class outside AppProvider (admin is light → light logos; fixes invisible admin sidebar logo).
+- Small chips/sentences (cart chips, search group labels) intentionally stay text (user choice). Before/after screenshots: /downloads/screens/home-{before,after-dark,after-light}.jpeg.

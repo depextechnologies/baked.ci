@@ -1,0 +1,31 @@
+{
+  "summary": "Checked the official module logo branding on the mobile web preview, the website (390px and 1920px) and the Admin module workspace. Testing was frontend only. MOBILE (guest, in-app navigation only): every home tile app-tile-<code> (express/food/mart/shop/immo/auto) renders an image logo app-tile-logo-<code> using b*-dark.png (naturalWidth 900, 64x18). app-tile-name has no text 'b' + name. No logo is clipped at 390px or 320px: each logo sits inside its tile bounds with room to spare (tile at 320px is 93px wide). Tapping express/food/mart/shop opens the module: module-home-express, the food/mart/shop headers, and the header chip brand-logo-<code> shows the right logo. immo/auto show app-tile-soon-*, have aria-disabled=true, and a tap does not navigate. Light mode (Profil > Apparence > Mode clair, app-root-light) switches the tiles, the switcher, the bFOOD header chip and the Explorer filters to the b*-light.png assets (black b-box); dark mode uses the b*-dark assets. The Apps switcher shows brand-logo-* for all 6 modules; auto/immo have opacity 0.55 and aria-disabled. Switching to MART, FOOD and SHOP works. Explorer: in scoped mode explore-module-head shows the logo; after 'Chercher partout', explore-filter-mart/food/shop/express show logos, and the 'Services BAKED' list also shows logos. WEBSITE: at 390px the m-bnav-fab sheet shows m-app-selector-logo-<code> as b*-dark.png in dark mode and b*-light.png in light mode. auto/immo are disabled; selecting FOOD goes to /food. On desktop the module-tab-* tabs use the official dark logos, and the light logos after the theme toggle. ADMIN: module-workspace-logo is an <img> for all 6 modules, BUT it always loads the DARK variant on the light admin UI (bug below).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Admin ModuleWorkspace header (BrandedModuleLabel)", "issue": "The admin pages render light (white background, html has no 'dark' class), but module-workspace-logo loads b<code>-dark.png. The white b-box disappears on white, so you only see a bare black 'b' glyph next to the coloured name, which looks like the text-imitated 'b' the user asked to remove. Confirmed on /admin/modules/food, mart, shop, express, immo, auto.", "selector": "[data-testid='module-workspace-logo'] img", "priority": "HIGH"},
+      {"component": "AdminLayout sidebar BakedLogo", "issue": "Same root cause: the sidebar logo uses the dark-variant URL (yz6nfmbn_Baked_Black.png = white wordmark) on the white sidebar, so it is effectively invisible.", "selector": "aside img", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Website /food 'Explorer par type'", "issues": ["The 'Poulet' category image is broken and shows alt text. Unrelated to logos."]},
+      {"screen": "Admin /admin/modules/food Overview", "issues": ["Shows a 'Coming soon' card while the header chip says ACTIVE. Already existed, out of scope."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "BakedLogo.jsx: BrandedModuleLabel and BakedLogo fall back to `useApp() || { theme: 'dark' }`. Admin routes are rendered outside AppProvider and are light, so they always get the dark assets. Fix: when there is no context, derive the theme from document.documentElement.classList.contains('dark'). Alternatively, pass forceTheme='light' in ModuleWorkspace.jsx and AdminLayout.jsx. Then re-check module-workspace-logo, which should load b<code>-light.png."
+  ],
+  "critical_code_review_comments": [
+    "BakedLogo.jsx: the hard-coded 'dark' fallback when there is no AppProvider causes the admin bug. Any other page outside AppProvider (partner portals?) is probably affected the same way.",
+    "ModuleLogo.tsx: toCode() silently falls back to 'mart' for unknown codes, which can show the wrong brand without any warning.",
+    "BakedLogo.jsx: TextWordmark is still kept as a fallback for unknown codes. That is fine, but it is the text-imitated style the user rejected."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "~92% (only the admin workspace logo variant fails)"},
+  "test_credentials": "The admin password in the review request (depex12345) FAILED. /app/memory/test_credentials.md has baked@2026#!$@, which works.",
+  "seed_data_creation": "none",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Mobile: tap 'Passer' twice, then [data-testid=welcome-guest]. The guest typographic apostrophe breaks get_by_text, so use the testid. Profil > Apparence is a stack screen that hides the tab bar, so use page.go_back() to return. Explorer filters only appear in global mode (click explore-search-all when scoped). Activité filters (activity-filter-*) were NOT verified: the guest sees a login wall, and the code uses BrandName/ModuleLogo. Web: the mobile apps button is m-bnav-fab and the theme toggle is [data-testid*=theme-toggle]. Admin is light-themed; check that module-workspace-logo uses *-light.png after the fix."
+}

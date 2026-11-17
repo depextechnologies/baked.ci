@@ -25,11 +25,14 @@ const MODULE_LOGO = {
   immo: { dark: "/logos/v2/bimmo-dark.png", light: "/logos/v2/bimmo-light.png" },
   auto: { dark: "/logos/v2/bauto-dark.png", light: "/logos/v2/bauto-light.png" },
 };
+// Outside the customer app provider (e.g. admin), follow the <html> theme class.
+const domTheme = () => (typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light");
+
 const BADGE = { dark: "/logos/v2/badge-on-dark.png", light: "/logos/v2/badge-on-light.png" };
 
 // Primary bakēd logo — theme-aware.
 export const BakedLogo = ({ size = "md", className = "", "data-testid": testId }) => {
-  const { theme } = useApp() || { theme: "dark" };
+  const { theme } = useApp() || { theme: domTheme() };
   const src = theme === "dark" ? LOGO.primary.dark : LOGO.primary.light;
   const heightMap = { sm: 28, md: 40, lg: 70 };
   return (
@@ -55,7 +58,7 @@ const TextWordmark = ({ label, color, height, theme, className = "" }) => (
 // Per-module branded wordmark. Uses the official logo when available for the current theme;
 // otherwise falls back to the text wordmark with the correct module colour.
 export const BrandedModuleLabel = ({ code, label, color, className = "", height = 22, forceTheme }) => {
-  const { theme: appTheme } = useApp() || { theme: "dark" };
+  const { theme: appTheme } = useApp() || { theme: domTheme() };
   const theme = forceTheme || appTheme;
   const asset = MODULE_LOGO[code];
   const src = asset ? asset[theme] : null;
