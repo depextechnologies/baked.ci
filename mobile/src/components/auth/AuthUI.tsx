@@ -4,11 +4,11 @@ import { ChevronDown, ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import { PHONE_CODES } from '@/lib/auth';
 import { useApp } from '@/state/AppContext';
 import { fonts } from '@/theme';
+import { ModuleRing } from './ModuleRing';
 
 // Approved login design tokens (always dark, independent of the app theme).
 export const A = { bg: '#000000', blue: '#1D9BF0', text: '#FFFFFF', muted: '#A3A3A3', input: '#151515', border: '#303030', green: '#25D366', danger: '#FF6B6B' };
@@ -20,8 +20,7 @@ export function AuthShell({ children, testID, onBack }: { children: React.ReactN
   const back = onBack || (() => (router.canGoBack() ? router.back() : router.replace('/')));
   return (
     <View style={s.root} testID={testID}>
-      <Glow id="tl" style={s.glowTL} />
-      <Glow id="br" style={s.glowBR} />
+      <ModuleRing size={520} style={s.ringBR} />
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.top}>
           <Pressable testID="auth-back" accessibilityLabel="back" onPress={back} style={s.backBtn} hitSlop={8}><ChevronLeft color={A.text} size={22} /></Pressable>
@@ -42,25 +41,6 @@ export function AuthShell({ children, testID, onBack }: { children: React.ReactN
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </View>
-  );
-}
-
-// Soft blue arc in a corner: a large off-screen ring with a radial falloff (no hard edges).
-function Glow({ id, style }: { id: string; style: object }) {
-  return (
-    <View style={style} pointerEvents="none">
-      <Svg width="100%" height="100%" viewBox="0 0 100 100">
-        <Defs>
-          <RadialGradient id={id} cx="50" cy="50" r="50" gradientUnits="userSpaceOnUse">
-            <Stop offset="0.72" stopColor="#1D9BF0" stopOpacity="0" />
-            <Stop offset="0.86" stopColor="#1D9BF0" stopOpacity="0.55" />
-            <Stop offset="0.9" stopColor="#4FB4F5" stopOpacity="0.8" />
-            <Stop offset="1" stopColor="#1D9BF0" stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Circle cx="50" cy="50" r="50" fill={`url(#${id})`} />
-      </Svg>
     </View>
   );
 }
@@ -154,8 +134,7 @@ export const authText = StyleSheet.create({
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: A.bg, overflow: 'hidden' },
-  glowTL: { position: 'absolute', top: -380, left: -420, width: 640, height: 640 },
-  glowBR: { position: 'absolute', bottom: -470, right: -440, width: 660, height: 660 },
+  ringBR: { bottom: -360, right: -300 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 6 },
   backBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   lang: { flexDirection: 'row', padding: 3, borderRadius: 999, borderWidth: 1, borderColor: A.border, backgroundColor: A.input },
