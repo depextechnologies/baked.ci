@@ -13,7 +13,7 @@ import { MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { colors, hexA, radius, themed } from '@/theme';
 import { BrandName } from '../BrandName';
-import { AddressBar, SearchBar } from '../home/AddressBar';
+import { AddressBar } from '../home/AddressBar';
 import { BellButton } from '../home/MainHeader';
 import { Logo } from '../Logo';
 import { AppText } from '../ui/AppText';
@@ -45,7 +45,6 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
     : code === 'food' ? (id: string) => router.push(`/food/discover?category=${id}`)
     : code === 'shop' ? (id: string) => router.push(`/shop/category/${id}`)
     : (id: string) => router.push(id === 'packers_movers' ? '/send/movers' : `/send/book?service=${id}`);
-  const searchTo = code === 'mart' ? '/mart/category/all?focus=1' : code === 'food' ? '/food/discover?focus=1' : code === 'shop' ? '/shop/category/all' : '/send/book';
 
   return (
     <View style={{ flex: 1 }}>
@@ -59,7 +58,6 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
         {commerce ? <CartButton /> : null}
       </View>
       {code !== 'express' ? <AddressBar accent={m.color} /> : null}
-      {code !== 'express' ? <SearchBar placeholder={`${t('home.search_ph')} · b${m.label}`} to={searchTo} /> : null}
 
       {cms ? (
         <View style={{ marginTop: 4 }}>

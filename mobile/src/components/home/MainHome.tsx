@@ -8,7 +8,7 @@ import { colors, themed } from '@/theme';
 import { AppGrid } from '../cms/app/AppGrid';
 import { CmsSections } from '../cms/registry';
 import { Skeleton } from '../ui/StateView';
-import { AddressBar, SearchButton } from './AddressBar';
+import { AddressBar } from './AddressBar';
 import { MainHeader } from './MainHeader';
 
 // BAKED Super App home — every section below the address bar is published from Super Admin (module "baked").
@@ -26,7 +26,6 @@ export function MainHome() {
       <MainHeader unread={unread} />
       <View style={styles.bar}>
         <AddressBar inline />
-        <SearchButton />
       </View>
       {sections?.length ? (
         <CmsSections sections={sections} loading={false} offline={hp.offline} accent={colors.accent} module="baked" country={cc} width={width - 28} />

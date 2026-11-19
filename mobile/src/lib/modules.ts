@@ -20,7 +20,7 @@ export const MODULES: Record<ModuleCode, ModuleDef> = {
   auto: { code: 'auto', label: 'AUTO', color: '#FF4C52', status: 'coming_soon', image: require('../../assets/images/modules/tile_auto.webp'), icon: 'car' },
 };
 
-export const HOME_GRID_ORDER: ModuleCode[] = ['express', 'food', 'mart', 'shop', 'immo', 'auto'];
+export const HOME_GRID_ORDER: ModuleCode[] = ['shop', 'mart', 'food', 'express', 'immo', 'auto'];
 export const SWITCHER_ORDER: ModuleCode[] = ['mart', 'food', 'shop', 'express', 'auto', 'immo'];
 
 export const isActiveModule = (code: string): code is ModuleCode =>
