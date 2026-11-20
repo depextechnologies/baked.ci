@@ -13,7 +13,6 @@ import { AppProvider, useApp } from '@/state/AppContext';
 import { SessionProvider, useSession } from '@/state/SessionContext';
 import { CartProvider } from '@/state/CartContext';
 import { SendDraftProvider } from '@/state/SendDraftContext';
-import { SwitcherProvider } from '@/state/SwitcherContext';
 import { ThemeModeProvider, useThemeMode } from '@/state/ThemeContext';
 import { colors } from '@/theme';
 
@@ -54,9 +53,7 @@ export default function RootLayout() {
           <ThemeModeProvider>
             <CartProvider>
               <SendDraftProvider>
-                <SwitcherProvider>
-                  <Root fontsLoaded={fontsLoaded} />
-                </SwitcherProvider>
+                <Root fontsLoaded={fontsLoaded} />
               </SendDraftProvider>
             </CartProvider>
           </ThemeModeProvider>
