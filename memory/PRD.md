@@ -1988,3 +1988,10 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 - Google login links only to accounts with verified email (else releases the unverified claim); Google accounts get email_verified_at. PATCH /customers/me email change resets verification.
 - Mobile: email-login, register, otp (reg mode), verify-email, forgot-password screens wired; guest button + all auth successes call completeOnboarding; checkout redirect shows "Your cart is kept" note (guest MART/SHOP carts merge on login via CartContext).
 - Pending: Phase 5 Twilio Verify SMS+WhatsApp (keys + Meta WhatsApp sender approval), Phase 6 regression + APK v7. Global per-IP limiter still trusts X-Forwarded-For (per-account lock is DB-based).
+
+## 2026-11-20 — Mobile home redesign
+- bMART home on phones (<768px): delivery panel + "Get the BAKĒD app" hidden (web ConfigHomepage + mobile MartHero/registry).
+- Module tile order: SHOP, MART, FOOD, SEND, IMMO, AUTO (CMS rows updated for CI/IN + seed + HOME_GRID_ORDER).
+- Search removed from address row (main home) and module homes; search lives in Explore tab only.
+- Main home (mobile/src/components/home/MainHome.tsx): logo + bell/cart, full-width address bar, auto-sliding (4s) curved promo banners (app_promo_slider), "Baked Ecosystem" heading, six equal cards (HomeModuleCards.tsx) sized to fit one screen; art for shop/mart/send in assets/images/brand/card-*.png. Product rows removed from main home.
+- Module headers: big ModuleLogo only (tap → main home), no bakēd logo/chip.
