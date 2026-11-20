@@ -14,11 +14,14 @@ import { SafeImage } from '../ui/SafeImage';
 
 type TileCfg = { module: ModuleCode; enabled?: boolean; tagline_fr?: string; tagline_en?: string; tagline?: string; image?: string; accent?: string };
 
-// Supplied branded artwork; other modules fall back to the admin / bundled picture.
+// Branded card artwork per module.
 const ART: Partial<Record<ModuleCode, number>> = {
   shop: require('../../../assets/images/brand/card-shop.png'),
   mart: require('../../../assets/images/brand/card-mart.png'),
   express: require('../../../assets/images/brand/card-send.png'),
+  food: require('../../../assets/images/brand/card-food.png'),
+  immo: require('../../../assets/images/brand/card-immo.png'),
+  auto: require('../../../assets/images/brand/card-auto.png'),
 };
 
 function ModuleCard({ cfg, h }: { cfg: TileCfg; h: number }) {
