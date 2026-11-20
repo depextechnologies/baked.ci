@@ -62,7 +62,7 @@ export function AppPromoSlider({ section }: SectionProps) {
                   </View>
                 ) : null}
               </View>
-              <Svg width={cardW} height={44} viewBox="0 0 100 44" preserveAspectRatio="none" style={styles.curve} testID={`app-promo-${i}-curve`}>
+              <Svg width={cardW + 4} height={46} viewBox="0 0 100 44" preserveAspectRatio="none" style={styles.curve} testID={`app-promo-${i}-curve`}>
                 <Path d="M0 44 L0 34 Q50 46 100 6 L100 44 Z" fill={colors.bg} />
                 <Path d="M0 34 Q50 46 100 6" stroke={accent} strokeWidth={2.2} fill="none" vectorEffect="non-scaling-stroke" />
               </Svg>
@@ -88,8 +88,8 @@ function PromoArt({ link, accent, testID }: { link?: string; accent: string; tes
 const styles = themed(() => StyleSheet.create({
   rail: {},
   art: { position: 'absolute', right: 22, top: 0, bottom: 0, justifyContent: 'center', opacity: 0.9 },
-  card: { height: 168, borderRadius: 20, overflow: 'hidden', backgroundColor: '#111' },
-  curve: { position: 'absolute', left: 0, bottom: -1 },
+  card: { height: 168, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'hidden', backgroundColor: '#111' },
+  curve: { position: 'absolute', left: -2, bottom: -2 },
   body: { width: '58%', padding: 16, paddingBottom: 0, gap: 14 },
   cta: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 14, borderRadius: 999 },
 }));
