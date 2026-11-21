@@ -36,7 +36,7 @@ export default function EmailLogin() {
 
   return (
     <AuthShell testID="email-login-screen">
-      <AuthHeading line1={t('login.title')} line2={t('login.your_world')} sub={t('auth.email_title')} />
+      <AuthHeading line1={t('login.title')} tagline={t('login.tagline')} sub={t('auth.email_title')} />
       <View style={{ gap: 16 }}>
         <AuthInput testID="email-login-email" label={t('auth.email')} placeholder={t('auth.email_ph')} value={email} onChangeText={(v) => { setEmail(v); setErr({}); }}
           error={err.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" />

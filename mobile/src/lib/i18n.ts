@@ -56,9 +56,8 @@ const frBase = {
   'welcome.guest': 'Explorer en tant qu’invité',
   'welcome.terms': 'En continuant, vous acceptez nos Conditions d’utilisation et notre Politique de confidentialité.',
 
-  'login.title': 'Bon retour',
-  'login.your_world': 'dans votre univers.',
-  'login.body': 'Un compte. Tout baked.',
+  'login.title': 'Bienvenue sur Baked',
+  'login.tagline': 'L’appli qui vous simplifie la vie',
   'login.phone_ph': 'Saisissez votre numéro',
   'login.send': 'Envoyer le code',
   'login.via': 'Recevez votre code de vérification par',
@@ -336,9 +335,8 @@ const enBase: Record<keyof typeof frBase, string> = {
   'welcome.guest': 'Explore as a guest',
   'welcome.terms': 'By continuing you agree to our Terms of Use and Privacy Policy.',
 
-  'login.title': 'Welcome back',
-  'login.your_world': 'to your world.',
-  'login.body': 'One account. Everything baked.',
+  'login.title': 'Welcome to Baked',
+  'login.tagline': 'The Everyday Everything App',
   'login.phone_ph': 'Enter your phone number',
   'login.send': 'Send Security Code',
   'login.via': 'Receive your verification code via',

@@ -45,10 +45,11 @@ export function AuthShell({ children, testID, onBack }: { children: React.ReactN
   );
 }
 
-export function AuthHeading({ line1, line2, sub }: { line1: string; line2?: string; sub?: string }) {
+export function AuthHeading({ line1, line2, sub, tagline }: { line1: string; line2?: string; sub?: string; tagline?: string }) {
   return (
-    <View style={{ marginTop: 18, marginBottom: 22 }}>
+    <View style={{ marginTop: tagline ? 26 : 18, marginBottom: tagline ? 30 : 22 }}>
       <Text style={s.h1} testID="auth-title">{line1}{line2 ? <Text style={{ color: A.blue }}>{`\n${line2}`}</Text> : null}</Text>
+      {tagline ? <Text style={s.tagline} testID="auth-tagline">{tagline}</Text> : null}
       {sub ? <Text style={s.sub}>{sub}</Text> : null}
     </View>
   );
@@ -144,6 +145,7 @@ const s = StyleSheet.create({
   body: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 30 },
   inner: { width: '100%', maxWidth: 480, alignSelf: 'center' },
   h1: { color: A.text, fontFamily: fonts.black, fontSize: 32, lineHeight: 38, textAlign: 'center' },
+  tagline: { color: A.blue, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, letterSpacing: 0.2, textAlign: 'center', marginTop: 10 },
   sub: { color: A.muted, fontFamily: fonts.regular, fontSize: 16, textAlign: 'center', marginTop: 8 },
   field: { flexDirection: 'row', alignItems: 'center', height: 56, borderRadius: 16, borderWidth: 1, borderColor: A.border, backgroundColor: A.input, overflow: 'hidden' },
   cc: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, height: '100%' },
