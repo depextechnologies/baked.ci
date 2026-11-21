@@ -9,9 +9,9 @@ import { getModule } from "../../lib/modules";
 const LOGO = {
   primary: {
     // Dark-background version: white wordmark.
-    dark: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/yz6nfmbn_Baked_Black.png",
+    dark: "/logos/v3/baked-on-dark.png",
     // Light-background version: black wordmark.
-    light: "https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/21jnti32_Baked_White.png",
+    light: "/logos/v3/baked-on-light.png",
   },
 };
 

@@ -13,7 +13,7 @@ import { ModuleRing } from './ModuleRing';
 // Approved login design tokens (always dark, independent of the app theme).
 export const A = { bg: '#000000', blue: '#1D9BF0', text: '#FFFFFF', muted: '#A3A3A3', input: '#151515', border: '#303030', green: '#25D366', danger: '#FF6B6B' };
 const LOGO = require('../../../assets/images/baked-logo-official.png');
-const LOGO_RATIO = 1000 / 270;
+const LOGO_RATIO = 1524 / 427;
 
 export function AuthShell({ children, testID, onBack }: { children: React.ReactNode; testID: string; onBack?: () => void }) {
   const { lang, setLang } = useApp();
