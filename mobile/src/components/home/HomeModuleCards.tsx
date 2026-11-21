@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useModuleNav } from '@/hooks/useModuleNav';
 import { absUrl, pick } from '@/lib/cms';
@@ -52,10 +52,9 @@ function ModuleCard({ cfg, h }: { cfg: TileCfg; h: number }) {
 }
 
 // Two-per-row module cards; order, taglines and visibility come from Super Admin (app_module_grid).
-export function HomeModuleCards({ items }: { items?: TileCfg[] }) {
-  // Size the three rows so all six cards fit above the tab bar.
-  const { height } = useWindowDimensions();
-  const h = Math.max(108, Math.min(160, Math.round((height - 520) / 3)));
+export function HomeModuleCards({ items, space }: { items?: TileCfg[]; space?: number }) {
+  // `space` = measured height left above the tab bar; size three rows to fit it.
+  const h = space ? Math.max(96, Math.min(170, Math.floor((space - 20) / 3))) : 130;
   const list = (items?.length ? items : HOME_GRID_ORDER.map((module): TileCfg => ({ module })))
     .filter((i) => i.enabled !== false && i.module in MODULES);
   return (

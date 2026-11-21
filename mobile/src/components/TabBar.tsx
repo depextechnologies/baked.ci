@@ -1,4 +1,4 @@
-import { Compass, House, LayoutGrid, Receipt, User } from 'lucide-react-native';
+import { ClipboardList, Compass, House, LayoutGrid, User } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -13,7 +13,7 @@ const ITEMS = [
   { name: 'index', icon: House, label: 'tab.home' },
   { name: 'explore', icon: Compass, label: 'tab.explore' },
   { name: 'switcher', icon: LayoutGrid, label: 'tab.switcher' },
-  { name: 'activity', icon: Receipt, label: 'tab.activity' },
+  { name: 'activity', icon: ClipboardList, label: 'tab.activity' },
   { name: 'profile', icon: User, label: 'tab.profile' },
 ] as const;
 
