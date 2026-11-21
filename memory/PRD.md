@@ -1999,5 +1999,6 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 ## 2026-11-21 — Brand logo v3 + intro
 - New official logo (white on dark / black on light): mobile assets/images/logo*.png, baked-logo-official, splash-logo, icon/android/favicon; web /logos/v3/* via BakedLogo.jsx; favicon/square in frontend/public.
 - First-launch intro animation (SplashOverlay.tsx, AsyncStorage `baked.intro_seen`): b badge slides in, wordmark, radial glow (~2s). Later launches: quick fade.
-- Expo Go: supervisor expo-mobile now runs with CI=false (live reload). metro.config.js blockList prunes node_modules native/test dirs to stay under inotify limit (12288) — ENOSPC on `watch` means inotify, not disk.
+- Expo Go: supervisor expo-mobile now runs with CI=false (live reload). metro.config.js blockList prunes ONLY top-level package native dirs (node_modules/<pkg>/ios etc.) + __tests__ — never block nested ios/ dirs (react-native-screens has JS in src/.../ios) to stay under inotify limit (12288) — ENOSPC on `watch` means inotify, not disk.
 - Tunnel: exp://wioq6zo-depex19jan-8081.exp.direct
+- Native splash image is a blank 8x8 PNG on #000 (splash-blank.png) so the JS intro starts cleanly.
