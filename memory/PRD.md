@@ -1995,3 +1995,9 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 - Search removed from address row (main home) and module homes; search lives in Explore tab only.
 - Main home (mobile/src/components/home/MainHome.tsx): logo + bell/cart, full-width address bar, auto-sliding (4s) curved promo banners (app_promo_slider), "Baked Ecosystem" heading, six equal cards (HomeModuleCards.tsx) sized to fit one screen; art for shop/mart/send in assets/images/brand/card-*.png. Product rows removed from main home.
 - Module headers: big ModuleLogo only (tap → main home), no bakēd logo/chip.
+
+## 2026-11-21 — Brand logo v3 + intro
+- New official logo (white on dark / black on light): mobile assets/images/logo*.png, baked-logo-official, splash-logo, icon/android/favicon; web /logos/v3/* via BakedLogo.jsx; favicon/square in frontend/public.
+- First-launch intro animation (SplashOverlay.tsx, AsyncStorage `baked.intro_seen`): b badge slides in, wordmark, radial glow (~2s). Later launches: quick fade.
+- Expo Go: supervisor expo-mobile now runs with CI=false (live reload). metro.config.js blockList prunes node_modules native/test dirs to stay under inotify limit (12288) — ENOSPC on `watch` means inotify, not disk.
+- Tunnel: exp://wioq6zo-depex19jan-8081.exp.direct
