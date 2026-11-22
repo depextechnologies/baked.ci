@@ -32,7 +32,7 @@ import { cuisineLabelFr, cuisineLabelEn } from "../components/FoodSearchDropdown
 import { FoodFilterSheet } from "../components/FoodFilterSheet";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#77BC1F";
+const GREEN = "#F26924";
 
 const money = (v, curr = "XOF", loc = "fr-FR") =>
   new Intl.NumberFormat(loc, { style: "currency", currency: curr, maximumFractionDigits: 0 }).format(v || 0);

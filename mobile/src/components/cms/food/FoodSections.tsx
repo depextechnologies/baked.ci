@@ -1,3 +1,5 @@
+import { MODULES } from '@/lib/modules';
+import { capsBrand } from '@/lib/format';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -17,7 +19,7 @@ import { Skeleton } from '../../ui/StateView';
 import type { SectionProps } from '../types';
 import { bi, useFoodHome } from './FoodData';
 
-const G = '#77BC1F';
+const G = MODULES.food.color;
 const HERO_BG = 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=1600&h=700&fit=crop';
 const MODES: [FoodMode, any, string, string][] = [['delivery', Bike, 'Livraison', 'Delivery'], ['pickup', ShoppingBag, 'À emporter', 'Pickup'], ['dine_in', Utensils, 'Sur place', 'Dine-in']];
 
@@ -35,7 +37,7 @@ export function FoodHero({ section }: SectionProps) {
           <Heart color="#ef4444" fill="#ef4444" size={13} /><AppText size={12} weight="semibold">{lang === 'fr' ? 'Mes Favoris' : 'My favourites'}</AppText>
         </Touchable>
         <View style={{ padding: 22, gap: 14 }}>
-          {cfg.eyebrow ? <AppText size={11} weight="semibold" color="rgba(255,255,255,0.7)" style={styles.caps}>{cfg.eyebrow}</AppText> : null}
+          {cfg.eyebrow ? <AppText size={11} weight="semibold" color="rgba(255,255,255,0.7)" style={styles.caps}>{capsBrand(cfg.eyebrow)}</AppText> : null}
           <AppText weight="bold" size={34} style={{ lineHeight: 40 }} testID="cms-food-hero-title">
             {bi(section, 'title', lang)}{sub ? <AppText weight="bold" size={34} color={G}>{`\n${sub}`}</AppText> : null}
           </AppText>
@@ -189,7 +191,7 @@ export function FoodFeatured({ section }: SectionProps) {
 const styles = themed(() => StyleSheet.create({
   hero: { minHeight: 380, borderRadius: 20, overflow: 'hidden', justifyContent: 'center', backgroundColor: '#0a0a0a' },
   fav: { position: 'absolute', top: 14, right: 14, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 12, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
-  caps: { letterSpacing: 1.8, textTransform: 'uppercase' },
+  caps: { letterSpacing: 1.8 },
   modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   mode: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.45)' },
   addr: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)', backgroundColor: 'rgba(245,158,11,0.1)' },

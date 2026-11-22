@@ -32,11 +32,11 @@ export const ComingSoonPage = () => {
           <Sparkles size={14} style={{ color: m.color }} /> Coming soon to C&ocirc;te d&apos;Ivoire
         </div>
         <p className="mt-8 text-sm text-muted-foreground max-w-sm mx-auto">
-          The BAKĒD platform is expanding. {m.label}bakēd is currently in build.
-          For now, explore MARTbakēd to get groceries delivered in 10–15 minutes.
+          The BAKĒD platform is expanding. b{m.label} is currently in build.
+          For now, explore bMART to get groceries delivered in 10–15 minutes.
         </p>
         <Button onClick={() => navigate("/")} className="mt-6 baked-btn h-11 px-6 font-semibold text-black" style={{ backgroundColor: "#77BC1F" }}>
-          Go to MARTbakēd <ArrowRight size={16} className="ml-2" />
+          Go to bMART <ArrowRight size={16} className="ml-2" />
         </Button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-"""FOODbakēd homepage sections — Feb 2026.
+"""bFOOD homepage sections — Feb 2026.
 
 Verifies that:
   * `module='food'` is accepted alongside mart/shop

@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 
 /**
  * FilterDrawer — bottom sheet with left column of filter groups and right column of options.
- * Matches the MARTbaked spec (Type, Sort, Price, Country of Origin).
+ * Matches the bMART spec (Type, Sort, Price, Country of Origin).
  */
 const GROUPS = [
   { code: "sort", label: "Sort" },

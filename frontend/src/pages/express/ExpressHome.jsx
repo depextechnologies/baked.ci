@@ -13,14 +13,14 @@ import { BrandedModuleLabel } from "../../components/layout/BakedLogo";
 
 /**
  * ExpressHome — redesigned to match the approved reference:
- *   1. Big EXPRESSbakēd wordmark + bell + wallet pill
+ *   1. Big bSEND wordmark + bell + wallet pill
  *   2. Address row + module pill (right side)
  *   3. Hero: interactive Google Map with driver markers + GPS button
  *   4. Pickup search + Add Stop
  *   5. Horizontal "Send Now" vehicle cards (large yellow icon)
  *   6. Bulk Deliveries + Home Shifting cards side-by-side
  *
- * Accent: EXPRESSbakēd yellow #FCC44C (never MART green).
+ * Accent: bSEND yellow #FCC44C (never MART green).
  */
 const YELLOW = "#FCC44C";
 const YELLOW_TINT = "#FCC44C22";
@@ -367,7 +367,7 @@ const ExpressDesktopHome = () => {
       <div className={`flex-1 max-w-[1600px] mx-auto w-full px-6 py-6 grid grid-cols-1 ${mapSection || sections === null ? "md:grid-cols-[45%_1fr]" : ""} gap-6`}>
         {/* LEFT PANEL — theme-adaptive card surface */}
         <div className="exp-dt-panel rounded-3xl p-6 md:p-7 flex flex-col gap-5 border border-border">
-          {/* Section 1 — Clean header: EXPRESSbakēd logo + delivery location + ETA badge (nothing else) */}
+          {/* Section 1 — Clean header: bSEND logo + delivery location + ETA badge (nothing else) */}
           <div>
             <span data-testid="exp-dt-wordmark" className="inline-flex items-center">
               <BrandedModuleLabel code="express" label="SEND" color={YELLOW} height={36} />

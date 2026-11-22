@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 6 customer storefront tests.
+"""bSHOP — Slice 6 customer storefront tests.
 
 Covers the public PDP endpoint + the authenticated cart flow:
   * GET /shop/products/{pid} — PDP returns product + variants + resolved

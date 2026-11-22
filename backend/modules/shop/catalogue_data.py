@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 2 canonical category tree.
+"""bSHOP — Slice 2 canonical category tree.
 
 Source: Categories_In_French.docx (authoritative — clean labels, correct accents)
 paired with the corresponding English document. Where the raw English doc

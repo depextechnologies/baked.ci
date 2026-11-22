@@ -1,5 +1,5 @@
 /**
- * Super Admin — SHOPbakēd Product Approvals.
+ * Super Admin — bSHOP Product Approvals.
  *
  * Route: /admin/modules/shop/approvals
  *
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const BUCKETS = [
   { code: "pending",  label: "Pending",  color: "#3B82F6" },
@@ -106,7 +106,7 @@ export const AdminShopProductApprovals = () => {
   return (
     <div className="space-y-5" data-testid="admin-shop-approvals">
       <div>
-        <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>SHOPbakēd</div>
+        <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>bSHOP</div>
         <h2 className="text-xl font-bold flex items-center gap-2"><ShieldCheck size={18} /> Product Approvals</h2>
         <p className="text-xs text-muted-foreground">Review products submitted by SHOP sellers. Approved products go live on the storefront immediately.</p>
       </div>

@@ -40,7 +40,7 @@ export const MobileHome = () => {
       {/* Hero banner — replicates the mobile hero card */}
       <section className="px-4 pt-2">
         <button onClick={() => nav(path("products"))} data-testid="m-home-hero" className="relative w-full h-40 rounded-2xl overflow-hidden text-left active:scale-[0.99] motion-fast">
-          <img src={banner} alt="MARTbakēd delivery" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={banner} alt="bMART delivery" className="absolute inset-0 w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
           <div className="relative z-10 h-full flex flex-col justify-center p-4 max-w-[70%]">
             <div className="text-lg font-bold leading-tight text-white">

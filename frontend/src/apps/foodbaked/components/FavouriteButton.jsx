@@ -1,5 +1,5 @@
 /**
- * FavouriteButton — reusable heart toggle for FOODbakēd cards.
+ * FavouriteButton — reusable heart toggle for bFOOD cards.
  *
  * Props:
  *   type: "restaurant" | "dish"

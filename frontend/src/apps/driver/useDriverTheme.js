@@ -1,5 +1,5 @@
 /**
- * useDriverTheme — lightweight theme toggle for the SENDbakēd Driver PWA.
+ * useDriverTheme — lightweight theme toggle for the bSEND Driver PWA.
  *
  * Mirrors the customer app's approach (see contexts/BakedContexts.jsx):
  *   • Persists to localStorage under `baked_driver_theme`

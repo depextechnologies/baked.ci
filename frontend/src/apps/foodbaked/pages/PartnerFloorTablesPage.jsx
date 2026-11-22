@@ -15,7 +15,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, Pencil, Trash2, Save, X, LayoutGrid, AlertTriangle, Users } from "lucide-react";
 import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const T = {
   fr: {

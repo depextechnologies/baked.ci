@@ -1,6 +1,6 @@
 /**
  * DriverTripSheet — Uber-style trip lifecycle bottom sheet + status card
- * for the SENDbakēd Driver PWA, matching the 3 driver screenshots in
+ * for the bSEND Driver PWA, matching the 3 driver screenshots in
  * Fixing_Prompt.docx (StartNavigation / Arrived at Pickup / Start for Drop-off).
  *
  * ── Backend contract ────────────────────────────────────────────────────

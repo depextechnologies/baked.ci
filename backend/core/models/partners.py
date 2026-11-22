@@ -1,6 +1,6 @@
 """Partner platform — applications & (later) partner accounts.
 
-Stage 1 of the MARTbakēd Partner workflow (Fixing_Prompt: MVP Decisions):
+Stage 1 of the bMART Partner workflow (Fixing_Prompt: MVP Decisions):
 
     Public Application  →  Super Admin Review  →  Partner Portal
 

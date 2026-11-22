@@ -1,0 +1,45 @@
+{
+  "summary": "Tested customer email/password auth end to end: backend through pytest (22 tests) and the mobile web preview at 390x844 with Playwright. Registration validation, phone OTP before account creation, upgrading a phone-only account (same id kept), email verification, email login, forgot/reset, and resetting email_verified_at on PATCH all work. Two problems found. (1) CRITICAL frontend: on a fresh install, 'Continuer en tant qu'invité' (login-guest) and a successful email login both send the user back to /onboarding instead of home. (2) Backend security: the per-email brute-force lockout is keyed on the client-controlled X-Forwarded-For value and is stored in memory per worker, so rotating the header bypasses it completely.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login/email (also every check_rate_limit user)", "issue": "Brute-force lockout can be bypassed. The bucket is f'login-email:{email}' keyed by IP, and _client_ip() trusts the LEFT-MOST X-Forwarded-For entry, which the client controls. Sending a different X-Forwarded-For on each request gave 10 straight 401s with no 429. The 'per-email' lockout is also really per (email, IP), so a distributed attacker is never limited. Counters live in memory in each of the 4 uvicorn workers, so enforcement is inconsistent (with a fixed spoofed header, 8 attempts through requests.Session got no 429; with plain curl the 429 came on the 7th attempt).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/login/email", "issue": "The per-email limit (6 per 15 min) counts successful logins too, because check_rate_limit runs before the password check. A real user who logs in 7 times in 15 minutes gets locked out. Count only failures, or reset the counter on success."},
+      {"endpoint": "customers.email", "issue": "Only a non-unique index exists on lower(email). Two registrations or a PATCH running at the same time can both pass the email_taken check and create duplicate emails. Add a unique partial index on lower(email) where deleted_at is null."},
+      {"endpoint": "POST /api/auth/password/forgot", "issue": "Timing side channel: verified accounts trigger an SMTP send inside the request, while unknown emails return at once. The difference reveals whether an account exists. Send the email in a background task."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "login.tsx login-guest / email-login.tsx / forgot-password.tsx / Google (finishAuthFlow)", "issue": "completeOnboarding() is only called in otp.tsx and in welcome.tsx guest(). On a fresh install, login-guest does router.replace('/'), and the (tabs)/_layout sees onboardingDone=false and redirects to /onboarding. Successful email login, password reset and Google login go through finishAuthFlow, which has the same problem. Reproduced: Passer, Passer, Continuer avec mon numéro, then login-guest ends on /onboarding; email login with awa.kone ends on /onboarding. Fix: call completeOnboarding() in login-guest and in every auth success path (for example inside finishAuthFlow or from the session signIn).", "selector": "[data-testid=login-guest], [data-testid=email-login-submit]", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "verify-email", "issues": ["Opening /verify-email without an email param shows 'envoyé à .' (empty email). Fall back to the signed-in customer's email.", "The dev code label is inconsistent: the OTP screen says 'Code de test (pré-production) : xxxxxx', while verify-email and forgot say 'DEV: xxxxxx'."]},
+      {"screen": "forgot-password", "issues": ["The new password has no confirm field, unlike registration. Optional."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_customer_password_auth_iter139.py", "/app/test_reports/pytest/pytest_iter139.xml"],
+  "action_items": [
+    "CRITICAL: call completeOnboarding() in the login-guest handler and in every auth success path (email login, forgot reset, Google, verify-email). Today a fresh-install user who uses these is sent back to /onboarding.",
+    "HIGH: make the login brute-force limit trustworthy. Use the right-most or ingress-appended X-Forwarded-For hop (or a trusted-proxy count) instead of the left-most entry. Key the email lockout on the email alone, not (email, IP). Store counters in Redis or the DB (Redis is already running) instead of per-worker memory.",
+    "Count only failed attempts toward the email lockout.",
+    "Add a unique index on lower(email) for customers that are not deleted.",
+    "Optional: send the forgot-password email in a background task to remove the timing difference; fix the empty email on verify-email when it is opened without a param."
+  ],
+  "critical_code_review_comments": [
+    "rate_limit._client_ip trusts the left-most X-Forwarded-For entry, so every check_rate_limit bucket in the app can be bypassed (register-start, pw-forgot, pw-reset, login-email).",
+    "register_verify checks challenge attempts only, not attempts on the registration row. Each /register/resend gives 5 fresh guesses; resend is limited to 6 per hour per spoofable IP.",
+    "_find_or_create_customer_by_google clears an unverified email from an existing account (existing.email=None). Correct for ownership, but that user silently loses email login. Consider notifying them.",
+    "Good: Argon2id, codes stored as hashes, the same 401 message for wrong password and unknown email, and a dummy hash to equalise timing on unknown emails."
+  ],
+  "updated_files": ["/app/backend/tests/test_customer_password_auth_iter139.py"],
+  "success_rate": {"backend": "91% (20/22; both failures are the rate-limit issue)", "frontend": "85% (all flows work once onboarding_done is set by hand; the guest and email-login landing bug is open)"},
+  "test_credentials": "Not changed: awa.kone@test.example / NewBakedPass2026 (password NOT reset, its cart now holds 1x prd_f9a504be61114aca Banane). New: test_ui_70384@test.example / UiResetPass2026x (phone +225 0700000354, name TEST_Ui Tester, email verified, password reset in the UI). Pytest created several test_<hex>@test.example customers with random 07xxxxxxxx phones (TEST_Ama Kouassi).",
+  "seed_data_creation": "Customers were created through the public register/OTP APIs only. There is no customer delete endpoint, so they were not removed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Mobile preview: the Stack keeps hidden screens in the DOM, so scope selectors to the visible screen (page.locator('[data-testid=register-screen]').last...). To skip onboarding: localStorage.setItem('baked_onboarding_done','true'), then go to /api/app-preview/login. Pytest gives each request a random X-Forwarded-For to avoid in-memory rate limits (that is the bypass reported above). login-whatsapp shows its info message only once a valid 8+ digit phone is entered; otherwise it shows the phone error, which is by design.",
+  "rca of the issue": "Onboarding bug: (tabs)/_layout.tsx redirects to /onboarding while onboardingDone is false, and the flag is only set by completeOnboarding(), which is called only in otp.tsx and welcome.tsx guest(). The new auth entry points (login-guest, email-login, forgot reset, Google) skip it. Repro: fresh browser, Passer x2, Continuer avec mon numéro, then login-guest or email login, and you land on /onboarding. Rate-limit bypass: the key is xff.split(',')[0], the client-supplied value. Repro: POST /api/auth/login/email 10 times with a wrong password, each with a different X-Forwarded-For; all return 401 and none return 429."
+}

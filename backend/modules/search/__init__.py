@@ -223,8 +223,12 @@ class FoodSearchProvider(SearchProvider):
             return []
         try:
             from modules.food.search import search as food_search  # type: ignore
-            data = await food_search(q=q, mode=None, country=country,
-                                     limit=limit, session=session)
+            # Called directly (not via FastAPI) → pass every filter explicitly, else Query() defaults leak in.
+            from modules.food.search import DISCOVERY_RADIUS_KM  # type: ignore
+            data = await food_search(q=q, mode=None, country=country, lat=None, lng=None,
+                                     radius_km=DISCOVERY_RADIUS_KM, only_eligible=False, sort="popularity",
+                                     cuisines=None, min_rating=None, min_price=None, max_price=None,
+                                     vegetarian=None, open_now=False, limit=50, session=session)
         except Exception as e:  # noqa: BLE001
             log.warning("food provider failed: %s", e)
             return []
@@ -238,7 +242,7 @@ class FoodSearchProvider(SearchProvider):
                 1.0 if n_name == q_norm else
                 0.9 if n_name.startswith(q_norm) else
                 0.75 if q_norm in n_name else
-                0.6
+                0.5
             )
             hits.append(SearchHit(
                 module="food", entity_type="restaurant",
@@ -275,11 +279,28 @@ class FoodSearchProvider(SearchProvider):
             n = int(c.get("restaurant_count") or 0)
             hits.append(SearchHit(
                 module="food", entity_type="cuisine",
-                title=(c.get("name") or "").title(),
+                title=(c.get("name") or c.get("label_fr") or c.get("label_en") or c.get("code") or "").title(),
                 subtitle=(f"{n} restaurants" if n > 0 else ""),
                 destination_url=f"/foodbaked/search?q={q}",
                 relevance=0.55,
             ))
+        hits = [h for h in hits if h.title]
+        matched_rest = {normalise(r.get("name") or "") for r in data.get("restaurants", []) or [] if q_norm in normalise(r.get("name") or "")}
+        seen: set = set()
+        uniq: List[SearchHit] = []
+        for h in hits:
+            key = (h.entity_type, normalise(h.title), h.subtitle)
+            if key in seen:
+                continue
+            seen.add(key)
+            if h.entity_type == "dish" and normalise(h.subtitle or "") in matched_rest:
+                h.relevance += 0.1
+            uniq.append(h)
+        hits = uniq
+        # Restaurants that only matched through an unrelated menu are dropped when better hits exist.
+        if any(h.relevance > 0.5 for h in hits):
+            hits = [h for h in hits if h.relevance > 0.5]
+        hits.sort(key=lambda h: -h.relevance)
         return hits[:limit]
 
 
@@ -403,7 +424,7 @@ class ShopSearchProvider(SearchProvider):
                     module="shop", entity_type="brand",
                     title=b.name,
                     subtitle="Marque",
-                    destination_url=f"/shop?brand={b.slug or b.id}",
+                    destination_url=f"/shop?brand={b.id}",
                     relevance=0.55,
                 ))
         except Exception as e:  # noqa: BLE001
@@ -559,6 +580,7 @@ async def global_search(
     language: str = Query("fr"),
     request: Request = None,
     session: AsyncSession = Depends(get_session),
+    _retry: bool = Query(False, include_in_schema=False),
 ):
     t0 = time.perf_counter()
     q = q or ""
@@ -598,6 +620,16 @@ async def global_search(
 
     results_by_module = dict(await asyncio.gather(*[_run(p) for p in wanted]))
     intents = await detect_intents(session, q_norm, language=lang)
+    if not intents and not any(results_by_module.values()) and len(q_norm) >= 3 and not _retry:
+        close = await _close_terms(session, q_norm, count=1, cutoff=0.75)
+        corrected = close[0] if close else None
+        if corrected and corrected != q_norm:
+            out = await global_search(request=request, q=corrected, country=country, language=language,
+                                      module=module, limit=limit, session=session, _retry=True)
+            out["corrected_from"] = q
+            return out
+    for k in results_by_module:
+        results_by_module[k] = sorted(results_by_module[k], key=lambda h: -h.relevance)
 
     # Build groups — hide empty modules per spec.
     groups: List[Dict[str, Any]] = []
@@ -637,9 +669,10 @@ async def global_search(
                                  result_count=result_count, modules_hit=modules_hit,
                                  latency_ms=latency_ms)
 
+    # "Did you mean?" — only real catalogue / intent terms, never a truncated query.
     suggestions: List[str] = []
-    if result_count == 0 and len(q_norm) >= 4:
-        suggestions.append(q_norm[:-1])
+    if result_count == 0 and len(q_norm) >= 3:
+        suggestions = [w for w in await _close_terms(session, q_norm, count=3, cutoff=0.6) if w != q_norm]
     return {
         "query": q, "query_norm": q_norm, "language": lang,
         "detected_intents": intents,
@@ -648,6 +681,33 @@ async def global_search(
         "latency_ms": latency_ms,
         "event_id": event_id,
     }
+
+
+_VOCAB: dict = {"at": 0.0, "words": []}
+
+
+async def _close_terms(session: AsyncSession, q_norm: str, *, count: int, cutoff: float) -> List[str]:
+    """Typo tolerance: nearest catalogue/intent words or phrases (difflib, cached 10 min)."""
+    import difflib
+    if time.time() - _VOCAB["at"] > 600:
+        words: set = set()
+        for sql in ("SELECT name FROM mart_products",
+                    "SELECT name FROM food_menu_items",
+                    "SELECT name FROM food_restaurants",
+                    "SELECT name_en FROM food_cuisines", "SELECT name_fr FROM food_cuisines",
+                    "SELECT title FROM shop_products",
+                    "SELECT title_fr FROM shop_products WHERE title_fr IS NOT NULL",
+                    "SELECT jsonb_array_elements_text(phrases) FROM search_intents"):
+            try:
+                for (v,) in (await session.execute(text(sql))).all():
+                    n = normalise(v or "")
+                    if n:
+                        words.add(n)
+                        words.update(w for w in n.split() if len(w) >= 3)
+            except Exception:  # noqa: BLE001
+                await session.rollback()
+        _VOCAB.update(at=time.time(), words=sorted(words))
+    return difflib.get_close_matches(q_norm, _VOCAB["words"], n=count, cutoff=cutoff)
 
 
 @router.post("/click")

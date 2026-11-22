@@ -153,7 +153,7 @@ export const WizardMap = ({ compact = false, draft: draftOverride = null }) => {
   const { country } = useApp();
   const { draft: parcelDraft } = useExpressBooking();
   // Accept an external draft (e.g. movers) so a single shell serves every
-  // EXPRESSbakēd booking flow. Falls back to the parcel context for the
+  // bSEND booking flow. Falls back to the parcel context for the
   // original Parcel wizard.
   const draft = draftOverride || parcelDraft;
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;

@@ -1,5 +1,5 @@
 /**
- * FOODbakēd admin workspaces — full CRUD (Feb 2026).
+ * bFOOD admin workspaces — full CRUD (Feb 2026).
  *
  * Three self-contained pages mounted under /admin/modules/food:
  *   • AdminFoodRestaurants  → /admin/modules/food/restaurants
@@ -297,7 +297,7 @@ export const AdminFoodRestaurants = () => {
     <div className="space-y-4" data-testid="admin-food-restaurants">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold">Restaurants FOODbakēd · Restaurants</h1>
+          <h1 className="text-xl font-bold">Restaurants bFOOD · Restaurants</h1>
           <p className="text-xs text-muted-foreground">Gérer · Manage · Ajouter · Add · Modifier · Edit · Supprimer · Delete</p>
         </div>
         <div className="flex items-center gap-2">

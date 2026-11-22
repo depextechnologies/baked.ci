@@ -53,7 +53,7 @@ export const MobileOrderConfirmation = () => {
               <CheckCircle2 size={32} strokeWidth={2.5} />
             </div>
             <div className="text-2xl font-bold mt-3">{t("checkout.order_success_title")}</div>
-            <div className="text-xs text-muted-foreground mt-1">Thank you for shopping with MARTbakēd.</div>
+            <div className="text-xs text-muted-foreground mt-1">Thank you for shopping with bMART.</div>
             <div className="text-[11px] font-mono mt-3 baked-chip inline-block px-3 py-1 bg-secondary">Order ID · <b>{order.number}</b></div>
           </div>
         </div>

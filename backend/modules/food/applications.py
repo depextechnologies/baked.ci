@@ -1,4 +1,4 @@
-"""FOODbakēd — Restaurant Partner Onboarding (application wizard) + Admin Review.
+"""bFOOD — Restaurant Partner Onboarding (application wizard) + Admin Review.
 
 Two authenticated surfaces:
   * `applicant_router`   (`/api/food/apply/*`) — the applicant portal at
@@ -201,11 +201,11 @@ async def _emit_otp(session: AsyncSession, channel: str, target: str, purpose: s
         provider = get_otp_provider()
         result = await provider.send_code(target, code, locale=locale)
     else:
-        subject = "Votre code FOODbakēd" if locale.startswith("fr") else "Your FOODbakēd code"
+        subject = "Votre code bFOOD" if locale.startswith("fr") else "Your bFOOD code"
         html = f"""
           <div style="font-family:system-ui;font-size:14px;color:#111">
             <p>Bonjour · Hello,</p>
-            <p>Votre code de vérification FOODbakēd est · Your FOODbakēd verification code is:</p>
+            <p>Votre code de vérification bFOOD est · Your bFOOD verification code is:</p>
             <p style="font-size:28px;letter-spacing:.3em;font-weight:700;color:#00A651">{code}</p>
             <p>Ce code expire dans {OTP_TTL_MIN} minutes. · This code expires in {OTP_TTL_MIN} minutes.</p>
             <p style="color:#666;font-size:12px;margin-top:24px">Vous n'avez pas demandé ce code? Ignorez cet email. · Didn't request this? Ignore this email.</p>
@@ -833,9 +833,9 @@ async def admin_review(app_id: str, payload: AdminReviewIn,
         activate_url = f"{base}/partner/food/activate?token={raw}"
         html = f"""
           <div style="font-family:system-ui;color:#111;max-width:560px">
-            <h2 style="color:#00A651">Bienvenue chez FOODbakēd · Welcome to FOODbakēd</h2>
+            <h2 style="color:#00A651">Bienvenue chez bFOOD · Welcome to bFOOD</h2>
             <p>Bonjour {row.applicant_name or ''},</p>
-            <p>Votre restaurant <b>{rname}</b> a été approuvé sur FOODbakēd. · Your restaurant has been approved.</p>
+            <p>Votre restaurant <b>{rname}</b> a été approuvé sur bFOOD. · Your restaurant has been approved.</p>
             <p>Pour commencer, définissez votre mot de passe partenaire · To get started, set your partner password:</p>
             <p><a href="{activate_url}" style="display:inline-block;padding:12px 20px;background:#00A651;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Activer mon compte · Activate my account</a></p>
             <p style="color:#666;font-size:12px">Le lien expire dans {ACTIVATION_TTL_HOURS} heures. · This link expires in {ACTIVATION_TTL_HOURS} hours.</p>
@@ -850,7 +850,7 @@ async def admin_review(app_id: str, payload: AdminReviewIn,
           </div>
         """
         await send_email_async(to=row.applicant_email,
-                                subject="Bienvenue sur FOODbakēd · Welcome to FOODbakēd",
+                                subject="Bienvenue sur bFOOD · Welcome to bFOOD",
                                 html_body=html)
         result = await _full_application(app_id, session)
         if not IS_PRODUCTION:

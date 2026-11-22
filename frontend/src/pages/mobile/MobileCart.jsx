@@ -115,9 +115,9 @@ export const MobileCart = () => {
           // mobile cart used to have — FOOD items showed as MART because
           // the badge check only distinguished SHOP vs non-SHOP.
           const badge = isShop
-            ? { label: "SHOP", bg: "rgba(251,191,36,.15)", fg: "#F59E0B", bd: "rgba(251,191,36,.3)" }
+            ? { label: "bSHOP", bg: "rgba(29,155,240,.15)", fg: "#1D9BF0", bd: "rgba(29,155,240,.3)" }
             : isFood
-              ? { label: "FOOD", bg: "rgba(239,68,68,.15)", fg: "#EF4444", bd: "rgba(239,68,68,.3)" }
+              ? { label: "bFOOD", bg: "rgba(242,105,36,.15)", fg: "#F26924", bd: "rgba(242,105,36,.3)" }
               : { label: "MART", bg: "rgba(119,188,31,.15)", fg: "#77BC1F", bd: "rgba(119,188,31,.3)" };
           return (
             <div key={i.id} data-testid={`m-cart-line-${i.id}`} className="baked-card bg-card border border-border p-3 flex gap-3">
@@ -189,13 +189,13 @@ export const MobileCart = () => {
             )}
             <Row label={t("cart.subtotal")} value={formatMoney(subtotal, country?.currency, ccy)} />
             {hasMart && (
-              <Row data-testid="cart-summary-mart-delivery" label={`${t("cart.delivery_fee")} (MART)`} value={martDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(martDelivery, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-mart-delivery" label={`${t("cart.delivery_fee")} (bMART)`} value={martDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(martDelivery, country?.currency, ccy)} />
             )}
             {hasFood && (
-              <Row data-testid="cart-summary-food-delivery" label={`${t("cart.delivery_fee")} (FOOD)`} value={foodDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(foodDelivery, country?.currency, ccy)} />
+              <Row data-testid="cart-summary-food-delivery" label={`${t("cart.delivery_fee")} (bFOOD)`} value={foodDelivery === 0 ? <span style={{ color: "#77BC1F" }}>{t("cart.delivery_free").toUpperCase()}</span> : formatMoney(foodDelivery, country?.currency, ccy)} />
             )}
             {hasShop && (
-              <Row label={`${t("cart.delivery_fee")} (SHOP)`} value={<span className="text-[10px] text-muted-foreground">{t("cart.delivery_shop_note")}</span>} />
+              <Row label={`${t("cart.delivery_fee")} (bSHOP)`} value={<span className="text-[10px] text-muted-foreground">{t("cart.delivery_shop_note")}</span>} />
             )}
             {savings > 0 && <Row label="Discount" value={<span style={{ color: "#77BC1F" }}>- {formatMoney(savings, country?.currency, ccy)}</span>} />}
             <div className="h-px bg-border my-2" />

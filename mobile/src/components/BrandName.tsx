@@ -1,15 +1,11 @@
 import React from 'react';
-import { Text } from 'react-native';
 
 import { MODULES, type ModuleCode } from '@/lib/modules';
-import { accentText, colors, fonts } from '@/theme';
+import { ModuleLogo } from './ModuleLogo';
 
+export const brandName = (code: ModuleCode) => `b${MODULES[code].label}`;
+
+// Back-compat wrapper: `size` is the old font size; renders the official ModuleLogo.
 export function BrandName({ code, size = 22, dim = false }: { code: ModuleCode; size?: number; dim?: boolean }) {
-  const m = MODULES[code];
-  return (
-    <Text style={{ fontSize: size, lineHeight: size * 1.15 }} numberOfLines={1} adjustsFontSizeToFit>
-      <Text style={{ fontFamily: fonts.black, color: dim ? colors.textDim : accentText(m.color), letterSpacing: -0.5 }}>{m.label}</Text>
-      <Text style={{ fontFamily: fonts.bold, color: dim ? colors.textDim : colors.text }}>bakēd</Text>
-    </Text>
-  );
+  return <ModuleLogo module={code} size={Math.round(size * 1.15)} dim={dim} />;
 }

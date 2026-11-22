@@ -1,4 +1,4 @@
-"""FOODbakēd category-based restaurant discovery (P0 Spec §2–§10).
+"""bFOOD category-based restaurant discovery (P0 Spec §2–§10).
 
 Backed by ``food_menu_items`` + the trigram index on ``lower(name)`` so a
 ``?category=pizza`` click surfaces any restaurant with an available dish

@@ -16,7 +16,7 @@ import type { SectionProps } from '../types';
 const FALLBACK = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1600&auto=format&fit=crop&q=70';
 const money = (v: number | undefined, sym: string, lang: string) => (v == null ? '—' : formatMoney(v, undefined, sym, lang).replace(/[.,]00\b/, ''));
 
-// Website ConfigHomepage hero: image card with MARTbakēd pill + CTAs, then the country delivery panel (stacked on phones).
+// Website ConfigHomepage hero: image card with bMART pill + CTAs, then the country delivery panel (stacked on phones).
 export function MartHero({ section, accent, module }: SectionProps) {
   const { t, lang, country } = useApp();
   const { width: screen } = useWindowDimensions();
@@ -34,7 +34,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
         <LinearGradient colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.15)']} locations={[0, 0.45, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
         <View style={styles.body}>
           <View style={[styles.pill, { backgroundColor: 'rgba(119,188,31,0.25)', borderColor: 'rgba(119,188,31,0.5)' }]}>
-            <View style={[styles.dot, { backgroundColor: accent }]} /><AppText size={11} weight="semibold" style={styles.caps}>MARTbakēd</AppText>
+            <View style={[styles.dot, { backgroundColor: accent }]} /><AppText size={11} weight="semibold" style={styles.caps}>bMART</AppText>
           </View>
           <AppText weight="bold" size={wide ? 44 : 28} style={{ lineHeight: wide ? 48 : 31 }} testID="cms-mart-hero-title">{sectionText(section, 'title', lang)}</AppText>
           {sub ? <AppText size={14} color="rgba(255,255,255,0.85)" style={{ marginTop: 10, maxWidth: 420 }}>{sub}</AppText> : null}
@@ -46,7 +46,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
           </View>
         </View>
       </OnDark></View>
-      <View style={[styles.panel, wide && { flex: 0.9, justifyContent: 'flex-start', gap: 22 }]} testID="cms-mart-delivery-panel">
+      {wide ? <View style={[styles.panel, wide && { flex: 0.9, justifyContent: 'flex-start', gap: 22 }]} testID="cms-mart-delivery-panel">
         <View>
           <AppText size={11} weight="semibold" color={colors.textMuted} style={styles.caps}>{t('cms.delivery_in')}</AppText>
           <View style={styles.etaRow}>
@@ -65,7 +65,7 @@ export function MartHero({ section, accent, module }: SectionProps) {
           <MapPin color={accent} size={14} style={{ marginTop: 2 }} />
           <View><AppText size={12} color={colors.textMuted}>{t('cms.popular_near')}</AppText><AppText size={14} weight="semibold">{country?.name}</AppText></View>
         </View>
-      </View>
+      </View> : null}
     </View>
   );
 }

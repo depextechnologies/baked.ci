@@ -1,5 +1,5 @@
 /**
- * FOODbakēd — Restaurant Microsite (customer-facing).
+ * bFOOD — Restaurant Microsite (customer-facing).
  *
  * Route surface (mounted from App.js):
  *   /foodbaked/restaurants/:slug            → Overview
@@ -31,7 +31,7 @@ import ReservationModal from "../../../components/food/ReservationModal";
 import FavouriteButton from "../components/FavouriteButton";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const HIGHLIGHT_ICONS = {
   outdoor_seating: Trees,     family_friendly: Baby,      air_conditioned: Snowflake,

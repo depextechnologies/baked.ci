@@ -1,4 +1,4 @@
-"""Idempotent seed script for the FOODbakēd microsite demo.
+"""Idempotent seed script for the bFOOD microsite demo.
 
 Populates:
   • food_restaurant_photos          – gallery photos so the microsite hero + Photos tab render.

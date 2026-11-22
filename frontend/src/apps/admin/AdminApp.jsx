@@ -99,7 +99,7 @@ export const AdminApp = () => (
       <Route path="driver-applications" element={<AdminDriverApplications />} />
       <Route path="homepage-management" element={<AdminHomepageManagement />} />
       <Route path="returns" element={<AdminReturns />} />
-      {/* Legacy `/admin/vendor-settlement` — this workspace is FOODbakēd-only
+      {/* Legacy `/admin/vendor-settlement` — this workspace is bFOOD-only
           (every API call targets `/admin/vendor-settlement/food/*`) so it now
           lives under the FOOD module workspace. Keep the old URL as a
           redirect so existing bookmarks keep working. */}
@@ -109,7 +109,7 @@ export const AdminApp = () => (
       <Route path="mart-partner-approvals" element={<Navigate to="/admin/modules/mart/approvals" replace />} />
       <Route path="partner-image-reviews"  element={<Navigate to="/admin/modules/mart/suppliers" replace />} />
       {/*
-        Inventory Control Tower belongs to MARTbakēd — the global route
+        Inventory Control Tower belongs to bMART — the global route
         redirects into the module workspace so existing bookmarks and
         integrations keep working.
       */}
@@ -135,7 +135,7 @@ export const AdminApp = () => (
         <Route path="orders" element={<ModuleOrders />} />
         <Route path="customers" element={<ModuleCustomers />} />
         <Route path="drivers" element={<ModuleDrivers />} />
-        {/* SENDbakēd-only: expose the platform-wide Driver Payouts & Driver
+        {/* bSEND-only: expose the platform-wide Driver Payouts & Driver
             Applications workspaces inside the module workspace, so admins
             reach them from the SEND sub-nav without leaving the module. */}
         <Route path="driver-payouts" element={<AdminDriverPayouts />} />
@@ -147,14 +147,14 @@ export const AdminApp = () => (
             page from the shared homepage_management schema. Route the
             same component; the page reads `code` from useParams. */}
         <Route path="homepage-management" element={<AdminHomepageManagement />} />
-        {/* FOODbakēd workspaces (Phase 1 — restaurants/categories/cuisines). */}
+        {/* bFOOD workspaces (Phase 1 — restaurants/categories/cuisines). */}
         <Route path="restaurants" element={<AdminFoodRestaurants />} />
         <Route path="restaurants/:id/menu" element={<AdminFoodMenuManager />} />
         <Route path="restaurants/:id/analytics" element={<AdminFoodAnalytics />} />
         <Route path="cuisines" element={<AdminFoodCuisines />} />
         <Route path="categories" element={<AdminFoodCategories />} />
         {/* Applications route is handled above via ApplicationsSwitch */}
-        {/* FOODbakēd — Finance & Settlements lives here (not in the main
+        {/* bFOOD — Finance & Settlements lives here (not in the main
             admin menu) because every API call it makes is scoped to the
             FOOD module. */}
         <Route path="finance" element={<AdminVendorSettlement />} />

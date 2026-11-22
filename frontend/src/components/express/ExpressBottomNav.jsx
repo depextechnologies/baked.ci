@@ -3,13 +3,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, ClipboardList, User, Briefcase, Package } from "lucide-react";
 
 /**
- * ExpressBottomNav — dedicated 5-tab bar for the EXPRESSbakēd module.
+ * ExpressBottomNav — dedicated 5-tab bar for the bSEND module.
  *
  * Layout (per approved PDF):
  *   🏠 Home  ·  📋 Bookings  ·  ⬤ Center Switcher (large yellow FAB)  ·  🛠 Services  ·  👤 Profile
  *
  * Nothing else. No Categories, no Cart — those belong to MART only.
- * Accent: EXPRESSbakēd yellow #FCC44C.
+ * Accent: bSEND yellow #FCC44C.
  */
 export const ExpressBottomNav = ({ onOpenAppSelector }) => {
   const nav = useNavigate();

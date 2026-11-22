@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 2 catalogue seed tests.
+"""bSHOP — Slice 2 catalogue seed tests.
 
 Verifies:
   * The catalogue seed hits exactly the expected shape (19 categories,

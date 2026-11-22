@@ -1,5 +1,5 @@
 /**
- * FoodHome — CMS-DRIVEN FOODbakēd customer landing page.
+ * FoodHome — CMS-DRIVEN bFOOD customer landing page.
  *
  * Layout composition
  * ------------------
@@ -42,7 +42,7 @@ import axios from "axios";
 import FoodSearchDropdown from "../components/FoodSearchDropdown";
 
 const API   = process.env.REACT_APP_BACKEND_URL;
-const GREEN = "#77BC1F";
+const GREEN = "#F26924";
 
 const absImg = (p) => (p && (p.startsWith("http") || p.startsWith("data:")) ? p : (p ? `${API}${p}` : ""));
 const bilingual = (row, field, lang) => {
@@ -259,14 +259,14 @@ const HeroSection = ({ row, mode, setMode, countryCode, language, t }) => {
           </Link>
           <div className="max-w-2xl text-white py-10 space-y-5">
             {cfg.eyebrow && (
-              <div className="text-[11px] uppercase tracking-widest font-semibold text-white/70">{cfg.eyebrow}</div>
+              <div className="text-[11px] tracking-widest font-semibold text-white/70">{cfg.eyebrow}</div>
             )}
             <h1 className="text-4xl md:text-5xl font-bold leading-tight">
               {headline}
               {sub && (<><br /><span style={{ color: GREEN }}>{sub}</span></>)}
             </h1>
             <p className="text-sm md:text-base text-white/80 max-w-lg">
-              {bilingual(row, "tagline", language) || t("food.hero_subtitle", { defaultValue: "Discover amazing restaurants, local favourites and global cuisines — only on FOODbakēd." })}
+              {bilingual(row, "tagline", language) || t("food.hero_subtitle", { defaultValue: "Discover amazing restaurants, local favourites and global cuisines — only on bFOOD." })}
             </p>
             <FoodSearchDropdown
               mode={mode}
@@ -446,7 +446,7 @@ const USPGrid = ({ row, language, t }) => {
   const titleFallback = (
     <>
       {t("food.why_title", { defaultValue: "Why Choose " })}
-      <span style={{ color: GREEN }}>FOOD</span>bakēd?
+      <span style={{ color: GREEN }}>bFOOD</span>?
     </>
   );
   return (
@@ -834,7 +834,7 @@ export const FoodHome = () => {
   // Build the ORDERED section list. Each admin row is honoured — including
   // multiple rows of the same type. When the CMS returns zero rows the
   // page renders an "empty state" CTA pointing admins at the configurator
-  // (parity with the MARTbakēd CMS behaviour).
+  // (parity with the bMART CMS behaviour).
   // ---------------------------------------------------------------------
   const sections = useMemo(() => {
     return (homepage.sections || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
@@ -847,8 +847,8 @@ export const FoodHome = () => {
         <div className="max-w-md text-center space-y-3">
           <h2 className="text-xl font-bold">
             {language === "fr"
-              ? "Aucune section FOODbakēd configurée pour ce pays"
-              : "No FOODbakēd sections configured for this country"}
+              ? "Aucune section bFOOD configurée pour ce pays"
+              : "No bFOOD sections configured for this country"}
           </h2>
           <p className="text-sm text-muted-foreground">
             {language === "fr"

@@ -3,7 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { api, apiSession } from '@/lib/api';
 import { secureToken } from '@/lib/storage';
 
-export type Customer = { id: string; name?: string | null; phone?: string | null; email?: string | null; country?: string };
+export type Customer = { id: string; name?: string | null; phone?: string | null; email?: string | null; picture?: string | null; country?: string; auth_providers?: string[] };
 
 type SessionState = {
   ready: boolean;
@@ -11,6 +11,7 @@ type SessionState = {
   isAuthed: boolean;
   signIn: (token: string, customer: Customer) => Promise<void>;
   signOut: () => Promise<void>;
+  updateCustomer: (c: Customer) => void;
   sessionExpired: boolean;
 };
 
@@ -47,7 +48,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(() => ({
-    ready, customer, isAuthed: !!customer, signIn, signOut, sessionExpired,
+    ready, customer, isAuthed: !!customer, signIn, signOut, updateCustomer: setCustomer, sessionExpired,
   }), [ready, customer, signIn, signOut, sessionExpired]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

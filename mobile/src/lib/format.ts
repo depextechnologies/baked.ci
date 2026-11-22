@@ -15,3 +15,6 @@ export const formatDate = (iso?: string | null, lang = 'fr') => {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   });
 };
+
+// Upper-case a label but keep module brand names as written (bFOOD, not BFOOD).
+export const capsBrand = (s?: string | null) => (s || '').toUpperCase().replace(/\bB(MART|FOOD|SHOP|SEND|IMMO|AUTO)\b/g, 'b$1');

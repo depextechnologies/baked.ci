@@ -1,4 +1,4 @@
-"""SENDbakēd Driver — SQLAlchemy models.
+"""bSEND Driver — SQLAlchemy models.
 
 Slice 1 focuses on Auth + KYC + Dashboard. Delivery-lifecycle models
 (DriverJob, JobEvent) will land in Slice 2.
@@ -39,7 +39,7 @@ class Driver(Base, TimestampMixin):
     country:       Mapped[str] = mapped_column(String(2), nullable=False)
     name:          Mapped[Optional[str]] = mapped_column(String(200))
     email:         Mapped[Optional[str]] = mapped_column(String(200))
-    # Email+password login (SENDbakēd Driver login screen — 2026-02).
+    # Email+password login (bSEND Driver login screen — 2026-02).
     password_hash: Mapped[Optional[str]] = mapped_column(Text)
     # Google-linked drivers store the Google `sub` for stable lookup.
     google_sub:    Mapped[Optional[str]] = mapped_column(String(64))

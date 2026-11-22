@@ -108,7 +108,7 @@ export const RestockSuggestionsPage = () => {
     <div className="space-y-5" data-testid="restock-page">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">MARTbakēd · Restock</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">bMART · Restock</div>
           <h2 className="text-2xl font-bold flex items-center gap-2"><Sparkles size={18} className="text-primary" /> Restock Suggestions</h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-xl">
             Turn low-stock alerts into ready-to-review draft POs — one click, no re-typing.

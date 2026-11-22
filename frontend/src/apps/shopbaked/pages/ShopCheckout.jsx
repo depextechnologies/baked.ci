@@ -1,5 +1,5 @@
 /**
- * ShopCheckout — SHOPbakēd checkout page (Slice 9). French-first via i18n.
+ * ShopCheckout — bSHOP checkout page (Slice 9). French-first via i18n.
  *
  * Route: /shop/checkout
  *   1. Hydrate current SHOP cart via /api/shop/cart/me
@@ -60,7 +60,7 @@ export const ShopCheckout = ({ basePath = "/shop" }) => {
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6" data-testid="shopbaked-checkout">
-      <Link to={basePath} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-amber-300 mb-4">
+      <Link to={basePath} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-[#4DB2F4] mb-4">
         <ArrowLeft size={12} /> {t("shop.back_to_shop")}
       </Link>
       <h1 className="text-3xl font-bold text-neutral-100 mb-6">{t("shop.checkout")}</h1>
@@ -95,7 +95,7 @@ export const ShopCheckout = ({ basePath = "/shop" }) => {
               {paymentMethods.map((p) => (
                 <label key={p.code}
                        className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer mb-2 transition-colors ${
-                         method === p.code ? "border-amber-400 bg-amber-400/5" : "border-neutral-800"
+                         method === p.code ? "border-[#1D9BF0] bg-[#1D9BF0]/5" : "border-neutral-800"
                        }`}
                        data-testid={`shopbaked-checkout-pay-${p.code}`}>
                   <input type="radio" checked={method === p.code}
@@ -124,7 +124,7 @@ export const ShopCheckout = ({ basePath = "/shop" }) => {
             </ul>
             <div className="border-t border-neutral-800 pt-3 flex justify-between font-semibold">
               <span className="text-neutral-100">{t("shop.total")}</span>
-              <span className="text-amber-300" data-testid="shopbaked-checkout-total">
+              <span className="text-[#4DB2F4]" data-testid="shopbaked-checkout-total">
                 {cart.subtotal.toLocaleString()} {cart.currency}
               </span>
             </div>
@@ -167,7 +167,7 @@ export const ShopOrderConfirmation = ({ basePath = "/shop" }) => {
         </div>
         <h1 className="text-3xl font-bold text-neutral-100">{t("shop.order_placed_heading")}</h1>
         <div className="mt-2 text-sm text-neutral-500">
-          {t("shop.reference")} <span className="font-mono text-amber-300" data-testid="shopbaked-order-number">{order.number}</span>
+          {t("shop.reference")} <span className="font-mono text-[#4DB2F4]" data-testid="shopbaked-order-number">{order.number}</span>
         </div>
       </div>
 
@@ -183,7 +183,7 @@ export const ShopOrderConfirmation = ({ basePath = "/shop" }) => {
           </div>
           <div>
             <div className="text-neutral-500 text-xs uppercase tracking-widest">{t("shop.total")}</div>
-            <div className="mt-1 font-medium text-amber-300">{order.total.toLocaleString()} {order.currency}</div>
+            <div className="mt-1 font-medium text-[#4DB2F4]">{order.total.toLocaleString()} {order.currency}</div>
           </div>
         </div>
       </section>
@@ -191,15 +191,15 @@ export const ShopOrderConfirmation = ({ basePath = "/shop" }) => {
       {order.delivery_pin && order.status !== "delivered" && (
         <section
           className="border rounded-xl p-5 mb-6 flex items-center gap-4"
-          style={{ borderColor: "rgba(252,196,76,.5)", background: "rgba(252,196,76,.08)" }}
+          style={{ borderColor: "rgba(29,155,240,.5)", background: "rgba(29,155,240,.08)" }}
           data-testid="shopbaked-order-pin-card"
         >
           <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-               style={{ background: "rgba(252,196,76,.2)", color: "#FCC44C" }}>
+               style={{ background: "rgba(29,155,240,.2)", color: "#1D9BF0" }}>
             <ShieldCheck size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#FCC44C" }}>
+            <div className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#1D9BF0" }}>
               {t("shop.delivery_pin")}
             </div>
             <div className="text-3xl font-black tracking-[0.3em] text-neutral-100 mt-1"

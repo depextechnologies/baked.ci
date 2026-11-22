@@ -1,4 +1,4 @@
-"""SHOPbakēd — homepage sections seed (Slice 7, 2026-02).
+"""bSHOP — homepage sections seed (Slice 7, 2026-02).
 
 Bilingual: every user-facing text field is paired with a `_fr` sibling so
 the frontend can render French by default without any hard-coded English

@@ -1,5 +1,5 @@
 /**
- * MARTbakēd Seller Portal — apps/martbaked-sellers
+ * bMART Seller Portal — apps/martbaked-sellers
  *
  * Public routes:
  *   /martbaked/sellers                  → SellerLanding (Apply / Login CTAs)
@@ -34,24 +34,24 @@ export const sellerApi = axios.create({ baseURL: API });
  * without duplicating the whole tree. Consumed by SellerHeader/Landing/etc.
  * -------------------------------------------------------------------------- */
 export const SellerModuleContext = React.createContext({
-  code: "mart", label: "MARTbakēd", accent: "#77BC1F", basePath: "/martbaked/sellers",
+  code: "mart", label: "bMART", accent: "#77BC1F", basePath: "/martbaked/sellers",
   tagline: "Supplier Program",
-  hero_desc: "Supply your products to MARTbakēd Dark Stores and reach customers across Côte d'Ivoire.",
+  hero_desc: "Supply your products to bMART Dark Stores and reach customers across Côte d'Ivoire.",
   code_prefix: "MART",
 });
 export const useSellerModule = () => React.useContext(SellerModuleContext);
 
 const SELLER_MODULE_PROFILES = {
   mart: {
-    code: "mart", label: "MARTbakēd", accent: "#77BC1F",
+    code: "mart", label: "bMART", accent: "#77BC1F",
     basePath: "/martbaked/sellers", tagline: "Supplier Program",
-    hero_desc: "Supply your products to MARTbakēd Dark Stores and reach customers across Côte d'Ivoire.",
+    hero_desc: "Supply your products to bMART Dark Stores and reach customers across Côte d'Ivoire.",
     code_prefix: "MART",
   },
   shop: {
-    code: "shop", label: "SHOPbakēd", accent: "#FCC44C",
+    code: "shop", label: "bSHOP", accent: "#1D9BF0",
     basePath: "/shopbaked/sellers", tagline: "Seller Program",
-    hero_desc: "List your fashion, electronics or home goods on SHOPbakēd — vetted marketplace, national reach, seller-shipped fulfilment.",
+    hero_desc: "List your fashion, electronics or home goods on bSHOP — vetted marketplace, national reach, seller-shipped fulfilment.",
     code_prefix: "SHOP",
   },
 };
@@ -106,10 +106,10 @@ const SellerFooter = () => {
 /* -------------------------------------------------------------------------- */
 
 const BENEFITS = [
-  { icon: Users2, title: "Reach thousands", body: "Sell to MARTbakēd dark stores serving customers across Côte d'Ivoire — one supplier, many buyers." },
+  { icon: Users2, title: "Reach thousands", body: "Sell to bMART dark stores serving customers across Côte d'Ivoire — one supplier, many buyers." },
   { icon: Truck, title: "Guaranteed dispatch", body: "Purchase orders raised by our stores flow directly to your dashboard. Confirm, ship, get paid." },
   { icon: Wallet, title: "Fast settlement", body: "Get paid on time in your local currency. Track invoices and payments from one place." },
-  { icon: BarChart3, title: "Live demand signals", body: "See what's selling, what's low, and where to grow — powered by MARTbakēd inventory data." },
+  { icon: BarChart3, title: "Live demand signals", body: "See what's selling, what's low, and where to grow — powered by bMART inventory data." },
   { icon: Sparkles, title: "AI-native tools", body: "AI-assisted catalogue upload, product matching and pricing suggestions — coming soon to your portal." },
   { icon: ShieldCheck, title: "Governed & audited", body: "Every application is Super-Admin reviewed. Your brand and margins are protected." },
 ];
@@ -183,7 +183,7 @@ const SellerLanding = () => {
     <section className="pl-section" style={{ background: "var(--pl-bg-elevated)" }}>
       <div className="pl-container">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="pl-eyebrow mb-3">Why supply on MARTbakēd</div>
+          <div className="pl-eyebrow mb-3">Why supply on bMART</div>
           <h2 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Built for suppliers.</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -264,7 +264,7 @@ const SellerApplicationStatus = () => {
       <div className="pl-container max-w-2xl">
         <div className="text-center mb-10">
           <div className="pl-eyebrow mb-3">Application status</div>
-          <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Track your MARTbakēd application</h1>
+          <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Track your bMART application</h1>
           <p className="pl-body mt-3">Enter the application code you received when you submitted (format: <code>MART-SUP-YYYY-NNNNN</code>).</p>
         </div>
         <div className="pl-card p-8">
@@ -449,7 +449,7 @@ const SellerActivate = () => {
         <div className="text-center mb-8">
           <div className="pl-eyebrow mb-3">Account activation</div>
           <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Set your password</h1>
-          <p className="pl-body mt-3">Your MARTbakēd application has been approved. Set a password to activate your supplier portal.</p>
+          <p className="pl-body mt-3">Your bMART application has been approved. Set a password to activate your supplier portal.</p>
         </div>
         <form onSubmit={submit} className="pl-card p-8 space-y-4" data-testid="seller-activate-form">
           <div>
@@ -497,7 +497,7 @@ export const SellerApp = ({ module = "mart" }) => {
   }, [profile.label, profile.code]);
 
   // Override the partner-landing accent tokens with the module's colour so
-  // SHOPbakēd renders amber without duplicating the whole stylesheet.
+  // bSHOP renders amber without duplicating the whole stylesheet.
   const overrideStyle = React.useMemo(() => ({
     "--pl-accent": profile.accent,
     "--pl-accent-soft": `${profile.accent}22`,

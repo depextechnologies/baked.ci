@@ -1,5 +1,5 @@
 /**
- * DriverOnlineMap — full-screen map surface for the SENDbakēd driver home
+ * DriverOnlineMap — full-screen map surface for the bSEND driver home
  * while they're Online. Renders a dark-styled Google Map centered on the
  * driver's live GPS position with a single "you are here" marker.
  *

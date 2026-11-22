@@ -1,6 +1,6 @@
 /**
  * Supplier Portal — Orders page.
- * Lists POs sent by MARTbakēd store partners. Supplier can:
+ * Lists POs sent by bMART store partners. Supplier can:
  *   * Acknowledge (submitted → acknowledged)
  *   * Mark shipped (acknowledged → shipped)
  */
@@ -46,7 +46,7 @@ export const PortalOrders = () => {
     <div className="space-y-6" data-testid="portal-orders">
       <div>
         <div className="pl-eyebrow mb-2">Orders</div>
-        <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Purchase orders from MARTbakēd</h1>
+        <h1 className="pl-h1" style={{ color: "var(--pl-fg)" }}>Purchase orders from bMART</h1>
         <p className="pl-body mt-2">Confirm new orders and mark them shipped when goods leave your warehouse. Store partners will record receipts on their end.</p>
       </div>
 

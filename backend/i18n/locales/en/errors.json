@@ -84,7 +84,7 @@
     "cannot_transition": "Cannot transition {current} → {target}.",
     "insufficient_stock_msg": "Out of stock — the last units were just claimed. Please refresh and try again.",
     "allocation_failed_msg": "We couldn't reserve stock right now. Please refresh your cart and try again in a moment.",
-    "not_available_in_area_msg": "Some items in your cart aren't available in your area yet. MARTbakēd is coming soon to more stores.",
+    "not_available_in_area_msg": "Some items in your cart aren't available in your area yet. bMART is coming soon to more stores.",
     "address_not_found": "Address not found.",
     "recent_search_not_found": "Recent search not found."
   },

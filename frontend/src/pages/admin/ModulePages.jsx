@@ -59,7 +59,7 @@ export const ModuleOverview = () => {
         <Sparkles size={36} className="mx-auto mb-3" style={{ color: meta.color }} />
         <div className="text-lg font-semibold">Coming soon</div>
         <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-          {meta.label}bakēd is on the roadmap. The BAKĒD platform is configuration-driven —
+          b{meta.label} is on the roadmap. The BAKĒD platform is configuration-driven —
           enabling this module is a matter of seeding its catalogue and switching on the feature flag.
         </p>
       </div>
@@ -228,7 +228,7 @@ export const ModuleVendors = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div>
-          <h2 className="text-xl font-bold">Vendors <span className="text-muted-foreground font-normal text-sm">· Partner stores for {meta.label}bakēd</span></h2>
+          <h2 className="text-xl font-bold">Vendors <span className="text-muted-foreground font-normal text-sm">· Partner stores for b{meta.label}</span></h2>
           <p className="text-xs text-muted-foreground">Workflow: <b>pending</b> → approve → <b>approved</b> → activate → <b>active</b>.</p>
         </div>
         <Button data-testid="vendor-add" onClick={() => setEditing({ ...emptyVendor })} className="baked-btn font-semibold" style={{ backgroundColor: meta.color, color: "#0a1200" }}>
@@ -514,7 +514,7 @@ export const ModuleCustomers = () => {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2"><UserIcon size={18} /> Customers</h2>
-          <p className="text-xs text-muted-foreground">Customers with ≥1 order or active cart in {meta.label}bakēd. Single identity, module-scoped view.</p>
+          <p className="text-xs text-muted-foreground">Customers with ≥1 order or active cart in b{meta.label}. Single identity, module-scoped view.</p>
         </div>
         <div className="flex items-center gap-2">
           <input data-testid="customers-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Phone / email / name" className="baked-input px-3 py-1.5 bg-secondary text-sm" />
@@ -612,7 +612,7 @@ export const ModuleDrivers = () => {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2"><Bike size={18} /> Drivers</h2>
-          <p className="text-xs text-muted-foreground">Delivery agents assigned to {meta.label}bakēd.</p>
+          <p className="text-xs text-muted-foreground">Delivery agents assigned to b{meta.label}.</p>
         </div>
         <Button data-testid="driver-add" onClick={() => setEditing({ ...emptyDriver })} className="baked-btn" style={{ backgroundColor: meta.color, color: "#0a1200" }}><PlusCircle size={16} className="mr-2" /> Add driver</Button>
       </div>
@@ -720,7 +720,7 @@ export const ModuleComingSoon = ({ title = "Coming soon" }) => {
       <Sparkles size={36} className="mx-auto mb-3" style={{ color: meta.color }} />
       <div className="text-lg font-semibold">{title}</div>
       <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-        This section is on the roadmap for {meta.label}bakēd. It follows the PRD §7 Module-First Administration pattern.
+        This section is on the roadmap for b{meta.label}. It follows the PRD §7 Module-First Administration pattern.
       </p>
     </div>
   );
@@ -1006,7 +1006,7 @@ export const ModulePricing = () => {
 
 
 // ============ MODULE BOOKINGS (Express Sub-feature D) ============
-// Live table of every EXPRESSbakēd booking. Auto-refreshes every 15s so the
+// Live table of every bSEND booking. Auto-refreshes every 15s so the
 // simulator's status transitions appear in-place. Filters: status + country.
 const EXPRESS_STATUS_FILTERS = [
   { code: "any",             label: "All" },

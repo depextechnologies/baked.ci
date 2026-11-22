@@ -1,5 +1,5 @@
 /**
- * Super Admin — SHOPbakēd Catalog Editor (categories + sub-categories).
+ * Super Admin — bSHOP Catalog Editor (categories + sub-categories).
  *
  * Route: /admin/modules/shop/catalog
  *
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;
@@ -124,7 +124,7 @@ export const AdminShopCatalog = () => {
     <div className="space-y-5" data-testid="admin-shop-catalog">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>SHOPbakēd</div>
+          <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>bSHOP</div>
           <h2 className="text-xl font-bold flex items-center gap-2"><Boxes size={18} /> Catalog</h2>
           <p className="text-xs text-muted-foreground">Manage SHOP categories and sub-categories per country. Slugs are permanent — pick carefully.</p>
         </div>

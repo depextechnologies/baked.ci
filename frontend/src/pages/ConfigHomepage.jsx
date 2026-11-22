@@ -93,7 +93,7 @@ const SectionRenderer = ({ section, index, country }) => {
   if (!R) return null;
   return (
     <section
-      className={index === 0 ? "mt-4 md:mt-6" : "mt-10 md:mt-14"}
+      className={`${index === 0 ? "mt-4 md:mt-6" : "mt-10 md:mt-14"}${section.section_type === "app_promotion" ? " hidden md:block" : ""}`}
       data-testid={`hp-section-${section.section_type}-${section.id}`}
     >
       <R section={section} country={country} />
@@ -191,8 +191,8 @@ const Hero = ({ section, country }) => {
         >
           <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 -120px 120px -60px rgba(0,0,0,.6)" }} />
           <div className="relative p-6 md:p-10 max-w-xl text-white">
-            <div className="inline-flex items-center gap-2 h-7 px-3 rounded-full bg-[#77BC1F]/25 border border-[#77BC1F]/50 backdrop-blur text-[11px] font-semibold uppercase tracking-widest mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#77BC1F] animate-pulse" /> MARTbakēd
+            <div className="inline-flex items-center gap-2 h-7 px-3 rounded-full bg-[#77BC1F]/25 border border-[#77BC1F]/50 backdrop-blur text-[11px] font-semibold tracking-widest mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#77BC1F] animate-pulse" /> bMART
             </div>
             <h1 className="text-3xl md:text-5xl font-bold leading-[1.05] tracking-tight" data-testid="hp-hero-title">
               {section.title}
@@ -224,7 +224,7 @@ const Hero = ({ section, country }) => {
         </div>
 
         {/* RIGHT — delivery panel (country-aware) */}
-        <div className="rounded-3xl p-6 md:p-8 flex flex-col justify-between gap-4 relative overflow-hidden"
+        <div className="hidden md:flex rounded-3xl p-6 md:p-8 flex-col justify-between gap-4 relative overflow-hidden"
              style={{ background: "linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%)" }}
              data-testid="hp-hero-delivery-panel">
           <div>

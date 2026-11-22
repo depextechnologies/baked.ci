@@ -1,5 +1,5 @@
 """
-SENDbakēd Realtime — pub/sub broker interface + two implementations.
+bSEND Realtime — pub/sub broker interface + two implementations.
 
 The rest of the app never imports the concrete classes; it only depends on
 `get_pubsub()` returning something that satisfies `PubSubBackend`. Backends

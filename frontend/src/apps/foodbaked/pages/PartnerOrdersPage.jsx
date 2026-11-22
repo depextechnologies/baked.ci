@@ -7,7 +7,7 @@ import { Loader2, RefreshCw, AlertTriangle, Clock, Package, Truck, CheckCircle2,
 import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext";
 import { useRestaurantNotifications } from "../components/RestaurantNotificationEngine";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const TABS = [
   { k: "new",        fr: "Nouvelles",     en: "New",        icon: Clock },

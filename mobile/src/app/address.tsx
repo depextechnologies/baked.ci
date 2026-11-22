@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { setPendingPick } from '@/lib/addressBook';
 import { Bookmark, LocateFixed, Map, MapPin, Search } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
@@ -23,7 +24,7 @@ const ABIDJAN = { latitude: 5.3484, longitude: -4.0305 };
 type Row = { key: string; icon: any; title: string; sub?: string; onPress: () => void; testID: string };
 
 export default function AddressScreen() {
-  const { next, send } = useLocalSearchParams<{ next?: string; send?: string }>();
+  const { next, send, book } = useLocalSearchParams<{ next?: string; send?: string; book?: string }>();
   const draft = useSendDraft();
   const { t, lang, address, setAddress } = useApp();
   const { isAuthed } = useSession();
@@ -54,6 +55,7 @@ export default function AddressScreen() {
   const commit = async (a: PickedAddress) => {
     setBusy(true);
     if (send) { draft.setPoint(send, a); setBusy(false); router.back(); return; }
+    if (book) { setPendingPick(a); setBusy(false); router.back(); return; }
     const ok = await checkServiceable(a);
     setAddress(a);
     setBusy(false);

@@ -1,7 +1,7 @@
-"""SHOPbakēd — ORM models (Slice 1: Foundation, 2026-02).
+"""bSHOP — ORM models (Slice 1: Foundation, 2026-02).
 
-SHOPbakēd is the marketplace module for fashion, electronics, home goods and
-similar variant-heavy categories. It's fully isolated from MARTbakēd via
+bSHOP is the marketplace module for fashion, electronics, home goods and
+similar variant-heavy categories. It's fully isolated from bMART via
 separate tables (shop_brands, shop_categories, shop_subcategories,
 shop_products, shop_variants) and its own `module="shop"` discriminator on
 products.

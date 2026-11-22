@@ -367,13 +367,13 @@ export const CheckoutPage = () => {
               const isFood = it.module === "food";
               const label = isShop ? (it.title || it.product?.title) : it.product?.name;
               const curr = it.currency || it.product?.currency || country.currency;
-              const chipBg = isShop ? "rgba(251,191,36,.15)" : isFood ? "rgba(239,68,68,.15)" : "rgba(119,188,31,.15)";
-              const chipFg = isShop ? "#F59E0B"              : isFood ? "#EF4444"              : "#77BC1F";
-              const chipLabel = isShop ? "SHOP" : isFood ? "FOOD" : "MART";
+              const chipBg = isShop ? "rgba(29,155,240,.15)" : isFood ? "rgba(242,105,36,.15)" : "rgba(119,188,31,.15)";
+              const chipFg = isShop ? "#1D9BF0"              : isFood ? "#F26924"              : "#77BC1F";
+              const chipLabel = isShop ? "bSHOP" : isFood ? "bFOOD" : "bMART";
               return (
                 <div key={it.id} className="flex justify-between" data-testid={`checkout-item-${it.id}`}>
                   <span className="truncate pr-2">
-                    <span className="text-[9px] uppercase tracking-widest font-semibold px-1 py-0.5 rounded mr-1"
+                    <span className="text-[9px] tracking-widest font-semibold px-1 py-0.5 rounded mr-1"
                           style={{ background: chipBg, color: chipFg }}>{chipLabel}</span>
                     {it.quantity} × {label}
                   </span>
@@ -394,13 +394,13 @@ export const CheckoutPage = () => {
           )}
           <div data-testid="checkout-summary-subtotal" className="flex justify-between text-sm"><span className="text-muted-foreground">{t(uiLocale, "cart.subtotal")}</span><span>{formatMoney(subtotal, country.currency, country.currency_symbol)}</span></div>
           {hasMart && (
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (MART)" : "Livraison (MART)"}</span><span>{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (bMART)" : "Livraison (bMART)"}</span><span>{deliveryFee === 0 ? "FREE" : formatMoney(deliveryFee, country.currency, country.currency_symbol)}</span></div>
           )}
           {hasShop && (
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Shipping (SHOP)" : "Expédition (SHOP)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By seller" : "Par vendeur"}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Shipping (bSHOP)" : "Expédition (bSHOP)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By seller" : "Par vendeur"}</span></div>
           )}
           {hasFood && (
-            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (FOOD)" : "Livraison (FOOD)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By restaurant" : "Par restaurant"}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">{language === "en" ? "Delivery (bFOOD)" : "Livraison (bFOOD)"}</span><span className="text-[11px] text-muted-foreground">{language === "en" ? "By restaurant" : "Par restaurant"}</span></div>
           )}
           <div className="h-px bg-border" />
           <div data-testid="checkout-summary-total" className="flex justify-between font-bold"><span>{language === "en" ? "Total" : "Total"}</span><span>{formatMoney(total, country.currency, country.currency_symbol)}</span></div>

@@ -1,3 +1,4 @@
+import { MODULES } from '@/lib/modules';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -14,7 +15,7 @@ import type { SectionProps } from '../types';
 import { bi, biItem } from './FoodData';
 import { FoodHead } from './FoodSections';
 
-const G = '#77BC1F';
+const G = MODULES.food.color;
 const ICONS: Record<string, LucideIcon> = { shield: Shield, truck: Truck, sparkles: Sparkles, tag: Tag, clock: Clock, utensils: Utensils, star: Star, heart: Heart, shopping: ShoppingBag };
 
 export function FoodPromos({ section }: SectionProps) {

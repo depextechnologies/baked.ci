@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ const LEN = 6;
 const RESEND_S = 30;
 
 export default function Otp() {
-  const p = useLocalSearchParams<{ challenge: string; masked: string; dev?: string; cc: string; phone: string; redirect?: string }>();
+  const p = useLocalSearchParams<{ challenge: string; masked: string; dev?: string; cc: string; phone: string; redirect?: string; reg?: string }>();
   const { t, completeOnboarding } = useApp();
   const { signIn } = useSession();
   const [challenge, setChallenge] = useState(p.challenge);
@@ -38,10 +38,15 @@ export default function Otp() {
     if (value.length !== LEN || busy) return;
     setBusy(true); setErr(null);
     try {
-      const r = await api<{ access_token: string; customer: Customer }>('/auth/otp/verify', { method: 'POST', body: { challenge_id: challenge, code: value }, auth: false });
+      // Registration verifies phone ownership first, then the email gets its own code.
+      const r = p.reg
+        ? await api<{ access_token: string; customer: Customer; email_verification: any }>('/auth/register/verify', { method: 'POST', body: { registration_id: p.reg, code: value }, auth: false })
+        : await api<{ access_token: string; customer: Customer; email_verification?: any }>('/auth/otp/verify', { method: 'POST', body: { challenge_id: challenge, code: value }, auth: false });
       await signIn(r.access_token, r.customer);
       completeOnboarding();
-      finishAuthFlow(p.redirect);
+      if (p.reg && r.email_verification !== 'verified') {
+        router.replace({ pathname: '/verify-email', params: { redirect: p.redirect || '/', dev: r.email_verification?.dev_code || '', status: r.email_verification?.status || '' } } as any);
+      } else finishAuthFlow(p.redirect);
     } catch (e: any) {
       setErr(e?.status === 0 ? t('common.network_error') : e?.message);
       setCode('');
@@ -50,7 +55,9 @@ export default function Otp() {
 
   const resend = async () => {
     try {
-      const r = await requestOtp(p.cc, p.phone);
+      const r = p.reg
+        ? await api<{ challenge_id: string; dev_code?: string }>('/auth/register/resend', { method: 'POST', body: { registration_id: p.reg }, auth: false })
+        : await requestOtp(p.cc, p.phone);
       setChallenge(r.challenge_id); setDev(r.dev_code || ''); setLeft(RESEND_S); setErr(null); setCode('');
     } catch (e: any) { setErr(e?.message || t('common.network_error')); }
   };

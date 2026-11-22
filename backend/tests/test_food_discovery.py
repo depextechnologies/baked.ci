@@ -1,4 +1,4 @@
-"""FOODbakēd P0 Core Discovery — location-aware filtering coverage.
+"""bFOOD P0 Core Discovery — location-aware filtering coverage.
 
 Covers the mandatory scenarios from the fixing-prompt:
 

@@ -1,4 +1,4 @@
-"""FOODbakēd — Phase 3 Customer Favourites.
+"""bFOOD — Phase 3 Customer Favourites.
 
 Tests the /food/customer/favourites toggle + list + ids endpoints.
 Server-side only (login-required). Reuses the dev OTP auth path used

@@ -1,7 +1,6 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ShoppingBag } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useFetch } from '@/hooks/useFetch';
@@ -10,6 +9,7 @@ import { useApp } from '@/state/AppContext';
 import { colors, hexA, themed } from '@/theme';
 import { AppText } from '../ui/AppText';
 import { Touchable } from '../ui/Button';
+import { SafeImage } from '../ui/SafeImage';
 import { SectionHeader } from './SectionHeader';
 import type { SectionProps } from './types';
 
@@ -46,11 +46,10 @@ export function CategoryGrid({ section, accent, module, country, width }: Sectio
 }
 
 function Thumb({ src, accent }: { src: string | null; accent: string }) {
-  const [failed, setFailed] = useState(false);
   return (
-    <View style={[styles.icon, { backgroundColor: src && !failed ? 'transparent' : hexA(accent, 0.13) }]}>
-      {src && !failed ? <Image source={src} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" onError={() => setFailed(true)} />
-        : <ShoppingBag color={accent} size={22} />}
+    <View style={styles.icon}>
+      <SafeImage source={src} style={StyleSheet.absoluteFill} contentFit="cover"
+        fallback={<View style={[StyleSheet.absoluteFill, styles.fb, { backgroundColor: hexA(accent, 0.13) }]}><ShoppingBag color={accent} size={22} /></View>} />
     </View>
   );
 }
@@ -58,5 +57,6 @@ function Thumb({ src, accent }: { src: string | null; accent: string }) {
 const styles = themed(() => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, paddingVertical: 16, paddingHorizontal: 8, alignItems: 'center', gap: 10, minHeight: 150 },
-  icon: { width: 56, height: 56, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 56, height: 56, borderRadius: 16, overflow: 'hidden' },
+  fb: { alignItems: 'center', justifyContent: 'center' },
 }));

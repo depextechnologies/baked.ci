@@ -1,4 +1,4 @@
-"""FOODbakēd — Search endpoint filters + location-aware eligibility.
+"""bFOOD — Search endpoint filters + location-aware eligibility.
 
 Covers the P0 ask: `/api/food/search` must mirror the category Discovery
 page semantics so the two experiences stay in lock-step.

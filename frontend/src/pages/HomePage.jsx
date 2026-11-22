@@ -69,7 +69,7 @@ export const HomePage = () => {
         <div className="baked-card relative overflow-hidden group aspect-[16/9] lg:aspect-auto lg:min-h-[380px]">
           <img
             src="https://customer-assets-4nw71qhi.emergentagent.net/job_baked-platform/artifacts/mreak2b7_MARTbaked_Banner.png"
-            alt="MARTbakēd — Everything you need, delivered in minutes"
+            alt="bMART — Everything you need, delivered in minutes"
             className="absolute inset-0 w-full h-full object-cover object-center"
             draggable={false}
           />

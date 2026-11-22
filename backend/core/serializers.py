@@ -46,4 +46,6 @@ def row_to_dict(obj, rename: Optional[dict] = None) -> dict:
 
 
 def customer_to_dict(customer) -> dict:
-    return row_to_dict(customer, rename={"referred_by_customer_id": "referred_by"})
+    d = row_to_dict(customer, rename={"referred_by_customer_id": "referred_by"})
+    d["has_password"] = bool(d.pop("password_hash", None))
+    return d

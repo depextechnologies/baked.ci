@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 7 homepage editor tests.
+"""bSHOP — Slice 7 homepage editor tests.
 
 Covers:
   * Migration: `homepage_sections.module` column exists, defaults to "mart".

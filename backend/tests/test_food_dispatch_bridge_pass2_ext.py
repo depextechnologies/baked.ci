@@ -1,4 +1,4 @@
-"""FOODbakēd — Pass 2 extended coverage (iteration 98).
+"""bFOOD — Pass 2 extended coverage (iteration 98).
 
 Augments test_food_dispatch_bridge.py with the gaps called out in the
 Pass 2 review request:

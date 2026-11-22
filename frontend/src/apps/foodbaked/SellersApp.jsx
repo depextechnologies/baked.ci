@@ -1,5 +1,5 @@
 /**
- * FOODbakēd — Sellers / Onboarding Portal (`/foodbaked/sellers/*`).
+ * bFOOD — Sellers / Onboarding Portal (`/foodbaked/sellers/*`).
  *
  * Public entrypoint for prospective restaurant partners. Flow:
  *   1. Landing / value-prop  →  Postuler / Apply
@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 
 const API_BASE = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 const STORAGE_KEY = "food_applicant_token";
 
 const sellerApi = axios.create({ baseURL: API_BASE });
@@ -133,12 +133,12 @@ const Landing = () => {
         <div className="grid md:grid-cols-2 gap-10 items-center">
           <div className="space-y-6">
             <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-widest font-semibold px-3 py-1 rounded-full" style={{ backgroundColor: `${GREEN}22`, color: GREEN }}>
-              <Utensils size={12} /> FOOD<span style={{ color: GREEN }}>bakēd</span> · Partenaires · Partners
+              <Utensils size={12} /> <span style={{ color: GREEN }}>bFOOD</span> · Partenaires · Partners
             </span>
             <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-              Ouvrez votre restaurant sur <span style={{ color: GREEN }}>FOODbakēd</span>.
+              Ouvrez votre restaurant sur <span style={{ color: GREEN }}>bFOOD</span>.
               <br />
-              <span className="text-gray-500 text-2xl md:text-3xl font-semibold">Open your restaurant on FOODbakēd.</span>
+              <span className="text-gray-500 text-2xl md:text-3xl font-semibold">Open your restaurant on bFOOD.</span>
             </h1>
             <p className="text-sm md:text-base text-gray-600 max-w-lg">
               Rejoignez la plateforme préférée des gourmets en Côte d'Ivoire — livraison rapide, paiements sécurisés et pilotage complet depuis votre portail. · Join the food-lovers' favourite platform — fast delivery, secure payouts, full control from your portal.
@@ -177,7 +177,7 @@ const Landing = () => {
 
 const TopBar = () => (
   <div className="h-14 border-b border-gray-100 flex items-center px-6 max-w-6xl mx-auto w-full">
-    <Link to="/foodbaked/sellers" className="font-bold text-lg">FOOD<span style={{ color: GREEN }}>bakēd</span></Link>
+    <Link to="/foodbaked/sellers" className="font-bold text-lg"><span style={{ color: GREEN }}>bFOOD</span></Link>
     <span className="ml-3 text-[10px] uppercase tracking-widest text-gray-500">Portail des partenaires · Partner Portal</span>
     <div className="ml-auto text-xs text-gray-500 flex items-center gap-3">
       <Link to="/Sell-on-baked" className="hover:text-gray-900">← Retour · Back</Link>
@@ -373,7 +373,7 @@ const PortalLayout = () => {
   return (
     <div className="min-h-screen bg-secondary/30" data-testid="sellers-portal">
       <div className="h-14 border-b border-border bg-card flex items-center px-6">
-        <Link to="/foodbaked/sellers/dashboard" className="font-bold text-lg">FOOD<span style={{ color: GREEN }}>bakēd</span></Link>
+        <Link to="/foodbaked/sellers/dashboard" className="font-bold text-lg"><span style={{ color: GREEN }}>bFOOD</span></Link>
         <span className="ml-3 text-[10px] uppercase tracking-widest text-muted-foreground">Ma demande · My application</span>
         <div className="ml-auto flex items-center gap-2 text-xs">
           <span className="text-muted-foreground truncate max-w-[220px]">{data.application.applicant_email}</span>
@@ -418,7 +418,7 @@ const Dashboard = () => {
     <div className="space-y-6" data-testid="sellers-dashboard">
       <div>
         <h1 className="text-2xl font-bold">Bonjour {app.applicant_name || app.applicant_email}</h1>
-        <p className="text-sm text-muted-foreground">Suivez et complétez votre demande FOODbakēd. · Track and complete your FOODbakēd application.</p>
+        <p className="text-sm text-muted-foreground">Suivez et complétez votre demande bFOOD. · Track and complete your bFOOD application.</p>
       </div>
 
       <Card className="p-4">

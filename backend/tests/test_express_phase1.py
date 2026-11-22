@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — Phase 1 backend tests.
+"""bSEND — Phase 1 backend tests.
 
 Covers customer-facing Express endpoints:
     - vehicles / package-types / weight-tiers per country

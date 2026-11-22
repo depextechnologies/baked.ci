@@ -139,7 +139,7 @@ export const AppProvider = ({ children }) => {
   const [addressSelectorClosing, setAddressSelectorClosing] = useState(false);
   const [addressSelectorMode, setAddressSelectorMode] = useState({ callback: null, title: null });
 
-  // Active FOODbakēd service mode (delivery / pickup / dine_in). Persisted
+  // Active bFOOD service mode (delivery / pickup / dine_in). Persisted
   // across page navigation so a diner picking "À emporter" on the home page
   // stays in pickup when they bounce into a restaurant and come back.
   const [foodServiceMode, _setFoodServiceMode] = useState(() => {

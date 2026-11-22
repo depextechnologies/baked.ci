@@ -1,4 +1,4 @@
-"""SHOPbakēd module (Slice 1 — Foundation, 2026-02).
+"""bSHOP module (Slice 1 — Foundation, 2026-02).
 
 Marketplace for fashion, electronics, home goods with variant-heavy
 listings. This slice only scaffolds the router surface — real listing,

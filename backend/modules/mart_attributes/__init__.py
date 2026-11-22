@@ -1,4 +1,4 @@
-"""MARTbaked — Dynamic attribute engine.
+"""bMART — Dynamic attribute engine.
 
 Public API (customer + supplier + admin) for the dynamic category attribute
 system. The engine is split into:

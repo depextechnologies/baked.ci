@@ -1,15 +1,23 @@
 """Customer profile + addresses."""
 import hashlib
+import os
+import re
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
+
+from core.providers import object_storage
+from core.providers.storage.factory import get_storage_provider
+from core.providers.otp_provider import generate_code, get_otp_provider
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_session
 from core.deps import get_current_customer
 from core.i18n import t as _t, current_lang
-from core.models import Country, Customer, CustomerAddress, Order, RewardEntry, SupportTicket, new_id
+from core.models import Country, Customer, CustomerAddress, OtpChallenge, Order, RewardEntry, SupportTicket, new_id
 from core.serializers import customer_to_dict, row_to_dict
 
 router = APIRouter(prefix="/customers", tags=["customer"])
@@ -37,6 +45,8 @@ class AddressIn(BaseModel):
     formatted_address: Optional[str] = None
     region: Optional[str] = None
     postal_code: Optional[str] = None
+    recipient_name: Optional[str] = Field(None, max_length=120)
+    recipient_phone: Optional[str] = Field(None, max_length=32)
 
 
 @router.get("/me")
@@ -51,8 +61,161 @@ async def update_me(
     session: AsyncSession = Depends(get_session),
 ):
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if "name" in updates:
+        updates["name"] = " ".join(updates["name"].split())
+        if not 1 <= len(updates["name"]) <= 80:
+            raise HTTPException(422, {"code": "invalid_name", "message": "Name must be 1–80 characters"})
+    if "email" in updates:
+        email = updates["email"].strip().lower()
+        if not email:
+            if not customer.phone:
+                raise HTTPException(422, {"code": "email_required", "message": "Email is required for this account"})
+            updates["email"] = None
+        else:
+            if len(email) > 254 or not _EMAIL_RE.match(email):
+                raise HTTPException(422, {"code": "invalid_email", "message": "Enter a valid email address"})
+            taken = (await session.execute(
+                select(Customer.id).where(func.lower(Customer.email) == email, Customer.id != customer.id)
+            )).first()
+            if taken:
+                raise HTTPException(409, {"code": "email_taken", "message": "This email is already used by another account"})
+            updates["email"] = email
+        if (updates["email"] or "") != (customer.email or "").lower():
+            updates["email_verified_at"] = None
     for k, v in updates.items():
         setattr(customer, k, v)
+    await session.commit()
+    return customer_to_dict(customer)
+
+
+# ---------- Profile photo ----------
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+_PHOTO_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heic"}
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
+_PHOTO_PREFIX = "/api/customers/photos/"
+
+
+def _drop_photo(url: Optional[str]) -> None:
+    """Best-effort removal of a stored avatar (Google-hosted pictures are left alone)."""
+    if url and url.startswith(_PHOTO_PREFIX):
+        get_storage_provider().delete(url[len(_PHOTO_PREFIX):])
+
+
+@router.post("/me/photo")
+async def upload_photo(
+    file: UploadFile = File(...),
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    ext = _PHOTO_TYPES.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(400, {"code": "invalid_photo_type", "message": "Photo must be JPG, PNG, WEBP or HEIC"})
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, {"code": "empty_photo", "message": "Empty file"})
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(413, {"code": "photo_too_large", "message": "Photo must be 5 MB or less"})
+    key = f"{object_storage.APP_NAME}/avatars/{customer.id}/{uuid.uuid4().hex}.{ext}"
+    try:
+        object_storage.put_object(key, data, file.content_type)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, {"code": "upload_failed", "message": f"Upload failed: {e}"})
+    _drop_photo(customer.picture)
+    customer.picture = f"{_PHOTO_PREFIX}{key}"
+    await session.commit()
+    return customer_to_dict(customer)
+
+
+@router.delete("/me/photo")
+async def delete_photo(customer: Customer = Depends(get_current_customer), session: AsyncSession = Depends(get_session)):
+    _drop_photo(customer.picture)
+    customer.picture = None
+    await session.commit()
+    return customer_to_dict(customer)
+
+
+@router.get("/photos/{key:path}")
+async def serve_photo(key: str):
+    if not key.startswith(f"{object_storage.APP_NAME}/avatars/"):
+        raise HTTPException(404, "Not found")
+    try:
+        content, ct = object_storage.get_object(key)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Not found")
+    return Response(content=content, media_type=ct, headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+
+# ---------- Phone change (SMS-verified) ----------
+class PhoneChangeIn(BaseModel):
+    country_code: str = Field(..., examples=["+225"])
+    phone: str
+
+
+class PhoneVerifyIn(BaseModel):
+    challenge_id: str
+    code: str
+
+
+async def _phone_taken(session: AsyncSession, phone: str, customer_id: str) -> bool:
+    return (await session.execute(select(Customer.id).where(Customer.phone == phone, Customer.id != customer_id))).first() is not None
+
+
+@router.post("/me/phone/request")
+async def request_phone_change(
+    payload: PhoneChangeIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    from core.utils.phone import to_e164
+    try:
+        e164 = to_e164(payload.country_code, payload.phone)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, {"code": "invalid_phone", "message": "Enter a valid phone number"})
+    if len(re.sub(r"\D", "", e164)) < 8:
+        raise HTTPException(422, {"code": "invalid_phone", "message": "Enter a valid phone number"})
+    if e164 == customer.phone:
+        raise HTTPException(409, {"code": "same_phone", "message": "This is already your phone number"})
+    if await _phone_taken(session, e164, customer.id):
+        raise HTTPException(409, {"code": "phone_taken", "message": "This number is already used by another account"})
+    recent = (await session.execute(select(func.count()).select_from(OtpChallenge).where(
+        OtpChallenge.phone == e164, OtpChallenge.created_at > datetime.now(timezone.utc) - timedelta(minutes=10),
+    ))).scalar_one()
+    if recent >= 5:
+        raise HTTPException(429, {"code": "too_many_requests", "message": "Too many codes requested. Try again later."})
+    code = generate_code(6)
+    challenge = OtpChallenge(phone=e164, code=code, attempts=0, expires_at=datetime.now(timezone.utc) + timedelta(seconds=180))
+    session.add(challenge)
+    await session.commit()
+    delivery = await get_otp_provider().send_code(e164, code, locale=customer.locale or "fr-CI")
+    resp = {"challenge_id": challenge.id, "expires_in": 180, "masked_phone": e164[:-4] + "****"}
+    if os.environ.get("BAKED_ENV", "development") != "production" and delivery.get("dev_code"):
+        resp["dev_code"] = delivery["dev_code"]
+    return resp
+
+
+@router.post("/me/phone/verify")
+async def verify_phone_change(
+    payload: PhoneVerifyIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    challenge = await session.get(OtpChallenge, payload.challenge_id)
+    if not challenge or challenge.consumed:
+        raise HTTPException(400, {"code": "challenge_invalid", "message": "Code expired. Request a new one."})
+    expires_at = challenge.expires_at if challenge.expires_at.tzinfo else challenge.expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(400, {"code": "otp_expired", "message": "Code expired. Request a new one."})
+    if challenge.attempts >= 5:
+        raise HTTPException(429, {"code": "otp_max_attempts", "message": "Too many attempts. Request a new code."})
+    await session.execute(update(OtpChallenge).where(OtpChallenge.id == challenge.id).values(attempts=OtpChallenge.attempts + 1))
+    await session.commit()
+    if payload.code.strip() != challenge.code:
+        raise HTTPException(400, {"code": "otp_incorrect", "message": "Incorrect code"})
+    if await _phone_taken(session, challenge.phone, customer.id):
+        raise HTTPException(409, {"code": "phone_taken", "message": "This number is already used by another account"})
+    customer.phone = challenge.phone
+    customer.auth_providers = sorted(set(customer.auth_providers or []) | {"phone"})
+    challenge.consumed = True
     await session.commit()
     return customer_to_dict(customer)
 
@@ -66,7 +229,7 @@ async def list_addresses(
             await session.execute(
                 select(CustomerAddress).where(
                     CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None)
-                )
+                ).order_by(CustomerAddress.is_default.desc(), CustomerAddress.created_at.desc())
             )
         )
         .scalars()
@@ -83,7 +246,13 @@ async def create_address(
 ):
     doc = payload.model_dump()
     doc["country"] = (doc.get("country") or "CI").upper()
-    if payload.is_default:
+    has_default = (await session.execute(
+        select(func.count()).select_from(CustomerAddress).where(
+            CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None), CustomerAddress.is_default.is_(True))
+    )).scalar_one()
+    if not has_default:
+        doc["is_default"] = True
+    if doc["is_default"]:
         await session.execute(
             update(CustomerAddress).where(CustomerAddress.customer_id == customer.id).values(is_default=False)
         )
@@ -101,11 +270,20 @@ async def delete_address(
 ):
     result = await session.execute(
         update(CustomerAddress)
-        .where(CustomerAddress.id == address_id, CustomerAddress.customer_id == customer.id)
+        .where(CustomerAddress.id == address_id, CustomerAddress.customer_id == customer.id,
+               CustomerAddress.deleted_at.is_(None))
         .values(deleted_at=func.now())
     )
     if result.rowcount == 0:
         raise HTTPException(404, _t("errors.order.address_not_found", current_lang()))
+    live = CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None)
+    has_default = (await session.execute(
+        select(func.count()).select_from(CustomerAddress).where(*live, CustomerAddress.is_default.is_(True)))).scalar_one()
+    if not has_default:
+        nxt = (await session.execute(select(CustomerAddress).where(*live)
+                                     .order_by(CustomerAddress.created_at.desc()).limit(1))).scalar_one_or_none()
+        if nxt:
+            nxt.is_default = True
     await session.commit()
     return {"ok": True}
 
@@ -128,6 +306,13 @@ async def update_address(
     updates["country"] = (updates.get("country") or "CI").upper()
     for k, v in updates.items():
         setattr(address, k, v)
+    await session.flush()
+    has_default = (await session.execute(
+        select(func.count()).select_from(CustomerAddress).where(
+            CustomerAddress.customer_id == customer.id, CustomerAddress.deleted_at.is_(None), CustomerAddress.is_default.is_(True))
+    )).scalar_one()
+    if not has_default:  # a customer with addresses always keeps one default
+        address.is_default = True
     await session.commit()
     return row_to_dict(address)
 
@@ -180,6 +365,8 @@ async def delete_me(
 ):
     """GDPR: soft-delete the account and scrub PII."""
     customer.deleted_at = func.now()
+    _drop_photo(customer.picture)
+    customer.picture = None
     customer.email = None
     customer.phone = None
     customer.name = "Deleted user"
@@ -331,7 +518,7 @@ async def my_wallet(
             "type": "purchase",
             "kind": o.module or "mart",
             "icon": module_icons.get(o.module or "mart", "shopping-bag"),
-            "label": f"{(o.module or 'mart').upper()}bakēd Order",
+            "label": f"b{({'express': 'SEND'}).get(o.module or 'mart', (o.module or 'mart').upper())} Order",
             "reference": o.number,
             "order_id": o.id,
             "amount": -float(o.total or 0),  # negative for spend

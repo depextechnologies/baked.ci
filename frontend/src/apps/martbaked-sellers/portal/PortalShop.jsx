@@ -1,5 +1,5 @@
 /**
- * PortalShop — SHOPbakēd seller portal page (Slice 4).
+ * PortalShop — bSHOP seller portal page (Slice 4).
  *
  * Two-pane layout:
  *   Left:  My SHOP products (with "New product" button)
@@ -122,7 +122,7 @@ export const PortalShop = () => {
     <div className="space-y-6" data-testid="portal-shop">
       <div className="flex items-center gap-3 flex-wrap">
         <ShoppingBag size={22} style={{ color: "var(--pl-accent)" }} />
-        <h1 className="pl-h1 !text-2xl" style={{ color: "var(--pl-fg)" }}>SHOPbakēd — my products</h1>
+        <h1 className="pl-h1 !text-2xl" style={{ color: "var(--pl-fg)" }}>bSHOP — my products</h1>
         <button onClick={startNew} className="pl-btn pl-btn-primary ml-auto" data-testid="portal-shop-new">
           <Plus size={14} /> New product
         </button>

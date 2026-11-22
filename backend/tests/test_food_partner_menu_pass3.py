@@ -1,4 +1,4 @@
-"""FOODbakēd — Pass 3 Menu CRUD extensions.
+"""bFOOD — Pass 3 Menu CRUD extensions.
 
 Scope:
   • POST /food/manage/{rid}/items/{iid}/duplicate — deep clones an item

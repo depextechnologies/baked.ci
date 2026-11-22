@@ -1,5 +1,5 @@
 /**
- * MARTbakēd Partner — Public Application flow (Stage 1).
+ * bMART Partner — Public Application flow (Stage 1).
  *
  * Route: /partner/apply — multi-step wizard that submits to
  *        POST /api/mart-partner/applications.
@@ -460,7 +460,7 @@ export const PartnerApplyApp = () => {
         <Link to="/partner" className="ph-nav-link inline-flex items-center gap-1.5 mb-6" data-testid="apply-back">
           <ArrowLeft size={14} /> Back to Partner Hub
         </Link>
-        <div className="ph-eyebrow mb-4">MARTbakēd Partner · Application</div>
+        <div className="ph-eyebrow mb-4">bMART Partner · Application</div>
         <h1 className="ph-h1" style={{ color: "var(--ph-fg)" }}>Apply to join BAKĒD.</h1>
 
         {/* Step progress */}

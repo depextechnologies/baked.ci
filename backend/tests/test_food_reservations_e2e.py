@@ -1,4 +1,4 @@
-"""FOODbakēd reservations — supplementary e2e coverage.
+"""bFOOD reservations — supplementary e2e coverage.
 
 Focuses on flows not covered by test_food_reservations.py:
   * Public reservation-config for burger-hub / advance-window rejection

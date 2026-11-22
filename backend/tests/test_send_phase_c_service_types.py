@@ -1,4 +1,4 @@
-"""SENDbakēd Phase C — service_type + service-vehicle eligibility regression.
+"""bSEND Phase C — service_type + service-vehicle eligibility regression.
 
 Coverage:
 - GET /api/express/services returns the full service → vehicle catalogue.

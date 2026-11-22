@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { capsBrand } from '@/lib/format';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowRight, Tag } from 'lucide-react-native';
@@ -25,7 +26,7 @@ export function PromoBanner({ section, accent, module }: SectionProps) {
     <View style={[styles.promo, { borderColor: hexA(accent, 0.33) }]} testID={`cms-promo-${section.id}`}><OnDark>
       {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" /> : null}
       <LinearGradient colors={img ? ['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.15)', 'transparent'] : [hexA(DEEP, 0.14), '#0a0a0a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: img ? 0 : 1 }} style={StyleSheet.absoluteFill} />
-      {badge ? <View style={[styles.pill, { borderColor: hexA(accent, 0.4), backgroundColor: hexA(accent, 0.1) }]}><Tag color={accent} size={10} /><AppText size={10} weight="semibold" color={accent} style={{ letterSpacing: 1.4, textTransform: 'uppercase' }}>{badge}</AppText></View> : null}
+      {badge ? <View style={[styles.pill, { borderColor: hexA(accent, 0.4), backgroundColor: hexA(accent, 0.1) }]}><Tag color={accent} size={10} /><AppText size={10} weight="semibold" color={accent} style={{ letterSpacing: 1.4 }}>{capsBrand(badge)}</AppText></View> : null}
       <AppText weight="bold" size={24} testID={`cms-promo-title-${section.id}`}>{sectionText(section, 'title', lang)}</AppText>
       {sub ? <AppText size={14} color="#D4D4D4" style={{ marginTop: 6 }}>{sub}</AppText> : null}
       {cta ? <Touchable testID={`cms-promo-cta-${section.id}`} onPress={() => router.push(nativeLink(cfg.link, module) as any)} style={[styles.cta, { backgroundColor: accent }]}>
@@ -49,7 +50,7 @@ export function BannerTrio({ section, module }: SectionProps) {
             <Touchable key={i} testID={`cms-banner-tile-${i}`} onPress={() => router.push(nativeLink(b.link, module) as any)} style={styles.tile} scale={0.98}><OnDark>
               {img ? <Image source={img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" /> : null}
               <LinearGradient colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.75)']} style={StyleSheet.absoluteFill} />
-              {pick(b, 'eyebrow', lang) ? <AppText size={10} weight="bold" color="rgba(255,255,255,0.7)" style={{ letterSpacing: 1.4, textTransform: 'uppercase' }}>{pick(b, 'eyebrow', lang)}</AppText> : null}
+              {pick(b, 'eyebrow', lang) ? <AppText size={10} weight="bold" color="rgba(255,255,255,0.7)" style={{ letterSpacing: 1.4 }}>{capsBrand(pick(b, 'eyebrow', lang))}</AppText> : null}
               <AppText weight="bold" size={18}>{pick(b, 'label', lang)}</AppText>
               {pick(b, 'subtitle', lang) ? <AppText size={12} color="rgba(255,255,255,0.8)">{pick(b, 'subtitle', lang)}</AppText> : null}
             </OnDark></Touchable>
@@ -71,7 +72,7 @@ export function BrandRow({ section }: SectionProps) {
         {brands.map((b, i) => (
           <View key={b.name || i} style={styles.brand} testID={`cms-brand-${i}`}>
             {b.image ? <Image source={assetFor(b, 0)} style={{ width: 16, height: 16 }} contentFit="contain" /> : null}
-            <AppText size={12} color={colors.textMuted} style={{ letterSpacing: 1.4, textTransform: 'uppercase' }}>{b.name}</AppText>
+            <AppText size={12} color={colors.textMuted} style={{ letterSpacing: 1.4 }}>{capsBrand(String(b.name))}</AppText>
           </View>
         ))}
       </View>

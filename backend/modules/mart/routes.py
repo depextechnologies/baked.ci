@@ -1,4 +1,4 @@
-"""MARTbakēd module — Groceries & Daily Needs.
+"""bMART module — Groceries & Daily Needs.
 
 Owns only its business logic. Reuses shared foundation (auth, config, ai).
 """

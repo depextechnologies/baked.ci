@@ -1,0 +1,39 @@
+{
+  "summary": "ROUND 2 retest (SHOP quick-add/variants/filters + global search), Expo web at 390x844, bundle /app/mobile/dist built 07:01 after the ShopCard edit at 07:00:57, so the build is current. BACKEND: 29/29 pass in tests/test_round2_shop_search.py (25 old + 4 new TestRetestFixes). Pizza cuisine hit title='Pizza'. Burger returns only Burger Hub as a restaurant, plus burger dishes sorted by relevance. min_price>max_price is swapped on /shop/products and on facets. FRONTEND, PASS: variant sheet. Taps on the title, padding, corners, bottom padding and price text no longer navigate, and the sheet stays open. Variant add increments: 2 in cart + add 1 sends PATCH quantity=3 and the badge shows 5. Scrim closes the sheet. Filter Min/Max are 170px each at x=20 and x=200, so they fit. min=20000/max=5000 is applied with the swap and shows 6 results. Explore chips keep 35.5px height after results. A scoped (FOOD) empty state shows explore-search-everywhere, which switches to all services and shows MART results. Regression PASS: single-variant + POSTs and shows the stepper, minus PATCHes, sub-category chips (6 -> 3 -> 6), sort price_asc param, Milk/Lait -> MART, chiken -> explore-corrected, colis -> send_parcel intent, burger hit -> /food/restaurant/burger-hub. FAIL (HIGH, NOT FIXED): ShopCard stepper taps still open product details. Reproduced 4 ways: '+' at max (qty 3 = stock 3) with a mouse click, a forced click and dispatch_event('click'), plus a tap on the qty number and a tap on the stepper top border. All navigate to /shop/product/TEST_shpprd_single.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/search (FoodSearchProvider) q=burger", "issue": "Unrelated restaurants are gone, but the top 8 food items are Burger Hub plus 7 burger dishes from Spice Nation, Sushi Central and Pizza Palace. Burger Hub's own dishes (Classic Cheeseburger, Double Bacon Burger, Garden Veggie Burger) are not shown. All dishes tie at 0.65, and the stable sort keeps food.search order, which lists Burger Hub last. The list also repeats the same dish names. Suggestion: boost dishes whose restaurant matched the query (+0.1), and/or dedupe by dish name."},
+      {"endpoint": "GET /api/search q=Milk", "issue": "MART returns 'Cookies' (brand Milka) because 'milk' is a substring of the brand, at relevance 0.5. This is low-value noise."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ShopCard qty stepper (react-native-web)", "issue": "NOT FIXED. A tap on '+' at max stock, on the qty number or on the stepper border still navigates to /shop/product/<id>. RCA: the wrapper <View onStartShouldSetResponder={() => true}> only affects the RN responder system. RN-web Pressable (PressResponder) also listens to the DOM 'click' event. A disabled Pressable or a plain Text/View does not stopPropagation, so the click bubbles to the card's Pressable onClick and fires onPress. The variant sheet fix works only because the sheet is now outside the card in the DOM (Modal portal sibling). Fix: wrap the price-row action area in <Pressable onPress={() => {}}> (a no-op Pressable consumes the click and stops propagation), or add onClick={(e) => e.stopPropagation()} on web, or keep '+' enabled and clamp/no-op at max (that still leaves the number and border).", "selector": "[data-testid=shop-qty-<id>-plus], [data-testid=shop-qty-<id>-value], [data-testid=shop-qty-<id>]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Explore (module-scoped FOOD) after 'Rechercher dans tous les services'", "issues": ["The header still shows the 'FOODbakēd' module-head and the placeholder still says '· FOOD', but the results now come from all services (MART). This is confusing. Also, there is no way back to FOOD scope except clearing the context. The suggestion 'Essayez « lai »' (q minus its last char) is unhelpful for a valid word."]},
+      {"screen": "Explore MART results (Lait/Milk)", "issues": ["'Lait de Coco' (Grace) uses an aubergine/eggplant image, which does not match the product.", "'Lait Bébé 1er Âge' has no image (empty thumb box)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_round2_shop_search.py", "/app/test_reports/pytest/round2_retest_iter133.xml"],
+  "action_items": [
+    "HIGH: Fix the ShopCard stepper click bubbling on web. Replace the responder-capturing <View> around the stepper/plus with a no-op <Pressable> (or stopPropagation on onClick). Retest: '+' at max, qty number, border.",
+    "Minor: /api/search burger: boost/surface the matched restaurant's own dishes and dedupe dish names.",
+    "Minor: Explore after 'search everywhere': update the module-head/placeholder to reflect the all-services scope.",
+    "Minor data: fix the wrong/missing images on MART 'Lait de Coco' / 'Lait Bébé 1er Âge'."
+  ],
+  "critical_code_review_comments": [
+    "ShopCard.tsx line 90: onStartShouldSetResponder does not stop DOM click propagation on react-native-web, so it is not a valid guard for nested Pressables on web.",
+    "explore.tsx: setFilter('all') in module context leaves activeContext unchanged, so the UI chrome (module-head, placeholder) gets out of sync with the actual search scope.",
+    "search/__init__.py FoodSearchProvider: when everything else is <= 0.5, the relevance>0.5 filter is skipped, so for queries that only match through menus, all restaurants can still appear."
+  ],
+  "updated_files": ["/app/backend/tests/test_round2_shop_search.py"],
+  "success_rate": {"backend": "100% (29/29)", "frontend": "86% (6/7 fixes verified; stepper fix failed)"},
+  "seed_data_creation": "Temporarily re-activated TEST_shpprd_single (stock 3) / TEST_shpprd_single_v from iteration 132, then re-archived them (status=archived, deleted_at set, variant inactive). Customer 0700000000's SHOP cart was emptied at the end (two cart lines deleted). No other data was changed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To retest the stepper: UPDATE shop_products SET status='active', deleted_at=NULL WHERE id='TEST_shpprd_single'; UPDATE shop_variants SET is_active=true, stock_qty=3 WHERE id='TEST_shpprd_single_v'. Open /api/app-preview/shop/category/automobile, tap shop-sub-pieces-accessoires-moto, tap shop-add-TEST_shpprd_single, then '+' twice. At qty 3, tap the plus, the value and the border. Re-archive afterwards. The Expo web bundle is /app/mobile/dist, which needs a rebuild after src changes, so check its mtime. Set localStorage baked_access_token (from /app/memory/cust_token.sh) and baked_onboarding_done. The baked_active_context key scopes Explore. Run pytest with -n 0.",
+  "rca of the issue": "Stepper navigation: react-native-web's Pressable handles the native DOM click in addition to responder events. A disabled '+' (or a non-pressable child) does not call stopPropagation, so the click reaches the ancestor card Pressable, whose onClick calls onPress and runs router.push('/shop/product/<id>'). The View responder capture added as the fix only prevents responder grant and does not stop the click. Repro: qty == stock, then click shop-qty-<id>-plus, or click shop-qty-<id>-value. Mitigation: intercept with a no-op Pressable or stopPropagation on the stepper container."
+}

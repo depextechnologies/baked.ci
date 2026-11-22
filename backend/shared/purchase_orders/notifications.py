@@ -83,7 +83,7 @@ def _submitted_email(po: PurchaseOrder, partner: Partner, warehouse: Warehouse, 
     subject = f"[BAKĒD] New PO {po.po_code} — {partner.business_name}"
     html = f"""
       <div style="{_BRAND_CSS}">
-        <div style="color:#77BC1F;font-weight:700;letter-spacing:1px">BAKĒD · MARTbakēd</div>
+        <div style="color:#77BC1F;font-weight:700;letter-spacing:1px">BAKĒD · bMART</div>
         <h2 style="margin:12px 0 4px">New Purchase Order</h2>
         <p style="color:#555;margin:0 0 20px">
           You have a new PO from <strong>{partner.business_name}</strong> — please review and acknowledge in your Supplier Portal.
@@ -112,7 +112,7 @@ def _acknowledged_email(po: PurchaseOrder, supplier: Supplier, warehouse: Wareho
     subject = f"[BAKĒD] PO {po.po_code} acknowledged by {supplier.business_name}"
     html = f"""
       <div style="{_BRAND_CSS}">
-        <div style="color:#77BC1F;font-weight:700;letter-spacing:1px">BAKĒD · MARTbakēd</div>
+        <div style="color:#77BC1F;font-weight:700;letter-spacing:1px">BAKĒD · bMART</div>
         <h2 style="margin:12px 0 4px">Supplier acknowledged your PO</h2>
         <p style="color:#555;margin:0 0 20px">
           <strong>{supplier.business_name}</strong> confirmed your purchase order and is preparing goods for shipment.
@@ -136,7 +136,7 @@ def _shipped_email(po: PurchaseOrder, supplier: Supplier, warehouse: Warehouse) 
     subject = f"[BAKĒD] PO {po.po_code} shipped — prepare {warehouse.code} for receiving"
     html = f"""
       <div style="{_BRAND_CSS}">
-        <div style="color:#77BC1F;font-weight:700;letter-spacing:1px">BAKĒD · MARTbakēd</div>
+        <div style="color:#77BC1F;font-weight:700;letter-spacing:1px">BAKĒD · bMART</div>
         <h2 style="margin:12px 0 4px">Goods on the way</h2>
         <p style="color:#555;margin:0 0 20px">
           <strong>{supplier.business_name}</strong> has shipped PO <strong>{po.po_code}</strong>.

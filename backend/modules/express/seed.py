@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — idempotent seed data.
+"""bSEND — idempotent seed data.
 
 Seeds active vehicles, package types, weight tiers, delivery preferences,
 pricing rules, move types, mover categories/items, and default time slots

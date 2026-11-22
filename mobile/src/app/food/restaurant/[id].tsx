@@ -30,7 +30,7 @@ type Menu = {
 };
 
 export default function RestaurantScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, item: itemParam } = useLocalSearchParams<{ id: string; item?: string }>();
   const { t, lang, country } = useApp();
   const { isAuthed } = useSession();
   const { addFood, food, foodMode } = useCart();
@@ -53,6 +53,14 @@ export default function RestaurantScreen() {
   }, [isAuthed, fav, id]);
 
   const r = data?.restaurant;
+  // Deep link from search (?item=) opens that dish directly once the menu is loaded.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || !itemParam || !data) return;
+    opened.current = true;
+    const hit = data.sections.flatMap((s) => s.items).find((it) => it.id === itemParam);
+    if (hit && hit.is_available !== false) setItem(hit);
+  }, [data, itemParam]);
   const canReserve = !!resa.data?.enabled && !resa.data?.paused;
   const otherRestaurant = food.some((l) => l.restaurant_id !== id);
 

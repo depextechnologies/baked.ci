@@ -1,4 +1,4 @@
-"""MARTbakēd Supplier Portal — Phase 2B (post-login).
+"""bMART Supplier Portal — Phase 2B (post-login).
 
 Routes (all require a supplier JWT with role="supplier"):
 

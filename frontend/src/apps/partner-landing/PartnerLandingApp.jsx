@@ -277,11 +277,11 @@ const HeroSection = () => {
 const HeroEcosystemIllustration = () => {
   const modules = [
     { code: "MART", icon: ShoppingBasket, color: "#77BC1F", angle: -90  },
-    { code: "FOOD", icon: Utensils,       color: "#FF6B6B", angle: -30  },
-    { code: "SHOP", icon: ShoppingBag,    color: "#FCC44C", angle:  30  },
+    { code: "FOOD", icon: Utensils,       color: "#F26924", angle: -30  },
+    { code: "SHOP", icon: ShoppingBag,    color: "#1D9BF0", angle:  30  },
     { code: "EXPRESS", icon: Truck,       color: "#FCC44C", angle:  90  },
-    { code: "AUTO", icon: Car,            color: "#9B87F5", angle: 150  },
-    { code: "IMMO", icon: HomeIcon,       color: "#F97316", angle: 210  },
+    { code: "AUTO", icon: Car,            color: "#FF4C52", angle: 150  },
+    { code: "IMMO", icon: HomeIcon,       color: "#A659FF", angle: 210  },
   ];
   const radius = 170;
   return (
@@ -379,7 +379,7 @@ const TrustBar = () => {
 
 const OPPORTUNITIES = [
   {
-    code: "MART", label: "MARTbakēd", color: "#77BC1F", icon: ShoppingBasket,
+    code: "MART", label: "bMART", color: "#77BC1F", icon: ShoppingBasket,
     key: "mart",
     cardHref: "/martbaked/sellers",
     applyHref: "/martbaked/sellers/apply",
@@ -387,23 +387,23 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #77BC1F55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #77BC1F33, transparent 60%)",
   },
   {
-    code: "FOOD", label: "FOODbakēd", color: "#00A651", icon: Utensils,
+    code: "FOOD", label: "bFOOD", color: "#F26924", icon: Utensils,
     key: "food",
     cardHref: "/foodbaked/sellers",
     applyHref: "/foodbaked/sellers/apply",
     internal: true,
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #00A65155, transparent 60%), radial-gradient(500px 300px at 80% 70%, #00A65133, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #F2692455, transparent 60%), radial-gradient(500px 300px at 80% 70%, #F2692433, transparent 60%)",
   },
   {
-    code: "SHOP", label: "SHOPbakēd", color: "#FCC44C", icon: ShoppingBag,
+    code: "SHOP", label: "bSHOP", color: "#1D9BF0", icon: ShoppingBag,
     key: "shop",
     cardHref: "/shopbaked/sellers",
     applyHref: "/shopbaked/sellers/apply",
     internal: true,
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #1D9BF055, transparent 60%), radial-gradient(500px 300px at 80% 70%, #1D9BF033, transparent 60%)",
   },
   {
-    code: "EXPRESS", label: "SENDbakēd", color: "#FCC44C", icon: Truck,
+    code: "EXPRESS", label: "bSEND", color: "#FCC44C", icon: Truck,
     key: "send",
     cardHref: "/driver",
     applyHref: "/driver",
@@ -411,18 +411,18 @@ const OPPORTUNITIES = [
     imageGradient: "radial-gradient(600px 400px at 30% 30%, #FCC44C55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FCC44C33, transparent 60%)",
   },
   {
-    code: "AUTO", label: "AUTObakēd", color: "#9B87F5", icon: Car,
+    code: "AUTO", label: "bAUTO", color: "#FF4C52", icon: Car,
     key: "auto",
     cardHref: "https://auto.partner.baked.ci",
     applyHref: "https://auto.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #9B87F555, transparent 60%), radial-gradient(500px 300px at 80% 70%, #9B87F533, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #FF4C5255, transparent 60%), radial-gradient(500px 300px at 80% 70%, #FF4C5233, transparent 60%)",
   },
   {
-    code: "IMMO", label: "IMMObakēd", color: "#F97316", icon: HomeIcon,
+    code: "IMMO", label: "bIMMO", color: "#A659FF", icon: HomeIcon,
     key: "immo",
     cardHref: "https://immo.partner.baked.ci",
     applyHref: "https://immo.partner.baked.ci",
-    imageGradient: "radial-gradient(600px 400px at 30% 30%, #F9731655, transparent 60%), radial-gradient(500px 300px at 80% 70%, #F9731633, transparent 60%)",
+    imageGradient: "radial-gradient(600px 400px at 30% 30%, #A659FF55, transparent 60%), radial-gradient(500px 300px at 80% 70%, #A659FF33, transparent 60%)",
   },
 ];
 

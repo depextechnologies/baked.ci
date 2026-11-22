@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Baked",
+    "name": "BAKED",
     "slug": "baked",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -65,7 +65,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#000000",
-          "image": "./assets/images/splash-logo.png",
+          "image": "./assets/images/splash-blank.png",
           "imageWidth": 220
         }
       ],
@@ -76,11 +76,30 @@
           "locationWhenInUsePermission": "BAKĒD utilise votre position pour afficher les restaurants, produits et services disponibles près de vous et livrer à la bonne adresse."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BAKĒD utilise vos photos pour mettre à jour votre photo de profil.",
+          "cameraPermission": "BAKĒD utilise l'appareil photo pour prendre votre photo de profil.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,
       "reactCompiler": false
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "4595f050-413f-4c01-abfa-cad0168fefd4"
+      }
+    },
+    "owner": "depex19jan"
   }
 }

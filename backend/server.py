@@ -17,6 +17,7 @@ load_dotenv(ROOT_DIR / ".env")
 
 from core.db import engine  # noqa: E402
 from shared.auth.routes import router as auth_router  # noqa: E402
+from shared.auth.password_routes import router as auth_password_router  # noqa: E402
 from shared.customer.routes import router as customer_router  # noqa: E402
 from shared.addresses.routes import router as addresses_router  # noqa: E402
 from modules.express.routes import router as express_router  # noqa: E402
@@ -167,6 +168,7 @@ async def health():
 
 # --- Shared Platform Foundation ---
 api_router.include_router(auth_router)
+api_router.include_router(auth_password_router)
 api_router.include_router(customer_router)
 api_router.include_router(global_search_router)
 api_router.include_router(addresses_router)
@@ -235,7 +237,7 @@ api_router.include_router(driver_router)
 api_router.include_router(driver_admin_router)
 api_router.include_router(driver_track_router)
 api_router.include_router(realtime_router)
-# --- FOODbakēd (Phase 1 — 2026-02) ---
+# --- bFOOD (Phase 1 — 2026-02) ---
 # Public /food/* + admin /admin/food/* routes for the FoodHome + admin
 # workspace under /admin/modules/food.
 api_router.include_router(food_discover_page_router)             # /food/restaurants/discover + /food/categories (MUST be before food_router so /restaurants/discover isn't captured by the /restaurants/{slug} route)
@@ -247,18 +249,18 @@ api_router.include_router(cart_quote_router)                     # /cart/quote �
 api_router.include_router(food_admin_router)
 api_router.include_router(food_partner_router)
 api_router.include_router(food_manage_router)
-# FOODbakēd onboarding — applicant portal (`/foodbaked/sellers`) + admin queue.
+# bFOOD onboarding — applicant portal (`/foodbaked/sellers`) + admin queue.
 api_router.include_router(food_public_apply_router)      # doc-requirements
 api_router.include_router(food_applicant_router)         # OTP + wizard
 api_router.include_router(food_apply_admin_router)       # admin review
 api_router.include_router(food_partner_activation_router)  # POST /food/partner/activate
 api_router.include_router(food_analytics_router)           # GET /food/manage/{rid}/analytics
 api_router.include_router(food_seed_router)                # POST /admin/food/restaurants/{rid}/seed-orders
-# FOODbakēd — Table reservations + real-time partner notification engine (2026-02).
+# bFOOD — Table reservations + real-time partner notification engine (2026-02).
 api_router.include_router(food_reservations_public_router)     # /food/restaurants/{slug}/reservation-*
 api_router.include_router(food_reservations_customer_router)   # /food/customer/reservations
 api_router.include_router(food_reservations_manage_router)     # /food/manage/{rid}/reservation-* + WS
-# FOODbakēd — Restaurant microsite (Overview/Photos/Menu/Reviews foundation).
+# bFOOD — Restaurant microsite (Overview/Photos/Menu/Reviews foundation).
 api_router.include_router(food_microsite_public_router)        # /food/restaurants/{slug}/microsite + /photos
 api_router.include_router(food_microsite_manage_router)        # /food/manage/{rid}/profile + /photos CRUD
 api_router.include_router(food_reservation_config_manage_router)  # /food/manage/{rid}/reservation-areas + tables + activate
@@ -277,7 +279,7 @@ api_router.include_router(settlement_admin_router)                # /admin/vendo
 api_router.include_router(settlement_cron_admin_router)           # /admin/vendor-settlement/{preview,run-now,...}
 api_router.include_router(settlement_cron_router)                 # /cron/vendor-settlement/run
 
-# --- SHOPbakēd (Slice 1 Foundation, 2026-02) ---
+# --- bSHOP (Slice 1 Foundation, 2026-02) ---
 # Marketplace module. Isolated tables (shop_*), shared supplier identity
 # via `suppliers.modules` JSONB. Slices 2-8 will flesh out catalogue,
 # attributes, seller portal, approvals and storefront on top of these
@@ -457,6 +459,20 @@ async def _on_startup():
     # any index that depends on it, and every schema change lands with a
     # proper revision history instead of implicit auto-DDL from Python
     # models.
+    # Serialise migrations + seed across concurrent boots (reloader / extra workers) with a
+    # Postgres advisory lock — two processes racing `alembic upgrade` crashed startup.
+    from sqlalchemy import text as _sql_text
+    _lock_conn = await engine.connect()
+    await _lock_conn.execute(_sql_text("SELECT pg_advisory_lock(727001)"))
+    try:
+        await _migrate_and_seed()
+    finally:
+        await _lock_conn.execute(_sql_text("SELECT pg_advisory_unlock(727001)"))
+        await _lock_conn.close()
+    await _post_migrate_startup()
+
+
+async def _migrate_and_seed() -> None:
     try:
         logger.info("baked.startup running alembic upgrade head…")
         from alembic.config import Config
@@ -481,6 +497,9 @@ async def _on_startup():
     except Exception as e:  # noqa: BLE001
         logger.exception("baked.seed_failed err=%s", e)
 
+
+async def _post_migrate_startup() -> None:
+
     # ---- 3) Object storage init (best-effort — logs but never blocks boot). ----
     try:
         from core.providers.object_storage import init_storage
@@ -497,7 +516,7 @@ async def _on_startup():
     except Exception as e:  # noqa: BLE001
         logger.warning("baked.startup realtime_init_failed err=%s — WS fan-out will use inproc fallback", e)
 
-    # ---- 5) SENDbakēd dispatch offer-expiry worker (Phase A) ---------------
+    # ---- 5) bSEND dispatch offer-expiry worker (Phase A) ---------------
     try:
         from modules.express.offer_worker import run_forever as _offer_forever
         app.state.offer_worker_task = asyncio.create_task(_offer_forever(), name="express-offer-worker")

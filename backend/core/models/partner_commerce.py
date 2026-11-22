@@ -1,6 +1,6 @@
 """Partner commerce — Products, Orders (partner-linked), Wallet.
 
-Slice 5/6/7 of MARTbakēd MVP. Kept in a separate file so `partners.py` stays
+Slice 5/6/7 of bMART MVP. Kept in a separate file so `partners.py` stays
 focused on identity/warehouse hierarchy.
 
 Design notes

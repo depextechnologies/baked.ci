@@ -1,4 +1,4 @@
-"""MARTbakēd Partner — Stage 1 Public Application endpoints.
+"""bMART Partner — Stage 1 Public Application endpoints.
 
 Public, unauthenticated: anyone can submit an application from `/partner/apply`.
 The applicant does NOT gain any partner-portal access here — that only happens
@@ -206,7 +206,7 @@ def _validate_warehouse_location(payload: "ApplicationSubmit") -> None:
     if detected and detected not in supported:
         raise HTTPException(status_code=400, detail={
             "code": "unsupported_country",
-            "message": "This location is currently outside the MARTbakēd service area.",
+            "message": "This location is currently outside the bMART service area.",
             "supported": sorted(supported),
         })
 
@@ -215,7 +215,7 @@ def _validate_warehouse_location(payload: "ApplicationSubmit") -> None:
 async def submit_application(
     payload: ApplicationSubmit, session: AsyncSession = Depends(get_session),
 ):
-    """Submit a new MARTbakēd Partner application.
+    """Submit a new bMART Partner application.
 
     Idempotency: the applicant can submit as many drafts as they like, but each
     submitted application creates a fresh row that must be reviewed. We do NOT
@@ -521,7 +521,7 @@ async def admin_approve(
         portal_url = os.environ.get("PARTNER_PORTAL_URL", "https://baked.ci/partner-portal/login")
         html = f"""
           <div style="font-family:'Inter',system-ui,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
-            <h2 style="margin:0 0 12px">Welcome to MARTbakēd, {partner.business_name}!</h2>
+            <h2 style="margin:0 0 12px">Welcome to bMART, {partner.business_name}!</h2>
             <p style="margin:0 0 16px;color:#333">
               Your partner application has been <b>approved</b>. Your dark store is now
               in <b>setup&nbsp;required</b> status — sign in to complete the last few
@@ -545,7 +545,7 @@ async def admin_approve(
               <a href="{portal_url}"
                  style="display:inline-block;background:#DC7F1E;color:#0a0a0f;text-decoration:none;
                         padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px">
-                Sign in to your MARTbakēd portal
+                Sign in to your bMART portal
               </a>
             </div>
             <p style="margin-top:20px;font-size:12px;color:#888">
@@ -555,7 +555,7 @@ async def admin_approve(
           </div>
         """
         text = (
-            f"Welcome to MARTbakēd, {partner.business_name}!\n\n"
+            f"Welcome to bMART, {partner.business_name}!\n\n"
             f"Your partner application has been APPROVED.\n\n"
             f"  Store ID:            {generated_code}\n"
             f"  Owner email:         {partner.owner_email}\n"

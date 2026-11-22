@@ -1,4 +1,4 @@
-"""SHOPbakēd — idempotent catalogue seed (Slice 2, 2026-02).
+"""bSHOP — idempotent catalogue seed (Slice 2, 2026-02).
 
 Seeds `shop_categories` and `shop_subcategories` from the canonical FR/EN
 tree in `catalogue_data.py`. Called from the main `run_seed()` startup

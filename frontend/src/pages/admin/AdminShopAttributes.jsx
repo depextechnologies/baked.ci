@@ -1,5 +1,5 @@
 /**
- * Super Admin — SHOPbakēd Attributes Editor.
+ * Super Admin — bSHOP Attributes Editor.
  *
  * Route: /admin/modules/shop/attributes
  *
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { adminApi } from "../../contexts/AdminContext";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 
 const ATTR_TYPES = [
   { code: "text",         label: "Text" },
@@ -158,7 +158,7 @@ export const AdminShopAttributes = () => {
   return (
     <div className="space-y-5" data-testid="admin-shop-attributes">
       <div>
-        <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>SHOPbakēd</div>
+        <div className="text-xs uppercase tracking-widest" style={{ color: SHOP_ACCENT }}>bSHOP</div>
         <h2 className="text-xl font-bold flex items-center gap-2"><Tag size={18} /> Attributes</h2>
         <p className="text-xs text-muted-foreground">Manage dynamic product attributes for the SHOP catalogue. Define them once, then assign to categories or sub-categories.</p>
       </div>

@@ -1,4 +1,4 @@
-"""FOODbakēd — Order pipeline (Pass 1: receive-side only, no driver dispatch).
+"""bFOOD — Order pipeline (Pass 1: receive-side only, no driver dispatch).
 
 Routes:
   Customer:

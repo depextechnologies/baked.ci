@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — customer-facing REST endpoints.
+"""bSEND — customer-facing REST endpoints.
 
 All configuration (vehicles, package types, pricing rules, mover items) lives
 in Postgres and is editable from Super Admin. Booking status transitions are
@@ -321,12 +321,22 @@ class MoversQuoteIn(BaseModel):
     stairs_drop: bool = False
     declared_value: Optional[float] = None
     time_slot_surcharge: float = Field(0.0, ge=0)
+    time_slot_code: Optional[str] = None
 
 
 @router.post("/quote/movers")
 async def movers_quote(payload: MoversQuoteIn, session: AsyncSession = Depends(get_session)):
     data = payload.model_dump()
     items = data.pop("items")
+    slot_code = data.pop("time_slot_code")
+    data["time_slot_surcharge"] = 0.0
+    if slot_code:
+        slot = (await session.execute(select(ExpressTimeSlot).where(
+            ExpressTimeSlot.code == slot_code, ExpressTimeSlot.country == payload.country.upper(), ExpressTimeSlot.active.is_(True),
+        ))).scalar_one_or_none()
+        if not slot:
+            raise HTTPException(400, {"code": "invalid_time_slot", "message": "Unknown time slot"})
+        data["time_slot_surcharge"] = float(slot.surcharge or 0)
     return await quote_movers(session, items=[it for it in items], **data)
 
 

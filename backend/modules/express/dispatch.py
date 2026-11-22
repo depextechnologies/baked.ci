@@ -1,8 +1,8 @@
-"""EXPRESSbakēd — Driver Dispatch.
+"""bSEND — Driver Dispatch.
 
 Real-driver mode (Phase A, 2026-02):
     * Filters `module_drivers` down to rows with `linked_driver_id IS NOT NULL`
-      (a real SENDbakēd driver bridged in via /driver/me/online).
+      (a real bSEND driver bridged in via /driver/me/online).
     * Requires a fresh `last_seen_at` (< STALE_AFTER_SECONDS) so a driver
       who closed the app without going offline stops being offered jobs.
     * Excludes drivers that already rejected the specific booking.

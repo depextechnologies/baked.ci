@@ -149,10 +149,10 @@ export const PhoneLoginDialog = ({ open, onOpenChange }) => {
 
           {step === "phone" ? (
             <>
-              <h2 className="text-3xl sm:text-4xl font-semibold text-center leading-tight">
-                {t(locale, "auth.welcome")} <span style={{ color: "#FF4C52" }}>{t(locale, "auth.your_world")}</span>
+              <h2 data-testid="auth-title" className="text-3xl sm:text-4xl font-semibold text-center leading-tight tracking-tight mt-2">
+                {t(locale, "auth.welcome")}
               </h2>
-              <p className="text-center text-sm text-muted-foreground mt-2">{t(locale, "auth.one_account")}</p>
+              <p data-testid="auth-tagline" className="text-center text-base sm:text-lg font-medium mt-3 mb-2 tracking-wide" style={{ color: "#1D9BF0" }}>{t(locale, "auth.tagline")}</p>
 
               <div className="mt-8 flex items-stretch gap-0 baked-input border border-border overflow-hidden bg-secondary/40">
                 <select

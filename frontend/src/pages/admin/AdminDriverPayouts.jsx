@@ -1,5 +1,5 @@
 /**
- * AdminDriverPayouts — SENDbakēd driver payout console.
+ * AdminDriverPayouts — bSEND driver payout console.
  *
  * Lists every DriverWithdrawal newest-first with tabs for
  * pending / paid / failed / all. Pending rows expose two actions:
@@ -84,7 +84,7 @@ export const AdminDriverPayouts = () => {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2"><Wallet size={18} /> Driver payouts</h2>
-          <p className="text-xs text-muted-foreground">SENDbakēd driver withdrawal requests. Mark each row as paid or failed after processing at the bank.</p>
+          <p className="text-xs text-muted-foreground">bSEND driver withdrawal requests. Mark each row as paid or failed after processing at the bank.</p>
         </div>
         <Button variant="ghost" size="sm" onClick={load} data-testid="payouts-refresh">
           <RefreshCw size={14} className="mr-2" /> Refresh

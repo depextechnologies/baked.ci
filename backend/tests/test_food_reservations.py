@@ -1,5 +1,5 @@
 """
-FOODbakēd — Reservations end-to-end pytest coverage.
+bFOOD — Reservations end-to-end pytest coverage.
 
 Boots up requests-based tests against the live backend at BASE_URL. Covers:
   * Reservation-disabled restaurants reject slot + create endpoints.

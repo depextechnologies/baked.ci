@@ -1,4 +1,4 @@
-"""SENDbakēd Realtime — WebSocket endpoints for driver publish + customer subscribe.
+"""bSEND Realtime — WebSocket endpoints for driver publish + customer subscribe.
 
 Driver:   wss://.../api/ws/driver/jobs/{job_id}?token=<jwt>
 Customer: wss://.../api/ws/track/{job_id}?t=<share_token>

@@ -1,4 +1,4 @@
-"""FOODbakēd admin CRUD regression — Feb 2026.
+"""bFOOD admin CRUD regression — Feb 2026.
 
 Covers:
   * Auth: unauthenticated GETs on admin routes are rejected (401)

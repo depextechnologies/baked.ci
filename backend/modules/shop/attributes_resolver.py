@@ -1,4 +1,4 @@
-"""SHOPbakēd — dynamic attribute resolver (Slice 3).
+"""bSHOP — dynamic attribute resolver (Slice 3).
 
 Same shape as `modules.mart_attributes.resolver.resolve_attributes` but
 reads assignments from `shop_category_attributes` and definitions from

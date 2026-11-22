@@ -1,4 +1,4 @@
-"""FOODbakēd — Restaurant Analytics + Order Seed Helper.
+"""bFOOD — Restaurant Analytics + Order Seed Helper.
 
 Endpoints:
   * `GET /api/food/manage/{rid}/analytics?range=7d|30d|90d`

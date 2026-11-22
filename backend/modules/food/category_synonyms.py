@@ -1,4 +1,4 @@
-"""FOODbakēd category synonym registry (P0 Discovery).
+"""bFOOD category synonym registry (P0 Discovery).
 
 Central source for the dish-name tokens that qualify a restaurant for a
 given category chip. The spec explicitly asks for "elastic and intelligent

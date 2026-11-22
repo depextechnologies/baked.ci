@@ -1,4 +1,4 @@
-"""SENDbakēd — parametrised pytest contract for both PubSub backends.
+"""bSEND — parametrised pytest contract for both PubSub backends.
 
 Runs the same publish/subscribe assertions against `InProcessPubSub` and
 `RedisPubSub`. Redis tests skip cleanly if REDIS_URL is unset or the

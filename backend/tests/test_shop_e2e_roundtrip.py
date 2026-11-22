@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 8 end-to-end round-trip test.
+"""bSHOP — Slice 8 end-to-end round-trip test.
 
 Emulates the full three-actor journey:
 
@@ -22,7 +22,7 @@ Emulates the full three-actor journey:
 
 Every step asserts against the response so a regression in ANY slice
 between 1..7 breaks this test loudly. This is the fork agent's smoke
-test for the entire SHOPbakēd MVP.
+test for the entire bSHOP MVP.
 """
 from __future__ import annotations
 import os

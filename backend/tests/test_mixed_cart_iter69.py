@@ -1,4 +1,4 @@
-"""Iter69 — SHOPbakēd unified cart + dual checkout (MART + SHOP mixed).
+"""Iter69 — bSHOP unified cart + dual checkout (MART + SHOP mixed).
 
 Backend never sees the "unified" shape — it just keeps MART cart in /api/carts/me
 and SHOP cart in /api/shop/cart/me. This test verifies both endpoints stay
