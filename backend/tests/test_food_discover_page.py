@@ -1,4 +1,4 @@
-"""FOODbakēd category-based discovery — menu-item search + 15 km radius +
+"""bFOOD category-based discovery — menu-item search + 15 km radius +
 delivery-zone marking. Covers the Fixing_Prompt test matrix.
 """
 from __future__ import annotations

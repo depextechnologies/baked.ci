@@ -1,5 +1,23 @@
 # BAKĒD Platform v1.0 — Implementation Memory
 
+## Latest (2026-06) — Brand refresh, DARK version (iterations 135–136)
+- Modules renamed everywhere (website, admin, partner/seller portals, mobile app, backend text, DB data): bMART #77BC1F, bFOOD #F26924, bSHOP #1D9BF0, bSEND #FCC44C (was EXPRESS/SENDbakēd), bIMMO #A659FF, bAUTO #FF4C52. Internal module codes/routes unchanged (`express`, `/foodbaked/...`).
+- Official dark logos (user files, background removed → transparent PNG) at `mobile/assets/images/brand/b{food,mart,send,shop}-dark.png` and `frontend/public/logos/v2/`. Light mode + IMMO/AUTO use a TEXT logo (b-badge `badge-on-light/dark.png` + name in module colour) — swap in light files when the user supplies them (`MODULE_LOGO[code].light` in BakedLogo.jsx, `DARK_LOGO` → add LIGHT map in mobile BrandName.tsx).
+- DB migrations 0073 (rename stored text: configurations, homepage_sections, search_intents, mart_stores, shop_products) and 0074 (CMS per-module accents). Seeds updated.
+- Helpers: mobile `capsBrand()` (uppercase but keep bFOOD), `brandName(code)`; web `brandName(code)` in lib/modules.js.
+- Known leftovers: some service/vehicle artwork images have "SENDbakēd" painted in; onboarding illustration glows; admin sidebar light-mode platform logo low visibility (pre-existing); a few broken demo product/category images.
+- Light-mode official logos added (iteration 137, 100%): `b{food,mart,send,shop}-light.png` (white bg removed) in mobile `assets/images/brand/` + web `public/logos/v2/`; BrandName.tsx uses LIGHT_LOGO/DARK_LOGO, BakedLogo.jsx MODULE_LOGO[code].light. bIMMO/bAUTO official dark+light logos added too (b{immo,auto}-{dark,light}.png) — all six modules now use official files; coming-soon rows show the logo at 55% opacity on mobile.
+- Test APK v6 (versionCode 6, ci.baked.app, BAKED, signed, all 12 official logos): /downloads/baked-test-v6-c696ca1c4fa77a01.apk; mapping at /app/signing/mapping-v6.txt.
+
+## Previous (2026-06) — Round 3: Edit Profile + 3 pending fixes + test APK v4 — COMPLETE (iteration_134: backend 22/22, frontend all flows)
+- **Edit Profile** (`mobile/src/app/profile-edit.tsx`, `components/profile/{Avatar,PhotoSheet,PhoneChange}.tsx`): name, email (saved straight away; format + case-insensitive duplicate check), photo from camera or gallery (expo-image-picker, square crop, 5 MB, JPG/PNG/WEBP/HEIC), remove photo, phone change verified by a NEW SMS code. Profile tab card shows avatar/initial and opens the editor.
+- Backend (`shared/customer/routes.py`): PATCH /customers/me validation (422 invalid_name/invalid_email, 409 email_taken); POST/DELETE /customers/me/photo (stored via object_storage, served at GET /api/customers/photos/{key}; old file deleted on replace/remove/account delete); POST /customers/me/phone/request + /verify (409 phone_taken/same_phone, 422 invalid_phone, 429 rate limit, dev_code in non-prod).
+- **Image fallback**: `components/ui/SafeImage.tsx` (retries 2x with back-off, then module fallback in the same box) used by home tiles, category rows, promo slider, hero carousel, category grid, product thumbs, search thumbs.
+- **Movers quote**: quote refetches when review inputs/coords are ready; loading/error/retry UI; currency only from backend/country; server computes slot surcharge from `time_slot_code` (client surcharge ignored); no pricing rule → 409 `movers_pricing_unavailable` (no zero quote).
+- **Search**: "Did you mean" from real catalogue/intent vocabulary (difflib), typo auto-correct for ≥3 chars; Explorer: stale-response guard, clear resets everything, "Chercher partout" exits module scope, dish → restaurant with dish sheet (`?item=`), shop category/brand hits navigate natively.
+- Android versionCode default 4 (`app.config.js`), package `ci.baked.app`, name BAKED.
+- Known/accepted: Explorer stays scoped to the module last opened (tap "Chercher partout").
+
 ## Latest (2026-06) — Mobile Super App: new CMS-driven Main Home + Global Light/Dark theme — COMPLETE (iterations 129–130 pass)
 - **Main home (mobile only)** rebuilt from the user's mockup: header (logo, bell, cart badge), address bar + search button, 3-column service grid (SEND/FOOD/MART/SHOP/IMMO/AUTO, IMMO+AUTO "Bientôt" and not tappable), category rows (FOOD "Commandez vos envies", MART "Vos courses en minutes", SHOP "Tendances mode") with View All, promo banner slider. Wallet/QuickStrip/BrandBanner removed from home (wallet still in Profile).
 - **CMS**: new homepage module `baked` with section types `app_module_grid`, `app_category_row` (source_module food/mart/shop + item keys referencing EXISTING category code/slug, optional image/label overrides, max_items), `app_promo_slider`. Seeded CI+IN via `seed_baked_homepage` (insert-only). Editable in Super Admin `/admin/homepage-management` → "BAKĒD App" toggle (add/edit/delete/enable/reorder). Native components in `src/components/cms/app/*`, registered in `registry.tsx` under `baked`.
@@ -1934,3 +1952,53 @@ All 8 slices (Foundation → Catalogue → Attributes → Seller Portal → Admi
 - ✅ **Homepage parity — FOOD (2026-06)**: native FOOD home CMS-driven (food_* registry, /food/home feed keeps 15 km rules), discover supports clearable cuisines filter. Tested iteration_124. Remaining: SEND.
 - ✅ **Homepage parity — SEND (2026-06)**: SEND website homepage migrated into CMS (module=express, 4 send_* types) and native SEND home renders it. Admin list editor reorder. All 4 modules CMS-driven. Tested iteration_125.
 - ✅ **Live driver markers (2026-06)**: GET /api/express/drivers/nearby (dispatch eligibility, 60 s freshness, ≤15 km, rounded coords, no identity) powers website /send maps (15 s polling, count chip, recenter) and native SEND map (nearby markers + chip, AppState-aware polling). Fake seedDrivers removed. Also: redis launcher /app/backend/scripts/redis_launcher.sh (auto-installs after pod reset), dev_approve_test_driver.py, content edits moved into seeds/migration. Tested iteration_126.
+
+## 2026-11 — Fixing_Prompt.docx stabilization milestone (3 rounds)
+### Round 1 — DONE (iteration_131: backend 8/9 → minor fixes applied, frontend 100%)
+- Root cause of the "Cloudflare" MART checkout error: backend was down/restarting (DB reset after workspace moves + 2 boots racing `alembic upgrade` → startup crash). Fix: Postgres advisory lock around migrations+seed in server.py `_on_startup`; DB-wait 180s.
+- Idempotent orders: `shared/idempotency.py` (Redis, 24h); MART POST /orders and SHOP POST /shop/checkout accept `client_request_id`; replay returns the full original order with `idempotent_replay: true`. App retries POSTs (same id) on network/5xx.
+- Friendly checkout errors (co.unconfirmed), partial results "Confirmées / Non confirmées" per module.
+- Address book: migration 0072 (recipient_name/phone); first address auto-default, always one default, default listed first; inline one-off checkout addresses hidden from the book. Native screens /addresses (list/select) and /addresses/edit (form, map/search via /address?book=1). Checkout preselects default, one-order choice via `setCheckoutAddressId` (reset after order), MART sends address_id.
+- App name BAKED (app.json name + alerts).
+- NOTE: backend supervisor runs uvicorn --workers 4 without reload in this env → restart backend after backend edits.
+### Round 2 — DONE (iterations 132–133; last stepper click-through fix self-verified)
+- GET /api/shop/products: sort/min_price/max_price/brand/in_stock/discounted/offset; items carry in_stock, stock_qty, discount_pct. GET /api/shop/products/facets (brands + price range).
+- Native SHOP category: sub-category chips, sort chips, filter sheet (price, brands, stock, promo, clear), pagination; ShopCard with discount/out-of-stock badges, + quick add / stepper, VariantSheet for multi-variant (adds to existing qty).
+- Search: FOOD provider fixed (was crashing on Query defaults → no dishes), relevance sort + dedupe + boost dishes of matching restaurant, cuisine titles; typo correction via difflib vocabulary (`corrected_from`), SEND intent phrases extended (coursier, livreur, envoyer…); Explore navigates dishes→restaurant, shop→product, SEND intents→/send/book or /send/movers, "search all services" link.
+### Round 3 — TODO: Edit Profile (name, email, photo upload via existing storage; phone change skipped by user), name placeholder "Add your name"; country/currency checks; new test APK (versionCode 4) via scripts/run-build-safely.sh.
+
+## Ops note (2026-11) — Expo Go iPhone failure root cause
+- /app volume (shared with /root) hit 100%: /root/.gradle (3.3G), npm cache, 5×100MB R8 mapping files. Metro then served broken 1-module bundles ("Cannot find native module ExpoAsset", "Could not connect to development server").
+- Fix: gradle home moved to /opt/gradle-home (symlink /root/.gradle), npm cache cleaned, only latest mapping kept gzipped (/app/signing/mapping-v6.txt.gz), Expo packages aligned with `npx expo install --fix` (expo 58.0.25 etc., react-native 0.88.1) and node_modules repaired. Keep an eye on `df -h /app` before builds.
+- expo-mobile supervisor command reads EXPO_TOKEN from backend/.env or /root/.expo-token (account depex19jan).
+
+## 2026-11 — Fixing_Prompt.docx: official module logos (iteration 138)
+- New reusable `mobile/src/components/ModuleLogo.tsx` ({module, variant, size small|medium|large|number, showName}) loads official assets (b*-dark/light.png; icon-only badge cropped from official file). `BrandName` is now a thin wrapper. Home tiles (AppGrid) use ModuleLogo instead of text "b"+name.
+- Web: AppSelectorSheet (mobile module switcher) + Admin ModuleWorkspace header use BrandedModuleLabel images; BakedLogo/BrandedModuleLabel fall back to the <html> theme class outside AppProvider (admin is light → light logos; fixes invisible admin sidebar logo).
+- Small chips/sentences (cart chips, search group labels) intentionally stay text (user choice). Before/after screenshots: /downloads/screens/home-{before,after-dark,after-light}.jpeg.
+
+## 2026-11 — New login / auth (Fixing_Prompt login + registration spec) — PHASES 1–4 DONE (UI approved; iteration 139 + fixes)
+- Approved black/blue login: `mobile/src/app/login.tsx` (SMS Code → existing phone OTP; WhatsApp Code → honest "not activated, use SMS" until Twilio Verify is configured; Google; Email → /email-login; Continue as Guest → home; Create Account → /register). Shared UI `components/auth/AuthUI.tsx` (AuthShell with official logo `assets/images/baked-logo-official.png`, rotating six-colour ModuleRing bottom-right (components/auth/ModuleRing.tsx, 24s/turn) — replaced blue glows per user, FR/EN pill, PhoneField, AuthInput, AuthButton) + `AuthIcons.tsx`.
+- `email-login.tsx` + `register.tsx`: UI + client validation only; submit shows "activated after approval" (no backend yet).
+- Screenshots for approval: /downloads/screens/approval_*.jpeg.
+- NEXT (after approval): Phase 2 guest cart → login on checkout with cart merge; Phase 3 backend email/password (Argon2id, identity linking, brute-force limits); Phase 4 phone+email verification, password reset via SMTP; Phase 5 Twilio Verify SMS+WhatsApp (needs TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID + WhatsApp sender/template approval); Phase 6 regression + APK v7. OTP screen restyle (channel label, resend, switch channel) is part of Phase 3/4.
+
+### Auth phases 2–4 (2026-11)
+- Backend `shared/auth/password_routes.py`: register/start (pending registration in `customer_auth_codes`, Argon2id hash, conflicts: email_taken / account_exists) → register/verify (phone OTP proves ownership, then creates or UPGRADES the phone customer — same id), register/resend, email/send-verification + email/verify (codes hashed, 5 attempts), login/email (generic 401, DB-backed per-email lockout 6 failures/15 min, only failures counted), password/forgot (always ok, only verified emails, email sent in background) + password/reset. Migrations 0075 (password_hash, email_verified_at, customer_auth_codes) + 0076 (unique lower(email) active). `customer_to_dict` strips password_hash → `has_password`.
+- Google login links only to accounts with verified email (else releases the unverified claim); Google accounts get email_verified_at. PATCH /customers/me email change resets verification.
+- Mobile: email-login, register, otp (reg mode), verify-email, forgot-password screens wired; guest button + all auth successes call completeOnboarding; checkout redirect shows "Your cart is kept" note (guest MART/SHOP carts merge on login via CartContext).
+- Pending: Phase 5 Twilio Verify SMS+WhatsApp (keys + Meta WhatsApp sender approval), Phase 6 regression + APK v7. Global per-IP limiter still trusts X-Forwarded-For (per-account lock is DB-based).
+
+## 2026-11-20 — Mobile home redesign
+- bMART home on phones (<768px): delivery panel + "Get the BAKĒD app" hidden (web ConfigHomepage + mobile MartHero/registry).
+- Module tile order: SHOP, MART, FOOD, SEND, IMMO, AUTO (CMS rows updated for CI/IN + seed + HOME_GRID_ORDER).
+- Search removed from address row (main home) and module homes; search lives in Explore tab only.
+- Main home (mobile/src/components/home/MainHome.tsx): logo + bell/cart, full-width address bar, auto-sliding (4s) curved promo banners (app_promo_slider), "Baked Ecosystem" heading, six equal cards (HomeModuleCards.tsx) sized to fit one screen; art for shop/mart/send in assets/images/brand/card-*.png. Product rows removed from main home.
+- Module headers: big ModuleLogo only (tap → main home), no bakēd logo/chip.
+
+## 2026-11-21 — Brand logo v3 + intro
+- New official logo (white on dark / black on light): mobile assets/images/logo*.png, baked-logo-official, splash-logo, icon/android/favicon; web /logos/v3/* via BakedLogo.jsx; favicon/square in frontend/public.
+- First-launch intro animation (SplashOverlay.tsx, AsyncStorage `baked.intro_seen`): b badge slides in, wordmark, radial glow (~2s). Later launches: quick fade.
+- Expo Go: supervisor expo-mobile now runs with CI=false (live reload). metro.config.js blockList prunes ONLY top-level package native dirs (node_modules/<pkg>/ios etc.) + __tests__ — never block nested ios/ dirs (react-native-screens has JS in src/.../ios) to stay under inotify limit (12288) — ENOSPC on `watch` means inotify, not disk.
+- Tunnel: exp://wioq6zo-depex19jan-8081.exp.direct
+- Native splash image is a blank 8x8 PNG on #000 (splash-blank.png) so the JS intro starts cleanly.

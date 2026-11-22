@@ -1,4 +1,4 @@
-"""SENDbakēd Driver — Slice 1 (Auth + KYC + Dashboard).
+"""bSEND Driver — Slice 1 (Auth + KYC + Dashboard).
 
 Endpoints (all prefixed `/api/driver`):
 
@@ -761,7 +761,7 @@ async def set_online(
     if payload.area:            driver.current_area = payload.area
 
     # --- Bridge into the dispatch pool (Phase A) --------------------------
-    # A real SENDbakēd driver toggling Online must appear in module_drivers
+    # A real bSEND driver toggling Online must appear in module_drivers
     # with is_available=True and a fresh last_seen_at, or matching queries
     # will keep returning None.
     from modules.driver.dispatch_bridge import set_availability
@@ -826,7 +826,7 @@ async def push_location(
 
 
 # ---------------------------------------------------------------------------
-# Offer flow — Incoming Delivery Request (SENDbakēd)
+# Offer flow — Incoming Delivery Request (bSEND)
 # ---------------------------------------------------------------------------
 
 @router.get("/me/offers/current")
@@ -1277,7 +1277,7 @@ async def verify_delivery(job_id: str, payload: VerifyOtpJobIn,
 _DEMO_JOB_TEMPLATES = {
     "IN": {
         "customer_name": "Ananya Verma", "customer_phone": "+919990001122",
-        "pickup_label": "MARTbakēd Sector 18 Noida",
+        "pickup_label": "bMART Sector 18 Noida",
         "pickup_lat": 28.5691, "pickup_lng": 77.3210,
         "dropoff_label": "Sector 62, Noida",
         "dropoff_lat": 28.6272, "dropoff_lng": 77.3762,
@@ -1285,7 +1285,7 @@ _DEMO_JOB_TEMPLATES = {
     },
     "CI": {
         "customer_name": "Mariam Diallo", "customer_phone": "+22507070707",
-        "pickup_label": "MARTbakēd Cocody",
+        "pickup_label": "bMART Cocody",
         "pickup_lat": 5.3600, "pickup_lng": -4.0083,
         "dropoff_label": "Plateau, Abidjan",
         "dropoff_lat": 5.3197, "dropoff_lng": -4.0166,

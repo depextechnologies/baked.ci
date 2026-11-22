@@ -1,7 +1,7 @@
 """Re-exports every model so Base.metadata is fully populated for Alembic autogenerate."""
 from core.models.base import Base, new_id
 from core.models.reference import AiPrompt, City, Configuration, Country, Role
-from core.models.identity import AdminUser, AuditLog, Customer, CustomerSession, OtpChallenge
+from core.models.identity import AdminUser, AuditLog, Customer, CustomerAuthCode, CustomerSession, OtpChallenge
 from core.models.addresses import CustomerAddress, RecentAddressSearch
 from core.models.mart import (
     AiExecution,
@@ -115,6 +115,7 @@ __all__ = [
     "Customer",
     "CustomerSession",
     "OtpChallenge",
+    "CustomerAuthCode",
     "CustomerAddress",
     "RecentAddressSearch",
     "AiExecution",

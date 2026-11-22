@@ -247,10 +247,10 @@ def test_food_restaurant_url_shape():
 def test_intent_subtitle_matches_language():
     r = _search("send parcel", language="fr")
     intent = next(i for i in r["detected_intents"] if i["intent_code"] == "send_parcel")
-    assert "SENDbakēd" in intent["subtitle"] or "colis" in intent["subtitle"].lower()
+    assert "bSEND" in intent["subtitle"] or "colis" in intent["subtitle"].lower()
     r = _search("send parcel", language="en")
     intent = next(i for i in r["detected_intents"] if i["intent_code"] == "send_parcel")
-    assert "SENDbakēd" in intent["subtitle"] or "delivery" in intent["subtitle"].lower()
+    assert "bSEND" in intent["subtitle"] or "delivery" in intent["subtitle"].lower()
 
 
 def test_destinations_are_absolute_root_paths():

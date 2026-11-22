@@ -1,4 +1,4 @@
-"""Demo supplier seed — MARTbakēd Phase 2A.
+"""Demo supplier seed — bMART Phase 2A.
 
 Creates 3 clearly-marked DEMO suppliers spanning the lifecycle statuses so
 the review UI has something meaningful to render immediately after a fresh

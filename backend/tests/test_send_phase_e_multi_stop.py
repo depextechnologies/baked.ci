@@ -1,4 +1,4 @@
-"""SENDbakēd Phase E — multi-stop trip builder regression.
+"""bSEND Phase E — multi-stop trip builder regression.
 
 Coverage:
 - POST /api/express/quote/multi_stop returns a valid breakdown with the

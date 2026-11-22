@@ -1,5 +1,5 @@
 /**
- * ShopHome — SHOPbakēd customer storefront home.
+ * ShopHome — bSHOP customer storefront home.
  *
  * Reads admin-curated rails from `/api/homepage?country=CI&module=shop`
  * and renders every SECTION TYPE the MART homepage supports, so the Super
@@ -27,8 +27,8 @@ import {
 import { pickBilingual, pickCatalogueName, pickProductTitle } from "../lib/i18nCms";
 
 // SHOP accent tokens — keep parity with lib/modules.js `shop.color`.
-const SHOP_ACCENT = "#FCC44C";     // primary amber/gold
-const SHOP_ACCENT_DEEP = "#F59E0B";
+const SHOP_ACCENT = "#1D9BF0";     // primary amber/gold
+const SHOP_ACCENT_DEEP = "#1480C8";
 
 // Resolve `/api/homepage/uploads/…` relative URLs so <img> can load them
 // against the backend host. Absolute (http/https) URLs are returned as-is.
@@ -91,12 +91,12 @@ export const ShopHome = ({ basePath = "/shop" }) => {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-home">
       {homepage.length === 0 && (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-8 text-center"
+        <div className="rounded-2xl border border-[#1D9BF0]/30 bg-[#1D9BF0]/5 p-8 text-center"
              data-testid="shopbaked-home-empty">
-          <ShoppingBag size={28} className="mx-auto text-amber-400 mb-3" />
+          <ShoppingBag size={28} className="mx-auto text-[#1D9BF0] mb-3" />
           <div className="text-sm text-neutral-300">
             {t("shop.hp_no_sections")}{" "}
-            <Link to="/admin/homepage-management" className="text-amber-400 underline">
+            <Link to="/admin/homepage-management" className="text-[#1D9BF0] underline">
               /admin/homepage-management
             </Link>.
           </div>
@@ -397,7 +397,7 @@ const CategoryGridSection = ({ section, tree, lang, t, testId, basePath = "/shop
           return (
             <Link key={c.slug || c.name} to={target}
                   data-testid={`shopbaked-category-tile-${c.slug || c.name}`}
-                  className="group border border-border rounded-xl p-4 bg-card hover:border-amber-400/60 hover:shadow-sm transition-colors flex flex-col items-center gap-3">
+                  className="group border border-border rounded-xl p-4 bg-card hover:border-[#1D9BF0]/60 hover:shadow-sm transition-colors flex flex-col items-center gap-3">
               <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center"
                    style={{ background: img ? "transparent" : `${SHOP_ACCENT}22` }}>
                 {img ? (
@@ -409,7 +409,7 @@ const CategoryGridSection = ({ section, tree, lang, t, testId, basePath = "/shop
                 )}
               </div>
               <div className="text-center">
-                <div className="text-sm font-semibold text-foreground group-hover:text-amber-500 dark:group-hover:text-amber-300 transition-colors">
+                <div className="text-sm font-semibold text-foreground group-hover:text-[#1D9BF0] dark:group-hover:text-[#4DB2F4] transition-colors">
                   {displayName}
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1">
@@ -742,7 +742,7 @@ export const ProductCard = ({ product, basePath = "/shop" }) => {
     <Link
       to={`${basePath}/p/${product.id}`}
       data-testid={`shopbaked-product-card-${product.id}`}
-      className="group block border border-border rounded-xl overflow-hidden bg-card hover:border-amber-400/60 hover:shadow-sm transition-colors relative"
+      className="group block border border-border rounded-xl overflow-hidden bg-card hover:border-[#1D9BF0]/60 hover:shadow-sm transition-colors relative"
     >
       <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
         {off > 0 && (

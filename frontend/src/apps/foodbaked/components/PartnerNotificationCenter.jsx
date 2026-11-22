@@ -15,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { useRestaurantNotifications } from "./RestaurantNotificationEngine";
 import { partnerApi } from "../../../contexts/FoodPartnerContext";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const detectFr = () =>
   (((typeof window !== "undefined" && localStorage.getItem("i18nextLng")) || "fr").toLowerCase().startsWith("fr"));

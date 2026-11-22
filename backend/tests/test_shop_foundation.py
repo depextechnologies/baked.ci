@@ -1,10 +1,10 @@
-"""SHOPbakēd — Slice 1 Foundation tests.
+"""bSHOP — Slice 1 Foundation tests.
 
 Verifies:
   * SHOP module endpoints are wired and return healthy responses.
   * The `suppliers.modules` JSONB column exists and is backfilled to
     ["MART"] for every pre-existing supplier.
-  * MARTbakēd endpoints still work (module isolation contract).
+  * bMART endpoints still work (module isolation contract).
   * Admin SHOP surface requires authentication.
 """
 from __future__ import annotations

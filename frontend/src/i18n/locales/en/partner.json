@@ -117,19 +117,19 @@
         "quote": "Since joining BAKĒD, our monthly orders have tripled. The AI assistant handles our menu updates and the dispatch network brings us new customers we couldn't reach before.",
         "name": "Aïcha Konan",
         "role": "Owner, Chez Aïcha",
-        "location": "Cocody, Abidjan · FOODbakēd"
+        "location": "Cocody, Abidjan · bFOOD"
       },
       "kouassi": {
-        "quote": "We migrated our whole grocery store onto MARTbakēd in two weeks. Settlement is on time, every time — and the analytics finally tell us what to restock.",
+        "quote": "We migrated our whole grocery store onto bMART in two weeks. Settlement is on time, every time — and the analytics finally tell us what to restock.",
         "name": "Kouassi Traoré",
         "role": "Founder, MiniMart Marcory",
-        "location": "Marcory, Abidjan · MARTbakēd"
+        "location": "Marcory, Abidjan · bMART"
       },
       "mariam": {
-        "quote": "SENDbakēd gave us the routing and live tracking we would never have built ourselves. Our fleet utilisation jumped 40% in the first month.",
+        "quote": "bSEND gave us the routing and live tracking we would never have built ourselves. Our fleet utilisation jumped 40% in the first month.",
         "name": "Mariam Diallo",
         "role": "Ops Lead, DialloTransport",
-        "location": "Plateau, Abidjan · SENDbakēd"
+        "location": "Plateau, Abidjan · bSEND"
       }
     }
   },

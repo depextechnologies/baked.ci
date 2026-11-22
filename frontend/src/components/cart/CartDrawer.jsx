@@ -28,16 +28,16 @@ import { Button } from "../ui/button";
 // Per-module chip colours — matches the CartPage row badges so the drawer
 // reads as the same information surface.
 const MODULE_BADGE = {
-  shop: { bg: "rgba(251,191,36,.15)",  fg: "#F59E0B", bd: "rgba(251,191,36,.3)", label: "SHOP" },
-  food: { bg: "rgba(239,68,68,.15)",   fg: "#EF4444", bd: "rgba(239,68,68,.3)",  label: "FOOD" },
-  mart: { bg: "rgba(119,188,31,.15)",  fg: "#77BC1F", bd: "rgba(119,188,31,.3)", label: "MART" },
+  shop: { bg: "rgba(29,155,240,.15)",  fg: "#1D9BF0", bd: "rgba(29,155,240,.3)", label: "bSHOP" },
+  food: { bg: "rgba(242,105,36,.15)",  fg: "#F26924", bd: "rgba(242,105,36,.3)", label: "bFOOD" },
+  mart: { bg: "rgba(119,188,31,.15)",  fg: "#77BC1F", bd: "rgba(119,188,31,.3)", label: "bMART" },
 };
 
 const ModuleChip = ({ module, itemId }) => {
   const style = MODULE_BADGE[module] || MODULE_BADGE.mart;
   return (
     <span
-      className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
+      className="text-[9px] tracking-widest font-semibold px-1.5 py-0.5 rounded shrink-0"
       style={{ background: style.bg, color: style.fg, border: `1px solid ${style.bd}` }}
       data-testid={`cart-drawer-module-badge-${itemId}`}
     >
@@ -56,7 +56,7 @@ const rowFacade = (it) => {
       name:  it.title || it.product?.title,
       image: it.images?.[0] || it.product?.images?.[0] || "",
       unit:  it.variant?.sku || "",
-      brand: "SHOPbakēd seller",
+      brand: "bSHOP seller",
       price: it.unit_price ?? it.variant?.price ?? 0,
       currency: it.currency || it.variant?.currency,
       currency_symbol: it.currency || "XOF",
@@ -370,7 +370,7 @@ export const CartDrawer = () => {
               </div>
               {hasMart && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (MART)</span>
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (bMART)</span>
                   <span className="font-medium" data-testid="cart-drawer-delivery-mart">
                     {martDelivery === 0 ? t("cart.delivery_free") : formatMoney(martDelivery, country?.currency, country?.currency_symbol)}
                   </span>
@@ -378,7 +378,7 @@ export const CartDrawer = () => {
               )}
               {hasShop && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (SHOP)</span>
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (bSHOP)</span>
                   <span className="text-[11px] text-muted-foreground">
                     {t("cart.delivery_shop_note")}
                   </span>
@@ -386,7 +386,7 @@ export const CartDrawer = () => {
               )}
               {hasFood && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (FOOD)</span>
+                  <span className="text-muted-foreground">{t("cart.delivery_fee")} (bFOOD)</span>
                   <span className="font-medium" data-testid="cart-drawer-delivery-food">
                     {foodDelivery === 0
                       ? t("cart.delivery_free")
@@ -422,7 +422,7 @@ export const CartDrawer = () => {
                 onClick={placeFoodOrders}
                 disabled={foodPlacing}
                 className="w-full mt-2 h-11 font-semibold disabled:opacity-60 text-black"
-                style={{ backgroundColor: "#00A651" }}
+                style={{ backgroundColor: "#F26924" }}
               >
                 {foodPlacing ? "…" : t("cart.food_checkout_cta")}
               </Button>

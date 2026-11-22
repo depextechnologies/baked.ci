@@ -1,4 +1,4 @@
-"""Iteration 108 — review-request-specific coverage for FOODbakēd P0 location discovery.
+"""Iteration 108 — review-request-specific coverage for bFOOD P0 location discovery.
 
 Covers scenarios NOT already covered by test_food_discovery.py:
   * burger_hub_ci (seeded restaurant) is delivery-eligible from Abidjan

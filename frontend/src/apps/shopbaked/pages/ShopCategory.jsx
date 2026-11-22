@@ -1,5 +1,5 @@
 /**
- * ShopCategory — SHOPbakēd category landing.
+ * ShopCategory — bSHOP category landing.
  *
  * Adopts MART's Blinkit-style mobile layout (left subcategory rail +
  * right product grid) so navigating from MART → SHOP feels identical.
@@ -15,7 +15,7 @@ import { useApp } from "@/contexts/BakedContexts";
 import { ProductCard } from "./ShopHome";
 import { pickCatalogueName } from "../lib/i18nCms";
 
-const SHOP_ACCENT = "#FCC44C";
+const SHOP_ACCENT = "#1D9BF0";
 const abs = (u) => (u && typeof u === "string" && u.startsWith("/")
   ? `${process.env.REACT_APP_BACKEND_URL}${u}`
   : u);
@@ -284,7 +284,7 @@ const FilterDrawer = ({ t, facets, filters, setFilters, onClear, onClose }) => {
               type="range" min={0} max={facets.maxPrice} step={1000}
               value={filters.priceMax ?? facets.maxPrice}
               onChange={(e) => setFilters((f) => ({ ...f, priceMax: Number(e.target.value) }))}
-              className="w-full accent-amber-400"
+              className="w-full accent-[#1D9BF0]"
               data-testid="shopbaked-filter-price"
             />
             <div className="flex justify-between text-[11px] text-muted-foreground mt-1">

@@ -1,5 +1,5 @@
 /**
- * MenuManager — reusable menu-management surface for FOODbakēd.
+ * MenuManager — reusable menu-management surface for bFOOD.
  *
  * Mounted TWICE:
  *   • Super-admin route     /admin/modules/food/restaurants/:id/menu
@@ -21,7 +21,7 @@ import {
 import FoodImageUploader from "../../apps/foodbaked/components/FoodImageUploader";
 
 /* --------------------------------------------------------------------------
- * i18n helper — same `detectFr()` pattern used across the FOODbakēd partner
+ * i18n helper — same `detectFr()` pattern used across the bFOOD partner
  * portal. Reading from localStorage keeps us consistent with the rest of
  * the surface (RestaurantNotificationEngine, PartnerOrdersPage, etc.) and
  * avoids coupling MenuManager to react-i18next directly, since it's also

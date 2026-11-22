@@ -28,7 +28,7 @@ const GOVERNANCE = [
   { to: "/admin/homepage-management", icon: HomeIcon2, label: "Homepage" },
   { to: "/admin/returns", icon: ClipboardCheck, label: "Returns & Refunds" },
   // Vendor Settlement moved under /admin/modules/food/finance — it's a
-  // FOODbakēd-only workspace and belongs with the module it serves.
+  // bFOOD-only workspace and belongs with the module it serves.
   { to: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/admin/audit", icon: ScrollText, label: "Audit Logs" },
   { to: "/admin/api-management", icon: Plug, label: "API Management" },
@@ -80,7 +80,7 @@ export const AdminLayout = () => {
                 className={`flex items-center gap-3 px-3 py-2 baked-btn text-sm motion-fast ${active ? "text-white" : "hover:bg-secondary text-muted-foreground hover:text-foreground"}`}
                 style={active ? { backgroundColor: m.color } : {}}>
                 <Icon size={16} style={active ? {} : { color: m.color }} />
-                <span className="flex-1">{m.label}<span className="text-foreground/60">bakēd</span></span>
+                <span className="flex-1">b{m.label}</span>
                 {m.status !== "active" && <span className="text-[9px] uppercase tracking-widest opacity-60">soon</span>}
               </Link>
             );

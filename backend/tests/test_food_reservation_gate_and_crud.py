@@ -1,4 +1,4 @@
-"""FOODbakēd Reservation Onboarding — additional coverage:
+"""bFOOD Reservation Onboarding — additional coverage:
 - Customer visibility gate on burger-hub (public=True) vs pizza-palace (public=False)
 - Public booking gate: POST /reservations returns 400 while reservation_public=false
 - Slot list returns 404 while reservation_public=false

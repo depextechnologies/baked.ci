@@ -1,0 +1,48 @@
+{
+  "summary": "ROUND 1 stabilization (MART/SHOP checkout idempotency, friendly errors, partial results, saved address book). Backend: 9 pytest cases, 8 pass. Idempotent replay works for MART and SHOP, including 3 concurrent same-id requests producing 1 order. The key is released after a failed request. address_id is snapshotted on the order. Address book default rules work and recipient fields persist. Admin and partner order lists show the order. The one failure is a minor 404 issue. IMPORTANT ENV FINDING: backend runs `uvicorn --workers 4` with NO --reload, so it is not hot-reloading. On first run, orders.py (mtime 13:41:19) was newer than the process (started 13:40:40), and the 'inline address hidden from book' fix was NOT live: an inline order address showed up in GET /customers/me/addresses. After `supervisorctl restart backend` (startup clean, all 4 workers report startup complete, advisory lock OK, health 200) the fix works. Frontend (Expo web 390x844): Flow D passes. Add Home: search 'Cocody', pick a result, location text fills, recipient/building/landmark/area are saved. Add Office: use current location (Abidjan geolocation). Then set Office as default and then Home as default; edit Office instructions and recipient; reload, data persists. Save without location is blocked. Delete with confirm removes the address. Flow A passes. Checkout preselects the default Home. Tapping it opens /addresses?select=1 titled 'Choisir l’adresse de livraison'. Choosing Office returns to checkout showing Office. With COD, placing the order lands on /order/mart/<id>. The order address_snapshot is Office (with recipient and instructions) and Home is still the default. The order is in admin /admin/modules/mart/orders and partner /partner/orders. Error UX (via route interception) passes. 502 Cloudflare HTML shows the FR friendly text (co.unconfirmed) and the POST is retried 3 times with the same client_request_id. A 400 detail message is shown as-is. MART success + SHOP 500 shows 'Confirmées : MART. Non confirmées : SHOP: …' and navigates to the MART order. Light theme renders on both new screens.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/customers/me/addresses/{id}", "issue": "Deleting an already soft-deleted address returns 200 instead of 404. The UPDATE has no deleted_at IS NULL filter (shared/customer/routes.py:110-113), and it also re-stamps deleted_at."},
+      {"endpoint": "PATCH /api/customers/me/addresses/{id}", "issue": "PATCH uses the full AddressIn model (label/line1/city required), so it behaves like PUT. Sending is_default=false on the current default (e.g. unticking the toggle in the edit form) leaves the customer with NO default address. Nothing re-promotes one, unlike delete."},
+      {"endpoint": "POST /api/orders, /api/shop/checkout (idempotent replay)", "issue": "A replay returns only {id, idempotent_replay:true}, not the full order payload of the first response. The current app only reads .id, which is fine, but other clients may break."},
+      {"endpoint": "shared/idempotency.py in-memory fallback", "issue": "When Redis is down, the fallback is per-process (4 uvicorn workers) and a 'pending' entry is overwritten instead of rejected. Concurrent retries could then create duplicates. Redis is configured and works now; a DB unique constraint (customer_id, client_request_id) would be the durable guard."},
+      {"endpoint": "Backend supervisor config", "issue": "uvicorn runs with --workers 4 and no --reload, so code edits are NOT hot-reloaded. Restart the backend after every backend change. Stale code was served during this test until I restarted."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "lib/addressBook.ts checkoutId", "issue": "The one-time checkout address choice (setCheckoutAddressId) is never reset to null after an order is placed. Within the same app session, the next checkout keeps preselecting the previously chosen non-default address instead of the default. Found by code review (setCheckoutAddressId is only called in addresses/index.tsx choose()).", "selector": "[data-testid=checkout-address]", "priority": "MEDIUM"},
+      {"component": "lib/addressBook.ts toPicked", "issue": "Number(null) gives 0, so a saved address with no lat/lng becomes 0,0. The checkout addressOk check (latitude != null) then passes. Legacy addresses without coordinates could be ordered to 0,0.", "selector": "checkout-place-order", "priority": "LOW"},
+      {"component": "addresses/edit.tsx location pick", "issue": "When you pick a new location while editing, line1 is kept if already set (x.line1 || p.line1). Changing the location therefore does not update the street, so the street and pin can disagree.", "selector": "address-edit-location", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Addresses list / edit (light theme)", "issues": ["The 'Définir par défaut' link and the 'Changer' link use lime accent text on a white card, which is low contrast. Use accentText as for the earlier 'Ouvert' badge finding.", "The selected label chip (Domicile) is only a grey fill with a border, a weak selected state in both themes."]},
+      {"screen": "Partial-failure alert", "issues": ["Error lines are prefixed with raw module codes 'MART:'/'SHOP:' rather than localized module names."]},
+      {"screen": "Branding", "issues": ["Module branding still shows the lowercase 'bakēd' suffix (MARTbakēd on the order screen, BrandName, AppGrid, and login.body 'Un compte. Tout bakēd.'). Alert titles use 'BAKED'. Confirm this is intended."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_round1_idempotency_addresses.py", "/app/test_reports/pytest/pytest_round1.xml"],
+  "action_items": [
+    "Reset setCheckoutAddressId(null) after a successful order (and/or when checkout unmounts) so the next checkout defaults to the default address.",
+    "DELETE address: add deleted_at IS NULL to the WHERE clause so a repeat delete returns 404.",
+    "PATCH address: prevent removing the last default (re-promote one, or ignore is_default=false on the current default).",
+    "Optional: make idempotency durable (DB unique key) and return the full order on replay.",
+    "Remember that the backend has no hot reload (4 workers): restart it after backend edits.",
+    "Light-theme contrast for the accent links on the address screens."
+  ],
+  "critical_code_review_comments": [
+    "idempotency.claim memory fallback overwrites a 'pending' entry, so it is not concurrency-safe and not shared across the 4 workers.",
+    "create_order silently ignores an address_id that belongs to another customer and falls back to the inline address or a 400. Acceptable, but no explicit 404.",
+    "toPicked converts null coordinates to 0.",
+    "checkout.tsx attempt ref is never regenerated. That is fine because the key is released on failure, but after a partial success a retry reuses the same ids (intended)."
+  ],
+  "updated_files": ["/app/backend/tests/test_round1_idempotency_addresses.py"],
+  "success_rate": {"backend": "89% (8/9; the single failure is a minor 404 edge case)", "frontend": "100% of requested flows (D, A, error/partial alerts, light theme)"},
+  "seed_data_creation": "Fresh TEST customers via OTP: UI user +225 0701299311 (addresses Domicile/Bureau with TEST_ recipients; its 2 MART orders were cancelled; 1 SHOP item left in its cart). Pytest creates random 070129xxxx customers with TEST_ addresses and a few COD MART/SHOP orders (not cancelled). The shared 0700000000 account was not modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend has NO hot reload: check that the uvicorn start time is later than the file mtimes, or restart. Token injection: localStorage baked_access_token=<token from /app/memory/cust_token.sh with API=public url> plus baked_onboarding_done='true'. On web, confirmAsk uses window.confirm and notify uses window.alert, so accept dialogs in Playwright. Google Places search works on web ('Cocody' gives 5 results). Use-current works with the Playwright geolocation grant. Error UX tested via page.route on **/api/orders and **/api/shop/checkout.",
+  "rca of the issue": "Inline checkout address appeared in the address book on the first run: the backend process was started 40 s before the orders.py edit, and uvicorn runs without --reload. Mitigation: restart the backend (done). The fix itself is correct."
+}

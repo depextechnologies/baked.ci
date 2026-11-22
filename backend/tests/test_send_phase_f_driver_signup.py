@@ -1,4 +1,4 @@
-"""SENDbakēd Phase F — Driver multi-vehicle signup regression.
+"""bSEND Phase F — Driver multi-vehicle signup regression.
 
 Guards:
 - The KYC vehicle step now accepts SEND-primary codes (`three_wheeler`,

@@ -1,4 +1,4 @@
-"""Phase 4 regression — FOODbakēd partner service pause + dashboard stats.
+"""Phase 4 regression — bFOOD partner service pause + dashboard stats.
 
 Covers:
   • GET  /api/food/manage/{rid}/service-status   → both services unpaused by default

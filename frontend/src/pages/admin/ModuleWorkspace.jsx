@@ -7,17 +7,18 @@ import {
   Sparkles, BarChart3, Megaphone, LifeBuoy, Settings2, ArrowLeft, Boxes, Tag,
   Activity, Building2, Package as PackageIcon, ClipboardCheck,
 } from "lucide-react";
+import { BrandedModuleLabel } from "../../components/layout/BakedLogo";
 
 const MODULE_ICON = { mart: ShoppingBasket, food: Utensils, shop: ShoppingBag, express: Truck, auto: Car, immo: HomeIcon };
 
 // Per PRD §7 — sub-nav for each Business Module admin workspace
 // Flags:
-//   martOnly      → visible only on MARTbakēd workspace
-//   expressOnly   → visible only on SENDbakēd workspace
-//   foodOnly      → visible only on FOODbakēd workspace
+//   martOnly      → visible only on bMART workspace
+//   expressOnly   → visible only on bSEND workspace
+//   foodOnly      → visible only on bFOOD workspace
 //   shopOrMartOnly→ visible only on SHOP or MART (homepage-management etc.)
-//   notForExpress → hidden on SENDbakēd
-//   notForFood    → hidden on FOODbakēd (Phase 1 — FOOD uses its own
+//   notForExpress → hidden on bSEND
+//   notForFood    → hidden on bFOOD (Phase 1 — FOOD uses its own
 //                   restaurants/cuisines/categories surfaces, not the
 //                   MART-style vendor/products/catalog stack)
 const MODULE_NAV = [
@@ -34,7 +35,7 @@ const MODULE_NAV = [
   { seg: "inventory", label: "Inventory", icon: Boxes, martOnly: true, note: "Control Tower — network-wide MART inventory" },
   { seg: "purchase-orders", label: "Purchase Orders", icon: PackageIcon, martOnly: true, note: "Cross-network PO oversight" },
   { seg: "invoices", label: "Invoices", icon: PackageIcon, martOnly: true, note: "Supplier invoicing & 3-way match" },
-  // FOODbakēd-native surfaces (restaurants + their catalogue). These are the
+  // bFOOD-native surfaces (restaurants + their catalogue). These are the
   // FOOD equivalents of vendors/products/catalog for MART. Backed by the
   // food_restaurants / food_categories / food_cuisines tables and gated with
   // foodOnly so they never appear inside other modules' workspaces.
@@ -49,10 +50,10 @@ const MODULE_NAV = [
   { seg: "driver-applications", label: "Driver Applications", icon: ClipboardList, expressOnly: true, note: "KYC review queue" },
   { seg: "driver-payouts", label: "Driver Payouts", icon: DollarSign, expressOnly: true, note: "Weekly settlements & payouts" },
   // Homepage Management — same shared component as MART/SHOP, reading `code`
-  // from the URL. FOODbakēd homepage lives at /admin/modules/food/homepage-management.
+  // from the URL. bFOOD homepage lives at /admin/modules/food/homepage-management.
   { seg: "homepage-management", label: "Homepage Management", icon: LayoutDashboard, shopOrMartOrFoodOnly: true, note: "Landing-page composer" },
   { seg: "pricing", label: "Pricing", icon: Tag, expressOnly: true },
-  // Finance — "Coming Soon" for every module EXCEPT FOODbakēd, where it
+  // Finance — "Coming Soon" for every module EXCEPT bFOOD, where it
   // hosts the full Vendor Settlement workspace (commissions, scheduled
   // payouts, mark-paid, dry-run preview).
   { seg: "finance", label: "Finance", icon: DollarSign, comingSoon: true, foodLive: true, note: "Commissions, payout schedule & settlements" },
@@ -85,7 +86,7 @@ export const ModuleWorkspace = () => {
         <button data-testid="module-back" onClick={() => navigate("/admin")} className="w-9 h-9 rounded-xl flex items-center justify-center bg-secondary hover:bg-secondary/70 text-muted-foreground hover:text-foreground motion-fast" title="Back to Super Admin"><ArrowLeft size={16} /></button>
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}><Icon size={26} /></div>
         <div className="flex-1">
-          <div className="text-2xl font-bold">{meta.label}<span className="text-muted-foreground font-normal">bakēd</span></div>
+          <div data-testid="module-workspace-logo"><BrandedModuleLabel code={meta.code} label={meta.label} color={meta.color} height={30} /></div>
           <div className="text-sm text-muted-foreground">{meta.tagline} · Module workspace</div>
         </div>
         <span className="text-[11px] baked-chip px-3 py-1 font-semibold" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}>{meta.status === "active" ? "ACTIVE" : "COMING SOON"}</span>

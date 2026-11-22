@@ -28,7 +28,7 @@ HOMEPAGE_SECTION_TYPES = [
     "app_promotion",
     "cta_strip",
     "trust_strip",
-    # FOODbakēd (Feb 2026) — customer FoodHome sections. Full CMS wiring —
+    # bFOOD (Feb 2026) — customer FoodHome sections. Full CMS wiring —
     # each row maps to a distinct block in FoodHome. Multiple rows of the
     # SAME type are rendered in `display_order` so admins can e.g. ship
     # two promo strips above and below the cuisines rail.
@@ -40,7 +40,7 @@ HOMEPAGE_SECTION_TYPES = [
     "food_usps",
     "food_testimonial",
     "food_top_brands",
-    # SENDbakēd (2026-06) — migrated from the hardcoded website ExpressHome.
+    # bSEND (2026-06) — migrated from the hardcoded website ExpressHome.
     "send_map_hero",
     "send_pickup_bar",
     "send_service_tiles",

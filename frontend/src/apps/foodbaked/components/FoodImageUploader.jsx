@@ -1,5 +1,5 @@
 /**
- * FoodImageUploader — reusable image upload widget for every FOODbakēd
+ * FoodImageUploader — reusable image upload widget for every bFOOD
  * asset (restaurant logo/cover/gallery, category & cuisine icons, menu-item
  * images, promo banners).
  *

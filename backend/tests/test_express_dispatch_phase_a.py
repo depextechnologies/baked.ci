@@ -1,4 +1,4 @@
-"""SENDbakēd Phase-A Dispatch — direct-DB pytest suite.
+"""bSEND Phase-A Dispatch — direct-DB pytest suite.
 
 Covers the algorithmic contracts of `modules.express.dispatch`:
     * `find_nearest_driver`
@@ -120,7 +120,7 @@ async def _seed_driver(
     now = datetime.now(timezone.utc)
     linked_id = None
     if linked:
-        # Create a minimal SENDbakēd Driver so `linked_driver_id` points
+        # Create a minimal bSEND Driver so `linked_driver_id` points
         # at a real row (FK is ON DELETE SET NULL, but presence still
         # matters for the "real drivers only" filter).
         drv = Driver(

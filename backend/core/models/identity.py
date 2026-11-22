@@ -34,6 +34,8 @@ class Customer(Base, AuditMixin):
         String, ForeignKey("customers.id"), nullable=True
     )
     preferences: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    password_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    email_verified_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
 
 class CustomerSession(Base):
@@ -90,4 +92,19 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String, nullable=False)
     target_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CustomerAuthCode(Base):
+    """One-time codes for registration, email verification and password reset (code stored hashed)."""
+    __tablename__ = "customer_auth_codes"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: new_id("acode"))
+    purpose: Mapped[str] = mapped_column(String, nullable=False)
+    target: Mapped[str] = mapped_column(String, nullable=False)
+    customer_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("customers.id"), nullable=True)
+    code_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consumed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)

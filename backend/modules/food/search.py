@@ -1,4 +1,4 @@
-"""FOODbakēd — Unified discovery search.
+"""bFOOD — Unified discovery search.
 
   GET /api/food/search?q=&mode=&country=&lat=&lng=&radius_km=...
 

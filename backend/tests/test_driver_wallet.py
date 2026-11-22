@@ -1,4 +1,4 @@
-"""SENDbakēd Driver — Slice 3 Wallet (earnings ledger + withdrawals) backend E2E.
+"""bSEND Driver — Slice 3 Wallet (earnings ledger + withdrawals) backend E2E.
 
 Reuses the same driver bootstrap flow as Slice 2 lifecycle test, then asserts:
 - fresh driver has zero balance

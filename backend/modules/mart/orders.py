@@ -1,4 +1,4 @@
-"""MARTbakēd Checkout & Orders.
+"""bMART Checkout & Orders.
 
 Flow:
   1. GET  /delivery-slots?country=CI          — upcoming windows
@@ -198,6 +198,7 @@ class CreateOrderIn(BaseModel):
     module: Optional[str] = None              # kept for forward compat with other modules
     instructions: Optional[str] = None
     use_points: int = Field(0, ge=0, description="Number of baked Points to redeem as a discount")
+    client_request_id: Optional[str] = Field(None, max_length=80)
 
 
 SLOT_LABELS = {
@@ -241,8 +242,7 @@ async def _order_to_dict(session: AsyncSession, order: Order) -> dict:
     return data
 
 
-@router.post("/orders")
-async def create_order(
+async def _create_order_impl(
     payload: CreateOrderIn,
     customer: Customer = Depends(get_current_customer),
     session: AsyncSession = Depends(get_session),
@@ -268,6 +268,8 @@ async def create_order(
         addr_doc = payload.address.model_dump()
         addr_doc["country"] = (addr_doc.get("country") or customer.country or "CI").upper()
         addr_row = CustomerAddress(**addr_doc, customer_id=customer.id)
+        # One-off checkout address: kept for the order record, hidden from the address book.
+        addr_row.deleted_at = datetime.now(timezone.utc)
         session.add(addr_row)
         await session.flush()
         address_snapshot = row_to_dict(addr_row)
@@ -553,8 +555,8 @@ async def cancel_order(
 # ---------- tracking (mock/demo) ----------
 # Demo driver + store coordinates per country
 _COUNTRY_GEO = {
-    "CI": {"store": {"name": "MARTbakēd Store · Cocody", "lat": 5.3455, "lng": -4.0021}, "destination": {"lat": 5.3535, "lng": -3.9857}},
-    "LR": {"store": {"name": "MARTbakēd Store · Sinkor", "lat": 6.2833, "lng": -10.7783}, "destination": {"lat": 6.3005, "lng": -10.7969}},
+    "CI": {"store": {"name": "bMART Store · Cocody", "lat": 5.3455, "lng": -4.0021}, "destination": {"lat": 5.3535, "lng": -3.9857}},
+    "LR": {"store": {"name": "bMART Store · Sinkor", "lat": 6.2833, "lng": -10.7783}, "destination": {"lat": 6.3005, "lng": -10.7969}},
 }
 _DEMO_DRIVERS = [
     {"name": "Rahul Kumar", "rating": 4.8, "vehicle": "Electric Scooter", "vehicle_reg": "AB12 C3456", "phone": "+225 07 12 34 56 78", "photo": "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200&h=200&fit=crop&q=80"},
@@ -684,3 +686,32 @@ async def rate_order(
     order.rated_at = datetime.now(timezone.utc)
     await session.commit()
     return await _order_to_dict(session, order)
+
+
+@router.post("/orders")
+async def create_order(
+    payload: CreateOrderIn,
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    """Idempotent wrapper: a retried request (same client_request_id) returns the order it already created."""
+    from shared import idempotency
+    rid = payload.client_request_id
+    try:
+        existing = await idempotency.claim(customer.id, "mart", rid)
+    except RuntimeError:
+        raise HTTPException(409, {"code": "order_in_progress", "message": "Order is still being processed"})
+    if existing:
+        prev = await session.get(Order, existing)
+        out = await _order_to_dict(session, prev) if prev else {"id": existing}
+        out["idempotent_replay"] = True
+        return out
+    try:
+        out = await _create_order_impl(payload, customer, session)
+    except Exception:
+        await idempotency.release(customer.id, "mart", rid)
+        raise
+    oid = out.get("id") if isinstance(out, dict) else None
+    if oid:
+        await idempotency.complete(customer.id, "mart", rid, oid)
+    return out

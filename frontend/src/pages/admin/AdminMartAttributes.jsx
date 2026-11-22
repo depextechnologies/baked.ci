@@ -43,7 +43,7 @@ export const AdminMartAttributes = () => {
   return (
     <div className="space-y-5" data-testid="admin-mart-attributes">
       <div>
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">bMART</div>
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Layers size={18} /> Dynamic Category Attributes
         </h2>

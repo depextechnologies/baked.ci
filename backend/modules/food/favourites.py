@@ -1,4 +1,4 @@
-"""FOODbakēd — Customer Favourites (Phase 3).
+"""bFOOD — Customer Favourites (Phase 3).
 
 Server-side only (requires customer JWT). One table (`food_favourites`)
 holds both restaurant and dish favourites so the "Mes Favoris" page can

@@ -1,4 +1,4 @@
-"""SHOPbakēd — seller portal HTTP routes (Slice 4, 2026-02).
+"""bSHOP — seller portal HTTP routes (Slice 4, 2026-02).
 
 Endpoints (all require an approved supplier who has 'SHOP' in
 `suppliers.modules`):

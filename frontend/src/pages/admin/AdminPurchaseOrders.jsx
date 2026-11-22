@@ -71,7 +71,7 @@ export const AdminPurchaseOrders = () => {
   return (
     <div className="space-y-5" data-testid="admin-po-page">
       <div>
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">MARTbakēd</div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">bMART</div>
         <h2 className="text-xl font-bold flex items-center gap-2"><Package size={18} /> Purchase Orders</h2>
         <p className="text-xs text-muted-foreground">
           Cross-network visibility of every PO raised by partner stores against approved suppliers.

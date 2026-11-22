@@ -1,5 +1,5 @@
 /**
- * RestaurantAnalytics — reusable dashboard for FOODbakēd restaurant partners.
+ * RestaurantAnalytics — reusable dashboard for bFOOD restaurant partners.
  *
  * Mounted twice (same shared component):
  *   • Super-admin:  /admin/modules/food/restaurants/:id/analytics

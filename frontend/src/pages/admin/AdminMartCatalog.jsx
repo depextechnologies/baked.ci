@@ -1,5 +1,5 @@
 /**
- * Admin — MARTbakēd Catalog Manager
+ * Admin — bMART Catalog Manager
  *
  * Tabs: Categories · Subcategories · Brands · Products
  * Full CRUD backed by `/api/admin/mart/*` routes added in Phase 2.
@@ -630,7 +630,7 @@ export const AdminMartCatalog = () => {
   return (
     <div className="space-y-5" data-testid="admin-mart-catalog">
       <div>
-        <h2 className="text-xl font-bold flex items-center gap-2"><BoxesIcon size={18} /> MARTbakēd Catalog</h2>
+        <h2 className="text-xl font-bold flex items-center gap-2"><BoxesIcon size={18} /> bMART Catalog</h2>
         <p className="text-xs text-muted-foreground">Manage the shared MART master catalog: categories, subcategories, brands and products.</p>
       </div>
       <div className="flex gap-1 border-b border-border overflow-x-auto">

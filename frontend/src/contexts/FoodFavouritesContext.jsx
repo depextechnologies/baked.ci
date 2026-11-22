@@ -1,5 +1,5 @@
 /**
- * FOODbakēd Favourites — context + hook.
+ * bFOOD Favourites — context + hook.
  *
  * Holds the authenticated customer's favourite-id sets (restaurants + dishes)
  * in memory so every <FavouriteButton /> can render its heart state without a

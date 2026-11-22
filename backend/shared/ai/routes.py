@@ -30,7 +30,7 @@ class SearchIn(BaseModel):
 
 
 SEARCH_SYSTEM = (
-    "You are the BAKĒD AI product search assistant for MARTbakēd, a grocery marketplace in Côte d'Ivoire. "
+    "You are the BAKĒD AI product search assistant for bMART, a grocery marketplace in Côte d'Ivoire. "
     "The customer speaks French or English. Given a shopping query, return ONLY a compact JSON object with keys: "
     "\"intent\" (one of: browse, buy, compare, recipe), "
     "\"categories\" (array of category slugs from: fruits-vegetables, dairy-eggs, snacks, beverages, bakery, household, meat-seafood, personal-care), "

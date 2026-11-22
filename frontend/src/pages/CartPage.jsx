@@ -82,7 +82,7 @@ export const CartPage = () => {
                   name: it.title || it.product?.title,
                   image: it.images?.[0] || "",
                   unit: it.variant?.sku || "",
-                  brand: "SHOPbakēd seller",
+                  brand: "bSHOP seller",
                   price: it.unit_price ?? it.variant?.price ?? 0,
                   currency: it.currency || it.variant?.currency,
                   currency_symbol: it.currency || "XOF",
@@ -100,15 +100,15 @@ export const CartPage = () => {
                 <div className="flex items-center gap-2">
                   <div className="text-sm font-semibold truncate">{productLike?.name}</div>
                   <span
-                    className="text-[9px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded"
+                    className="text-[9px] tracking-widest font-semibold px-1.5 py-0.5 rounded"
                     style={{
-                      background: isShop ? "rgba(251,191,36,.15)" : "rgba(119,188,31,.15)",
-                      color: isShop ? "#F59E0B" : "#77BC1F",
-                      border: `1px solid ${isShop ? "rgba(251,191,36,.3)" : "rgba(119,188,31,.3)"}`,
+                      background: isShop ? "rgba(29,155,240,.15)" : "rgba(119,188,31,.15)",
+                      color: isShop ? "#1D9BF0" : "#77BC1F",
+                      border: `1px solid ${isShop ? "rgba(29,155,240,.3)" : "rgba(119,188,31,.3)"}`,
                     }}
                     data-testid={`cart-module-badge-${it.id}`}
                   >
-                    {isShop ? "SHOP" : "MART"}
+                    {isShop ? "bSHOP" : "bMART"}
                   </span>
                 </div>
                 <div className="text-[11px] text-muted-foreground">{productLike?.unit} · {productLike?.brand}</div>
@@ -171,7 +171,7 @@ export const CartPage = () => {
           </div>
           {hasUnavailable && (
             <div data-testid="cart-unavailable-warning" className="text-[12px] mt-3 p-3 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
-              <b>{unavailable.length} item(s) not available in your area yet</b> — MARTbakēd is coming soon to more stores. Please remove them to continue.
+              <b>{unavailable.length} item(s) not available in your area yet</b> — bMART is coming soon to more stores. Please remove them to continue.
             </div>
           )}
           {/* Min-order banner removed in v1.1 — the /cart/quote engine owns

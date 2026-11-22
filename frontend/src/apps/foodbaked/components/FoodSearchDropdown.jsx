@@ -1,5 +1,5 @@
 /**
- * FoodSearchDropdown — debounced autocomplete for the FOODbakēd hero.
+ * FoodSearchDropdown — debounced autocomplete for the bFOOD hero.
  *
  * Props:
  *   mode       : "delivery" | "pickup" | "dine_in"
@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#77BC1F";
+const GREEN = "#F26924";
 
 const money = (v, curr = "XOF", loc = "fr-FR") =>
   new Intl.NumberFormat(loc, { style: "currency", currency: curr, maximumFractionDigits: 0 }).format(v || 0);
@@ -307,7 +307,7 @@ const pillClass = (tone) => {
 };
 
 // ResultRow above merges className via ternary — for the green tone we want
-// to inline the accent colour so it matches FOODbakēd primary.
+// to inline the accent colour so it matches bFOOD primary.
 const _greenPillOverride = () => null; // (kept as visual anchor)
 
 const Rating = ({ value, count }) => (

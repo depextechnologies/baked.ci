@@ -13,9 +13,10 @@ export type Totals = {
 
 // All money comes from the backend: FOOD from /cart/quote (repriced incl. options), MART from the
 // same eligibility engine that POST /orders uses (quote for guests, who have no account cart yet).
-export function useCartTotals() {
+export function useCartTotals(deliverTo?: { latitude: number; longitude: number } | null) {
   const { mart, food, shop, foodMode, version } = useCart();
-  const { address, country } = useApp();
+  const { address: browsing, country } = useApp();
+  const address = deliverTo || browsing;
   const { isAuthed } = useSession();
   const [totals, setTotals] = useState<Totals | null>(null);
   const [loading, setLoading] = useState(false);

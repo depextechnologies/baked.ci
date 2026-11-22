@@ -7,7 +7,7 @@ import { isActiveModule } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { colors } from '@/theme';
 
-// Context-aware Home: BAKĒD Main Home, or the homepage of the module the customer is in.
+// Context-aware Home: BAKED Main Home, or the homepage of the module the customer is in.
 export default function HomeTab() {
   const { activeContext } = useApp();
   return (

@@ -30,6 +30,8 @@ INTENTS = [
     dict(module="send", code="send_parcel",
          phrases=[
              "send parcel", "send a parcel", "book parcel", "book a parcel",
+             "courier", "coursier", "livreur", "envoyer", "envoi", "envoyer un colis", "colis express",
+             "livraison colis", "deliver anything", "livrez tout", "send",
              "parcel", "parcel delivery", "parcel booking", "send package",
              "deliver package", "deliver parcel", "deliver a parcel",
              "courier", "courier service", "send document", "send documents",
@@ -38,8 +40,8 @@ INTENTS = [
              "envoyer document", "envoyer un document", "colis",
          ],
          fr="Envoyer un colis", en="Send a parcel",
-         sfr="Livraison porte-à-porte via SENDbakēd",
-         sen="Door-to-door delivery via SENDbakēd",
+         sfr="Livraison porte-à-porte via bSEND",
+         sen="Door-to-door delivery via bSEND",
          dest="/send/parcel", icon="package", weight=200),
 
     dict(module="send", code="book_truck",
@@ -66,8 +68,8 @@ INTENTS = [
              "home moving", "house moving", "movers",
          ],
          fr="Déménagement", en="Home shifting",
-         sfr="Service de déménagement SENDbakēd",
-         sen="SENDbakēd moving service",
+         sfr="Service de déménagement bSEND",
+         sen="bSEND moving service",
          dest="/send/movers", icon="home", weight=170),
 
     # -------------------------------------------------------------------
@@ -82,8 +84,8 @@ INTENTS = [
              "réservation restaurant", "reserve table",
          ],
          fr="Trouver une table", en="Find a table",
-         sfr="Réserver dans un restaurant FOODbakēd",
-         sen="Reserve at a FOODbakēd restaurant",
+         sfr="Réserver dans un restaurant bFOOD",
+         sen="Reserve at a bFOOD restaurant",
          dest="/foodbaked?intent=reservation", icon="utensils", weight=180),
 
     dict(module="food", code="order_food",
@@ -94,8 +96,8 @@ INTENTS = [
              "order meal",
          ],
          fr="Commander un repas", en="Order food",
-         sfr="Explorer les restaurants FOODbakēd",
-         sen="Explore FOODbakēd restaurants",
+         sfr="Explorer les restaurants bFOOD",
+         sen="Explore bFOOD restaurants",
          dest="/foodbaked", icon="utensils", weight=150),
 
     # -------------------------------------------------------------------
@@ -107,8 +109,8 @@ INTENTS = [
              "supermarché", "faire les courses", "courses", "shopping grocery",
          ],
          fr="Faire les courses", en="Grocery shopping",
-         sfr="Parcourir les rayons MARTbakēd",
-         sen="Browse MARTbakēd aisles",
+         sfr="Parcourir les rayons bMART",
+         sen="Browse bMART aisles",
          dest="/products", icon="shopping-cart", weight=140),
 
     # -------------------------------------------------------------------
@@ -120,8 +122,8 @@ INTENTS = [
              "buy clothes", "acheter vetements", "acheter vêtements",
          ],
          fr="Mode & Vêtements", en="Fashion & Clothing",
-         sfr="Découvrir les boutiques SHOPbakēd",
-         sen="Discover SHOPbakēd stores",
+         sfr="Découvrir les boutiques bSHOP",
+         sen="Discover bSHOP stores",
          dest="/shop", icon="shopping-bag", weight=130),
 
     dict(module="shop", code="shop_general",
@@ -129,9 +131,9 @@ INTENTS = [
              "buy", "shop", "shopping", "acheter", "boutique", "magasin",
              "shop online",
          ],
-         fr="Boutique SHOPbakēd", en="Shop online",
-         sfr="Produits de vendeurs SHOPbakēd",
-         sen="Products from SHOPbakēd sellers",
+         fr="Boutique bSHOP", en="Shop online",
+         sfr="Produits de vendeurs bSHOP",
+         sen="Products from bSHOP sellers",
          dest="/shop", icon="shopping-bag", weight=100),
 
     # Future: AUTO / IMMO — not seeded until modules go live. Adding a row

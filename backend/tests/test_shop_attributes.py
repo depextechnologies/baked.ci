@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 3 dynamic attributes tests.
+"""bSHOP — Slice 3 dynamic attributes tests.
 
 Covers:
   * The 6 seeded SHOP attribute definitions exist with `module="shop"`,

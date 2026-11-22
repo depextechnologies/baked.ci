@@ -25,7 +25,7 @@ import ReservationModal from "../../../components/food/ReservationModal";
 import FavouriteButton from "../components/FavouriteButton";
 
 const API   = process.env.REACT_APP_BACKEND_URL;
-const GREEN = "#77BC1F";
+const GREEN = "#F26924";
 
 const formatPrice = (v, cur) => `${Math.round(Number(v || 0)).toLocaleString()} ${cur || ""}`;
 

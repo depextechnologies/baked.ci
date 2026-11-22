@@ -1,4 +1,4 @@
-"""SHOPbakēd — Slice 4 seller portal tests.
+"""bSHOP — Slice 4 seller portal tests.
 
 Covers the full seller flow:
   * Module gate (`SHOP` in supplier.modules) blocks / allows access.

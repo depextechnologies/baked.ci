@@ -13,7 +13,7 @@ import { Loader2, Filter, Search, Users, Calendar, Phone, Mail, MessageSquare, C
 import { partnerApi, useFoodPartner } from "../../../contexts/FoodPartnerContext";
 import { useRestaurantNotifications } from "../components/RestaurantNotificationEngine";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const STATUS_MAP = {
   pending:   { fr: "En attente",    en: "Pending",    color: "#f59e0b" },

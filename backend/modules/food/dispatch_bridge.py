@@ -1,4 +1,4 @@
-"""FOODbakēd — Driver Dispatch Bridge (Pass 2).
+"""bFOOD — Driver Dispatch Bridge (Pass 2).
 
 One job: when a FOOD order moves `accepted → preparing`, create a shadow
 `express_bookings` row flagged `source_module='food'` + `booking_type=

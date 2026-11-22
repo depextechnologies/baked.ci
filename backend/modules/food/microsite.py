@@ -1,4 +1,4 @@
-"""FOODbakēd — Restaurant Microsite endpoints.
+"""bFOOD — Restaurant Microsite endpoints.
 
 Public reads for the Overview/Photos/Menu/Reviews tabs, plus partner
 CRUD for restaurant photos, profile fields, and menu documents. Offers

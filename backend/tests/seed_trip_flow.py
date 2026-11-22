@@ -1,5 +1,5 @@
 """Seed helper for iteration 63 — creates an in-flight ExpressBooking
-assigned to the given SENDbakēd driver so the DriverTripSheet can be tested
+assigned to the given bSEND driver so the DriverTripSheet can be tested
 end-to-end.
 
 Idempotent: safe to re-run. Returns the booking id + driver JWT via the API.

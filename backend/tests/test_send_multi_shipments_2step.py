@@ -1,4 +1,4 @@
-"""SENDbakēd — Multiple Shipments 2-step booking flow regression.
+"""bSEND — Multiple Shipments 2-step booking flow regression.
 
 Covers:
   1. GET /api/express/product-types returns the seeded 8 rows with

@@ -1,5 +1,5 @@
 /**
- * Admin — MARTbakēd Partner Applications queue (Stage 2 Super Admin Review).
+ * Admin — bMART Partner Applications queue (Stage 2 Super Admin Review).
  *
  * Route: /admin/modules/mart/applications (registered in AdminApp).
  * Data:  GET  /api/admin/mart-partner/applications
@@ -369,7 +369,7 @@ const ApplicationDrawer = ({ app, onClose, onChange }) => {
         <Dialog open onOpenChange={(v) => !v && setConfirmApprove(false)}>
           <DialogContent className="max-w-md" data-testid="approve-confirm-dialog">
             <DialogHeader>
-              <DialogTitle>Approve this MARTbakēd partner application?</DialogTitle>
+              <DialogTitle>Approve this bMART partner application?</DialogTitle>
               <DialogDescription>
                 This will create the partner account and dark store (in&nbsp;
                 <b>setup&nbsp;required</b> status), generate a unique Store ID,

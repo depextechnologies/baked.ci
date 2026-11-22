@@ -1,4 +1,4 @@
-"""SHOPbaked admin Phase 2 backend tests — catalog, attributes, approvals, products."""
+"""bSHOP admin Phase 2 backend tests — catalog, attributes, approvals, products."""
 import os
 import pytest
 import requests

@@ -13,7 +13,7 @@ import uuid
 import httpx
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
@@ -80,12 +80,17 @@ async def _find_or_create_customer_by_phone(session: AsyncSession, e164_phone: s
 async def _find_or_create_customer_by_google(
     session: AsyncSession, email: str, name: str, picture: str
 ) -> Customer:
-    existing = (await session.execute(select(Customer).where(Customer.email == email))).scalar_one_or_none()
-    if existing:
+    existing = (await session.execute(select(Customer).where(func.lower(Customer.email) == email.lower()))).scalars().first()
+    # Link only when that account already proved it owns the email; never merge on an unverified, typed email.
+    if existing and (existing.email_verified_at or "google" in (existing.auth_providers or [])):
         existing.auth_providers = sorted(set(existing.auth_providers or []) | {"google"})
         existing.picture = picture or existing.picture
+        existing.email_verified_at = existing.email_verified_at or datetime.now(timezone.utc)
         await session.flush()
         return existing
+    if existing:
+        existing.email = None  # Google proved ownership; the unverified claim is released.
+        await session.flush()
     customer = Customer(
         email=email,
         name=name,
@@ -95,6 +100,7 @@ async def _find_or_create_customer_by_google(
         country="CI",
         locale="fr-CI",
         verified=True,
+        email_verified_at=datetime.now(timezone.utc),
     )
     session.add(customer)
     await session.flush()

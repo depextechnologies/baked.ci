@@ -52,7 +52,7 @@ def _city_code(city: str | None) -> str:
     return (cleaned[:3] or "XXX").ljust(3, "X")
 
 
-# Human-readable prefix per module, per Fixing_Prompt §27 (MARTbakēd → MRT).
+# Human-readable prefix per module, per Fixing_Prompt §27 (bMART → MRT).
 _MODULE_PREFIXES = {
     "mart":    "MRT",
     "food":    "FOD",

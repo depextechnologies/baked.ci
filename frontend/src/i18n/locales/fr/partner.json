@@ -117,19 +117,19 @@
         "quote": "Depuis notre arrivée sur BAKĒD, nos commandes mensuelles ont triplé. L'assistant IA gère nos mises à jour de menu et le réseau de dispatch nous amène de nouveaux clients que nous ne pouvions pas atteindre auparavant.",
         "name": "Aïcha Konan",
         "role": "Propriétaire, Chez Aïcha",
-        "location": "Cocody, Abidjan · FOODbakēd"
+        "location": "Cocody, Abidjan · bFOOD"
       },
       "kouassi": {
-        "quote": "Nous avons migré toute notre épicerie sur MARTbakēd en deux semaines. Les règlements arrivent à l'heure, à chaque fois — et les analyses nous disent enfin quoi réapprovisionner.",
+        "quote": "Nous avons migré toute notre épicerie sur bMART en deux semaines. Les règlements arrivent à l'heure, à chaque fois — et les analyses nous disent enfin quoi réapprovisionner.",
         "name": "Kouassi Traoré",
         "role": "Fondateur, MiniMart Marcory",
-        "location": "Marcory, Abidjan · MARTbakēd"
+        "location": "Marcory, Abidjan · bMART"
       },
       "mariam": {
-        "quote": "SENDbakēd nous a apporté la planification de tournées et le suivi en direct que nous n'aurions jamais pu construire nous-mêmes. L'utilisation de notre flotte a bondi de 40 % le premier mois.",
+        "quote": "bSEND nous a apporté la planification de tournées et le suivi en direct que nous n'aurions jamais pu construire nous-mêmes. L'utilisation de notre flotte a bondi de 40 % le premier mois.",
         "name": "Mariam Diallo",
         "role": "Responsable Opérations, DialloTransport",
-        "location": "Plateau, Abidjan · SENDbakēd"
+        "location": "Plateau, Abidjan · bSEND"
       }
     }
   },

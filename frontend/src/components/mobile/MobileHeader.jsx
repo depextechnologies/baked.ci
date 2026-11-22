@@ -46,7 +46,7 @@ export const MobileHeader = ({ variant = "home", title }) => {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   // Module-aware accent so the mobile top header re-tints when the customer
-  // switches marketplaces (Fixing_Prompt v6 — SHOPbakēd branding in header).
+  // switches marketplaces (Fixing_Prompt v6 — bSHOP branding in header).
   const accent = React.useMemo(
     () => (MODULES.find((m) => m.code === activeModule)?.color) || "#77BC1F",
     [activeModule]

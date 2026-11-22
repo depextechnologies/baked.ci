@@ -1,7 +1,7 @@
 """Admin — MART catalogue management.
 
 MASTER COMPLETION PROGRAM Phase 2 CRUD for the Super Admin to manage the
-shared MARTbakēd catalog: Categories, Subcategories, Brands, and Products
+shared bMART catalog: Categories, Subcategories, Brands, and Products
 (the master catalog partners link to). Plus the Partner Product Approval
 queue — every partner-submitted custom SKU must be reviewed here before
 it goes live.

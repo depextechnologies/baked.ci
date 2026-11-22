@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { WifiOff } from 'lucide-react-native';
 
 import type { CmsSection } from '@/lib/cms';
@@ -52,6 +52,7 @@ type Props = { sections: CmsSection[] | undefined; loading: boolean; offline: bo
 
 export function CmsSections({ sections, loading, offline, accent, module, country, width }: Props) {
   const { t } = useApp();
+  const phone = useWindowDimensions().width < 768;
   return (
     <View style={[styles.wrap, module === 'express' && { gap: 16 }, module === 'baked' && styles.baked]} testID={`cms-home-${module}`}>
       {offline ? (
@@ -60,6 +61,7 @@ export function CmsSections({ sections, loading, offline, accent, module, countr
       {loading ? <><Skeleton h={220} r={16} /><Skeleton h={300} r={16} /></>
         : !sections?.length ? <AppText size={13} color={colors.textMuted} testID="cms-empty">{t('cms.empty')}</AppText>
           : (module === 'food' ? [...sections].sort((a, b) => Number(b.section_type === 'food_hero') - Number(a.section_type === 'food_hero')) : sections).map((s) => {
+            if (module === 'mart' && s.section_type === 'app_promotion' && phone) return null;
             const C = componentFor(module, s.section_type);
             return C ? <View key={s.id} testID={`cms-section-${s.section_type}-${s.id}`}><C section={s} accent={accent} module={module} country={country} width={width} /></View> : null;
           })}

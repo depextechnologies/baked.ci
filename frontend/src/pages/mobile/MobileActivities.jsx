@@ -8,6 +8,7 @@ import { formatMoney } from "../../lib/i18n";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Search, Truck, ShoppingBag, Home as HomeIcon, Car, ShieldCheck, ChevronRight, Sparkles, Package, Utensils, ShoppingCart } from "lucide-react";
 import { GuestSignInPrompt } from "../../components/auth/GuestSignInPrompt";
+import { getModule } from "../../lib/modules";
 
 const TABS_META = [
   { code: "deliveries", icon: Truck },
@@ -17,7 +18,7 @@ const TABS_META = [
 ];
 
 const MODULE_LOGO = { mart: ShoppingCart, food: Utensils, shop: ShoppingBag, express: Truck };
-const MODULE_TONE = { mart: "#77BC1F", food: "#FF7043", shop: "#FCC44C", express: "#FCC44C" };
+const MODULE_TONE = { mart: "#77BC1F", food: "#F26924", shop: "#1D9BF0", express: "#FCC44C" };
 
 // SHOP orders live at /api/shop/orders/me — normalise them into the shared
 // row shape the Activities/Orders list understands (module, items, address).
@@ -158,7 +159,7 @@ export const MobileActivities = () => {
                 <div className="mt-2 flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${MODULE_TONE[o.module] || "#77BC1F"}22`, color: MODULE_TONE[o.module] || "#77BC1F" }}>{(() => { const M = MODULE_LOGO[o.module] || ShoppingCart; return <M size={16} />; })()}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold truncate">{t("activities.items_label", { count: (o.items || []).length })} · {(o.module || "mart").toUpperCase()}bakēd</div>
+                    <div className="text-xs font-semibold truncate">{t("activities.items_label", { count: (o.items || []).length })} · b{getModule(o.module || "mart").label}</div>
                     <div className="text-[10px] text-muted-foreground truncate">{t("activities.drop_label")} {o.address?.line1 || "—"}, {o.address?.city || ""}</div>
                     <div className="text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
                   </div>
@@ -218,7 +219,7 @@ export const MobileActivities = () => {
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${tone}22`, color: tone }}><M size={17} /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <div className="text-sm font-bold truncate">{(o.module || "mart").toUpperCase()}bakēd</div>
+                    <div className="text-sm font-bold truncate">b{getModule(o.module || "mart").label}</div>
                     <span data-testid={`m-act-ord-status-${o.id}`}
                           className="baked-chip px-1.5 py-0.5 text-[9px] font-bold uppercase"
                           style={{ backgroundColor: `${pillTone}22`, color: pillTone }}>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { MODULES } from "../../lib/modules";
 import { useApp } from "../../contexts/BakedContexts";
+import { BrandedModuleLabel } from "../layout/BakedLogo";
 
 /**
  * AppSelectorSheet — bottom-sheet drawer opened by the center FAB.
@@ -68,8 +69,8 @@ export const AppSelectorSheet = ({ open, onClose }) => {
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: `${m.color}22`, color: m.color }}>
                   <Icon size={22} />
                 </div>
-                <div className="text-base font-bold leading-none">
-                  {m.label}<span className="text-muted-foreground font-normal">bakēd</span>
+                <div className="leading-none" data-testid={`m-app-selector-logo-${m.code}`}>
+                  <BrandedModuleLabel code={m.code} label={m.label} color={m.color} height={20} />
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1.5 leading-snug">{m.tagline}</div>
                 {isCurrent && (

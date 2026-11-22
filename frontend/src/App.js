@@ -70,13 +70,13 @@ const App = () => (
           <Route path="/partner-portal/*" element={<PartnerPortalApp />} />
           <Route path="/driver/*" element={<DriverApp />} />
           <Route path="/send/track/:jobId" element={<SendTrackApp />} />
-          {/* Restaurant Partner Portal — FOODbakēd. Registered BEFORE the
+          {/* Restaurant Partner Portal — bFOOD. Registered BEFORE the
               generic /partner/* hub because React Router matches most-specific. */}
           <Route path="/partner/food/*" element={<FoodPartnerApp />} />
           <Route path="/partner/*" element={<PartnerHubApp />} />
-          {/* FOODbakēd — Sellers / Onboarding portal at /foodbaked/sellers. */}
+          {/* bFOOD — Sellers / Onboarding portal at /foodbaked/sellers. */}
           <Route path="/foodbaked/sellers/*" element={<FoodSellersApp />} />
-          {/* FOODbakēd — Customer's own reservations. */}
+          {/* bFOOD — Customer's own reservations. */}
           <Route path="/foodbaked/reservations/me" element={<MyReservationsPage />} />
           <Route path="/Sell-on-baked/*" element={<PartnerLandingApp />} />
           <Route path="/martbaked/sellers/portal/*" element={<SellerPortalApp legacy />} />
@@ -87,7 +87,7 @@ const App = () => (
               the Supplier.modules[] array; this route just swaps the prefix. */}
           <Route path="/shopbaked/:sellerSlug/portal/*" element={<SellerPortalApp module="shop" />} />
           <Route path="/martbaked/sellers/*" element={<SellerApp module="mart" />} />
-          {/* SHOPbakēd sellers — reuses SellerApp with SHOP branding. Post-
+          {/* bSHOP sellers — reuses SellerApp with SHOP branding. Post-
               login they land in /shopbaked/{slug}/portal (SHOP-branded URL).
               Supplier data model is still unified across modules. */}
           <Route path="/shopbaked/sellers/*" element={<SellerApp module="shop" />} />

@@ -1,4 +1,4 @@
-"""Backend tests for MARTbakēd Partner Slices 5-7: Products, Orders, Wallet."""
+"""Backend tests for bMART Partner Slices 5-7: Products, Orders, Wallet."""
 import os
 import pytest
 import requests

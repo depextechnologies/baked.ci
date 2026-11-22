@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — Live Tracking WebSocket manager + demo simulator.
+"""bSEND — Live Tracking WebSocket manager + demo simulator.
 
 Two responsibilities:
   1) `ConnectionManager` fans out booking updates to every socket
@@ -135,7 +135,7 @@ async def transition_status(
     session.add(ExpressBookingTimeline(booking_id=booking_id, code=new_status, label=resolved_label, at=now))
     await session.commit()
 
-    # Pass 2 — FOODbakēd cascade: if this is a food_delivery booking and
+    # Pass 2 — bFOOD cascade: if this is a food_delivery booking and
     # the SEND side just flipped to 'delivered', mirror the state onto the
     # originating food_orders row + broadcast. Idempotent inside the helper.
     if new_status == "delivered" and booking.food_order_id and booking.source_module == "food":

@@ -265,7 +265,7 @@ export const DriverNavMap = ({
 }) => {
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
   const { theme } = useDriverTheme();
-  // Two mapIds — one calibrated for the SENDbakēd dark palette and one for
+  // Two mapIds — one calibrated for the bSEND dark palette and one for
   // the light theme (Google's Cloud Console default light works well). We
   // key the <Map> off theme so it fully remounts on toggle, dropping the
   // old canvas cleanly rather than trying to restyle inline.

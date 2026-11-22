@@ -1,4 +1,4 @@
-"""FOODbakēd — Reviews public list + moderation unit + gate."""
+"""bFOOD — Reviews public list + moderation unit + gate."""
 from __future__ import annotations
 
 import os

@@ -1,6 +1,6 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import { Banknote, MapPin, Store } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/StateView';
 import { useCartTotals } from '@/hooks/useCartTotals';
 import { useFetch } from '@/hooks/useFetch';
 import { api } from '@/lib/api';
+import { setCheckoutAddressId, toPicked, useCheckoutAddressId, type SavedAddress } from '@/lib/addressBook';
 import { formatMoney } from '@/lib/format';
 import { MODULES } from '@/lib/modules';
 import { notify } from '@/lib/notify';
@@ -25,10 +26,17 @@ type Slot = { id: string; label: string; kind: string; start_at: string; end_at:
 type Method = { code: string; label: string; label_fr: string; enabled: boolean };
 
 export default function Checkout() {
-  const { t, lang, address, country } = useApp();
+  const { t, lang, country } = useApp();
   const { isAuthed, customer } = useSession();
   const { mart, food, shop, foodMode, clearFood, reload } = useCart();
-  const { totals } = useCartTotals();
+  const saved = useFetch<SavedAddress[]>(isAuthed ? '/customers/me/addresses' : null, [isAuthed]);
+  const chosenId = useCheckoutAddressId();
+  const reloadSaved = saved.reload;
+  useFocusEffect(useCallback(() => { reloadSaved?.(); }, [reloadSaved]));
+  const book = saved.data || [];
+  const picked = book.find((a) => a.id === chosenId) || book.find((a) => a.is_default) || book[0] || null;
+  const address = picked ? toPicked(picked) : null;
+  const { totals } = useCartTotals(address);
   const cc = country?.code || 'CI';
   const hasMart = mart.length > 0;
   const foodType = foodMode === 'delivery' ? 'delivery' : 'pickup';
@@ -57,6 +65,9 @@ export default function Checkout() {
   const money = (n: number) => formatMoney(n, totals?.currency || 'XOF', undefined, lang);
   const addressOk = !needsAddress || (address && address.latitude != null);
 
+  // Server validation messages are shown as-is; network / 5xx / proxy errors get a safe, friendly text.
+  const friendly = (e: any) => (e?.status >= 400 && e.status < 500 && e.message && !/<|cloudflare/i.test(e.message) ? e.message : t('co.unconfirmed'));
+
   const place = async () => {
     if (!addressOk) { notify(t('co.need_address')); return; }
     if (hasMart && !slot) { notify(t('co.need_slot')); return; }
@@ -66,23 +77,23 @@ export default function Checkout() {
     if (hasMart && address) {
       try {
         const s = slots.data?.find((x) => x.id === slot);
-        const o = await api<{ id: string }>('/orders', { method: 'POST', body: {
-          address: { line1: address.line1, city: address.city, country: address.country, latitude: address.latitude, longitude: address.longitude,
-            formatted_address: address.formatted_address, place_id: address.place_id, label: address.label },
-          delivery_slot_id: slot, delivery_slot_label: s?.label, payment_method: method, instructions: notes || undefined,
+        const o = await api<{ id: string }>('/orders', { method: 'POST', retries: 2, timeoutMs: 30000, body: {
+          address_id: picked?.id, delivery_slot_id: slot, delivery_slot_label: s?.label, payment_method: method,
+          instructions: notes || undefined, client_request_id: `mart_${attempt.current}`,
         } });
         created.push({ module: 'mart', id: o.id });
-      } catch (e: any) { errors.push(`MART: ${e?.message}`); }
+      } catch (e: any) { errors.push(`b${MODULES.mart.label}: ${friendly(e)}`); }
     }
     if (shop.length && address) {
       try {
-        const o = await api<{ id: string }>('/shop/checkout', { method: 'POST', body: {
+        const o = await api<{ id: string }>('/shop/checkout', { method: 'POST', retries: 2, timeoutMs: 30000, body: {
           payment_method: method === 'cod' ? 'cash_on_delivery' : method,
-          delivery_address: { line1: address.line1, city: address.city, country: address.country, latitude: address.latitude, longitude: address.longitude, formatted_address: address.formatted_address },
-          instructions: notes || undefined,
+          delivery_address: { line1: [picked?.line2, address.line1].filter(Boolean).join(', '), city: address.city, country: address.country, latitude: address.latitude, longitude: address.longitude, formatted_address: address.formatted_address,
+            recipient_name: picked?.recipient_name || customer?.name, recipient_phone: picked?.recipient_phone || customer?.phone, landmark: picked?.landmark },
+          instructions: notes || picked?.instructions || undefined, client_request_id: `shop_${attempt.current}`,
         } });
         created.push({ module: 'shop' as any, id: o.id });
-      } catch (e: any) { errors.push(`SHOP: ${e?.message}`); }
+      } catch (e: any) { errors.push(`b${MODULES.shop.label}: ${friendly(e)}`); }
     }
     const groups = food.reduce<Record<string, FoodLine[]>>((acc, l) => { (acc[l.restaurant_id] ||= []).push(l); return acc; }, {});
     for (const [rid, lines] of Object.entries(groups)) {
@@ -90,18 +101,19 @@ export default function Checkout() {
         const o = await api<{ id: string }>('/food/customer/orders', { method: 'POST', body: {
           restaurant_id: rid, order_type: foodType,
           items: lines.map((l) => ({ item_id: l.item_id, quantity: l.quantity, variant: l.variant || null, addons: l.addons, notes: l.notes || null })),
-          delivery_address: foodType === 'delivery' && address ? { label: address.label, line1: address.line1, city: address.city, lat: address.latitude, lng: address.longitude, phone: customer?.phone, contact_name: customer?.name } : null,
+          delivery_address: foodType === 'delivery' && address ? { label: address.label, line1: address.line1, city: address.city, lat: address.latitude, lng: address.longitude, phone: picked?.recipient_phone || customer?.phone, contact_name: picked?.recipient_name || customer?.name } : null,
           customer_snapshot: { name: customer?.name, phone: customer?.phone, email: customer?.email },
           payment_method: method, notes: notes || null, client_order_id: `m_${rid}_${attempt.current}`,
         } });
         created.push({ module: 'food', id: o.id });
         clearFood(rid);
-      } catch (e: any) { errors.push(`${lines[0].restaurant_name}: ${e?.message}`); }
+      } catch (e: any) { errors.push(`${lines[0].restaurant_name}: ${friendly(e)}`); }
     }
-    if (created.length) placed.current = true;
+    if (created.length) { placed.current = true; setCheckoutAddressId(null); }
     await reload();
     setBusy(false);
-    if (errors.length) notify(t('co.partial', { msg: errors.join('\n') }));
+    if (errors.length && created.length) notify(t('co.partial_ok', { ok: created.map((c) => `b${MODULES[c.module].label}`).join(', '), msg: errors.join('\n') }));
+    else if (errors.length) notify(errors.join('\n'), t('co.failed_title'));
     if (created.length) {
       if (!errors.length) notify(t('co.success'));
       router.replace((created.length > 1 ? '/activity' : `/order/${created[0].module}/${created[0].id}`) as any);
@@ -115,10 +127,10 @@ export default function Checkout() {
         <View style={styles.card}>
           <AppText weight="bold" size={15}>{needsAddress ? t('co.address') : t('co.pickup_at')}</AppText>
           {needsAddress ? (
-            <Touchable testID="checkout-address" onPress={() => router.push('/address')} style={styles.addr}>
+            <Touchable testID="checkout-address" onPress={() => router.push((book.length ? '/addresses?select=1' : '/addresses/edit') as any)} style={styles.addr}>
               <MapPin color={colors.text} size={20} />
               <View style={{ flex: 1 }}>
-                <AppText weight="semibold" size={14} numberOfLines={1} testID="checkout-address-title">{address ? address.line1 : t('addr.choose')}</AppText>
+                <AppText weight="semibold" size={14} numberOfLines={1} testID="checkout-address-title">{picked ? `${picked.label ? `${picked.label} · ` : ''}${picked.line1}` : t('ab.add')}</AppText>
                 <AppText size={12} color={addressOk ? colors.textMuted : colors.danger} numberOfLines={2}>{address ? address.formatted_address : t('co.need_address')}</AppText>
               </View>
               <AppText weight="semibold" size={13} color={colors.accent}>{t('co.change')}</AppText>

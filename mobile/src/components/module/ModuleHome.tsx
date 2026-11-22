@@ -13,12 +13,12 @@ import { MODULES, type ModuleCode } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
 import { colors, hexA, radius, themed } from '@/theme';
 import { BrandName } from '../BrandName';
-import { AddressBar, SearchBar } from '../home/AddressBar';
+import { AddressBar } from '../home/AddressBar';
 import { BellButton } from '../home/MainHeader';
-import { Logo } from '../Logo';
 import { AppText } from '../ui/AppText';
 import { ErrorView, Skeleton } from '../ui/StateView';
 import { ModuleIcon } from '../ModuleIcon';
+import { ModuleLogo } from '../ModuleLogo';
 import { CartBar, CartButton } from '../commerce/CartBar';
 import { Touchable } from '../ui/Button';
 import { categoryEndpoint, toTiles, type Tile } from './moduleData';
@@ -45,21 +45,20 @@ export function ModuleHome({ code }: { code: ModuleCode }) {
     : code === 'food' ? (id: string) => router.push(`/food/discover?category=${id}`)
     : code === 'shop' ? (id: string) => router.push(`/shop/category/${id}`)
     : (id: string) => router.push(id === 'packers_movers' ? '/send/movers' : `/send/book?service=${id}`);
-  const searchTo = code === 'mart' ? '/mart/category/all?focus=1' : code === 'food' ? '/food/discover?focus=1' : code === 'shop' ? '/shop/category/all' : '/send/book';
 
   return (
     <View style={{ flex: 1 }}>
     <ScrollView testID={`module-home-${code}`} contentContainerStyle={{ paddingBottom: commerce ? 96 : 28 }} showsVerticalScrollIndicator={false}
       refreshControl={cms ? <RefreshControl refreshing={hp.refreshing} onRefresh={hp.refresh} tintColor={m.color} colors={[m.color]} /> : undefined}>
       <View style={styles.header}>
-        <Logo height={30} onPress={goMainHome} testID="module-logo-home" />
-        <View style={[styles.chip, { borderColor: hexA(m.color, 0.5) }]}><BrandName code={code} size={14} /></View>
+        <Touchable testID="module-logo-home" onPress={goMainHome} hitSlop={10} accessibilityRole="button" accessibilityLabel="BAKED home">
+          <ModuleLogo module={code} size={32} testID="module-header-logo" />
+        </Touchable>
         <View style={{ flex: 1 }} />
         <BellButton unread={unread} />
         {commerce ? <CartButton /> : null}
       </View>
       {code !== 'express' ? <AddressBar accent={m.color} /> : null}
-      {code !== 'express' ? <SearchBar placeholder={`${t('home.search_ph')} · ${m.label}`} to={searchTo} /> : null}
 
       {cms ? (
         <View style={{ marginTop: 4 }}>
@@ -122,7 +121,6 @@ function CategoryTile({ tile, color, icon, onPress }: { tile: Tile; color: strin
 
 const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 6, paddingBottom: 14 },
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1, backgroundColor: colors.surface },
   hero: { marginHorizontal: 18, height: 150, borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', padding: 18 },
   heroImg: { width: '46%', height: '100%' },
   section: { paddingHorizontal: 18, marginTop: 24, marginBottom: 12 },

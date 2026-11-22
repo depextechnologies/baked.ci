@@ -1,5 +1,5 @@
 /**
- * ShopProduct — SHOPbakēd PDP with variant picker (Slice 6).
+ * ShopProduct — bSHOP PDP with variant picker (Slice 6).
  *
  * Route: /shopbaked/p/:productId
  *
@@ -103,7 +103,7 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
   if (error) {
     return (
       <div className="text-sm text-neutral-400" data-testid="shopbaked-pdp-error">
-        <Link to={basePath} className="text-amber-300 hover:underline">← {t("shop.back_aria")}</Link>
+        <Link to={basePath} className="text-[#4DB2F4] hover:underline">← {t("shop.back_aria")}</Link>
         <p className="mt-4">{t("shop.error_prefix", { msg: typeof error === "string" ? error : t("shop.product_unavailable") })}</p>
       </div>
     );
@@ -112,7 +112,7 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
 
   return (
     <article className="mx-auto max-w-7xl px-4 sm:px-6 py-6" data-testid="shopbaked-pdp">
-      <Link to={basePath} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-amber-300 mb-4"
+      <Link to={basePath} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-[#4DB2F4] mb-4"
             data-testid="shopbaked-pdp-back">
         <ArrowLeft size={12} /> {t("shop.back_to_marketplace")}
       </Link>
@@ -129,7 +129,7 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
             {pickProductTitle(detail, lang)}
           </h1>
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-2xl font-semibold text-amber-300" data-testid="shopbaked-pdp-price">
+            <span className="text-2xl font-semibold text-[#4DB2F4]" data-testid="shopbaked-pdp-price">
               {activeVariant ? `${activeVariant.price.toLocaleString()} ${activeVariant.currency}` : "—"}
             </span>
             {activeVariant?.compare_at_price && (
@@ -176,8 +176,8 @@ export const ShopProduct = ({ basePath = "/shop" }) => {
                                   onClick={() => setChosen({ ...chosen, [a.key]: val })}
                                   data-testid={`shopbaked-pdp-attr-${a.key}-${val}`}
                                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                                    on ? "bg-amber-400 text-neutral-950 border-amber-400 font-semibold"
-                                       : "text-neutral-300 border-neutral-800 hover:border-amber-400/60"
+                                    on ? "bg-[#1D9BF0] text-white border-[#1D9BF0] font-semibold"
+                                       : "text-neutral-300 border-neutral-800 hover:border-[#1D9BF0]/60"
                                   }`}>
                             {label}
                           </button>

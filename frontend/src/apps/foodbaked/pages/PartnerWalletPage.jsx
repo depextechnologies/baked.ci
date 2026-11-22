@@ -17,7 +17,7 @@ import {
   TrendingUp, PauseCircle, ArrowDownRight, ArrowUpRight, HelpCircle,
 } from "lucide-react";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const fmt = (v, c = "XOF") =>
   `${Math.round(Number(v || 0)).toLocaleString()} ${c || ""}`.trim();

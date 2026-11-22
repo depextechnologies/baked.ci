@@ -77,7 +77,7 @@ class Supplier(Base, TimestampMixin):
     country: Mapped[str] = mapped_column(String(2), ForeignKey("countries.code"), nullable=False)
     default_currency: Mapped[str] = mapped_column(String(8), nullable=False, default="XOF", server_default="XOF")
     module: Mapped[str] = mapped_column(String(20), nullable=False, default="mart", server_default="mart")
-    # SHOPbakēd Slice 1 — shared identity across modules ({"MART","SHOP",…}).
+    # bSHOP Slice 1 — shared identity across modules ({"MART","SHOP",…}).
     # `module` (singular) above is retained for legacy MART-only code paths;
     # `modules` (JSONB array) is the source of truth for cross-module access.
     modules: Mapped[list] = mapped_column(

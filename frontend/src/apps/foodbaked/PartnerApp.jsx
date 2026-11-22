@@ -29,7 +29,7 @@ import PartnerOrdersPage from "./pages/PartnerOrdersPage";
 import PartnerRestaurantProfilePage from "./pages/PartnerRestaurantProfilePage";
 import PartnerWalletPage from "./pages/PartnerWalletPage";
 
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 const API_BASE = process.env.REACT_APP_BACKEND_URL || "";
 const resolveImg = (u) => (!u ? "" : u.startsWith("http") || u.startsWith("data:") ? u : `${API_BASE}${u}`);
 const detectFr = () =>
@@ -66,7 +66,7 @@ const PartnerLoginPage = () => {
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 space-y-4 shadow-xl">
         <div className="text-center space-y-1">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{isFr ? "Portail Restaurant" : "Restaurant Portal"}</div>
-          <h1 className="text-2xl font-bold">FOOD<span style={{ color: GREEN }}>bakēd</span></h1>
+          <h1 className="text-2xl font-bold"><span style={{ color: GREEN }}>bFOOD</span></h1>
           <p className="text-xs text-muted-foreground">{isFr ? "Connexion partenaire" : "Partner sign-in"}</p>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -87,7 +87,7 @@ const PartnerLoginPage = () => {
             {busy && <Loader2 size={14} className="animate-spin" />} <LogIn size={14} /> {isFr ? "Se connecter" : "Sign in"}
           </button>
           <div className="text-[10px] text-center text-muted-foreground">
-            {isFr ? "Pas de compte ? Demandez à l'équipe FOODbakēd." : "No account? Contact the FOODbakēd team."}
+            {isFr ? "Pas de compte ? Demandez à l'équipe bFOOD." : "No account? Contact the bFOOD team."}
           </div>
         </form>
       </div>
@@ -123,7 +123,7 @@ const PartnerLayout = () => {
         <aside className="w-64 shrink-0 bg-card border-r border-border flex flex-col">
           <div className="p-5 border-b border-border">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{isFr ? "Portail Restaurant" : "Restaurant Portal"}</div>
-            <div className="text-lg font-bold">FOOD<span style={{ color: GREEN }}>bakēd</span></div>
+            <div className="text-lg font-bold"><span style={{ color: GREEN }}>bFOOD</span></div>
             <div className="mt-2 rounded-lg bg-secondary/60 p-2 flex items-center gap-2">
               <img src={resolveImg(restaurant?.image)} alt="" className="w-8 h-8 rounded-md object-cover bg-muted" />
               <div className="min-w-0">
@@ -261,8 +261,8 @@ const PartnerDashboard = () => {
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3" data-testid="partner-restaurant-controls">
         <div className="text-sm font-semibold flex items-center gap-2"><Store size={16} /> {isFr ? "Auto-service" : "Self-service"}</div>
         <p className="text-xs text-muted-foreground">{isFr
-          ? "Vous pouvez basculer votre statut d'ouverture, ajuster le temps de préparation et changer votre image. Le reste est géré par l'équipe FOODbakēd."
-          : "Toggle open/closed, tweak prep time, change cover photo — anything else needs the FOODbakēd team."}</p>
+          ? "Vous pouvez basculer votre statut d'ouverture, ajuster le temps de préparation et changer votre image. Le reste est géré par l'équipe bFOOD."
+          : "Toggle open/closed, tweak prep time, change cover photo — anything else needs the bFOOD team."}</p>
         <div className="flex flex-wrap gap-3 items-center">
           <button onClick={() => patch({ is_open: !restaurant.is_open })} disabled={saving} data-testid="partner-toggle-open"
                   className={`h-9 px-4 rounded-lg text-sm font-semibold ${restaurant.is_open ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"}`}>

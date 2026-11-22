@@ -1,7 +1,7 @@
 /**
  * Super-admin FOOD applications queue at /admin/modules/food/applications.
  *
- * Lists all FOODbakēd partner applications with status/country filter + search.
+ * Lists all bFOOD partner applications with status/country filter + search.
  * Clicking a row opens a full detail drawer showing:
  *   - Applicant info + restaurant details
  *   - Documents with per-doc Verify/Reject controls (rejection_reason required)
@@ -70,7 +70,7 @@ export const AdminFoodApplications = () => {
     <div className="p-6 space-y-4" data-testid="admin-food-applications">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2"><ClipboardCheck size={20} /> Demandes de restaurants · Restaurant applications</h1>
-        <p className="text-xs text-muted-foreground">File d'attente FOODbakēd — approbation, rejet, demande de correction.</p>
+        <p className="text-xs text-muted-foreground">File d'attente bFOOD — approbation, rejet, demande de correction.</p>
       </div>
 
       <div className="flex gap-2 items-center flex-wrap">

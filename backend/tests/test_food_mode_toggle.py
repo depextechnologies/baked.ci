@@ -1,4 +1,4 @@
-"""Iteration 109 — FOODbakēd Pickup/Dine-in hero toggle backend coverage.
+"""Iteration 109 — bFOOD Pickup/Dine-in hero toggle backend coverage.
 
 Validates the three canonical modes against the CI seed:
   * dine_in alias is accepted (no 422) and canonicalises to reservation

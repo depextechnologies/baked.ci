@@ -19,7 +19,7 @@ export const ExpressHeader = ({ title, step, totalSteps = 4, right, onBack }) =>
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 text-center">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">SENDbakēd</div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">bSEND</div>
           <div className="text-sm font-bold truncate">{title}</div>
         </div>
         {step != null ? (
@@ -71,7 +71,7 @@ export const ExpressFooter = ({ onContinue, disabled, label, loading, testid = "
   const finalLabel = label ?? t("send.wizard.continue");
   return (
     <div className="sticky bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-4 py-3 flex items-center gap-3">
-      <div className="text-[10px] font-bold tracking-widest text-muted-foreground">bakēd</div>
+      <div className="text-[10px] font-bold tracking-widest text-muted-foreground">bSEND</div>
       <div className="flex-1" />
       <button
         data-testid={testid}

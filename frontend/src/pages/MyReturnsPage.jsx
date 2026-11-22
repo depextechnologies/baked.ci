@@ -13,6 +13,7 @@ import {
   ArrowLeft, Loader2, Receipt, AlertTriangle, Clock, Check, Wallet2, CreditCard, X,
 } from "lucide-react";
 import { useAuth } from "../contexts/BakedContexts";
+import { getModule } from "../lib/modules";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
 
@@ -254,7 +255,7 @@ export const MyReturnsPage = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-muted-foreground">#{r.number}</span>
                         <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-                          {r.order_module}bakēd
+                          b{getModule(String(r.order_module || "mart").toLowerCase()).label}
                         </span>
                       </div>
                       <div className="mt-1 text-sm font-semibold">

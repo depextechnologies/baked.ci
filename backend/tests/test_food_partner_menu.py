@@ -1,4 +1,4 @@
-"""FOODbakēd — Restaurant Partner auth + Menu CRUD roundtrip regression.
+"""bFOOD — Restaurant Partner auth + Menu CRUD roundtrip regression.
 
 Covers:
   * Super-admin creates a partner account → partner logs in → GETs /auth/me

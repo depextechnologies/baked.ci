@@ -1,4 +1,4 @@
-"""EXPRESSbakēd — pricing engine.
+"""bSEND — pricing engine.
 
 100% configuration-driven. No hardcoded constants: every rate comes from
 `express_pricing_rules` (seeded once, editable from Super Admin).
@@ -303,6 +303,9 @@ async def quote_movers(
             )
         )
     ).scalar_one_or_none()
+    if not rule_row:
+        from fastapi import HTTPException
+        raise HTTPException(409, {"code": "movers_pricing_unavailable", "message": "Moving quotes are not available in this country yet"})
     rule = {
         "price_per_km": rule_row.price_per_km if rule_row else 0,
         "transport_base": rule_row.transport_base if rule_row else 0,

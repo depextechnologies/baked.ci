@@ -1,7 +1,6 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ChevronRight, Shirt, ShoppingBasket, UtensilsCrossed } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useFetch } from '@/hooks/useFetch';
@@ -12,6 +11,7 @@ import { accentText, colors, hexA, themed } from '@/theme';
 import { categoryEndpoint } from '../../module/moduleData';
 import { AppText } from '../../ui/AppText';
 import { Touchable } from '../../ui/Button';
+import { SafeImage } from '../../ui/SafeImage';
 import { Skeleton } from '../../ui/StateView';
 import type { SectionProps } from '../types';
 
@@ -24,14 +24,12 @@ const open = (src: Src, key: string) =>
 type Cat = { key: string; name: string; image?: string | null };
 
 function CatTile({ src, cat, accent }: { src: Src; cat: Cat; accent: string }) {
-  const [failed, setFailed] = useState(false);
   const Icon = ICON[src];
   return (
     <Touchable testID={`app-cat-${src}-${cat.key}`} onPress={() => open(src, cat.key)} style={styles.tile} scale={0.95}>
       <View style={styles.imgBox}>
-        {cat.image && !failed
-          ? <Image source={cat.image} style={StyleSheet.absoluteFill} contentFit="contain" transition={150} onError={() => setFailed(true)} />
-          : <View style={[styles.fb, { backgroundColor: hexA(accent, 0.12) }]} testID={`app-cat-${src}-${cat.key}-fallback`}><Icon color={accent} size={26} /></View>}
+        <SafeImage source={cat.image} style={StyleSheet.absoluteFill} contentFit="contain" transition={150}
+          fallback={<View style={[styles.fb, { backgroundColor: hexA(accent, 0.12) }]} testID={`app-cat-${src}-${cat.key}-fallback`}><Icon color={accent} size={26} /></View>} />
       </View>
       <AppText size={12} weight="medium" numberOfLines={1} align="center">{cat.name}</AppText>
     </Touchable>

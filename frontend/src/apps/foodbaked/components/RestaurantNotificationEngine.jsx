@@ -1,5 +1,5 @@
 /**
- * FOODbakēd — Restaurant Notification Engine.
+ * bFOOD — Restaurant Notification Engine.
  *
  * Shared partner-portal component. Opens ONE WebSocket to
  * `/api/food/manage/{rid}/ws?token=<partner_jwt>` and:
@@ -31,7 +31,7 @@ import { X, Check, Loader2, AlertTriangle, Users, Calendar, Phone, MessageSquare
 import { partnerApi } from "../../../contexts/FoodPartnerContext";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
-const GREEN = "#00A651";
+const GREEN = "#F26924";
 
 const NotificationCtx = createContext(null);
 export const useRestaurantNotifications = () => useContext(NotificationCtx) || {};

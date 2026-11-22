@@ -1,7 +1,7 @@
 /**
  * Module coming soon — branded refresh-safe placeholder for modules whose
- * full Partner Portal hasn't shipped yet (SHOPbakēd, FOODbakēd, AUTObakēd,
- * IMMObakēd, SENDbakēd). Reachable via `/partner-portal/{slug}/*` and
+ * full Partner Portal hasn't shipped yet (bSHOP, bFOOD, bAUTO,
+ * bIMMO, bSEND). Reachable via `/partner-portal/{slug}/*` and
  * `/partner/{slug}/staff-login`.
  */
 import React from "react";
@@ -49,7 +49,7 @@ export const ModuleComingSoonPage = ({ intent = "owner" }) => {
               className="ph-btn ph-btn-warm justify-center"
               data-testid="module-comingsoon-to-mart"
               style={{ textDecoration: "none" }}>
-              Continue to MARTbakēd →
+              Continue to bMART →
             </Link>
             <Link to={isStaff ? "/partner/staff-login" : "/partner-portal/login"}
               className="text-xs"

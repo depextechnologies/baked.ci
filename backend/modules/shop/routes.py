@@ -1,4 +1,4 @@
-"""SHOPbakēd — HTTP routes (Slice 1 Foundation).
+"""bSHOP — HTTP routes (Slice 1 Foundation).
 
 Three router surfaces:
   * public_router  — /api/shop/*                    (customer storefront)
@@ -224,13 +224,63 @@ async def shop_list_products(
     category: Optional[str] = Query(None),
     subcategory: Optional[str] = Query(None),
     limit: int = Query(24, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort: str = Query("relevance", pattern="^(relevance|newest|price_asc|price_desc|discount)$"),
+    min_price: Optional[float] = Query(None, ge=0),
+    max_price: Optional[float] = Query(None, ge=0),
+    brand: Optional[str] = Query(None, description="Comma-separated brand ids"),
+    in_stock: bool = Query(False),
+    discounted: bool = Query(False),
     session: AsyncSession = Depends(get_session),
 ):
-    """List published SHOP products.
+    """List published SHOP products (backend-driven filters + sort + offset pagination)."""
+    if min_price is not None and max_price is not None and min_price > max_price:
+        min_price, max_price = max_price, min_price
+    rows = await _shop_list_raw(session, country, category, subcategory)
+    out = [r for r in rows if r["min_price"] is not None or not (min_price or max_price)]
+    if brand:
+        ids = {b.strip() for b in brand.split(",") if b.strip()}
+        out = [r for r in out if r["brand_id"] in ids]
+    if min_price is not None:
+        out = [r for r in out if (r["min_price"] or 0) >= min_price]
+    if max_price is not None:
+        out = [r for r in out if (r["min_price"] or 0) <= max_price]
+    if in_stock:
+        out = [r for r in out if r["in_stock"]]
+    if discounted:
+        out = [r for r in out if r["discount_pct"]]
+    if sort == "price_asc":
+        out.sort(key=lambda r: r["min_price"] or 0)
+    elif sort == "price_desc":
+        out.sort(key=lambda r: -(r["min_price"] or 0))
+    elif sort == "discount":
+        out.sort(key=lambda r: -(r["discount_pct"] or 0))
+    elif sort == "relevance":
+        out.sort(key=lambda r: (not r["in_stock"],))  # stable: newest first, out-of-stock last
+    return out[offset: offset + limit]
 
-    Slice 6 will add filtering, sort, pagination and the customer-facing
-    variant summary shape. For Slice 1 this just returns published rows.
-    """
+
+@public_router.get("/products/facets")
+async def shop_product_facets(
+    country: str = Query("CI"),
+    category: Optional[str] = Query(None),
+    subcategory: Optional[str] = Query(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Filter options for the current category: brands present + price range."""
+    rows = await _shop_list_raw(session, country, category, subcategory)
+    prices = [r["min_price"] for r in rows if r["min_price"] is not None]
+    bids = {r["brand_id"] for r in rows if r["brand_id"]}
+    brands = []
+    if bids:
+        brands = [{"id": b.id, "name": b.name} for b in (await session.execute(
+            select(ShopBrand).where(ShopBrand.id.in_(bids)).order_by(ShopBrand.name))).scalars().all()]
+    return {"count": len(rows), "brands": brands, "price_min": min(prices) if prices else None,
+            "price_max": max(prices) if prices else None, "currency": rows[0]["currency"] if rows else None}
+
+
+async def _shop_list_raw(session: AsyncSession, country: str, category: Optional[str], subcategory: Optional[str]) -> list[dict]:
+    limit = 2000
     q = (
         select(ShopProduct)
         .where(
@@ -255,7 +305,7 @@ async def shop_list_products(
         sub = (
             (await session.execute(
                 select(ShopSubcategory.id).where(ShopSubcategory.slug == subcategory,
-                                                 ShopSubcategory.country == country.upper())
+                                                 ShopSubcategory.country == country.upper()).limit(1)
             )).scalar_one_or_none()
         )
         if not sub:
@@ -291,6 +341,10 @@ async def shop_list_products(
             "first_variant_id": cheapest.id if cheapest else None,
             "variant_attributes": cheapest.attributes if cheapest else {},
             "variant_count": len(vs),
+            "stock_qty": sum(int(v.stock_qty or 0) for v in vs),
+            "in_stock": any(int(v.stock_qty or 0) > 0 for v in vs),
+            "discount_pct": (round(100 * (1 - float(cheapest.price) / float(cheapest.compare_at_price)))
+                             if cheapest and cheapest.compare_at_price and float(cheapest.compare_at_price) > float(cheapest.price) else 0),
         })
     return out
 

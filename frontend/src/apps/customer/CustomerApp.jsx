@@ -79,7 +79,7 @@ import { ExpressBookings } from "@/pages/express/ExpressBookings";
 import { ExpressServices } from "@/pages/express/ExpressServices";
 import { ExpressLiveTracking } from "@/pages/express/ExpressLiveTracking";
 
-// SHOPbakēd storefront (Slice 6+7) — mounted under /shop/* so the module
+// bSHOP storefront (Slice 6+7) — mounted under /shop/* so the module
 // tabs (MART / SHOP / SEND / …) switch to it in-shell, matching MART UX.
 import { ShopHome } from "@/apps/shopbaked/pages/ShopHome";
 import { ShopCategory } from "@/apps/shopbaked/pages/ShopCategory";
@@ -114,7 +114,7 @@ const ExpressLegacyRedirect = () => {
 };
 
 // Routes where the checkout experience should feel global and NOT be
-// coloured by any single module tab (MARTbakēd was highlighted by default
+// coloured by any single module tab (bMART was highlighted by default
 // because activeModule falls back to 'mart' when the URL isn't module-
 // scoped). Hiding the tabs on the checkout screen is the cleanest fix.
 const ROUTES_WITHOUT_MODULE_TABS = ["/checkout", "/paiement"];

@@ -1,10 +1,10 @@
-import { Compass, House, LayoutGrid, Receipt, User } from 'lucide-react-native';
+import { ClipboardList, Compass, House, LayoutGrid, User } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { MODULES } from '@/lib/modules';
 import { useApp } from '@/state/AppContext';
-import { useSwitcher } from '@/state/SwitcherContext';
+import { useModuleNav } from '@/hooks/useModuleNav';
 import { accentText, colors, themed } from '@/theme';
 import { AppText } from './ui/AppText';
 import { Touchable } from './ui/Button';
@@ -13,7 +13,7 @@ const ITEMS = [
   { name: 'index', icon: House, label: 'tab.home' },
   { name: 'explore', icon: Compass, label: 'tab.explore' },
   { name: 'switcher', icon: LayoutGrid, label: 'tab.switcher' },
-  { name: 'activity', icon: Receipt, label: 'tab.activity' },
+  { name: 'activity', icon: ClipboardList, label: 'tab.activity' },
   { name: 'profile', icon: User, label: 'tab.profile' },
 ] as const;
 
@@ -21,7 +21,7 @@ type Props = { state: { index: number; routes: { key: string; name: string }[] }
 
 export function TabBar({ state, navigateToTab, insets }: Props) {
   const { t, activeContext } = useApp();
-  const { open } = useSwitcher();
+  const { goMainHome } = useModuleNav();
   const accent = activeContext === 'baked' ? colors.accent : MODULES[activeContext].color;
   const current = state.routes[state.index]?.name;
 
@@ -32,7 +32,7 @@ export function TabBar({ state, navigateToTab, insets }: Props) {
         if (name === 'switcher') {
           return (
             <View key={name} style={styles.item}>
-              <Touchable testID="tab-switcher" accessibilityRole="button" accessibilityLabel={t(label)} onPress={open} style={[styles.fab, { borderColor: accent }]} scale={0.92}>
+              <Touchable testID="tab-switcher" accessibilityRole="button" accessibilityLabel={t(label)} onPress={goMainHome} style={[styles.fab, { borderColor: accent }]} scale={0.92}>
                 <Icon color={colors.text} size={24} />
               </Touchable>
               <AppText size={11} weight="medium" color={colors.textMuted} style={{ marginTop: 4 }}>{t(label)}</AppText>

@@ -1,4 +1,4 @@
-"""FOODbakēd — Restaurant Analytics + Order Seed regression.
+"""bFOOD — Restaurant Analytics + Order Seed regression.
 
 Verifies:
   * Only super-admin can seed orders (partner + anonymous rejected)

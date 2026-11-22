@@ -1,0 +1,54 @@
+{
+  "summary": "Frontend-only retest of the brand refresh fixes from iteration 135, checked in the UI and in the code. Most items pass. Leftovers: (a) cart chip labels render as 'BSHOP'/'BFOOD' because of CSS uppercase; (b) the CheckoutPage and CartPage chips still use 'SHOP'/'FOOD'/'MART' labels with amber/red background tints; (c) the hero illustration on the partner landing page (/Sell-on-baked) still uses the old FOOD/AUTO/IMMO colours, and the partner-portal registry, partner landing cards and /search page still have old bAUTO/bIMMO colours; (d) the mobile bFOOD hero eyebrow renders 'BFOOD'.",
+  "passed_checks": [
+    "(1) Website dark mode: the bAUTO/bIMMO tabs use badge-on-dark.png. Light mode: all tabs use badge-on-light.png.",
+    "(2) Dark-mode module logo <img> alt text is bMART/bFOOD/bSHOP/bSEND.",
+    "(3) /search?q=burger: the group header reads 'bFOOD · 20' in rgb(242,105,36) with orange prices. In the dropdown the group label is 'bFOOD (6)' (text-transform none) with orange prices. MODULE_META has shop #1D9BF0 and send #FCC44C in both files.",
+    "(4) Shop-only cart drawer: the chip is blue #1D9BF0 and cart-drawer-checkout has bg #1D9BF0 with white text. Food chip is #F26924 and cart-drawer-food-checkout bg is #F26924. A mixed cart gives a neutral #E5E7EB checkout button.",
+    "(5) The home hero pill reads 'bMART'. Admin dashboard module cards and the sidebar read bMART/bFOOD/bSHOP/bSEND/bAUTO/bIMMO in the correct colours.",
+    "(6) SHOP_ACCENT=#1D9BF0 in AdminShopCatalog, Products, Attributes and Approvals. MOD_ACCENT shop is #1D9BF0 in AdminSuppliersShell and AdminSupplierApplications. In moduleRegistry.js bSHOP is #1D9BF0 and bFOOD is #F26924. On the partner landing page the bFOOD/bSHOP cards are orange/blue. (Code verified; the admin shop pages were not opened in the UI.)",
+    "(7) Mobile preview: the empty cart says 'Ajoutez des courses bMART, des plats bFOOD ou des articles bSHOP...'. Module search placeholders are 'Rechercher sur BAKED · bFOOD' and '· bSHOP' (Explorer too). Onboarding slide 2 title is 'bFOOD, bMART, bSHOP et bSEND'.",
+    "Regression: website home, /food, /shop and /send load in dark and light mode with no page errors. Mobile preview home (guest), the bFOOD and bSHOP module homes and Explorer load."
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CartDrawer.jsx ModuleChip (line 40)", "issue": "The chip className has 'uppercase', so the labels show as 'BSHOP'/'BFOOD' in the drawer (and on /paiement, which reuses the drawer). The mart label is 'MART' with no b-prefix. Remove 'uppercase' and use 'bMART'.", "selector": "[data-testid^=cart-drawer-module-badge-]", "priority": "MEDIUM"},
+      {"component": "CheckoutPage.jsx lines 370-377", "issue": "chipLabel is still 'SHOP'/'FOOD'/'MART' with CSS uppercase. chipBg for shop is rgba(251,191,36,.15) (amber tint) and for food rgba(239,68,68,.15) (red tint). Only chipFg was updated.", "selector": "[data-testid^=checkout-item-] span span", "priority": "MEDIUM"},
+      {"component": "CartPage.jsx lines 102-110", "issue": "The badge label is 'SHOP'/'MART' (uppercase, no b). The shop background and border are still the amber rgba(251,191,36,...). Note: /cart currently redirects home and opens the drawer, so this may be legacy code.", "selector": "[data-testid^=cart-module-badge-]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Partner landing /Sell-on-baked (PartnerLandingApp.jsx)", "issues": ["The HeroEcosystemIllustration (lines 280-284) has FOOD #FF6B6B (red), AUTO #9B87F5 and IMMO #F97316 (orange). These should be #F26924, #FF4C52 and #A659FF. You can see it in the UI: the food icon is red and the immo icon is orange.", "The module cards (lines 414 and 421) have bAUTO #9B87F5 and bIMMO #F97316.", "In light mode the top-left logo and the centre hub 'bakēd' logo are white on white and nearly invisible."]},
+      {"screen": "apps/partner-portal/moduleRegistry.js", "issues": ["autobaked is #9B87F5 and immobaked is #EC4899. They should be #FF4C52 and #A659FF."]},
+      {"screen": "GlobalSearchResultsPage.jsx MODULE_META", "issues": ["auto is still #9B87F5 and immo #EC4899. The dropdown already uses #FF4C52/#A659FF, so the two files do not match."]},
+      {"screen": "Checkout and cart drawer totals", "issues": ["The fee rows read 'Frais de livraison (SHOP)' / '(FOOD)' with no b-prefix."]},
+      {"screen": "Mobile bFOOD module home", "issues": ["The hero eyebrow renders as 'BFOOD' (uppercase transform). The website /food eyebrow correctly shows 'bFOOD'."]},
+      {"screen": "Website /food 'Explorer par type'", "issues": ["The 'Poulet' category image is broken (only the alt text shows) in both themes."]},
+      {"screen": "Cart drawer and shop carousel", "issues": ["The demo shop product images (e.g. 'Premium Pièces & accessoires moto' and 'Weekend Autres accessoires auto') are broken or empty."]},
+      {"screen": "Light mode: website /send and admin dashboard", "issues": ["The bSEND #FCC44C text wordmark on white has low contrast (about 1.6:1). Consider a darker shade for the text, as the mobile accentText does."]},
+      {"screen": "Admin sidebar (light mode)", "issues": ["The platform logo is nearly invisible (pre-existing; noted as requested)."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "CartDrawer.jsx ModuleChip: remove the 'uppercase' class and set the mart label to 'bMART'",
+    "CheckoutPage.jsx: chipLabel should be bSHOP/bFOOD/bMART with no uppercase; chipBg should be rgba(29,155,240,.15) for shop and rgba(242,105,36,.15) for food",
+    "CartPage.jsx: update the badge label to bSHOP/bMART and the shop background/border to the blue tint",
+    "PartnerLandingApp.jsx: change FOOD #FF6B6B to #F26924, AUTO #9B87F5 to #FF4C52 and IMMO #F97316 to #A659FF (hero illustration and cards)",
+    "moduleRegistry.js and GlobalSearchResultsPage.jsx: auto should be #FF4C52 and immo #A659FF",
+    "Mobile bFOOD hero eyebrow: remove the uppercase transform so it shows 'bFOOD'",
+    "/food Poulet category image is broken"
+  ],
+  "critical_code_review_comments": [
+    "Module colours and labels are still hardcoded in many files (search page, dropdown, cart, checkout, partner registry, partner landing). Use lib/modules getModule() as the single source of truth to avoid drift like the auto/immo mismatch.",
+    "Several brand labels sit inside elements with the 'uppercase' class. Any b-prefixed label must not be uppercased."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "about 85% (all 7 requested items pass in their main paths; leftovers are in adjacent surfaces)"},
+  "test_credentials": "Admin login works with depexopenai@gmail.com / baked@2026#!$@ (from /app/memory/test_credentials.md). The password 'depex12345' given in the review request FAILS. Mobile was tested in guest mode, so no OTP login was needed.",
+  "seed_data_creation": "None. Only guest cart items were added in the browser session (local cart).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "/cart redirects home and opens the drawer. /checkout goes to /paiement, which shows drawer chips for a guest. Food add-to-cart path: /foodbaked/restaurants/burger-hub > 'Commander' tab > [data-testid^=food-item-card-] > food-add-to-cart-btn. Shop add path: /shop [data-testid^=shopbaked-card-add-]. The theme toggle testid is top-nav-theme on home and top-nav-theme-toggle on /send. Mobile preview: onboarding-next x3 > location-skip > welcome-guest."
+}
